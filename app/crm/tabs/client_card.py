@@ -80,7 +80,7 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
     reviews_html = "".join(
         f"""<div class="card" style="margin-bottom:0.75rem">
             <div style="color:#f59e0b">{'★' * r.rating}{'☆' * (5 - r.rating)}</div>
-            <p style="margin-top:0.25rem">{r.comment or '<span class=\"text-muted\">без комментария</span>'}</p>
+            <p style="margin-top:0.25rem">{r.comment or '<span class="text-muted">без комментария</span>'}</p>
             <p class="text-muted" style="font-size:0.75rem;margin-top:0.25rem">{r.created_at.strftime('%d.%m.%Y')}</p>
         </div>""" for r in reviews
     ) or '<p class="text-muted">Отзывов пока нет</p>'

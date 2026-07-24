@@ -1,0 +1,507 @@
+/* static/src/css/business/tabs/services.css */
+
+.services-tab {
+    margin-bottom: 4rem;
+}
+
+/* === Фильтры (десктоп) === */
+.services-filters-desktop .services-filters {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: 1.5rem;
+}
+
+.services-filters .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.services-filters .filter-group label {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+}
+
+.services-filters .filter-group input,
+.services-filters .filter-group select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+    height: 2.5rem;
+    width: 100%;
+    min-width: 150px;
+}
+
+.services-filters .filter-group input:focus,
+.services-filters .filter-group select:focus {
+    border-color: var(--color-primary);
+}
+
+.services-apply-btn {
+    height: 2.5rem !important;
+    padding: 0 1.2rem !important;
+    font-size: 0.9rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+}
+
+/* === Мобильные фильтры (аккордеон) === */
+.services-filters-mobile {
+    display: none;
+    margin-bottom: 1.5rem;
+}
+
+.services-filters-toggle {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-heading);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.services-filters-toggle:hover {
+    background: var(--color-surface-alt);
+}
+
+.services-filters-collapse {
+    margin-top: 0.75rem;
+    padding: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+}
+
+.services-filters-collapse .services-filters {
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.services-filters-collapse .filter-group {
+    width: 100%;
+}
+
+.services-filters-collapse .filter-group input,
+.services-filters-collapse .filter-group select {
+    width: 100%;
+    min-width: auto;
+}
+
+.services-filters-collapse .services-apply-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+/* === Заголовок === */
+.services-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.services-stats {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    background: var(--color-surface);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-border);
+}
+
+.services-count {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.services-label {
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.services-add-btn {
+    padding: 0.6rem 1.2rem;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
+    color: white;
+    border: none;
+    border-radius: 2rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.services-add-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(192, 129, 184, 0.3);
+}
+
+/* === Десктопная таблица === */
+.services-table-desktop {
+    display: block;
+}
+
+.services-table-wrap {
+    overflow-x: auto;
+}
+
+.services-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.services-table th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--color-border);
+    font-weight: 600;
+    color: var(--color-heading);
+    white-space: nowrap;
+}
+
+.services-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+}
+
+.services-desc {
+    color: var(--color-muted);
+    font-size: 0.85rem;
+}
+
+.services-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-muted);
+}
+
+/* Действия в таблице */
+.services-actions-header {
+    text-align: right;
+    width: 100px;
+}
+
+.services-actions-cell {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.services-edit-btn,
+.services-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 1.1rem;
+    vertical-align: middle;
+    transition: color 0.2s;
+}
+
+.services-edit-btn {
+    color: var(--color-primary);
+    margin-right: 0.5rem;
+}
+.services-edit-btn:hover {
+    color: var(--color-accent-hover);
+}
+
+.services-delete-btn {
+    color: #ef4444;
+}
+.services-delete-btn:hover {
+    color: #dc2626;
+}
+
+/* === Мобильные карточки === */
+.services-mobile {
+    display: none;
+}
+
+.service-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+
+.service-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.service-card-header {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.service-card-header:hover {
+    background: var(--color-surface-alt);
+}
+
+.service-card-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.service-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.service-card-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--color-heading);
+}
+
+.service-card-price {
+    font-weight: 700;
+    color: var(--color-primary);
+    font-size: 1rem;
+}
+
+.service-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.service-card-master {
+    font-weight: 500;
+    color: var(--color-body);
+    flex: 1;
+}
+
+.service-card-chevron {
+    color: var(--color-muted);
+    flex-shrink: 0;
+    transition: transform 0.3s;
+    line-height: 1;
+    margin-left: auto;
+}
+
+.service-card-body {
+    padding: 0 1rem 1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.service-card-row {
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.service-card-row:last-child {
+    border-bottom: none;
+}
+
+.service-card-label {
+    color: var(--color-muted);
+    font-weight: 500;
+}
+
+.service-card-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.service-card-actions .services-edit-btn,
+.service-card-actions .services-delete-btn {
+    font-size: 1rem;
+}
+
+/* === Модальное окно === */
+.services-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.services-modal-overlay.active {
+    display: flex;
+}
+
+.services-modal-box {
+    background: var(--color-surface);
+    border-radius: 1rem;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.services-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--color-muted);
+    transition: color 0.2s;
+}
+
+.services-modal-close:hover {
+    color: var(--color-heading);
+}
+
+.services-modal-box h2 {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin-bottom: 1.5rem;
+}
+
+.services-form-group {
+    margin-bottom: 1rem;
+}
+
+.services-form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--color-heading);
+}
+
+.services-form-group select,
+.services-form-group input,
+.services-form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    font-family: var(--font-body);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.services-form-group select:focus,
+.services-form-group input:focus,
+.services-form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+}
+
+.services-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.services-modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+.services-btn-cancel,
+.services-btn-save {
+    padding: 0.6rem 1.5rem;
+    border-radius: 2rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.services-btn-cancel {
+    background: var(--color-surface-alt);
+    color: var(--color-heading);
+}
+.services-btn-cancel:hover {
+    background: var(--color-border);
+}
+
+.services-btn-save {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
+    color: white;
+}
+.services-btn-save:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(192, 129, 184, 0.3);
+}
+
+/* === Адаптив === */
+@media (max-width: 768px) {
+    .services-filters-desktop {
+        display: none;
+    }
+
+    .services-filters-mobile {
+        display: block;
+    }
+
+    .services-table-desktop {
+        display: none;
+    }
+
+    .services-mobile {
+        display: block;
+    }
+
+    .services-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .services-stats {
+        justify-content: center;
+    }
+
+    .services-form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .services-modal-box {
+        padding: 1.5rem;
+    }
+}

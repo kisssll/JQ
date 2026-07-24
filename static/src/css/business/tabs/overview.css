@@ -1,6 +1,6 @@
 /* static/src/css/business/tabs/overview.css */
 
-/* ===== Карточки статистики (4 карточки как в образце) ===== */
+/* ===== Карточки статистики ===== */
 .dashboard-page .stats-grid-4 {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -11,11 +11,54 @@
 @media (max-width: 768px) {
     .dashboard-page .stats-grid-4 {
         grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+    .dashboard-page .stat-card {
+        padding: 0.75rem 0.75rem;
+    }
+    .dashboard-page .stat-value {
+        font-size: 1.25rem;
+    }
+    .dashboard-page .stat-label {
+        font-size: 0.7rem;
+    }
+    .dashboard-page .stat-trend {
+        font-size: 0.65rem;
+    }
+    .dashboard-page .stat-icon {
+        width: 2rem;
+        height: 2rem;
+    }
+    .dashboard-page .stat-icon svg {
+        width: 1rem;
+        height: 1rem;
     }
 }
+
 @media (max-width: 480px) {
     .dashboard-page .stats-grid-4 {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+    }
+    .dashboard-page .stat-card {
+        padding: 0.5rem 0.5rem;
+    }
+    .dashboard-page .stat-value {
+        font-size: 1rem;
+    }
+    .dashboard-page .stat-label {
+        font-size: 0.6rem;
+    }
+    .dashboard-page .stat-trend {
+        font-size: 0.55rem;
+    }
+    .dashboard-page .stat-icon {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+    .dashboard-page .stat-icon svg {
+        width: 0.8rem;
+        height: 0.8rem;
     }
 }
 
@@ -129,14 +172,14 @@
     color: var(--color-muted);
 }
 
-/* Единая высота контейнера графика – 150px */
 .dashboard-page .chart-bar {
-    height: 150px;
+    height: 220px;
     display: flex;
     align-items: flex-end;
     gap: 1rem;
     padding: 0.5rem 0;
 }
+
 .dashboard-page .chart-column {
     flex: 1;
     display: flex;
@@ -173,7 +216,7 @@
 .dashboard-page .kpi-row {
     display: flex;
     gap: 1.5rem;
-    margin-top: 1rem;
+    margin-top: 0.2rem;
     flex-wrap: wrap;
     font-size: 0.85rem;
 }

@@ -118,7 +118,7 @@ async def delete_service_web(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    """Удаление услуги."""
+    """Удаление услуги (мягкое удаление)."""
     from app.web.auth import get_current_user_from_cookie
 
     user = await get_current_user_from_cookie(request, db)
@@ -138,8 +138,7 @@ async def delete_service_web(
     except HTTPException:
         return HTMLResponse(content="Недостаточно прав для управления услугами", status_code=403)
 
-    # Мягкое удаление: услуга скрыта из выбора/записи, но брони с ней (история)
-    # остаются валидными. Hard-delete ронял 500 (Booking.service_id NOT NULL).
+    # Мягкое удаление
     service.is_active = False
     await db.commit()
 

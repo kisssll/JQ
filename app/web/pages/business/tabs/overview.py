@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/overview.py
+
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -14,7 +15,7 @@ from app.web.components.icons import (
     ICON_USER_CHECK,
     ICON_CLOCK,
     ICON_X,
-    ICON_RUBLE_SIGN,  # <-- заменили доллар на рубль
+    ICON_RUBLE_SIGN,
     ICON_CREDIT_CARD_SMALL,
 )
 
@@ -179,7 +180,7 @@ async def render_overview_tab(
     # --- 2. ВЫРУЧКА ЗА НЕДЕЛЮ (график с аккордеоном) ---
     max_revenue = max(max(revenue_data.values()) if revenue_data else 1, 1)
     # Контейнер имеет высоту 150px, оставляем 12px на подписи и отступы
-    chart_height = 110
+    chart_height = 80
     revenue_bars = ""
     for i in range(7):
         height = int(revenue_data[i] / max_revenue * chart_height) if max_revenue > 0 else 5

@@ -302,23 +302,26 @@ async def update_my_salon(
     if update_data.working_hours is not None:
         salon.working_hours = update_data.working_hours
 
+    # Обработка фото
     if update_data.photos is not None:
+        # Удаляем все старые фото
         old_photos = await db.execute(
             select(SalonPhoto).where(SalonPhoto.salon_id == salon.id)
         )
         for photo in old_photos.scalars().all():
             await db.delete(photo)
-
+        # Добавляем новые
         for url in update_data.photos:
             new_photo = SalonPhoto(salon_id=salon.id, url=url)
             db.add(new_photo)
 
+    if update_data.logo_url is not None:
+        salon.logo_url = update_data.logo_url
+
     await db.commit()
     await db.refresh(salon)
 
-    # SalonResponse сериализует salon.photos — у AsyncSession нет implicit
-    # lazy load для relationship (см. тот же класс бага в chat.py), поэтому
-    # грузим явным запросом вместо обращения к непрогретой связи.
+    # Загружаем фото для ответа
     photos_result = await db.execute(select(SalonPhoto).where(SalonPhoto.salon_id == salon.id))
     salon.photos = list(photos_result.scalars().all())
 
@@ -369,6 +372,38 @@ async def create_promotion(
     await db.commit()
     await db.refresh(new_promotion)
     return new_promotion
+
+
+@router.post("/my-salon/promotions/{promo_id}/update")
+async def update_promotion_web(
+    promo_id: int,
+    request: Request,
+    title: str = Form(...),
+    description: str = Form(""),
+    tag: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """Обновление акции через веб-форму (требуется право manage_promotions)."""
+    from app.web.auth import get_current_user_from_cookie
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+
+    promo = (await db.execute(select(Promotion).where(Promotion.id == promo_id))).scalar_one_or_none()
+    if not promo:
+        return HTMLResponse(content="Акция не найдена", status_code=404)
+
+    try:
+        await check_salon_permission(db, user, promo.salon_id, "manage_promotions")
+    except HTTPException:
+        return HTMLResponse(content="Недостаточно прав для управления акциями", status_code=403)
+
+    promo.title = title
+    promo.description = description
+    promo.tag = tag
+    await db.commit()
+
+    return RedirectResponse(url="/business/dashboard?tab=promos&updated=1", status_code=302)
 
 
 @router.get("/my-salon/dashboard")
@@ -508,7 +543,7 @@ async def create_promotion_web(
     db.add(promo)
     await db.commit()
 
-    return RedirectResponse(url="/business/my-salon?promo_added=1", status_code=302)
+    return RedirectResponse(url="/business/dashboard?tab=promos&added=1", status_code=302)
 
 
 @router.post("/my-salon/promotions/{promo_id}/delete")
@@ -536,7 +571,7 @@ async def delete_promotion_web(
     await db.delete(promo)
     await db.commit()
 
-    return RedirectResponse(url="/business/my-salon?promo_deleted=1", status_code=302)
+    return RedirectResponse(url="/business/dashboard?tab=promos&deleted=1", status_code=302)
 
 
 # ========== Карточка клиента: заметки ==========

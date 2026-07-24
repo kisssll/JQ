@@ -1,4 +1,6 @@
 # app/web/pages/business/dashboard.py
+import re
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta
@@ -19,7 +21,7 @@ from app.web.components.icons import (
     ICON_CHART_COLUMN,
     ICON_HEART,
     ICON_CALENDAR_DAYS,
-    ICON_MESSAGE_CIRCLE,
+    # ICON_MESSAGE_CIRCLE,  # закомментирован
     ICON_STAR_FILLED,
     ICON_USER_CHECK,
     ICON_SPARKLES,
@@ -38,9 +40,9 @@ from app.web.pages.business.tabs.warehouse import render_warehouse_tab
 from app.web.pages.business.tabs.payroll import render_payroll_tab
 from app.web.pages.business.tabs.cost import render_cost_tab
 from app.web.pages.business.tabs.promo_models import render_promo_models_tab
-from app.web.pages.business.tabs.chat import render_chat_tab
+# from app.web.pages.business.tabs.chat import render_chat_tab
 from app.web.pages.business.tabs.staff import render_staff_tab
-from app.web.pages.business.tabs.my_salon import render_my_salon_tab   # <-- НОВЫЙ ИМПОРТ
+from app.web.pages.business.tabs.my_salon import render_my_salon_tab
 from app.crm.tabs.clients import render_crm_tab
 
 
@@ -66,6 +68,14 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     }
     schedule_master_id_raw = query_params.get("schedule_master_id")
     schedule_master_id = int(schedule_master_id_raw) if schedule_master_id_raw and schedule_master_id_raw.isdigit() else None
+
+    # Фильтры для услуг
+    filter_service_master = query_params.get("service_master")
+    if filter_service_master and filter_service_master.isdigit():
+        filter_service_master = int(filter_service_master)
+    else:
+        filter_service_master = None
+    filter_service_search = query_params.get("service_search") or None
 
     perms = {
         key: (membership.is_creator or membership.permissions.get(key, False))
@@ -108,7 +118,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     tabs_html = []
     tab_buttons = []
 
-    # Обзор (передаём все данные)
+    # Обзор
     tab_buttons.append(('overview', ICON_LAYOUT_DASHBOARD, 'Обзор', True))
     tabs_html.append(await render_overview_tab(
         db, salon, masters, master_ids, services_count, promotions, **overview_data,
@@ -129,14 +139,19 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
 
     # Услуги
     tab_buttons.append(('services', ICON_USER_CHECK, 'Услуги', True))
-    tabs_html.append(await render_services_tab(db, salon, masters))
+    tabs_html.append(await render_services_tab(
+        db, salon, masters,
+        can_manage=perms["manage_masters"],
+        filter_master_id=filter_service_master,
+        filter_service_name=filter_service_search,
+    ))
 
-    # Зарплаты (с правом manage_payroll)
+    # Зарплаты
     tab_buttons.append(('payroll', ICON_WALLET, 'Зарплаты', perms["manage_payroll"]))
     if perms["manage_payroll"]:
         tabs_html.append(await render_payroll_tab(db, salon, masters, master_ids, period_raw))
 
-    # Себестоимость (с правом view_finances)
+    # Себестоимость
     tab_buttons.append(('cost', ICON_PACKAGE, 'Себестоимость', perms["view_finances"]))
     if perms["view_finances"]:
         tabs_html.append(await render_cost_tab(db, salon, masters, master_ids, period_raw))
@@ -145,23 +160,23 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     tab_buttons.append(('records', ICON_CALENDAR_DAYS, 'Записи', True))
     tabs_html.append(await render_records_tab(db, salon, masters, master_ids, records_filters, perms["manage_schedule"]))
 
-    # Склад (с правом manage_inventory)
+    # Склад
     tab_buttons.append(('warehouse', ICON_PACKAGE, 'Склад', perms["manage_inventory"]))
     if perms["manage_inventory"]:
         tabs_html.append(await render_warehouse_tab(db, salon, masters, master_ids, warehouse_filters, membership))
 
-    # Чат
-    tab_buttons.append(('chat', ICON_MESSAGE_CIRCLE, 'Чат', True))
-    tabs_html.append(await render_chat_tab(db, salon, user))
+    # Чат — убран
+    # tab_buttons.append(('chat', ICON_MESSAGE_CIRCLE, 'Чат', True))
+    # tabs_html.append(await render_chat_tab(db, salon, user))
 
-    # Модели (с правом manage_masters)
+    # Модели
     tab_buttons.append(('models', ICON_HEART, 'Модели', perms["manage_masters"]))
     if perms["manage_masters"]:
         tabs_html.append(await render_promo_models_tab(db, salon, masters))
 
     # Акции
     tab_buttons.append(('promos', ICON_SPARKLES, f'Акции ({len(promotions)})', True))
-    tabs_html.append(render_promos_tab(promotions))
+    tabs_html.append(render_promos_tab(promotions, can_manage=perms["manage_promotions"], salon_id=salon.id))
 
     # Отзывы
     tab_buttons.append(('reviews', ICON_STAR_FILLED, f'Отзывы ({len(reviews)})', True))
@@ -171,12 +186,12 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     tab_buttons.append(('crm', ICON_USER_CHECK, 'Клиенты', True))
     tabs_html.append(await render_crm_tab(db, salon, masters, master_ids))
 
-    # Редактировать салон (всегда видна, в конце) — теперь реальная вкладка
+    # Редактировать салон
     tab_buttons.append(('edit', ICON_SETTINGS_GEAR_SMALL, 'Редактировать салон', True))
     tabs_html.append(await render_my_salon_tab(
         db, salon, user, query_params,
         can_manage_salon=perms["manage_salon"], is_creator=membership.is_creator,
-    ))   # <-- ИЗМЕНЕНО
+    ))
 
     visible_slugs = [slug for slug, _, _, visible in tab_buttons if visible]
     if active_tab not in visible_slugs:
@@ -189,11 +204,10 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         active_class = " active" if slug == active_tab else ""
         nav_buttons_html += f'<button class="tab-btn{active_class}" onclick="switchTab(\'{slug}\')">{icon} {label}</button>'
 
-    tabs_body_html = "\n".join(tabs_html).replace(
-        f'id="tab-{active_tab}" class="tab-content"',
-        f'id="tab-{active_tab}" class="tab-content active"',
-        1,
-    )
+    tabs_body_html = "\n".join(tabs_html)
+    # Добавляем класс active к нужной вкладке
+    pattern = re.compile(f'(id="tab-{active_tab}" class="tab-content)([^"]*)"')
+    tabs_body_html = pattern.sub(r'\1\2 active"', tabs_body_html)
 
     switcher_html = ""
     if len(other_memberships) > 1:
@@ -206,15 +220,13 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             {options}
         </select>"""
 
-    # ===== ВЕРХНЯЯ ЧАСТЬ =====
-    # Баннер статуса заявки (модерация регистрации бизнеса): пока не одобрено —
-    # салон не виден клиентам и запись закрыта, но настраивать кабинет можно.
+    # Баннер статуса заявки
     moderation_banner = ""
     if salon.moderation_status == SalonModerationStatus.PENDING:
         moderation_banner = (
             '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;'
             'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
-            '⏳ <b>Заявка на рассмотрении.</b> Можно настраивать салон (услуги, мастера, фото), '
+            '<b>Заявка на рассмотрении.</b> Можно настраивать салон (услуги, мастера, фото), '
             'но клиентам он пока не виден и запись закрыта — откроются после подтверждения платформой.</div>'
         )
     elif salon.moderation_status == SalonModerationStatus.REJECTED:
@@ -223,7 +235,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         moderation_banner = (
             '<div style="background:#fee2e2;border:1px solid #ef4444;color:#991b1b;'
             'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
-            f'⛔ <b>Заявка отклонена.</b>{reason} Свяжитесь с поддержкой.</div>'
+            f'<b>Заявка отклонена.</b>{reason} Свяжитесь с поддержкой.</div>'
         )
 
     header_html = f"""
@@ -240,7 +252,6 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     </div>
     """
 
-    # Основная разметка
     html = f"""<!DOCTYPE html>
 <html lang="ru" class="dashboard-page">
 <head>
@@ -267,4 +278,37 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     {render_footer(user)}
 </body>
 </html>"""
+
+    # Скрипт для обновления URL при переключении вкладок
+    script_block = """
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.tab-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    setTimeout(function() {
+                        var tabName = null;
+                        var onclickAttr = btn.getAttribute('onclick');
+                        if (onclickAttr) {
+                            var match = onclickAttr.match(/switchTab\\(['"]([^'"]+)['"]\\)/);
+                            if (match) tabName = match[1];
+                        }
+                        if (!tabName) {
+                            tabName = btn.textContent.trim().toLowerCase();
+                        }
+                        if (tabName) {
+                            var url = new URL(window.location);
+                            url.searchParams.set('tab', tabName);
+                            url.searchParams.delete('added');
+                            url.searchParams.delete('deleted');
+                            url.searchParams.delete('updated');
+                            window.history.pushState({}, '', url);
+                        }
+                    }, 50);
+                });
+            });
+        });
+    </script>
+    """
+    html = html.replace('</body>', script_block + '\n</body>')
+
     return html

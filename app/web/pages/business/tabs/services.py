@@ -1,71 +1,193 @@
 # app/web/pages/business/tabs/services.py
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.models.models import Service, Master, User as UserModel
+from app.web.components.icons import ICON_EDIT, ICON_TRASH, ICON_CHEVRON_DOWN, ICON_CHEVRON_UP, ICON_FILTER
 
 
-async def render_services_tab(db: AsyncSession, salon, masters) -> str:
+async def render_services_tab(
+    db: AsyncSession,
+    salon,
+    masters,
+    can_manage: bool = False,
+    filter_master_id: int = None,
+    filter_service_name: str = None,
+) -> str:
     """Вкладка Услуги — управление услугами мастеров."""
-    
-    # Получаем все услуги мастеров салона
+
     master_ids = [m.id for m in masters]
-    services_rows = ""
-    
-    if master_ids:
-        services_result = await db.execute(
-            select(Service, Master).join(Master, Service.master_id == Master.id)
-            .where(Service.master_id.in_(master_ids), Service.is_model_practice == False)  # noqa: E712
-            .order_by(Master.id, Service.price)
+
+    # Базовый запрос
+    query = (
+        select(Service, Master)
+        .join(Master, Service.master_id == Master.id)
+        .where(
+            Service.master_id.in_(master_ids), Service.is_active == True,
+            Service.is_model_practice == False,  # noqa: E712
         )
-        services_data = services_result.all()
-        
-        total_services = len(services_data)
-        
-        for service, master in services_data:
-            # Имя мастера
-            user_result = await db.execute(select(UserModel).where(UserModel.id == master.user_id))
-            master_user = user_result.scalar_one_or_none()
-            master_name = master_user.full_name if master_user else "—"
-            
-            services_rows += f"""
-            <tr>
-                <td><strong>{service.name}</strong></td>
-                <td>{master_name}</td>
-                <td>{service.duration_minutes} мин</td>
-                <td><strong>{service.price:,} ₽</strong></td>
-                <td style="font-size:0.85rem;color:var(--color-muted)">{service.description or '—'}</td>
-                <td>
-                    <button onclick="editService({service.id}, '{service.name}', {service.price}, {service.duration_minutes}, '{service.description or ''}', {service.master_id})" 
-                        style="background:none;border:none;color:var(--color-primary);cursor:pointer;font-size:1.1rem" title="Редактировать">✏️</button>
-                    <button onclick="deleteService({service.id}, '{service.name}')" 
-                        style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;margin-left:0.5rem" title="Удалить">🗑️</button>
-                </td>
-            </tr>"""
-    else:
-        total_services = 0
-    
-    # Список мастеров для выпадающего списка
+    )
+
+    # Применяем фильтры
+    if filter_master_id:
+        query = query.where(Service.master_id == filter_master_id)
+    if filter_service_name:
+        query = query.where(Service.name.ilike(f'%{filter_service_name}%'))
+
+    query = query.order_by(Master.id, Service.price)
+    services_result = await db.execute(query)
+    services_data = services_result.all()
+
+    total_services = len(services_data)
+
+    # --- Десктопная таблица ---
+    services_rows = ""
+    for service, master in services_data:
+        user_result = await db.execute(select(UserModel).where(UserModel.id == master.user_id))
+        master_user = user_result.scalar_one_or_none()
+        master_name = master_user.full_name if master_user else "—"
+
+        actions_cell = ""
+        if can_manage:
+            name_js = service.name.replace("'", "\\'")
+            desc_js = service.description.replace("'", "\\'") if service.description else ''
+            actions_cell = f"""
+            <td class="services-actions-cell">
+                <button class="services-edit-btn" onclick="openEditModal({service.id}, '{name_js}', {service.price}, {service.duration_minutes}, '{desc_js}', {service.master_id})" title="Редактировать">
+                    {ICON_EDIT}
+                </button>
+                <form method="post" action="/api/v1/services/{service.id}/delete" style="display:inline-block; margin:0;">
+                    <button type="submit" class="services-delete-btn" title="Удалить" onclick="return confirm('Удалить услугу «{name_js}»?')">
+                        {ICON_TRASH}
+                    </button>
+                </form>
+            </td>
+            """
+
+        services_rows += f"""
+        <tr>
+            <td><strong>{service.name}</strong></td>
+            <td>{master_name}</td>
+            <td>{service.duration_minutes} мин</td>
+            <td><strong>{service.price:,} ₽</strong></td>
+            <td class="services-desc">{service.description or '—'}</td>
+            {actions_cell}
+        </tr>"""
+
+    if not services_rows:
+        services_rows = '<tr><td colspan="6" class="services-empty">Пока нет услуг</td></tr>'
+
+    # --- Мобильные карточки ---
+    cards_html = ""
+    for service, master in services_data:
+        user_result = await db.execute(select(UserModel).where(UserModel.id == master.user_id))
+        master_user = user_result.scalar_one_or_none()
+        master_name = master_user.full_name if master_user else "—"
+
+        actions = ""
+        if can_manage:
+            name_js = service.name.replace("'", "\\'")
+            desc_js = service.description.replace("'", "\\'") if service.description else ''
+            actions = f"""
+            <button class="services-edit-btn" onclick="openEditModal({service.id}, '{name_js}', {service.price}, {service.duration_minutes}, '{desc_js}', {service.master_id})" title="Редактировать">
+                {ICON_EDIT}
+            </button>
+            <form method="post" action="/api/v1/services/{service.id}/delete" style="display:inline-block; margin:0;">
+                <button type="submit" class="services-delete-btn" title="Удалить" onclick="return confirm('Удалить услугу «{name_js}»?')">
+                    {ICON_TRASH}
+                </button>
+            </form>
+            """
+
+        cards_html += f"""
+        <div class="service-card" data-service-id="{service.id}">
+            <div class="service-card-header" onclick="toggleServiceCard(this)">
+                <div class="service-card-main">
+                    <div class="service-card-top">
+                        <span class="service-card-name">{service.name}</span>
+                        <span class="service-card-price">{service.price:,} ₽</span>
+                    </div>
+                    <div class="service-card-bottom">
+                        <span class="service-card-master">{master_name}</span>
+                        <span class="service-card-chevron">{ICON_CHEVRON_DOWN}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="service-card-body" style="display:none;">
+                <div class="service-card-row"><span class="service-card-label">Длительность:</span> {service.duration_minutes} мин</div>
+                <div class="service-card-row"><span class="service-card-label">Описание:</span> {service.description or '—'}</div>
+                {f'<div class="service-card-actions">{actions}</div>' if can_manage else ''}
+            </div>
+        </div>"""
+
+    if not cards_html:
+        cards_html = '<div class="services-empty">Пока нет услуг</div>'
+
+    # --- Фильтры ---
     master_options = ""
     for m in masters:
         user_result = await db.execute(select(UserModel).where(UserModel.id == m.user_id))
         master_user = user_result.scalar_one_or_none()
         master_name = master_user.full_name if master_user else "—"
-        master_options += f'<option value="{m.id}">{master_name} — {m.specialization}</option>'
-    
-    return f"""
-    <div id="tab-services" class="tab-content">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <div class="stat-card" style="padding:1rem 1.5rem">
-                <div class="stat-value" style="font-size:1.5rem">{total_services}</div>
-                <div class="stat-label">Всего услуг</div>
-            </div>
-            <button class="btn-primary" style="font-size:0.85rem;padding:0.5rem 1rem" onclick="document.getElementById('addServiceModal').classList.add('active')">
-                + Добавить услугу
-            </button>
+        selected = " selected" if filter_master_id == m.id else ""
+        master_options += f'<option value="{m.id}"{selected}>{master_name} — {m.specialization}</option>'
+
+    filters_form = f"""
+    <form method="get" action="/business/dashboard" class="services-filters">
+        <input type="hidden" name="salon_id" value="{salon.id}">
+        <input type="hidden" name="tab" value="services">
+
+        <div class="filter-group">
+            <label for="service_search">Поиск</label>
+            <input type="text" id="service_search" name="service_search" placeholder="Название услуги..." value="{filter_service_name or ''}">
         </div>
-        
-        <div class="card" style="overflow-x:auto">
-            <table>
+        <div class="filter-group">
+            <label for="service_master">Мастер</label>
+            <select id="service_master" name="service_master">
+                <option value="">Все мастера</option>
+                {master_options}
+            </select>
+        </div>
+        <button type="submit" class="btn-outline services-apply-btn">{ICON_FILTER} Применить</button>
+    </form>
+    """
+
+    # --- Аккордеон для мобильных фильтров ---
+    filters_mobile = f"""
+    <div class="services-filters-mobile">
+        <button class="services-filters-toggle" onclick="toggleFiltersMobile()">
+            {ICON_FILTER} Фильтры <span class="filters-toggle-chevron">{ICON_CHEVRON_DOWN}</span>
+        </button>
+        <div class="services-filters-collapse" style="display:none;">
+            {filters_form}
+        </div>
+    </div>
+    """
+
+    # Кнопка добавления (только если есть права)
+    add_btn = ""
+    if can_manage:
+        add_btn = f'''
+        <button class="services-add-btn" id="servicesAddBtn">
+            + Добавить услугу
+        </button>
+        '''
+
+    # Заголовок с количеством услуг и кнопкой
+    header_html = f"""
+    <div class="services-header">
+        <div class="services-stats">
+            <span class="services-count">{total_services}</span>
+            <span class="services-label">Всего услуг</span>
+        </div>
+        {add_btn}
+    </div>
+    """
+
+    # Таблица (десктоп)
+    table_html = f"""
+    <div class="services-table-desktop">
+        <div class="services-table-wrap">
+            <table class="services-table">
                 <thead>
                     <tr>
                         <th>Услуга</th>
@@ -73,119 +195,109 @@ async def render_services_tab(db: AsyncSession, salon, masters) -> str:
                         <th>Длительность</th>
                         <th>Цена</th>
                         <th>Описание</th>
-                        <th style="width:100px">Действия</th>
+                        {f'<th class="services-actions-header">Действия</th>' if can_manage else ''}
                     </tr>
                 </thead>
                 <tbody>
-                    {services_rows or '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-muted)">Пока нет услуг</td></tr>'}
+                    {services_rows}
                 </tbody>
             </table>
         </div>
-        
-        <!-- Модальное окно: Добавить/Редактировать услугу -->
-        <div class="modal-overlay" id="addServiceModal">
-            <div class="modal-box">
-                <button class="modal-close" onclick="document.getElementById('addServiceModal').classList.remove('active')">&times;</button>
-                <h2 style="margin-bottom:1.5rem" id="serviceModalTitle">Добавить услугу</h2>
-                <form id="serviceForm" action="/api/v1/services/create" method="post">
+    </div>
+    """
+
+    # Модальное окно
+    modal_html = ""
+    if can_manage:
+        modal_html = f"""
+        <div class="services-modal-overlay" id="servicesModal">
+            <div class="services-modal-box">
+                <button class="services-modal-close" id="servicesModalClose">&times;</button>
+                <h2 id="servicesModalTitle">Добавить услугу</h2>
+                <form id="servicesForm" method="post" action="/api/v1/services/create">
                     <input type="hidden" name="service_id" id="serviceId">
-                    <div style="margin-bottom:1rem">
-                        <label style="display:block;font-weight:500;margin-bottom:0.5rem">Мастер *</label>
-                        <select name="master_id" id="serviceMaster" required style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                    <div class="services-form-group">
+                        <label for="serviceMaster">Мастер *</label>
+                        <select name="master_id" id="serviceMaster" required>
                             <option value="">Выберите мастера</option>
                             {master_options}
                         </select>
                     </div>
-                    <div style="margin-bottom:1rem">
-                        <label style="display:block;font-weight:500;margin-bottom:0.5rem">Название услуги *</label>
-                        <input type="text" name="name" id="serviceName" required placeholder="Например: Стрижка машинкой" 
-                            style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                    <div class="services-form-group">
+                        <label for="serviceName">Название услуги *</label>
+                        <input type="text" name="name" id="serviceName" required placeholder="Например: Стрижка машинкой">
                     </div>
-                    <div class="grid-2" style="gap:1rem;margin-bottom:1rem">
-                        <div>
-                            <label style="display:block;font-weight:500;margin-bottom:0.5rem">Цена (₽) *</label>
-                            <input type="number" name="price" id="servicePrice" required placeholder="1500" 
-                                style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                    <div class="services-form-row">
+                        <div class="services-form-group">
+                            <label for="servicePrice">Цена (₽) *</label>
+                            <input type="number" name="price" id="servicePrice" required placeholder="1500">
                         </div>
-                        <div>
-                            <label style="display:block;font-weight:500;margin-bottom:0.5rem">Длительность (мин) *</label>
-                            <input type="number" name="duration_minutes" id="serviceDuration" required placeholder="30" 
-                                style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                        <div class="services-form-group">
+                            <label for="serviceDuration">Длительность (мин) *</label>
+                            <input type="number" name="duration_minutes" id="serviceDuration" required placeholder="30">
                         </div>
                     </div>
-                    <div style="margin-bottom:1rem">
-                        <label style="display:block;font-weight:500;margin-bottom:0.5rem">Описание</label>
-                        <textarea name="description" id="serviceDescription" rows="2" placeholder="Подробнее об услуге..." 
-                            style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem;resize:vertical"></textarea>
+                    <div class="services-form-group">
+                        <label for="serviceDescription">Описание</label>
+                        <textarea name="description" id="serviceDescription" rows="2" placeholder="Подробнее об услуге..."></textarea>
                     </div>
-                    <button type="submit" class="btn-primary" style="width:100%">Сохранить</button>
+                    <div class="services-modal-actions">
+                        <button type="button" class="services-btn-cancel" id="servicesModalCancel">Отмена</button>
+                        <button type="submit" class="services-btn-save">Сохранить</button>
+                    </div>
                 </form>
             </div>
         </div>
+        """
+
+    return f"""
+    <div id="tab-services" class="tab-content services-tab">
+        <!-- Десктопные фильтры -->
+        <div class="services-filters-desktop">
+            {filters_form}
+        </div>
+
+        <!-- Мобильные фильтры (аккордеон) -->
+        {filters_mobile}
+
+        <!-- Заголовок -->
+        {header_html}
+
+        <!-- Десктопная таблица -->
+        {table_html}
+
+        <!-- Мобильные карточки -->
+        <div class="services-mobile">
+            {cards_html}
+        </div>
+
+        <!-- Модальное окно -->
+        {modal_html}
     </div>
-    
-    <style>
-        .modal-overlay {{
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }}
-        .modal-overlay.active {{
-            display: flex;
-        }}
-        .modal-box {{
-            background: white;
-            border-radius: 1rem;
-            padding: 2rem;
-            max-width: 500px;
-            width: 90%;
-            position: relative;
-            max-height: 90vh;
-            overflow-y: auto;
-        }}
-        .modal-close {{
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--color-muted);
-        }}
-        .modal-close:hover {{
-            color: var(--color-heading);
-        }}
-    </style>
-    
+
     <script>
-        function editService(id, name, price, duration, desc, masterId) {{
-            document.getElementById('serviceModalTitle').textContent = 'Редактировать услугу';
-            document.getElementById('serviceId').value = id;
-            document.getElementById('serviceName').value = name;
-            document.getElementById('servicePrice').value = price;
-            document.getElementById('serviceDuration').value = duration;
-            document.getElementById('serviceDescription').value = desc;
-            document.getElementById('serviceMaster').value = masterId;
-            document.getElementById('serviceForm').action = '/api/v1/services/' + id + '/update';
-            document.getElementById('addServiceModal').classList.add('active');
-        }}
-        
-        function deleteService(id, name) {{
-            if (confirm(`Удалить услугу "${{name}}"? Это действие нельзя отменить.`)) {{
-                fetch(`/api/v1/services/${{id}}/delete`, {{ method: 'POST' }})
-                    .then(r => {{ if (r.ok) location.reload(); else alert('Ошибка при удалении'); }});
+        function toggleServiceCard(header) {{
+            const body = header.nextElementSibling;
+            const chevron = header.querySelector('.service-card-chevron');
+            if (body.style.display === 'none') {{
+                body.style.display = 'block';
+                chevron.innerHTML = `{ICON_CHEVRON_UP}`;
+            }} else {{
+                body.style.display = 'none';
+                chevron.innerHTML = `{ICON_CHEVRON_DOWN}`;
             }}
         }}
-        
-        document.querySelector('[onclick*="addServiceModal"]').addEventListener('click', function() {{
-            document.getElementById('serviceModalTitle').textContent = 'Добавить услугу';
-            document.getElementById('serviceForm').reset();
-            document.getElementById('serviceId').value = '';
-            document.getElementById('serviceForm').action = '/api/v1/services/create';
-        }});
-    </script>"""
+
+        function toggleFiltersMobile() {{
+            const collapse = document.querySelector('.services-filters-collapse');
+            const chevron = document.querySelector('.filters-toggle-chevron');
+            if (collapse.style.display === 'none') {{
+                collapse.style.display = 'block';
+                chevron.innerHTML = `{ICON_CHEVRON_UP}`;
+            }} else {{
+                collapse.style.display = 'none';
+                chevron.innerHTML = `{ICON_CHEVRON_DOWN}`;
+            }}
+        }}
+    </script>
+    """

@@ -1,7 +1,12 @@
 /* static/src/css/business/tabs/records.css */
 
-/* ===== Фильтры ===== */
-.records-filters {
+/* ===== Общие стили ===== */
+.records-tab {
+    margin-bottom: 4rem;
+}
+
+/* ===== Фильтры (десктоп) ===== */
+.records-filters-desktop .records-filters {
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
@@ -22,7 +27,7 @@
 
 .records-filters .filter-group input,
 .records-filters .filter-group select {
-    padding: 0.5rem;
+    padding: 0.5rem 0.75rem;
     border: 1px solid var(--color-border);
     border-radius: 0.5rem;
     background: var(--color-surface);
@@ -30,6 +35,7 @@
     font-size: 0.9rem;
     outline: none;
     transition: border-color 0.2s;
+    height: 2.5rem;
 }
 
 .records-filters .filter-group input:focus,
@@ -37,7 +43,73 @@
     border-color: var(--color-primary);
 }
 
-/* ===== Таблица записей ===== */
+.records-apply-btn {
+    height: 2.5rem !important;
+    padding: 0 1.2rem !important;
+    font-size: 0.9rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+}
+
+/* ===== Мобильные фильтры (аккордеон) ===== */
+.records-filters-mobile {
+    display: none;
+    margin-bottom: 1.5rem;
+}
+
+.records-filters-toggle {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-heading);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.records-filters-toggle:hover {
+    background: var(--color-surface-alt);
+}
+
+.records-filters-collapse {
+    margin-top: 0.75rem;
+    padding: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+}
+
+.records-filters-collapse .records-filters {
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.records-filters-collapse .filter-group {
+    width: 100%;
+}
+
+.records-filters-collapse .filter-group input,
+.records-filters-collapse .filter-group select {
+    width: 100%;
+}
+
+.records-filters-collapse .records-apply-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+/* ===== Таблица (десктоп) ===== */
+.records-table-desktop {
+    display: block;
+}
+
 .records-table-wrap {
     overflow-x: auto;
 }
@@ -63,10 +135,165 @@
     vertical-align: middle;
 }
 
-/* ===== Бейдж статуса ===== */
+.records-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-muted);
+}
+
+/* ===== Кнопки действий ===== */
+.records-actions {
+    white-space: nowrap;
+}
+
+.btn-action {
+    padding: 0.3rem 0.9rem;
+    border: 2px solid; /* толщина 2px, как у .btn-outline */
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.15s, color 0.15s;
+    margin-right: 0.25rem;
+    background: transparent;
+}
+
+.btn-action:hover {
+    transform: scale(1.05);
+}
+
+.btn-action-success {
+    border-color: #22c55e;
+    color: #22c55e;
+}
+.btn-action-success:hover {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.btn-action-danger {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+.btn-action-danger:hover {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* ===== Мобильные карточки ===== */
+.records-mobile {
+    display: none;
+}
+
+.record-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+
+.record-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.record-card-header {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.record-card-header:hover {
+    background: var(--color-surface-alt);
+}
+
+.record-card-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.record-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.record-card-date {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--color-heading);
+}
+
+.record-card-status-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.record-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.record-card-client {
+    font-weight: 500;
+    color: var(--color-body);
+    flex: 1;
+}
+
+.record-card-chevron {
+    color: var(--color-muted);
+    flex-shrink: 0;
+    transition: transform 0.3s;
+    line-height: 1;
+    margin-left: auto;
+}
+
+.record-card-body {
+    padding: 0 1rem 1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.record-card-row {
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.record-card-row:last-child {
+    border-bottom: none;
+}
+
+.record-card-label {
+    color: var(--color-muted);
+    font-weight: 500;
+}
+
+.record-card-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.record-card-actions .btn-action {
+    font-size: 0.85rem;
+    padding: 0.4rem 1.2rem;
+}
+
+/* ===== Бейджи статусов ===== */
 .status-badge {
     display: inline-block;
-    padding: 0.2rem 0.6rem;
+    padding: 0.2rem 0.7rem;
     border-radius: 1rem;
     font-size: 0.75rem;
     font-weight: 600;
@@ -87,4 +314,23 @@
     font-size: 0.7rem;
     font-weight: 600;
     margin-left: 0.5rem;
+}
+
+/* ===== Адаптив (мобильные) ===== */
+@media (max-width: 768px) {
+    .records-filters-desktop {
+        display: none;
+    }
+
+    .records-filters-mobile {
+        display: block;
+    }
+
+    .records-table-desktop {
+        display: none;
+    }
+
+    .records-mobile {
+        display: block;
+    }
 }

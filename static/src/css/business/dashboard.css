@@ -426,3 +426,62 @@
     opacity: 1;
     visibility: visible;
 }
+
+/* ===== Мобильная навигация по вкладкам ===== */
+@media (max-width: 768px) {
+    .dashboard-page .tab-nav {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+        gap: 0.25rem;
+        padding-bottom: 0.25rem;
+        margin-bottom: 1.5rem;
+        border-bottom: none;
+    }
+
+    .dashboard-page .tab-nav::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+    }
+
+    .dashboard-page .tab-btn {
+        flex: 0 0 auto;
+        padding: 0.5rem 0.8rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        border-radius: 1.5rem;
+        background: var(--color-surface-alt);
+        border: 1px solid var(--color-border);
+    }
+
+    .dashboard-page .tab-btn.active {
+        background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
+        color: var(--color-btn-text);
+        border-color: var(--color-primary);
+    }
+
+    .dashboard-page .tab-btn svg {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .dashboard-page .tab-nav-wrapper {
+        position: relative;
+    }
+
+    .dashboard-page .tab-nav-wrapper::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 2rem;
+        background: linear-gradient(to right, transparent, var(--color-background));
+        pointer-events: none;
+    }
+
+    .dashboard-page .section-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}

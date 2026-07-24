@@ -1,7 +1,17 @@
 // static/src/js/pages/my-salon.js
 
-(function() {
-    // ===== Логика карточки салона =====
+document.addEventListener('DOMContentLoaded', function() {
+    // Глобальное предотвращение поведения по умолчанию для drag-and-drop
+    document.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    });
+    document.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    });
+
+    // Логика карточки салона
     const card = document.getElementById('salonEditCard');
     if (!card) return;
 
@@ -27,9 +37,8 @@
     let isPreview = false;
     let originalValues = {};
     let isUploading = false;
-    // currentPhotos – массив объектов {id, url}
     let currentPhotos = [];
-    let currentLogo = ''; // url текущей обложки (временной)
+    let currentLogo = '';
 
     const ICON_EDIT = window.ICON_EDIT || '';
     const ICON_EYE = window.ICON_EYE || '';
@@ -189,6 +198,10 @@
         const url = dropZone.dataset.uploadUrl;
         const salonId = window.salonId;
 
+        if (!url || !salonId) {
+            return;
+        }
+
         isUploading = true;
         statusDiv.innerHTML = '<p style="color:var(--color-muted)">Загрузка...</p>';
 
@@ -198,12 +211,15 @@
         }
 
         try {
-            const res = await fetch(url, { method: 'POST', body: formData });
+            const res = await fetch(url, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include',
+            });
             if (res.ok) {
                 const data = await res.json();
                 if (data.saved && data.saved.length) {
                     data.saved.forEach(url => {
-                        // Добавляем новый объект с id: null (временный)
                         currentPhotos.push({ id: null, url: url });
                         if (!currentLogo) {
                             currentLogo = url;
@@ -224,7 +240,7 @@
             statusDiv.innerHTML = '<p style="color:#ef4444">Ошибка сети</p>';
         } finally {
             isUploading = false;
-            const fileInput = document.getElementById('photoFileInput');
+            const fileInput = document.getElementById('photoFileInputMySalon');
             if (fileInput) fileInput.value = '';
         }
     }
@@ -305,7 +321,7 @@
         }
     }
 
-    // ===== СОХРАНЕНИЕ (отправляем все данные, включая фото) =====
+    // ===== СОХРАНЕНИЕ =====
     async function saveChanges() {
         if (!isEditing) return;
         const data = {
@@ -313,24 +329,21 @@
             phone: inputPhone.value,
             address: inputAddress.value,
             description: inputDesc.value,
-            photos: currentPhotos.map(p => p.url), // список URL
-            logo_url: currentLogo                  // URL обложки
+            photos: currentPhotos.map(p => p.url),
+            logo_url: currentLogo
         };
         const salonId = window.salonId;
         try {
-            // 1. Сохраняем основные данные и список фото
             const res = await fetch('/api/v1/business/my-salon?salon_id=' + salonId, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
             if (res.ok) {
-                // 2. Если обложка изменилась и есть ID фото (не новое), отправляем запрос на установку обложки
                 const logoChanged = (currentLogo !== originalValues.logo);
                 if (logoChanged && currentLogo) {
                     const photoObj = currentPhotos.find(p => p.url === currentLogo);
                     if (photoObj && photoObj.id !== null) {
-                        // Отправляем запрос на установку обложки
                         await fetch('/api/v1/upload/salon/' + salonId + '/photo/' + photoObj.id + '/cover', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -385,7 +398,8 @@
         try {
             const res = await fetch('/api/v1/upload/salon/' + salonId + '/photo', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'include',
             });
             if (!res.ok) {
                 const d = await res.json();
@@ -417,7 +431,6 @@
 
     // ===== Инициализация =====
     if (window.initialPhotos !== undefined) {
-        // initialPhotos – массив объектов {id, url}
         currentPhotos = window.initialPhotos.map(p => ({id: p.id, url: p.url}));
     }
     if (window.initialLogo !== undefined) {
@@ -426,9 +439,9 @@
     renderGallery();
     updateLogoInCard();
 
-    // ===== Обработчики для загрузки фото (drag-and-drop) =====
+    // ===== Обработчики для загрузки фото (drag-and-drop и выбор) =====
     const dropZone = document.getElementById('photoDropZone');
-    const fileInput = document.getElementById('photoFileInput');
+    const fileInput = document.getElementById('photoFileInputMySalon');
     const statusDiv = document.getElementById('photoUploadStatus');
 
     if (dropZone && fileInput) {
@@ -456,20 +469,21 @@
             dropZone.style.background = '';
             if (isUploading) return;
             if (e.dataTransfer.files.length) {
-                fileInput.value = '';
                 uploadPhotos(e.dataTransfer.files);
             }
         });
 
         fileInput.addEventListener('change', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             if (isUploading) {
-                fileInput.value = '';
+                this.value = '';
                 return;
             }
-            if (fileInput.files.length) {
-                const files = fileInput.files;
-                fileInput.value = '';
+            if (this.files && this.files.length > 0) {
+                const files = this.files;
                 uploadPhotos(files);
+                this.value = '';
             }
         });
     }
@@ -501,7 +515,7 @@
         });
     }
 
-    // ===== Существующие функции (акции, часы, лояльность) =====
+    // ===== Существующие функции =====
     window.deletePromo = function(id, title) {
         if (confirm('Удалить акцию "' + title + '"? Это действие нельзя отменить.')) {
             fetch('/api/v1/business/my-salon/promotions/' + id + '/delete', { method: 'POST' })
@@ -667,4 +681,4 @@
         });
     }
 
-})();
+});

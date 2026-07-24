@@ -86,6 +86,77 @@ async def guest_booking_qr(salon_id: int, request: Request):
     return Response(content=buf.getvalue(), media_type="image/png")
 
 
+# ── PWA (установка на экран смартфона) ───────────────────────────────────────
+_SW_JS = """
+const CACHE = 'rumi-offline-v1';
+const OFFLINE = '/offline';
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.add(OFFLINE)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys()
+      .then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+self.addEventListener('fetch', (e) => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  // network-first: всегда свежее из сети; app-shell НЕ кэшируем — нет устаревших версий.
+  e.respondWith(
+    fetch(req).catch(() => (req.mode === 'navigate' ? caches.match(OFFLINE) : Response.error()))
+  );
+});
+"""
+
+_OFFLINE_HTML = """<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Нет сети — Руми</title></head>
+<body style="font-family:system-ui,-apple-system,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:#faf9fb;color:#1a1523">
+<div style="text-align:center;padding:2rem">
+<div style="font-size:1.6rem;font-weight:800;color:#c081b8">руми.</div>
+<p style="color:#6b6577">Нет подключения к интернету.<br>Проверьте связь и попробуйте снова.</p>
+<button onclick="location.reload()" style="background:#c081b8;color:#fff;border:none;border-radius:10px;padding:.6rem 1.2rem;font-size:1rem;cursor:pointer">Обновить</button>
+</div></body></html>"""
+
+
+@router.get("/manifest.webmanifest", include_in_schema=False)
+async def pwa_manifest():
+    import json
+    from fastapi import Response
+    manifest = {
+        "name": "Руми — запись в салоны красоты",
+        "short_name": "Руми",
+        "description": "Онлайн-запись в салоны красоты и к мастерам",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "portrait",
+        "lang": "ru",
+        "background_color": "#faf9fb",
+        "theme_color": "#c081b8",
+        "icons": [
+            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+            {"src": "/static/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    }
+    return Response(content=json.dumps(manifest, ensure_ascii=False),
+                    media_type="application/manifest+json")
+
+
+@router.get("/sw.js", include_in_schema=False)
+async def pwa_service_worker():
+    from fastapi import Response
+    return Response(content=_SW_JS, media_type="application/javascript",
+                    headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
+
+
+@router.get("/offline", response_class=HTMLResponse, include_in_schema=False)
+async def pwa_offline():
+    return HTMLResponse(content=_OFFLINE_HTML)
+
+
 @router.get("/profile", response_class=HTMLResponse)
 async def profile_page(request: Request, db: AsyncSession = Depends(get_db)):
     """Страница профиля."""

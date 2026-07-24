@@ -10,7 +10,8 @@ class SalonUpdateRequest(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     working_hours: Optional[str] = None  # JSON-строка с графиком
-    photos: Optional[List[str]] = None  # Список URL новых фото
+    photos: Optional[List[str]] = None   # Список URL всех фото
+    logo_url: Optional[str] = None       # URL обложки
 
 class SalonPhotoResponse(BaseModel):
     id: int

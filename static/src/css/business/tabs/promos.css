@@ -1,0 +1,242 @@
+/* static/src/css/business/tabs/promos.css */
+
+/* Вкладка Акции */
+.promos-tab {
+    margin-bottom: 12rem;
+}
+
+.promos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.promos-header h2 {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin: 0;
+}
+
+.promo-badge {
+    display: inline-block;
+    border-radius: 2rem;
+    padding: 0.125rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+}
+
+.promos-table-wrap {
+    overflow-x: auto;
+}
+
+.promos-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.promos-table th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--color-border);
+    font-weight: 600;
+    color: var(--color-heading);
+    white-space: nowrap;
+}
+
+.promos-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+}
+
+.promos-table .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-muted);
+}
+
+/* Кнопки действий в таблице */
+.promos-actions-cell {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.promos-table .delete-btn-icon,
+.promos-table .edit-btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.25rem;
+    transition: color 0.2s;
+    vertical-align: middle;
+}
+
+.promos-table .delete-btn-icon {
+    color: #ef4444;
+}
+.promos-table .delete-btn-icon:hover {
+    color: #dc2626;
+}
+
+.promos-table .edit-btn-icon {
+    color: var(--color-primary);
+    margin-right: 0.5rem;
+}
+.promos-table .edit-btn-icon:hover {
+    color: var(--color-accent-hover);
+}
+
+/* Кнопка отправки формы */
+.promos-submit-btn {
+    width: 100%;
+}
+
+/* ===== Модальное окно (общее) ===== */
+.promos-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.promos-modal-overlay.active {
+    display: flex;
+}
+
+.promos-modal-box {
+    background: var(--color-surface);
+    border-radius: 1rem;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.promos-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--color-muted);
+    transition: color 0.2s;
+}
+
+.promos-modal-close:hover {
+    color: var(--color-heading);
+}
+
+.promos-modal-box h2 {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin-bottom: 1.5rem;
+}
+
+.promos-form-group {
+    margin-bottom: 1rem;
+}
+
+.promos-form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--color-heading);
+}
+
+.promos-form-group input,
+.promos-form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: var(--font-body);
+}
+
+.promos-form-group input:focus,
+.promos-form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+}
+
+.promos-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.5rem;
+    border: none;
+    border-radius: 2rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-btn-text);
+    background: var(--color-accent);
+    transition: all 0.2s;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.promos-btn-primary:hover {
+    background: var(--color-accent-hover);
+}
+
+.promos-btn-outline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.2rem;
+    border: 1px solid var(--color-border);
+    border-radius: 2rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-heading);
+    background: transparent;
+    transition: all 0.2s;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.promos-btn-outline:hover {
+    background: var(--color-surface-alt);
+    border-color: var(--color-primary);
+}
+
+/* Адаптив */
+@media (max-width: 640px) {
+    .promos-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .promos-modal-box {
+        padding: 1.5rem;
+    }
+    .promos-actions-cell {
+        text-align: left;
+        white-space: normal;
+    }
+}
