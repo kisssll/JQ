@@ -34,6 +34,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
         Salon.id == salon_id,
         Salon.is_active == True,
         Salon.moderation_status == SalonModerationStatus.APPROVED,
+        Salon.is_hidden == False,
     ))
     salon = result.scalar_one_or_none()
 
@@ -132,6 +133,14 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
         <div class="master-card" data-master-id="{m["id"]}">
             <div class="master-image-box">
                 {avatar_html}
+                <button class="favorite-btn master-fav-btn"
+                        data-type="master"
+                        data-id="{m["id"]}"
+                        data-icon-heart="{heart_svg}"
+                        data-icon-heart-filled="{heart_filled_svg}"
+                        title="В избранное">
+                    <span class="heart-icon">{ICON_HEART}</span>
+                </button>
             </div>
             <div class="master-info-box">
                 <div>

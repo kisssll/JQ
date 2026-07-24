@@ -28,7 +28,7 @@ async def render_favorites_page(db: AsyncSession, user) -> str:
     
     for fav in favorites:
         if fav.salon_id:
-            salon = (await db.execute(select(Salon).where(Salon.id == fav.salon_id, Salon.is_active == True))).scalar_one_or_none()
+            salon = (await db.execute(select(Salon).where(Salon.id == fav.salon_id, Salon.is_active == True, Salon.is_hidden == False))).scalar_one_or_none()
             if salon:
                 salon_cards += f"""
                 <div class="fav-card">

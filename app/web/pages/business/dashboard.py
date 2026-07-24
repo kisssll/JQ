@@ -173,7 +173,10 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
 
     # Редактировать салон (всегда видна, в конце) — теперь реальная вкладка
     tab_buttons.append(('edit', ICON_SETTINGS_GEAR_SMALL, 'Редактировать салон', True))
-    tabs_html.append(await render_my_salon_tab(db, salon, user, query_params))   # <-- ИЗМЕНЕНО
+    tabs_html.append(await render_my_salon_tab(
+        db, salon, user, query_params,
+        can_manage_salon=perms["manage_salon"], is_creator=membership.is_creator,
+    ))   # <-- ИЗМЕНЕНО
 
     visible_slugs = [slug for slug, _, _, visible in tab_buttons if visible]
     if active_tab not in visible_slugs:

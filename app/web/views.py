@@ -469,7 +469,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     static_pages = ["", "salons", "business", "model", "login", "register"]
     urls = [f"https://rrumi.ru/{p}" for p in static_pages]
 
-    salons = (await db.execute(select(Salon.id).where(Salon.is_active == True))).scalars().all()
+    salons = (await db.execute(select(Salon.id).where(Salon.is_active == True, Salon.is_hidden == False))).scalars().all()
     urls += [f"https://rrumi.ru/salons/{sid}" for sid in salons]
 
     body = "".join(f"<url><loc>{u}</loc></url>" for u in urls)

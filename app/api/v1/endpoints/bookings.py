@@ -19,13 +19,13 @@ async def _salon_bookable(db, master_id: int) -> bool:
     (модерация регистрации бизнеса).
     """
     row = (await db.execute(
-        select(Salon.is_active, Salon.moderation_status, Master.is_active)
+        select(Salon.is_active, Salon.moderation_status, Salon.is_hidden, Master.is_active)
         .join(Master, Master.salon_id == Salon.id)
         .where(Master.id == master_id)
     )).first()
-    # Салон одобрен и активен И сам мастер активен (мягко удалённый —
-    # is_active=False — записи не принимает).
-    return bool(row) and row[0] and row[1] == SalonModerationStatus.APPROVED and row[2]
+    # Салон одобрен, активен и не скрыт владельцем И сам мастер активен
+    # (мягко удалённый — is_active=False — записи не принимает).
+    return bool(row) and row[0] and row[1] == SalonModerationStatus.APPROVED and not row[2] and row[3]
 from app.schemas.booking import BookingCreate, BookingResponse, BookingCancel
 from app.api.deps import get_current_user, get_salon_membership
 from app.services.notifications import notify_booking_cancelled, notify_booking_created

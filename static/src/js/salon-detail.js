@@ -376,7 +376,7 @@
         });
     });
 
-    // ---- Инициализация избранного (как было) ----
+    // ---- Инициализация избранного (салон + мастера) ----
     async function loadFavorites() {
         try {
             const response = await fetch('/api/v1/favorites/my');
@@ -390,12 +390,20 @@
                         btn.classList.remove('liked');
                     }
                 });
+                document.querySelectorAll('.master-fav-btn[data-type="master"]').forEach(btn => {
+                    const id = parseInt(btn.dataset.id);
+                    if (data.master_ids.includes(id)) {
+                        btn.classList.add('liked');
+                    } else {
+                        btn.classList.remove('liked');
+                    }
+                });
             }
         } catch (e) {}
     }
     loadFavorites();
 
-    document.querySelectorAll('.salon-top-fav').forEach(btn => {
+    document.querySelectorAll('.salon-top-fav, .master-fav-btn').forEach(btn => {
         btn.addEventListener('click', async function(e) {
             e.preventDefault();
             e.stopPropagation();

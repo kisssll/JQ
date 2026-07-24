@@ -614,4 +614,57 @@
         }
     });
 
+    // ===== Опасная зона: скрыть/показать салон, удалить салон =====
+    const visibilityBtn = document.getElementById('salonVisibilityBtn');
+    if (visibilityBtn) {
+        visibilityBtn.addEventListener('click', async function() {
+            const wasHidden = this.dataset.hidden === '1';
+            this.disabled = true;
+            try {
+                const res = await fetch(`/api/v1/business/my-salon/visibility-toggle?salon_id=${this.dataset.salonId}`, { method: 'POST' });
+                if (!res.ok) { alert('Не удалось изменить видимость салона'); this.disabled = false; return; }
+                const data = await res.json();
+                const hint = document.getElementById('salonVisibilityHint');
+                const icon = window.ICON_EYE || '';
+                if (data.is_hidden) {
+                    hint.textContent = 'Салон скрыт: его не видно в каталоге, поиске и записи. Включите обратно в любой момент.';
+                    this.innerHTML = icon + ' Показать салон';
+                    this.classList.remove('my-salon-btn-outline');
+                    this.classList.add('my-salon-btn-primary');
+                } else {
+                    hint.textContent = 'Салон скрыт не будет — он виден клиентам в каталоге, поиске и доступен для записи.';
+                    this.innerHTML = icon + ' Скрыть салон';
+                    this.classList.remove('my-salon-btn-primary');
+                    this.classList.add('my-salon-btn-outline');
+                }
+                this.dataset.hidden = data.is_hidden ? '1' : '0';
+            } catch (e) {
+                alert('Ошибка сети, попробуйте ещё раз');
+            }
+            this.disabled = false;
+        });
+    }
+
+    const deleteBtn = document.getElementById('salonDeleteBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', async function() {
+            if (!confirm('Удалить салон? Он пропадёт из каталога и записи. Брони, отзывы и мастера сохранятся в истории, но самостоятельно восстановить салон будет нельзя.')) return;
+            this.disabled = true;
+            try {
+                const res = await fetch(`/api/v1/business/my-salon?salon_id=${this.dataset.salonId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    alert('Салон удалён.');
+                    window.location.href = '/business/dashboard';
+                } else {
+                    const d = await res.json().catch(() => ({}));
+                    alert(d.detail || 'Не удалось удалить салон');
+                    this.disabled = false;
+                }
+            } catch (e) {
+                alert('Ошибка сети, попробуйте ещё раз');
+                this.disabled = false;
+            }
+        });
+    }
+
 })();

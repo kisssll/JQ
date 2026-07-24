@@ -24,7 +24,9 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
     # Получаем популярные салоны (топ-3 по рейтингу)
     try:
         result = await db.execute(
-            select(Salon).where(Salon.is_active == True, Salon.moderation_status == SalonModerationStatus.APPROVED).order_by(Salon.rating.desc()).limit(3)
+            select(Salon).where(
+                Salon.is_active == True, Salon.moderation_status == SalonModerationStatus.APPROVED, Salon.is_hidden == False,
+            ).order_by(Salon.rating.desc()).limit(3)
         )
         salons = result.scalars().all()
     except Exception as e:

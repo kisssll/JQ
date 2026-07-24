@@ -32,8 +32,12 @@ init_sentry()
 from app.models.models import Salon, Master, User, Service, SalonModerationStatus
 
 # Публичный салон = активен И заявка одобрена (pending/rejected не показываем
-# и не даём записаться — модерация регистрации бизнеса).
-_PUBLIC_SALON = (Salon.is_active == True) & (Salon.moderation_status == SalonModerationStatus.APPROVED)  # noqa: E712
+# и не даём записаться — модерация регистрации бизнеса) И не скрыт владельцем.
+_PUBLIC_SALON = (
+    (Salon.is_active == True)  # noqa: E712
+    & (Salon.moderation_status == SalonModerationStatus.APPROVED)
+    & (Salon.is_hidden == False)  # noqa: E712
+)
 from app.schemas.salon import SalonResponse, SalonWithDistance
 from app.schemas.master import MasterResponse, ServiceResponse
 from app.api.v1.endpoints import auth

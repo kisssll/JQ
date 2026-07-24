@@ -148,7 +148,46 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
     """
 
 
-async def render_my_salon_tab(db: AsyncSession, salon: Salon, user=None, query_params=None) -> str:
+def _render_danger_zone(salon: Salon, can_manage_salon: bool, is_creator: bool) -> str:
+    """Блок «Опасная зона»: скрыть салон (обратимо) / удалить салон (безвозвратно, только создатель)."""
+    if salon.is_hidden:
+        hide_hint = "Салон скрыт: его не видно в каталоге, поиске и записи. Включите обратно в любой момент."
+        hide_btn = f'<button type="button" class="my-salon-btn-primary" id="salonVisibilityBtn" data-salon-id="{salon.id}" data-hidden="1">{ICON_EYE} Показать салон</button>'
+    else:
+        hide_hint = "Салон скрыт не будет — он виден клиентам в каталоге, поиске и доступен для записи."
+        hide_btn = f'<button type="button" class="my-salon-btn-outline" id="salonVisibilityBtn" data-salon-id="{salon.id}" data-hidden="0">{ICON_EYE} Скрыть салон</button>'
+
+    delete_block = ""
+    if is_creator:
+        delete_block = f"""
+        <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--color-border)">
+            <h3 style="margin:0 0 0.5rem;font-size:1rem">Удалить салон</h3>
+            <p class="my-salon-card-hint">
+                Салон уйдёт из каталога и записи безвозвратно (для вас — без возможности восстановить самостоятельно).
+                Брони, отзывы и история клиентов сохранятся.
+            </p>
+            <button type="button" class="my-salon-btn-outline" id="salonDeleteBtn" data-salon-id="{salon.id}"
+                    style="color:#dc2626;border-color:#dc2626">
+                {ICON_TRASH} Удалить салон
+            </button>
+        </div>
+        """
+
+    return f"""
+    <div class="my-salon-card">
+        <h2 class="my-salon-card-title">Опасная зона</h2>
+        <h3 style="margin:0 0 0.5rem;font-size:1rem">Скрыть салон</h3>
+        <p class="my-salon-card-hint" id="salonVisibilityHint">{hide_hint}</p>
+        {hide_btn}
+        {delete_block}
+    </div>
+    """
+
+
+async def render_my_salon_tab(
+    db: AsyncSession, salon: Salon, user=None, query_params=None,
+    can_manage_salon: bool = False, is_creator: bool = False,
+) -> str:
     """Вкладка «Редактировать салон» для бизнес-панели."""
     query_params = query_params or {}
 
@@ -386,6 +425,8 @@ async def render_my_salon_tab(db: AsyncSession, salon: Salon, user=None, query_p
                     </table>
                 </div>
             </div>
+
+            {_render_danger_zone(salon, can_manage_salon, is_creator) if can_manage_salon else ""}
 
             <!-- Модальное окно: Добавить акцию -->
             <div class="my-salon-modal-overlay" id="addPromoModal">

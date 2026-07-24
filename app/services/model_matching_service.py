@@ -57,6 +57,7 @@ async def get_feed_cards(db: AsyncSession, model_user_id: int, limit: int = 10) 
             Master.is_active == True,  # noqa: E712
             Salon.is_active == True,  # noqa: E712
             Salon.moderation_status == SalonModerationStatus.APPROVED,
+            Salon.is_hidden == False,  # noqa: E712
             Service.id.notin_(already_decided),
         )
         .order_by(Service.id)

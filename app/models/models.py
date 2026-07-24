@@ -234,6 +234,11 @@ class Salon(Base):
     reviews: Mapped[List["Review"]] = relationship(back_populates="salon")
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Владелец сам скрывает салон с платформы (обратимо, кнопка в настройках) —
+    # отдельно от is_active (необратимое для владельца soft-delete). Салон и все
+    # его данные остаются нетронутыми, просто не показывается в каталоге/поиске
+    # и недоступен для новой записи, пока владелец не включит обратно.
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Модерация регистрации бизнеса: новый салон = pending (виден только

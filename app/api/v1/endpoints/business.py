@@ -252,6 +252,27 @@ async def toggle_guest_booking(
     return {"guest_booking_enabled": salon.guest_booking_enabled}
 
 
+@router.post("/my-salon/visibility-toggle")
+async def toggle_salon_visibility(
+    salon_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Скрыть/показать салон на платформе (owner/manage_salon).
+
+    В отличие от удаления — обратимо: салон и все его данные остаются как
+    есть, просто убирается из каталога/поиска/записи, пока владелец сам не
+    включит обратно.
+    """
+    await check_salon_permission(db, current_user, salon_id, "manage_salon")
+    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
+    if salon is None:
+        raise HTTPException(status_code=404, detail="Салон не найден")
+    salon.is_hidden = not salon.is_hidden
+    await db.commit()
+    return {"is_hidden": salon.is_hidden}
+
+
 @router.get("/my-salon", response_model=SalonResponse)
 async def get_my_salon(
     salon: Salon = Depends(get_current_salon)

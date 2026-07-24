@@ -20,7 +20,9 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
     """Страница со списком салонов с акциями в карточках."""
 
     result = await db.execute(
-        select(Salon).where(Salon.is_active == True, Salon.moderation_status == SalonModerationStatus.APPROVED).order_by(Salon.rating.desc())
+        select(Salon).where(
+            Salon.is_active == True, Salon.moderation_status == SalonModerationStatus.APPROVED, Salon.is_hidden == False,
+        ).order_by(Salon.rating.desc())
     )
     salons = result.scalars().all()
 
