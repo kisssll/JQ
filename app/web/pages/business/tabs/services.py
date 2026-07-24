@@ -142,7 +142,7 @@ async def render_services_tab(
         </div>
         <div class="filter-group">
             <label for="service_master">Мастер</label>
-            <select id="service_master" name="service_master">
+            <select id="service_master" name="service_master" class="custom-select">
                 <option value="">Все мастера</option>
                 {master_options}
             </select>
@@ -218,7 +218,7 @@ async def render_services_tab(
                     <input type="hidden" name="service_id" id="serviceId">
                     <div class="services-form-group">
                         <label for="serviceMaster">Мастер *</label>
-                        <select name="master_id" id="serviceMaster" required>
+                        <select name="master_id" id="serviceMaster" class="custom-select" required>
                             <option value="">Выберите мастера</option>
                             {master_options}
                         </select>

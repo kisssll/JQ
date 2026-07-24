@@ -169,22 +169,22 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
 
         <div class="filter-group">
             <label for="date_from">С даты</label>
-            <input type="date" id="date_from" name="date_from" value="{date_from.strftime('%Y-%m-%d')}">
+            <input type="date" id="date_from" name="date_from" class="custom-date" value="{date_from.strftime('%Y-%m-%d')}">
         </div>
         <div class="filter-group">
             <label for="date_to">По дату</label>
-            <input type="date" id="date_to" name="date_to" value="{(date_to - timedelta(days=1)).strftime('%Y-%m-%d')}">
+            <input type="date" id="date_to" name="date_to" class="custom-date" value="{(date_to - timedelta(days=1)).strftime('%Y-%m-%d')}">
         </div>
         <div class="filter-group">
             <label for="master_id">Мастер</label>
-            <select id="master_id" name="master_id">
+            <select id="master_id" name="master_id" class="custom-select">
                 <option value="">Все мастера</option>
                 {master_options}
             </select>
         </div>
         <div class="filter-group">
             <label for="status">Статус</label>
-            <select id="status" name="status">
+            <select id="status" name="status" class="custom-select">
                 <option value="">Все статусы</option>
                 {status_options}
             </select>

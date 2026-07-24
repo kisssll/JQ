@@ -65,7 +65,7 @@ async def render_cost_tab(db: AsyncSession, salon, masters, master_ids, period_r
             <input type="hidden" name="tab" value="cost">
             <div>
                 <label class="text-muted" style="display:block;font-size:0.75rem;margin-bottom:0.25rem">Период</label>
-                <input type="month" name="period" value="{period_str}" style="padding:0.5rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                <input type="month" name="period" class="custom-date" value="{period_str}" style="padding:0.5rem;border:1px solid var(--color-border);border-radius:0.5rem">
             </div>
             <button type="submit" class="btn-outline">Показать</button>
         </form>

@@ -260,7 +260,7 @@ async def render_schedule_tab(
     )
     master_select_html = f"""
     <div class="schedule-master-select">
-        <select onchange="window.location.href='/business/dashboard?tab=schedule&salon_id={salon.id}&schedule_master_id=' + this.value">
+        <select class="custom-select" onchange="window.location.href='/business/dashboard?tab=schedule&salon_id={salon.id}&schedule_master_id=' + this.value">
             {master_select_options}
         </select>
     </div>
@@ -351,11 +351,11 @@ async def render_schedule_tab(
                 <h2 style="margin-bottom:1.5rem">Закрыть дату</h2>
                 <div style="margin-bottom:1rem">
                     <label style="display:block;font-weight:500;margin-bottom:0.5rem">Дата *</label>
-                    <input type="date" id="closeDateInput" required style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                    <input type="date" id="closeDateInput" class="custom-date" required style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
                 </div>
                 <div style="margin-bottom:1rem">
                     <label style="display:block;font-weight:500;margin-bottom:0.5rem">Кто закрывается</label>
-                    <select id="closeDateMaster" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                    <select id="closeDateMaster" class="custom-select" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
                         <option value="">Весь салон</option>
                         {closure_master_options}
                     </select>

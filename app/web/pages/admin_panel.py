@@ -216,7 +216,7 @@ def _users_tab(users, me_id):
         is_self = u.id == me_id
         role_form = (
             f'<form method="post" action="/api/v1/admin/users/{u.id}/role" style="display:inline-flex;gap:0.25rem">'
-            f'<select name="role" {"disabled" if is_self else ""}>{opts}</select>'
+            f'<select name="role" class="custom-select" {"disabled" if is_self else ""}>{opts}</select>'
             f'<button class="btn-mini" {"disabled" if is_self else ""}>OK</button></form>'
             if u.role.value != "master" else '<span class="text-muted">мастер</span>'
         )

@@ -361,9 +361,9 @@ async def render_my_salon_tab(
             <label class="closed-label">
                 <input type="checkbox" class="wh-closed" data-day="{key}" {checked} onchange="toggleDayClosed('{key}', this.checked)"> Выходной
             </label>
-            <input type="time" id="wh-start-{key}" value="{start_val}" {disabled}>
+            <input type="time" id="wh-start-{key}" class="custom-date" value="{start_val}" {disabled}>
             <span class="time-sep">—</span>
-            <input type="time" id="wh-end-{key}" value="{end_val}" {disabled}>
+            <input type="time" id="wh-end-{key}" class="custom-date" value="{end_val}" {disabled}>
         </div>"""
 
     icon_script = f"""

@@ -1,0 +1,271 @@
+/* static/src/css/custom-forms.css */
+
+/* ---- Стили для Choices.js (кастомные селекты) ---- */
+.choices {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+}
+
+.choices__inner {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    padding: 0.5rem 1.2rem;
+    min-height: auto;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: auto;
+    display: inline-block;
+}
+
+.choices__inner:hover {
+    border-color: var(--color-primary);
+}
+
+.choices.is-focused .choices__inner {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+}
+
+/* Открытое состояние – верхние углы скруглены, нижние прямые */
+.choices.is-open .choices__inner {
+    border-radius: 25px 25px 0 0;
+}
+
+/* Выпадающий список – стыкуется, имеет обводку и подсветку при фокусе */
+.choices__list--dropdown {
+    border: 1px solid var(--color-border);
+    border-top: none;
+    border-radius: 0 0 25px 25px;
+    background: var(--color-surface);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    margin-top: -1px;
+    padding: 0 0 7px 0;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Когда селектор в фокусе, выпадающий список получает такую же обводку и подсветку */
+.choices.is-focused .choices__list--dropdown {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Сам список внутри – тоже скругляем */
+.choices__list--dropdown .choices__list {
+    border-radius: 0 0 25px 25px;
+    overflow: hidden;
+}
+
+/* Элементы списка */
+.choices__list--dropdown .choices__item {
+    padding: 0.5rem 1.2rem;
+    color: var(--color-heading);
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+}
+.choices__list--dropdown .choices__item:last-child {
+    border-bottom: none;
+    border-radius: 0 0 25px 25px;
+}
+
+.choices__list--dropdown .choices__item.is-highlighted {
+    background: var(--color-accent-light);
+    color: var(--color-primary);
+}
+.choices__list--dropdown .choices__item.is-selected {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+/* Скрываем пустой элемент-заглушку плейсхолдера */
+.choices__list--dropdown .choices__item.is-placeholder {
+    display: none !important;
+}
+
+/* ---- Стили для всех текстовых полей и инпутов (поиск, дата, месяц, время) ---- */
+input[type="text"],
+input[type="search"],
+input[type="date"],
+input[type="month"],
+input[type="time"],
+.custom-date,
+.custom-select .choices__inner {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    padding: 0.5rem 1.2rem;
+    font-size: 0.875rem;
+    font-family: var(--font-body);
+    color: var(--color-heading);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: auto;
+    box-sizing: border-box;
+}
+
+/* При фокусе – обводка и подсветка, форма не меняется */
+input[type="text"]:focus,
+input[type="search"]:focus,
+input[type="date"]:focus,
+input[type="month"]:focus,
+input[type="time"]:focus,
+.custom-date:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+}
+
+/* Для дат – убираем стандартную стрелку, оставляем свой фон */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+    filter: invert(0.3);
+    cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+/* ---- Стили для Flatpickr (календари) ---- */
+.flatpickr-calendar {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    font-family: var(--font-body);
+    padding: 0.5rem;
+    width: 240px;
+    font-size: 0.8rem;
+}
+
+/* Скрываем элемент .numInput.cur-year, который виден под месяцем */
+.flatpickr-calendar .numInput.cur-year {
+    display: none !important;
+}
+
+/* Месяц отображается как обычный текст, без селектора */
+.flatpickr-calendar .flatpickr-month {
+    color: var(--color-heading);
+    font-size: 0.9rem;
+    font-weight: 600;
+    pointer-events: none; /* чтобы нельзя было кликнуть */
+}
+
+/* Скрываем выпадающий список месяцев (если он вдруг появляется) */
+.flatpickr-calendar .flatpickr-monthDropdown-months {
+    display: none !important;
+}
+
+.flatpickr-calendar .flatpickr-months {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.flatpickr-calendar .flatpickr-prev-month,
+.flatpickr-calendar .flatpickr-next-month {
+    color: var(--color-muted);
+    fill: var(--color-muted);
+}
+.flatpickr-calendar .flatpickr-prev-month:hover,
+.flatpickr-calendar .flatpickr-next-month:hover {
+    color: var(--color-primary);
+    fill: var(--color-primary);
+}
+
+.flatpickr-calendar .flatpickr-weekdays {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 0.25rem;
+}
+
+.flatpickr-calendar .flatpickr-weekday {
+    color: var(--color-muted);
+    font-weight: 600;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+}
+
+.flatpickr-calendar .flatpickr-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.2rem;
+    padding: 0.2rem;
+}
+
+.flatpickr-calendar .dayContainer {
+    display: contents;
+}
+
+.flatpickr-calendar .flatpickr-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 0.8rem;
+    color: var(--color-heading);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    cursor: pointer;
+    width: 1.8rem;
+    height: 1.8rem;
+    margin: 0 auto;
+}
+
+.flatpickr-calendar .flatpickr-day:hover {
+    background: var(--color-accent-light);
+    border-color: var(--color-primary);
+}
+
+.flatpickr-calendar .flatpickr-day.selected {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+}
+
+.flatpickr-calendar .flatpickr-day.today {
+    border-color: var(--color-primary);
+}
+.flatpickr-calendar .flatpickr-day.today.selected {
+    border-color: var(--color-primary);
+}
+
+.flatpickr-calendar .flatpickr-day.disabled {
+    color: var(--color-muted);
+    cursor: default;
+    opacity: 0.5;
+}
+.flatpickr-calendar .flatpickr-day.flatpickr-disabled {
+    color: var(--color-muted);
+}
+
+.flatpickr-calendar .flatpickr-time {
+    border-top: 1px solid var(--color-border);
+    padding-top: 0.4rem;
+    margin-top: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.flatpickr-calendar .flatpickr-time input {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+    color: var(--color-heading);
+    width: 45px;
+    text-align: center;
+}
+.flatpickr-calendar .flatpickr-time input:focus {
+    border-color: var(--color-primary);
+    outline: none;
+}
+.flatpickr-calendar .flatpickr-time .flatpickr-am-pm {
+    display: none;
+}

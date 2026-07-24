@@ -104,15 +104,23 @@
     gap: 0.75rem;
     width: 100%;
     padding: 1rem 1.25rem;
-    background: var(--color-surface);
-    border: 2px solid transparent;
+    background: linear-gradient(135deg, #fff5f5, #ffe8f0);
+    border: 2px solid var(--color-secondary);
     border-radius: 1rem;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 0 0 0 rgba(192, 129, 184, 0.4);
+    animation: pulse-search 2s infinite;
     transition: all 0.2s ease;
     cursor: pointer;
     text-decoration: none;
     min-height: 64px;
 }
+
+@keyframes pulse-search {
+    0% { box-shadow: 0 0 0 0 rgba(192, 129, 184, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(192, 129, 184, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(192, 129, 184, 0); }
+}
+
 .home-search-link:hover {
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
     border-color: var(--color-primary);

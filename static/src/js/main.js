@@ -28,3 +28,6 @@ import './business/dashboard.js';
 import './business/tabs/overview.js';
 import './business/tabs/promos.js';
 import './business/tabs/services.js';
+
+/* Импорт для кастомных форм */
+import './custom-forms.js';

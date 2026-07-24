@@ -161,7 +161,7 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
             <div class="card">
                 <h3 style="margin-bottom:1rem">Добавить новый вид расходника {_hint("Заводит совершенно новую позицию расходника в базе — с нуля, у выбранного мастера. Если такой расходник уже есть, пополните его через форму «Пополнение склада».")}</h3>
                 <form id="newItemForm">
-                    <select name="master_id" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:0.5rem">
+                    <select name="master_id" class="custom-select" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:0.5rem">
                         <option value="">Мастер</option>{master_options}
                     </select>
                     <input name="name" placeholder="Название (например, Краска Wella 60мл)" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:0.5rem">
@@ -176,10 +176,10 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
             <div class="card">
                 <h3 style="margin-bottom:1rem">Пополнение склада {_hint("Увеличивает остаток уже существующей позиции — например, мастер докупил ещё лака. Для нового вида расходника, которого раньше не было, используйте форму «Добавить новый вид расходника».")}</h3>
                 <form id="receiveForm">
-                    <select name="master_id" id="receiveMaster" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:0.5rem">
+                    <select name="master_id" id="receiveMaster" class="custom-select" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:0.5rem">
                         <option value="">Мастер</option>{master_options}
                     </select>
-                    <select name="item_id" id="receiveItem" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:0.5rem">
+                    <select name="item_id" id="receiveItem" class="custom-select" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:0.5rem">
                         <option value="">Сначала выберите мастера</option>
                     </select>
                     <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
@@ -201,7 +201,7 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
             <form id="newEquipmentForm" style="display:flex;gap:0.5rem;flex-wrap:wrap">
                 <input name="name" placeholder="Название (например, Фен Dyson)" required style="flex:2;min-width:180px;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
                 <input name="quantity" type="number" min="1" value="1" placeholder="Кол-во" style="width:6rem;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
-                <input name="purchased_at" type="date" style="padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                <input name="purchased_at" type="date" class="custom-date" style="padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
                 <input name="service_life_months" type="number" placeholder="Срок службы, мес." style="width:9rem;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
                 <input name="cost_per_unit" type="number" placeholder="Цена, ₽" style="width:8rem;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
                 <button type="submit" class="btn-primary">Добавить</button>
@@ -229,7 +229,7 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
             <h3 style="margin-bottom:1rem">Инвентаризация {_hint("Открывает акт пересчёта для выбранного мастера — фиксирует текущие системные остатки как ожидаемые, а после подтверждения фактических цифр расхождения спишутся или зачислятся автоматически.")}</h3>
             <p class="text-muted" style="margin-bottom:1rem;font-size:0.85rem">Открывает акт пересчёта для выбранного мастера — фиксирует текущие системные остатки как ожидаемые.</p>
             <form method="post" id="startAuditForm" style="display:flex;gap:0.5rem">
-                <select name="master_id_path" id="auditMaster" required style="flex:1;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                <select name="master_id_path" id="auditMaster" class="custom-select" required style="flex:1;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
                     <option value="">Мастер</option>{master_options}
                 </select>
                 <button type="submit" class="btn-outline">Начать инвентаризацию</button>

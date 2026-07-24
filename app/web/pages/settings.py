@@ -78,7 +78,7 @@ def render_settings_page(user=None) -> str:
                 </div>
                 <div class="settings-select-group">
                     <label for="notify-method">Способ получения:</label>
-                    <select id="notify-method" class="settings-select">
+                    <select id="notify-method" class="settings-select custom-select">
                         <option value="email">Email</option>
                         <option value="vk">VK</option>
                         <option value="telegram">Telegram</option>
