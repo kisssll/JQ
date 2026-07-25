@@ -31,7 +31,7 @@ from app.api.deps import get_current_user, get_salon_membership
 from app.services.notifications import notify_booking_cancelled, notify_booking_created
 from app.services.booking_service import BookingService
 from app.services.loyalty_service import LoyaltyService, LoyaltyError
-from app.services.schedule_utils import get_effective_work_hours, is_within_booking_window, MAX_BOOKING_DAYS_AHEAD
+from app.services.schedule_utils import get_effective_work_intervals, is_within_booking_window, MAX_BOOKING_DAYS_AHEAD
 from app.utils.timezone import get_salon_time
 
 router = APIRouter()
@@ -152,49 +152,52 @@ async def get_available_slots(
     if not is_within_booking_window(target_date):
         return {"slots": [], "message": f"Запись открыта максимум на {MAX_BOOKING_DAYS_AHEAD} дней вперёд"}
 
-    work_hours = await get_effective_work_hours(db, salon, master_id, target_date)
-    if work_hours is None:
-        return {"slots": [], "message": "Салон не работает в этот день, день закрыт или график задан с ошибкой"}
-    work_start, work_end = work_hours
+    intervals = await get_effective_work_intervals(db, salon, master_id, target_date)
+    if not intervals:
+        return {"slots": [], "message": "Мастер не работает в этот день, день закрыт или график задан с ошибкой"}
 
     slot_duration = service.duration_minutes + master.break_minutes
-    
+
+    # Занятые интервалы берём за весь день — они могут попадать в любой из
+    # рабочих окон мастера (при сплит-сменах их несколько).
+    day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = day_start + timedelta(days=1)
     booked = await db.execute(
         select(Booking).where(
             Booking.master_id == master_id,
-            Booking.start_time >= work_start,
-            Booking.start_time < work_end,
+            Booking.start_time >= day_start,
+            Booking.start_time < day_end,
             Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
         ).order_by(Booking.start_time)
     )
     booked_slots = booked.scalars().all()
-    
+
     now = get_salon_time(salon.timezone)
     now = now.replace(tzinfo=None)
-    
+
     slots = []
-    current = work_start
-    
-    while current + timedelta(minutes=slot_duration) <= work_end:
-        slot_end = current + timedelta(minutes=slot_duration)
-        
-        if current < now:
+    for work_start, work_end in intervals:
+        current = work_start
+        while current + timedelta(minutes=slot_duration) <= work_end:
+            slot_end = current + timedelta(minutes=slot_duration)
+
+            if current < now:
+                current += timedelta(minutes=slot_duration)
+                continue
+
+            is_free = True
+            for b in booked_slots:
+                b_start = b.start_time.replace(tzinfo=None) if b.start_time.tzinfo else b.start_time
+                b_end = b.end_time.replace(tzinfo=None) if b.end_time.tzinfo else b.end_time
+                if current < b_end and slot_end > b_start:
+                    is_free = False
+                    break
+
+            if is_free:
+                slots.append(current.strftime("%Y-%m-%dT%H:%M"))
+
             current += timedelta(minutes=slot_duration)
-            continue
-        
-        is_free = True
-        for b in booked_slots:
-            b_start = b.start_time.replace(tzinfo=None) if b.start_time.tzinfo else b.start_time
-            b_end = b.end_time.replace(tzinfo=None) if b.end_time.tzinfo else b.end_time
-            if current < b_end and slot_end > b_start:
-                is_free = False
-                break
-        
-        if is_free:
-            slots.append(current.strftime("%Y-%m-%dT%H:%M"))
-        
-        current += timedelta(minutes=slot_duration)
-    
+
     return {
         "date": date,
         "slots": slots,

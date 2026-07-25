@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 
 from app.models.models import Booking, Master, Service, Salon, BookingStatus
-from app.services.schedule_utils import get_effective_work_hours
+from app.services.schedule_utils import get_effective_work_intervals
 
 class BookingService:
     
@@ -85,12 +85,13 @@ class BookingService:
         salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none()
         if salon is None:
             return False
-        work_hours = await get_effective_work_hours(db, salon, master_id, start_time)
-        if work_hours is None:
+        intervals = await get_effective_work_intervals(db, salon, master_id, start_time)
+        if not intervals:
             return False
-        work_start, work_end = work_hours
 
-        if start_time < work_start or end_time > work_end:
+        # Слот должен целиком помещаться в один из рабочих интервалов мастера
+        # (при сплит-сменах их несколько — например 09–13 и 16–20).
+        if not any(ws <= start_time and end_time <= we for ws, we in intervals):
             return False
 
         return True
