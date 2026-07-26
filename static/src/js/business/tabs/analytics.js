@@ -1,75 +1,214 @@
-// static/src/js/business/analytics.js
+// static/src/js/business/tabs/analytics.js
+// Вкладка «Аналитика»: переключатель гранулярности (день/неделя/месяц/год) +
+// свой диапазон дат, данные — через JSON API /api/v1/business/my-salon/analytics.
 
 (function() {
-    const weekOperations = window.analyticsWeekOperations || [];
-    const days = window.analyticsDays || [];
+    const root = document.getElementById('tab-analytics');
+    if (!root) return;
 
-    let currentOpenDay = null;
+    const salonId = root.dataset.salonId;
+    let currentGranularity = 'day';
+    let currentOpenDate = null;
 
+    function formatMoney(n) {
+        return (n || 0).toLocaleString('ru-RU') + ' ₽';
+    }
+
+    function formatLabel(periodStart, granularity) {
+        const d = new Date(periodStart + 'T00:00:00');
+        if (granularity === 'day') return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
+        if (granularity === 'week') return 'с ' + d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
+        if (granularity === 'month') return d.toLocaleDateString('ru-RU', { month: 'short', year: '2-digit' });
+        return String(d.getFullYear());
+    }
+
+    async function loadAnalytics(granularity, dateFrom, dateTo) {
+        const params = new URLSearchParams({ salon_id: salonId, granularity });
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
+        const res = await fetch(`/api/v1/business/my-salon/analytics?${params}`);
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            throw new Error(d.detail || 'Не удалось загрузить аналитику');
+        }
+        return res.json();
+    }
+
+    function renderKpi(data) {
+        const kpi = document.getElementById('analyticsKpi');
+        const s = data.summary;
+        kpi.innerHTML = `
+            <div class="kpi-card">
+                <div class="kpi-label">Выручка за период</div>
+                <div class="kpi-value">${formatMoney(s.total_revenue)}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Средний чек</div>
+                <div class="kpi-value">${formatMoney(s.avg_check)}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Всего записей</div>
+                <div class="kpi-value">${s.total_bookings}</div>
+                <div class="kpi-trend" style="color:var(--color-muted)">c ${data.date_from} по ${data.date_to}</div>
+            </div>
+        `;
+    }
+
+    function renderChart(data) {
+        const chart = document.getElementById('analyticsChart');
+        chart.innerHTML = '';
+        chart.classList.toggle('chart-bar--dense', data.points.length > 14);
+
+        const maxRevenue = Math.max(...data.points.map(p => p.revenue), 1);
+        data.points.forEach(p => {
+            const height = Math.max(8, Math.round((p.revenue / maxRevenue) * 100));
+            const isHighest = p.revenue > 0 && p.revenue === maxRevenue;
+            const barColor = isHighest ? '#059669' : '#34d399';
+
+            const col = document.createElement('div');
+            col.className = 'chart-column';
+            col.title = `${formatLabel(p.period_start, data.granularity)}: ${formatMoney(p.revenue)}`;
+            col.innerHTML = `
+                <div class="chart-value">${formatMoney(p.revenue)}</div>
+                <div class="chart-fill ${isHighest ? 'highest' : ''}" style="height:${height}px;background:linear-gradient(to top, ${barColor}, ${barColor}cc)"></div>
+                <span class="chart-label">${formatLabel(p.period_start, data.granularity)}</span>
+            `;
+            if (data.granularity === 'day') {
+                col.style.cursor = 'pointer';
+                col.addEventListener('click', () => showDayDetails(p.period_start, p.revenue));
+            }
+            chart.appendChild(col);
+        });
+
+        const hint = document.getElementById('analyticsChartHint');
+        if (hint) {
+            hint.style.display = data.granularity === 'day' ? '' : 'none';
+        }
+    }
+
+    function renderTopServices(list) {
+        const tbody = document.getElementById('analyticsTopServices');
+        if (!list || !list.length) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:2rem;color:var(--color-muted)">Нет данных за период</td></tr>';
+            return;
+        }
+        tbody.innerHTML = list.map(s => `
+            <tr>
+                <td>${s.name}</td>
+                <td>${s.bookings}</td>
+                <td><strong>${formatMoney(s.revenue)}</strong></td>
+            </tr>
+        `).join('');
+    }
+
+    function applyData(data) {
+        currentGranularity = data.granularity;
+        document.getElementById('analyticsDateFrom').value = data.date_from;
+        document.getElementById('analyticsDateTo').value = data.date_to;
+        renderKpi(data);
+        renderChart(data);
+        renderTopServices(data.top_services);
+        closeDayDetails();
+    }
+
+    // Первая отрисовка — без запроса, сервер уже посчитал дефолт (по дням, 14 дней)
+    if (window.analyticsInitial) {
+        applyData(window.analyticsInitial);
+    }
+
+    document.querySelectorAll('.analytics-gran-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            document.querySelectorAll('.analytics-gran-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            this.disabled = true;
+            try {
+                const data = await loadAnalytics(this.dataset.granularity);
+                applyData(data);
+            } catch (e) {
+                alert(e.message || 'Ошибка сети');
+            }
+            this.disabled = false;
+        });
+    });
+
+    const applyBtn = document.getElementById('analyticsApplyRange');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', async function() {
+            const dateFrom = document.getElementById('analyticsDateFrom').value;
+            const dateTo = document.getElementById('analyticsDateTo').value;
+            if (!dateFrom || !dateTo) return;
+            this.disabled = true;
+            try {
+                const data = await loadAnalytics(currentGranularity, dateFrom, dateTo);
+                applyData(data);
+            } catch (e) {
+                alert(e.message || 'Ошибка сети');
+            }
+            this.disabled = false;
+        });
+    }
+
+    // ---- Аккордеон «детали дня» ----
     function closeDayDetails() {
         const accordion = document.getElementById('dayAccordion');
         if (accordion) accordion.style.display = 'none';
-        currentOpenDay = null;
+        currentOpenDate = null;
     }
 
-    window.showDayDetails = function(index, dayName, revenue, prevRevenue) {
+    async function showDayDetails(dateStr, revenue) {
         const accordion = document.getElementById('dayAccordion');
         const title = document.getElementById('accordionDayTitle');
         const summary = document.getElementById('accordionDaySummary');
         const container = document.getElementById('accordionDayOperations');
 
-        if (currentOpenDay === index && accordion.style.display !== 'none') {
+        if (currentOpenDate === dateStr && accordion.style.display !== 'none') {
             closeDayDetails();
             return;
         }
 
-        const ops = weekOperations[index] || [];
-        title.textContent = `Операции за ${dayName}`;
-        const totalOps = ops.length;
-        const paidCount = ops.filter(o => o.status === 'completed').length;
-        summary.textContent = `${totalOps} операций • ${revenue.toLocaleString()} ₽ • Оплачено: ${paidCount}/${totalOps}`;
-
+        currentOpenDate = dateStr;
+        title.textContent = 'Операции за ' + new Date(dateStr + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+        summary.textContent = 'Загрузка…';
         container.innerHTML = '';
-        if (totalOps === 0) {
-            container.innerHTML = '<p class="text-muted">Нет операций за этот день</p>';
-        } else {
-            ops.forEach(op => {
-                const time = new Date(op.start_time).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
-                const price = (op.final_price || op.service.price).toLocaleString();
+        accordion.style.display = 'block';
+        accordion.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        try {
+            const res = await fetch(`/api/v1/business/my-salon/analytics/day?salon_id=${salonId}&date=${dateStr}`);
+            if (!res.ok) throw new Error();
+            const data = await res.json();
+            const ops = data.operations || [];
+            const paidCount = ops.filter(o => o.status === 'completed').length;
+            summary.textContent = `${ops.length} операций • ${formatMoney(revenue)} • Оплачено: ${paidCount}/${ops.length}`;
+
+            if (!ops.length) {
+                container.innerHTML = '<p class="text-muted">Нет операций за этот день</p>';
+                return;
+            }
+            container.innerHTML = ops.map(op => {
+                const time = new Date(op.start_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                const price = (op.final_price || op.service.price).toLocaleString('ru-RU');
                 const statusLabel = op.status === 'completed' ? '✓' : '○';
                 const statusClass = op.status === 'completed' ? 'status-paid' : 'status-waiting';
                 const initials = op.client.full_name ? op.client.full_name.split(' ').map(n => n[0]).join('') : 'К';
-                const method = op.payment_method || 'Карта';
-
-                const item = document.createElement('div');
-                item.className = 'booking-item';
-                item.innerHTML = `
-                    <div class="avatar">${initials}</div>
-                    <div class="info">
-                        <div class="name">${op.client.full_name || op.client.phone}</div>
-                        <div class="desc">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                            ${time} • ${op.service.name}
+                return `
+                    <div class="booking-item">
+                        <div class="avatar">${initials}</div>
+                        <div class="info">
+                            <div class="name">${op.client.full_name || op.client.phone}</div>
+                            <div class="desc">${time} • ${op.service.name}</div>
                         </div>
-                    </div>
-                    <div class="price">${price} ₽</div>
-                    <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0">
-                        <span style="font-size:0.7rem;color:var(--color-muted)">${method}</span>
+                        <div class="price">${price} ₽</div>
                         <span class="status ${statusClass}">${statusLabel}</span>
                     </div>
                 `;
-                container.appendChild(item);
-            });
+            }).join('');
+        } catch (e) {
+            summary.textContent = '';
+            container.innerHTML = '<p class="text-muted">Не удалось загрузить операции</p>';
         }
+    }
 
-        accordion.style.display = 'block';
-        accordion.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        currentOpenDay = index;
-    };
-
-    window.closeDayDetails = closeDayDetails;
-
-    // Обработчик крестика через делегирование
     document.addEventListener('click', function(e) {
         const closeBtn = e.target.closest('.accordion-close');
         if (closeBtn) {

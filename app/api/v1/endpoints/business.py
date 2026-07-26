@@ -1,5 +1,6 @@
 # app/api/v1/endpoints/business.py
-from typing import Optional
+from datetime import date
+from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -25,6 +26,7 @@ from app.schemas.business import (
 from app.api.deps import (
     get_current_user, check_salon_permission, get_user_primary_salon_id, get_salon_membership,
 )
+from app.services.analytics_service import AnalyticsService
 
 router = APIRouter()
 
@@ -92,7 +94,9 @@ async def create_or_update_salon(
         except HTTPException:
             return HTMLResponse(content="Недостаточно прав для изменения салона", status_code=403)
 
-        salon = (await db.execute(select(Salon).where(Salon.id == resolved_id))).scalar_one()
+        salon = (await db.execute(select(Salon).where(Salon.id == resolved_id))).scalar_one_or_none()
+        if salon is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Салон не найден")
         salon.name = name
         salon.description = description
         salon.address = address
@@ -413,7 +417,7 @@ async def get_business_dashboard(
     db: AsyncSession = Depends(get_db)
 ):
     """Возвращает сводку для панели бизнеса."""
-    from app.models.models import Booking, BookingStatus
+    from app.models.models import Booking, BookingStatus, PAID_BOOKING_STATUSES
     from sqlalchemy import func as sql_func
     from datetime import datetime, timedelta
 
@@ -443,7 +447,7 @@ async def get_business_dashboard(
             select(sql_func.sum(Booking.final_price)).where(
                 Booking.master_id.in_([m.id for m in salon.masters]),
                 Booking.start_time >= month_start,
-                Booking.status == BookingStatus.COMPLETED
+                Booking.status.in_(PAID_BOOKING_STATUSES)
             )
         )
         revenue = revenue_month.scalar() or 0
@@ -456,6 +460,68 @@ async def get_business_dashboard(
         "rating": salon.rating,
         "reviews_count": salon.reviews_count
     }
+
+
+@router.get("/my-salon/analytics")
+async def get_salon_analytics(
+    salon_id: int,
+    granularity: Literal["day", "week", "month", "year"] = "day",
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Гранулярная аналитика выручки/записей салона (день/неделя/месяц/год,
+    произвольный период) для вкладки «Аналитика» и внешних интеграций.
+
+    Без date_from/date_to подставляется разумное окно по умолчанию под
+    гранулярность (см. AnalyticsService.default_range).
+    """
+    await check_salon_permission(db, current_user, salon_id, "view_finances")
+
+    default_from, default_to = AnalyticsService.default_range(granularity)
+    date_from = date_from or default_from
+    date_to = date_to or default_to
+
+    master_ids = await AnalyticsService.master_ids_for_salon(db, salon_id)
+    try:
+        points = await AnalyticsService.revenue_series(db, master_ids, granularity, date_from, date_to)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    top_services = await AnalyticsService.top_services(db, master_ids, date_from, date_to)
+
+    total_revenue = sum(p["revenue"] for p in points)
+    total_bookings = sum(p["bookings_total"] for p in points)
+    total_paid = sum(p["bookings_paid"] for p in points)
+
+    return {
+        "granularity": granularity,
+        "date_from": date_from.isoformat(),
+        "date_to": date_to.isoformat(),
+        "points": points,
+        "summary": {
+            "total_revenue": total_revenue,
+            "total_bookings": total_bookings,
+            "avg_check": (total_revenue // total_paid) if total_paid else 0,
+        },
+        "top_services": top_services,
+    }
+
+
+@router.get("/my-salon/analytics/day")
+async def get_salon_analytics_day(
+    salon_id: int,
+    date: date,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Список операций за один день — для аккордеона «детали дня» под графиком
+    аналитики (доступно при группировке по дням)."""
+    await check_salon_permission(db, current_user, salon_id, "view_finances")
+    master_ids = await AnalyticsService.master_ids_for_salon(db, salon_id)
+    operations = await AnalyticsService.day_operations(db, master_ids, date)
+    return {"date": date.isoformat(), "operations": operations}
 
 
 @router.get("/my-salon/bookings")
@@ -478,8 +544,11 @@ async def list_my_salon_bookings(
         return []
 
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    start = datetime.strptime(date_from, "%Y-%m-%d") if date_from else today - timedelta(days=30)
-    end = (datetime.strptime(date_to, "%Y-%m-%d") if date_to else today) + timedelta(days=1)
+    try:
+        start = datetime.strptime(date_from, "%Y-%m-%d") if date_from else today - timedelta(days=30)
+        end = (datetime.strptime(date_to, "%Y-%m-%d") if date_to else today) + timedelta(days=1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Формат даты: YYYY-MM-DD")
 
     query = (
         select(Booking, ServiceModel)
