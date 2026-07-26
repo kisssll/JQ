@@ -1,36 +1,60 @@
-/* static/src/css/tabs/schedule.css */
+/* static/src/css/business/tabs/schedule.css */
 
-.dashboard-page .schedule-calendar {
+/* ===== Общие стили для вкладки ===== */
+#tab-schedule .card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 1rem;
     padding: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
-/* Навигация по месяцам + селект мастера */
-.dashboard-page .schedule-month-nav {
+/* ===== Десктопная сетка ===== */
+.schedule-desktop-container {
+    display: block;
+}
+
+/* Навигация по неделям + селект мастера */
+.schedule-week-nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.5rem;
     margin-bottom: 1rem;
     flex-wrap: wrap;
     border-bottom: 1px solid var(--color-border);
     padding-bottom: 0.75rem;
 }
 
-.dashboard-page .schedule-month-buttons {
-    display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
+.schedule-week-nav .schedule-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    background: var(--color-surface-alt);
+    color: var(--color-heading);
+    text-decoration: none;
+    transition: background 0.2s;
 }
-
-.dashboard-page .schedule-month-nav .schedule-master-select {
+.schedule-week-nav .schedule-nav-btn:hover {
+    background: var(--color-primary);
+    color: white;
+}
+.schedule-week-nav .schedule-nav-btn svg {
+    width: 1.2rem;
+    height: 1.2rem;
+}
+.schedule-week-label {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-heading);
+}
+.schedule-master-select {
     flex-shrink: 0;
-    margin-left: auto;
 }
-
-.dashboard-page .schedule-month-nav .schedule-master-select select {
+.schedule-master-select select {
     padding: 0.4rem 0.75rem;
     border: 1px solid var(--color-border);
     border-radius: 2rem;
@@ -41,87 +65,39 @@
     outline: none;
     min-width: 160px;
 }
-
-.dashboard-page .schedule-month-nav .schedule-master-select select:focus {
+.schedule-master-select select:focus {
     border-color: var(--color-primary);
 }
 
-.dashboard-page .schedule-month-btn,
-.dashboard-page .schedule-week-btn {
-    border: 1px solid var(--color-border);
-    background: white;
-    color: var(--color-heading);
-    padding: 0.4rem 0.9rem;
-    border-radius: 2rem;
-    font-size: 0.8rem;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
-}
-
-.dashboard-page .schedule-month-btn:hover,
-.dashboard-page .schedule-week-btn:hover {
-    background: var(--color-surface-alt);
-}
-
-.dashboard-page .schedule-month-btn.active,
-.dashboard-page .schedule-week-btn.active {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: white;
-}
-
-.dashboard-page .schedule-month-panel,
-.dashboard-page .schedule-week-panel {
-    display: none;
-}
-
-.dashboard-page .schedule-month-panel.active,
-.dashboard-page .schedule-week-panel.active {
-    display: block;
-}
-
-.dashboard-page .schedule-week-tabs {
-    display: flex;
-    gap: 0.4rem;
-    margin-bottom: 0.75rem;
-    flex-wrap: wrap;
-}
-
-/* ===== Таблица расписания ===== */
-.dashboard-page .schedule-grid table {
+/* Таблица расписания */
+.schedule-grid table {
     border-collapse: collapse;
     width: 100%;
 }
-
-.dashboard-page .schedule-grid th,
-.dashboard-page .schedule-grid td {
+.schedule-grid th,
+.schedule-grid td {
     border-bottom: 1px solid var(--color-border);
-    border-right: 1px solid var(--color-border); /* вертикальные линии между днями */
+    border-right: 1px solid var(--color-border);
     padding: 0.2rem;
     vertical-align: top;
 }
-
-.dashboard-page .schedule-grid th:last-child,
-.dashboard-page .schedule-grid td:last-child {
+.schedule-grid th:last-child,
+.schedule-grid td:last-child {
     border-right: none;
 }
-
-.dashboard-page .schedule-grid th {
+.schedule-grid th {
     text-align: center;
     font-size: 0.75rem;
     padding: 0.4rem;
     min-width: 110px;
     border-bottom: 2px solid var(--color-border);
 }
-
-.dashboard-page .schedule-grid td {
+.schedule-grid td {
     padding: 0.2rem;
     vertical-align: top;
     min-width: 100px;
 }
-
-.dashboard-page .schedule-grid .time-label {
+.schedule-grid .time-label {
     font-size: 0.75rem;
     color: var(--color-muted);
     padding: 0.3rem 0.5rem;
@@ -130,21 +106,31 @@
     text-align: right;
     font-weight: 500;
 }
+.schedule-grid .closed-label {
+    font-size: 0.65rem;
+    color: #ef4444;
+    margin-top: 0.2rem;
+}
+.schedule-grid .past-day-cell {
+    background: repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 6px, #fafafa 6px, #fafafa 12px) !important;
+}
 
-/* ===== Раскрывающиеся карточки записей ===== */
-.dashboard-page .schedule-booking-wrapper {
+/* Раскрывающиеся карточки записей (десктоп) */
+.schedule-booking-wrapper {
     margin-bottom: 0.15rem;
     border-radius: 0.25rem;
     background: #dcfce7;
     overflow: hidden;
     transition: background 0.2s;
 }
-
-.dashboard-page .schedule-booking-wrapper.pending {
+.schedule-booking-wrapper.pending {
     background: #fef9c3;
 }
+.schedule-booking-wrapper.past-day {
+    opacity: 0.7;
+}
 
-.dashboard-page .schedule-booking-header {
+.schedule-booking-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -154,42 +140,36 @@
     gap: 0.3rem;
     user-select: none;
 }
-
-.dashboard-page .schedule-booking-header .booking-time {
+.schedule-booking-header .booking-time {
     font-weight: 600;
     white-space: nowrap;
     min-width: 3.5rem;
 }
-
-.dashboard-page .schedule-booking-header .booking-service {
+.schedule-booking-header .booking-service {
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--color-heading);
 }
-
-.dashboard-page .schedule-booking-header .booking-client {
+.schedule-booking-header .booking-client {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 6rem;
     color: var(--color-muted);
 }
-
-.dashboard-page .schedule-booking-header .booking-arrow {
+.schedule-booking-header .booking-arrow {
     font-size: 0.5rem;
     transition: transform 0.2s ease;
     flex-shrink: 0;
     margin-left: 0.2rem;
 }
-
-.dashboard-page .schedule-booking-header.open .booking-arrow {
+.schedule-booking-header.open .booking-arrow {
     transform: rotate(180deg);
 }
 
-/* Детали карточки */
-.dashboard-page .schedule-booking-details {
+.schedule-booking-details {
     display: none;
     padding: 0.3rem 0.4rem 0.4rem;
     border-top: 1px solid rgba(0,0,0,0.05);
@@ -197,43 +177,35 @@
     font-size: 0.7rem;
     line-height: 1.5;
 }
-
-.dashboard-page .schedule-booking-wrapper.open .schedule-booking-details {
+.schedule-booking-wrapper.open .schedule-booking-details {
     display: block;
 }
-
-.dashboard-page .schedule-booking-details .detail-row {
+.schedule-booking-details .detail-row {
     display: flex;
     justify-content: space-between;
     padding: 0.1rem 0;
 }
-
-.dashboard-page .schedule-booking-details .detail-label {
+.schedule-booking-details .detail-label {
     color: var(--color-muted);
     font-weight: 500;
 }
-
-.dashboard-page .schedule-booking-details .detail-value {
+.schedule-booking-details .detail-value {
     color: var(--color-heading);
     font-weight: 500;
 }
-
-.dashboard-page .schedule-booking-details .detail-value.status-pending {
+.schedule-booking-details .detail-value.status-pending {
     color: #f59e0b;
 }
-
-.dashboard-page .schedule-booking-details .detail-value.status-confirmed {
+.schedule-booking-details .detail-value.status-confirmed {
     color: #22c55e;
 }
-
-.dashboard-page .schedule-booking-details .detail-actions {
+.schedule-booking-details .detail-actions {
     display: flex;
     gap: 0.3rem;
     margin-top: 0.3rem;
     flex-wrap: wrap;
 }
-
-.dashboard-page .schedule-booking-details .detail-actions button {
+.schedule-booking-details .detail-actions button {
     border: none;
     border-radius: 0.2rem;
     font-size: 0.6rem;
@@ -243,18 +215,16 @@
     align-items: center;
     gap: 0.15rem;
 }
-
-.dashboard-page .schedule-booking-details .detail-actions .complete-btn {
+.schedule-booking-details .detail-actions .complete-btn {
     background: #22c55e;
     color: white;
 }
-
-.dashboard-page .schedule-booking-details .detail-actions .no-show-btn {
+.schedule-booking-details .detail-actions .no-show-btn {
     background: #ef4444;
     color: white;
 }
 
-.dashboard-page .schedule-booking .seen-btn {
+.schedule-booking .seen-btn {
     display: block;
     margin-top: 0.15rem;
     border: none;
@@ -265,23 +235,15 @@
     padding: 0.1rem 0.25rem;
     cursor: pointer;
 }
-
-.dashboard-page .schedule-booking .seen-indicator {
+.schedule-booking .seen-indicator {
     display: block;
     margin-top: 0.15rem;
     font-size: 0.6rem;
     color: #16a34a;
 }
 
-.dashboard-page .schedule-booking .info-hint {
-    width: 0.9rem;
-    height: 0.9rem;
-    margin-left: 0;
-    margin-top: 0.15rem;
-    font-size: 0.6rem;
-}
-
-.dashboard-page .schedule-legend {
+/* Легенда */
+.schedule-legend {
     display: flex;
     gap: 1rem;
     margin-top: 0.75rem;
@@ -289,29 +251,28 @@
     color: var(--color-muted);
     flex-wrap: wrap;
 }
-
-.dashboard-page .schedule-legend .dot {
+.schedule-legend .dot {
     display: inline-block;
     width: 12px;
     height: 12px;
     border-radius: 2px;
     margin-right: 0.25rem;
 }
-
-.dashboard-page .schedule-legend .dot.confirmed {
+.schedule-legend .dot.confirmed {
     background: #dcfce7;
 }
-
-.dashboard-page .schedule-legend .dot.pending {
+.schedule-legend .dot.pending {
     background: #fef9c3;
 }
-
-.dashboard-page .schedule-legend .dot.closed {
+.schedule-legend .dot.closed {
     background: repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 3px, #fafafa 3px, #fafafa 6px);
+}
+.schedule-legend .dot.past {
+    background: repeating-linear-gradient(45deg, #e5e7eb, #e5e7eb 3px, #f9fafb 3px, #f9fafb 6px);
 }
 
 /* Модалки */
-.dashboard-page .schedule-modal-overlay {
+.schedule-modal-overlay {
     display: none;
     position: fixed;
     top: 0;
@@ -323,12 +284,10 @@
     align-items: center;
     justify-content: center;
 }
-
-.dashboard-page .schedule-modal-overlay.active {
+.schedule-modal-overlay.active {
     display: flex;
 }
-
-.dashboard-page .schedule-modal-box {
+.schedule-modal-box {
     background: white;
     border-radius: 1rem;
     padding: 2rem;
@@ -338,8 +297,7 @@
     max-height: 90vh;
     overflow-y: auto;
 }
-
-.dashboard-page .schedule-modal-close {
+.schedule-modal-close {
     position: absolute;
     top: 1rem;
     right: 1rem;
@@ -349,23 +307,39 @@
     cursor: pointer;
     color: var(--color-muted);
 }
-
-.dashboard-page .schedule-modal-close:hover {
+.schedule-modal-close:hover {
     color: var(--color-heading);
 }
-
-.dashboard-page .schedule-closures {
-    margin-top: 1.5rem;
+.schedule-modal-box h2 {
+    margin-bottom: 1.5rem;
+}
+.schedule-modal-box > div {
+    margin-bottom: 1rem;
+}
+.schedule-modal-box label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+.schedule-modal-box input,
+.schedule-modal-box select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
 }
 
-.dashboard-page .schedule-closures-header {
+/* Закрытые даты */
+.schedule-closures {
+    margin-top: 1.5rem;
+}
+.schedule-closures-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
 }
-
-.dashboard-page .schedule-closures-header h3 {
+.schedule-closures-header h3 {
     font-size: 1rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -373,8 +347,7 @@
     align-items: center;
     gap: 0.5rem;
 }
-
-.dashboard-page .schedule-closures-list .closure-item {
+.schedule-closures-list .closure-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -382,46 +355,152 @@
     border-bottom: 1px solid var(--color-border);
     font-size: 0.85rem;
 }
-
-.dashboard-page .schedule-closures-list .closure-item:last-child {
+.schedule-closures-list .closure-item:last-child {
     border-bottom: none;
 }
-/* ===== Индивидуальный график работы мастера ===== */
-.dashboard-page .mschedule { margin-top: 1rem; padding: 1.25rem; }
-.dashboard-page .mschedule-header {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap;
-}
-.dashboard-page .mschedule-header h3 {
-    display: flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 1rem;
-}
-.dashboard-page .mschedule-list {
-    display: grid; grid-template-columns: 1fr; gap: 0.35rem;
-}
-.dashboard-page .mschedule-row {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0.4rem 0.6rem; border-radius: 0.5rem; background: var(--color-surface-2, #f6f6f8);
-}
-.dashboard-page .mschedule-day { min-width: 2.2rem; font-weight: 600; color: var(--color-text, #222); }
-.dashboard-page .mschedule-val { font-size: 0.9rem; }
 
-/* Модалка редактора */
-.dashboard-page .mschedule-edit-box { max-width: 520px; }
-.dashboard-page .mschedule-edit-days { display: flex; flex-direction: column; gap: 0.85rem; }
-.dashboard-page .mschedule-edit-day {
-    border: 1px solid var(--color-border, #e5e5ea); border-radius: 0.6rem; padding: 0.6rem 0.75rem;
+.schedule-closures-list .btn-outline {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
 }
-.dashboard-page .mschedule-edit-day-head {
-    display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;
+
+/* ===== Мобильная версия ===== */
+.schedule-mobile-container {
+    display: none;
 }
-.dashboard-page .mschedule-edit-rows { display: flex; flex-direction: column; gap: 0.4rem; }
-.dashboard-page .mschedule-edit-row { display: flex; align-items: center; gap: 0.5rem; }
-.dashboard-page .mschedule-edit-row input[type="time"] {
-    flex: 1; padding: 0.4rem 0.5rem; border: 1px solid var(--color-border, #e5e5ea); border-radius: 0.45rem;
+
+/* Навигация */
+.schedule-mobile-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.6rem 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
-.dashboard-page .mschedule-edit-dash { color: var(--color-muted, #888); }
-.dashboard-page .mschedule-edit-del {
-    background: none; border: none; cursor: pointer; font-size: 1.25rem; line-height: 1;
-    color: var(--color-muted, #999); padding: 0 0.25rem;
+.schedule-mobile-nav .schedule-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    background: var(--color-surface-alt);
+    color: var(--color-heading);
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.9rem;
 }
-.dashboard-page .mschedule-edit-del:hover { color: var(--color-danger, #e5484d); }
+.schedule-mobile-nav .schedule-nav-btn:hover {
+    background: var(--color-primary);
+    color: white;
+}
+.schedule-mobile-nav .schedule-nav-btn.schedule-today-btn {
+    width: auto;
+    padding: 0 0.8rem;
+    border-radius: 2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--color-primary);
+    color: white;
+}
+.schedule-mobile-nav .schedule-nav-btn.schedule-today-btn:hover {
+    background: var(--color-accent-hover);
+}
+.schedule-nav-date {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-heading);
+}
+
+/* Список карточек */
+.schedule-mobile-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.schedule-mobile-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.schedule-mobile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+.schedule-mobile-time {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-heading);
+}
+.schedule-mobile-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.9rem;
+    color: var(--color-body);
+}
+.schedule-mobile-detail {
+    color: var(--color-muted);
+    font-size: 0.85rem;
+}
+.schedule-mobile-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+.schedule-mobile-actions .btn-action {
+    padding: 0.3rem 0.9rem;
+    border: 2px solid;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    transition: transform 0.15s, background 0.15s, color 0.15s;
+}
+.schedule-mobile-actions .btn-action:hover {
+    transform: scale(1.05);
+}
+.schedule-mobile-actions .btn-action-success {
+    border-color: #22c55e;
+    color: #22c55e;
+}
+.schedule-mobile-actions .btn-action-success:hover {
+    background: #dcfce7;
+    color: #166534;
+}
+.schedule-mobile-actions .btn-action-danger {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+.schedule-mobile-actions .btn-action-danger:hover {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.schedule-mobile-empty {
+    text-align: center;
+    padding: 2rem 0;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+}
+
+/* Адаптив: на мобилках показываем мобильный блок, скрываем десктоп */
+@media (max-width: 768px) {
+    .schedule-mobile-container {
+        display: block;
+    }
+    .schedule-desktop-container {
+        display: none;
+    }
+}
