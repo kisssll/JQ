@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from app.models.models import Master, Service, User as UserModel, Booking, BookingStatus
+from app.models.models import Master, Service, User as UserModel, Booking, BookingStatus, PAID_BOOKING_STATUSES
 
 
 async def get_masters_data(db: AsyncSession, salon_id: int):
@@ -70,7 +70,7 @@ async def get_overview_revenue_data(db: AsyncSession, master_ids: list) -> dict:
                     Booking.master_id.in_(master_ids),
                     Booking.start_time >= day,
                     Booking.start_time < day_end,
-                    Booking.status.in_([BookingStatus.CONFIRMED, BookingStatus.COMPLETED])
+                    Booking.status.in_(PAID_BOOKING_STATUSES)
                 )
             )
             revenue_data[i] = rev.scalar() or 0
@@ -103,7 +103,7 @@ async def get_overview_revenue_data(db: AsyncSession, master_ids: list) -> dict:
                     Booking.master_id.in_(master_ids),
                     Booking.start_time >= prev_day,
                     Booking.start_time < prev_day_end,
-                    Booking.status.in_([BookingStatus.CONFIRMED, BookingStatus.COMPLETED])
+                    Booking.status.in_(PAID_BOOKING_STATUSES)
                 )
             )
             prev_revenue_data[i] = prev_rev.scalar() or 0

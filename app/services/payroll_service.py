@@ -10,8 +10,8 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import (
-    Booking, BookingStatus, MasterPayrollSettings, PayrollAdjustment,
-    InventoryMovement, InventoryMovementType, InventoryItem,
+    Booking, MasterPayrollSettings, PayrollAdjustment,
+    InventoryMovement, InventoryMovementType, InventoryItem, PAID_BOOKING_STATUSES,
 )
 
 
@@ -47,7 +47,7 @@ class PayrollService:
             select(func.coalesce(func.sum(Booking.final_price), 0)).where(
                 Booking.master_id == master_id,
                 Booking.start_time >= start, Booking.start_time < end,
-                Booking.status == BookingStatus.COMPLETED,
+                Booking.status.in_(PAID_BOOKING_STATUSES),
             )
         )
         revenue = revenue_result.scalar() or 0
