@@ -235,13 +235,16 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     border-color: var(--color-primary);
 }
 
-.flatpickr-calendar .flatpickr-day.disabled {
-    color: var(--color-muted);
-    cursor: default;
-    opacity: 0.5;
-}
+.flatpickr-calendar .flatpickr-day.disabled,
 .flatpickr-calendar .flatpickr-day.flatpickr-disabled {
-    color: var(--color-muted);
+    opacity: 0.5;
+    background: #f3f4f6 !important;
+    color: #9ca3af !important;
+    cursor: not-allowed;
+}
+.flatpickr-calendar .flatpickr-day.disabled:hover,
+.flatpickr-calendar .flatpickr-day.flatpickr-disabled:hover {
+    background: #f3f4f6 !important;
 }
 
 .flatpickr-calendar .flatpickr-time {

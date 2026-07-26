@@ -21,7 +21,6 @@ from app.web.components.icons import (
     ICON_CHART_COLUMN,
     ICON_HEART,
     ICON_CALENDAR_DAYS,
-    # ICON_MESSAGE_CIRCLE,  # закомментирован
     ICON_STAR_FILLED,
     ICON_USER_CHECK,
     ICON_SPARKLES,
@@ -69,9 +68,7 @@ async def render_dashboard_tab(
     db: AsyncSession, user, salon: Salon, membership: SalonMember,
     perms: dict, masters, master_ids, tab_name: str, query_params: dict,
 ) -> str:
-    """Рендер ОДНОЙ вкладки бизнес-панели. Каждая вкладка сама грузит только
-    свои данные — так при ленивой (по-вкладочной) загрузке мы не платим за
-    остальные 13 вкладок. Возвращает '' для скрытой/неизвестной вкладки."""
+    """Рендер ОДНОЙ вкладки бизнес-панели."""
     qp = query_params
 
     if tab_name == "overview":
@@ -92,8 +89,18 @@ async def render_dashboard_tab(
         return await render_analytics_tab(db, salon, master_ids) if perms["view_finances"] else ""
 
     if tab_name == "schedule":
+        # Передаём параметр schedule_date из query_params
+        date_str = qp.get("date")
+        schedule_date = None
+        if date_str:
+            try:
+                schedule_date = datetime.fromisoformat(date_str).date()
+            except ValueError:
+                pass
         return await render_schedule_tab(
-            db, salon, masters, perms["manage_schedule"], _int_or_none(qp.get("schedule_master_id")),
+            db, salon, masters, perms["manage_schedule"],
+            _int_or_none(qp.get("schedule_master_id")),
+            schedule_date=schedule_date,
         )
 
     if tab_name == "employees":
@@ -153,12 +160,10 @@ async def render_dashboard_tab(
 
 
 async def render_business_dashboard(db: AsyncSession, user, salon: Salon, membership: SalonMember, query_params=None) -> str:
-    """Бизнес-панель. Ленивая загрузка по вкладкам: сервер рендерит только
-    активную вкладку (?tab=…), остальные подгружаются полной навигацией по
-    клику. Раньше на каждый заход строились все 14 вкладок (~9с) — теперь одна."""
-
+    """Бизнес-панель. Поддержка параметра partial=1 для AJAX-подгрузки вкладок."""
     query_params = query_params or {}
     active_tab = query_params.get("tab", "overview")
+    partial = query_params.get("partial") == "1"
 
     perms = _compute_perms(membership)
 
@@ -174,7 +179,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     masters, masters_rows = await get_masters_data(db, salon.id)
     master_ids = get_master_ids(masters)
 
-    # Счётчики для меток вкладок — дешёвым COUNT, без загрузки самих списков
+    # Счётчики для меток вкладок
     promos_count = (await db.execute(
         select(func.count(Promotion.id)).where(Promotion.salon_id == salon.id)
     )).scalar() or 0
@@ -203,8 +208,6 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     if active_tab not in visible_slugs:
         active_tab = "overview"
 
-    # Ссылку на вкладку строим с сохранением салона (свитчер) — переключение
-    # вкладки = полная навигация на /business/dashboard?tab=…
     def _tab_href(slug: str) -> str:
         return f"/business/dashboard?salon_id={salon.id}&tab={slug}"
 
@@ -226,6 +229,10 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     pattern = re.compile(f'(id="tab-{active_tab}" class="tab-content)([^"]*)"')
     tabs_body_html = pattern.sub(r'\1\2 active"', active_body)
 
+    # Если запрос partial — возвращаем только содержимое вкладки (без обёртки)
+    if partial:
+        return tabs_body_html
+
     switcher_html = ""
     if len(other_memberships) > 1:
         options = "".join(
@@ -236,6 +243,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         <select class="salon-switcher" onchange="window.location.href='/business/dashboard?salon_id=' + this.value">
             {options}
         </select>"""
+
 
     # Ссылка «Добавить салон» — только для настоящих владельцев (создателей
     # своих салонов), чтобы не путать нанятых сотрудников: у них тоже есть
@@ -293,14 +301,11 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     {render_sidebar("business_dashboard", user)}
     <main style="margin-right:0;padding-top:0">
         {header_html}
-
         <div class="section-container" style="padding-top: 0;">{moderation_banner}</div>
-
         <div class="section-container" style="padding-top: 1.5rem;">
             <div class="tab-nav">
                 {nav_buttons_html}
             </div>
-
             {tabs_body_html}
         </div>
     </main>

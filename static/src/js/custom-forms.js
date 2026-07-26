@@ -17,31 +17,35 @@ document.querySelectorAll('select.custom-select').forEach(el => {
 });
 
 // Инициализация date/time/month инпутов с классом .custom-date
-document.querySelectorAll('input.custom-date[type="date"]').forEach(el => {
-    flatpickr(el, {
-        dateFormat: 'Y-m-d',
+document.querySelectorAll('input.custom-date').forEach(el => {
+    // Для скрытых полей (picker) — настраиваем отдельно
+    const isPicker = el.id === 'datePickerInput' || el.id === 'weekPickerInput';
+    const config = {
+        dateFormat: el.type === 'date' ? 'Y-m-d' : (el.type === 'month' ? 'Y-m' : 'H:i'),
         locale: 'ru',
         allowInput: true,
         disableMobile: true,
-    });
-});
-
-document.querySelectorAll('input.custom-date[type="month"]').forEach(el => {
-    flatpickr(el, {
-        dateFormat: 'Y-m',
-        locale: 'ru',
-        allowInput: true,
-        disableMobile: true,
-    });
-});
-
-document.querySelectorAll('input.custom-date[type="time"]').forEach(el => {
-    flatpickr(el, {
-        enableTime: true,
-        noCalendar: true,
-        dateFormat: 'H:i',
-        time_24hr: true,
-        allowInput: true,
-        disableMobile: true,
-    });
+    };
+    if (el.type === 'time') {
+        config.enableTime = true;
+        config.noCalendar = true;
+        config.time_24hr = true;
+        config.dateFormat = 'H:i';
+    }
+    if (el.type === 'date') {
+        config.dateFormat = 'Y-m-d';
+    }
+    if (el.type === 'month') {
+        config.dateFormat = 'Y-m';
+    }
+    // Для пикеров добавляем отключение прошедших дат
+    if (isPicker) {
+        config.disable = [
+            {
+                from: '2020-01-01',
+                to: new Date(new Date().setDate(new Date().getDate() - 1))
+            }
+        ];
+    }
+    flatpickr(el, config);
 });
