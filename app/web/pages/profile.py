@@ -59,7 +59,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
 
     # Общие данные
     name = user.full_name or "Пользователь"
-    phone = user.phone or ""
+    phone = user.phone or "+7"
     email = user.email or ""
     city = getattr(user, "city", "") or "Не указан"
     avatar_url = user.avatar_url or ""

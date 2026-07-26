@@ -35,7 +35,7 @@ def render_login_page(request: Request) -> str:
     """Страница входа."""
     q = request.query_params
     redirect = html.escape(q.get("redirect", "/"), quote=True)
-    phone = html.escape(q.get("phone", ""), quote=True)
+    phone = html.escape(q.get("phone") or "+7", quote=True)
     errors = {
         "1": "Неверный телефон или пароль",
         "locked": "Слишком много попыток входа. Попробуйте через 15 минут.",

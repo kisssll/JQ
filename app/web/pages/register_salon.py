@@ -46,7 +46,7 @@ def render_register_salon_page(user=None, error: str = "") -> str:
                     <input type="text" name="address" required placeholder="Город, улица, дом" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem;">
                     
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Телефон *</label>
-                    <input type="tel" name="phone" required placeholder="+7XXXXXXXXXX" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem;">
+                    <input type="tel" name="phone" value="+7" required placeholder="+7XXXXXXXXXX" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem;">
 
                     <label style="display: flex; gap: 0.6rem; align-items: flex-start; margin-bottom: 1.5rem; font-size: 0.85rem; cursor: pointer;" class="text-muted">
                         <input type="checkbox" name="offer_accepted" value="1" required style="margin-top: 0.2rem; flex-shrink: 0;">

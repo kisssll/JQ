@@ -117,7 +117,7 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                                 </div>
                                 <div>
                                     <label class="form-label">Телефон *</label>
-                                    <input type="tel" id="cx-phone" placeholder="+7 (999) 123-45-67" class="form-input phone-input" required>
+                                    <input type="tel" id="cx-phone" value="+7" placeholder="+7 (999) 123-45-67" class="form-input phone-input" required>
                                 </div>
                                 <div>
                                     <label class="form-label">Email</label>

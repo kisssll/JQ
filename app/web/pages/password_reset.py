@@ -48,7 +48,7 @@ def render_forgot_password_page(request: Request) -> str:
         <form action="/api/v1/auth/forgot-password" method="post">
             <div class="form-group">
                 <label for="phone">Телефон</label>
-                <input type="tel" id="phone" name="phone" placeholder="+7 (___) ___-__-__" class="phone-input" required>
+                <input type="tel" id="phone" name="phone" value="+7" placeholder="+7 (___) ___-__-__" class="phone-input" required>
             </div>
             <button type="submit" class="btn-primary auth-btn">Отправить ссылку</button>
         </form>"""

@@ -171,7 +171,7 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
                 <div class="gb-field"><label>Имя *</label>
                     <input type="text" id="gb-name" class="gb-input" autocomplete="name" required></div>
                 <div class="gb-field"><label>Телефон *</label>
-                    <input type="tel" id="gb-phone" class="gb-input phone-input" placeholder="+7 (___) ___-__-__" required></div>
+                    <input type="tel" id="gb-phone" class="gb-input phone-input" value="+7" placeholder="+7 (___) ___-__-__" required></div>
                 <div class="gb-field"><label>Email — для уведомлений, необязательно</label>
                     <input type="email" id="gb-email" class="gb-input" autocomplete="email" placeholder="example@mail.ru"></div>
                 <p id="gb-error" class="gb-error"></p>

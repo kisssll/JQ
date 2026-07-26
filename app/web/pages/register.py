@@ -50,7 +50,7 @@ def _messenger_verify_block(tg: bool, max_: bool) -> str:
 def render_register_page(request: Request) -> str:
     """Страница регистрации."""
     q = request.query_params
-    phone = html.escape(q.get("phone", ""), quote=True)
+    phone = html.escape(q.get("phone") or "+7", quote=True)
     full_name = html.escape(q.get("full_name", ""), quote=True)
     errors = {
         "phone_exists": "Пользователь с таким телефоном уже зарегистрирован",

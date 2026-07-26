@@ -19,7 +19,7 @@ from app.web.components.icons import (
 def render_settings_page(user=None) -> str:
     """Страница настроек."""
     
-    phone = user.phone if user else ""
+    phone = (user.phone if user else "") or "+7"
     email = user.email if user else ""
     city = getattr(user, 'city', "") if user else ""
 
