@@ -21,6 +21,12 @@ _ERROR_MESSAGES = {
     "member_exists": "Этот пользователь уже участник салона.",
 }
 
+ROLE_LABELS = {
+    SalonRole.OWNER: "Владелец",
+    SalonRole.MANAGER: "Управляющий",
+    SalonRole.ADMIN: "Админ",
+}
+
 PERMISSION_LABELS = {
     "manage_salon": "Настройки салона",
     "manage_owners": "Совладельцы",
@@ -83,28 +89,35 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
 
         staff_rows = ""
         for member, u in members:
-            role_label = "Владелец" if member.role == SalonRole.OWNER else "Админ"
+            role_label = ROLE_LABELS.get(member.role, "Админ")
             creator_badge = ' <span class="creator-badge">(создатель)</span>' if member.is_creator else ""
             perms_summary = ", ".join(
                 PERMISSION_LABELS[k] for k in SALON_PERMISSION_KEYS
                 if (member.is_creator or member.permissions.get(k, False))
             ) or "—"
 
-            can_edit_this = (not member.is_creator) and (
-                (member.role == SalonRole.OWNER and can_manage_owners) or
-                (member.role == SalonRole.ADMIN and can_manage_admins)
-            )
+            is_self = user.id == member.user_id
+            if member.role == SalonRole.MANAGER:
+                # Управляющего может редактировать/снять только создатель салона;
+                # снять (но не редактировать права) может также сам управляющий.
+                can_edit_perms_this = (not member.is_creator) and is_creator
+                can_remove_this = (not member.is_creator) and (is_creator or is_self)
+            else:
+                can_edit_perms_this = (not member.is_creator) and (
+                    (member.role == SalonRole.OWNER and can_manage_owners) or
+                    (member.role == SalonRole.ADMIN and can_manage_admins)
+                )
+                can_remove_this = can_edit_perms_this
 
             member_name = (u.full_name or u.phone).replace("'", "").replace('"', "")
             effective_perms = {k: (member.is_creator or member.permissions.get(k, False)) for k in SALON_PERMISSION_KEYS}
             perms_json = json.dumps(effective_perms)
 
             actions = ""
-            if can_edit_this:
-                actions = f"""
-                <button class="action-btn edit-btn" onclick='openPermissionsModal({member.id}, "{member_name}", {perms_json})' title="Права">{ICON_EDIT}</button>
-                <button class="action-btn delete-btn" onclick="removeMember({member.id}, '{member_name}')" title="Снять">{ICON_TRASH}</button>
-                """
+            if can_edit_perms_this:
+                actions += f"""<button class="action-btn edit-btn" onclick='openPermissionsModal({member.id}, "{member_name}", {perms_json})' title="Права">{ICON_EDIT}</button>"""
+            if can_remove_this:
+                actions += f"""<button class="action-btn delete-btn" onclick="removeMember({member.id}, '{member_name}')" title="Снять">{ICON_TRASH}</button>"""
 
             staff_rows += f"""
             <tr>
@@ -129,6 +142,11 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             role_options = ""
             if can_manage_owners:
                 role_options += '<option value="owner">Владелец</option>'
+            if is_creator:
+                # Управляющего назначает только создатель салона — обычному
+                # совладельцу с правом manage_owners эта опция не предлагается,
+                # чтобы не показывать пункт, который на бэкенде всё равно 403.
+                role_options += '<option value="manager">Управляющий</option>'
             if can_manage_admins:
                 role_options += '<option value="admin">Админ</option>'
             invite_btn = f"""
@@ -147,7 +165,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
                     <input type="hidden" name="salon_id" value="{salon.id}">
                     <div class="form-group">
                         <label for="invitePhone">Телефон *</label>
-                        <input type="tel" id="invitePhone" name="phone" required placeholder="+7XXXXXXXXXX">
+                        <input type="tel" id="invitePhone" name="phone" value="+7" required placeholder="+7XXXXXXXXXX">
                     </div>
                     <div class="form-group">
                         <label for="inviteName">Имя (если новый пользователь)</label>
@@ -306,7 +324,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
                 </div>
                 <div class="form-group">
                     <label for="employeePhone">Телефон *</label>
-                    <input type="tel" name="phone" id="employeePhone" required placeholder="+7XXXXXXXXXX">
+                    <input type="tel" name="phone" id="employeePhone" value="+7" required placeholder="+7XXXXXXXXXX">
                 </div>
                 <div class="form-group">
                     <label for="employeeSpec">Специализация *</label>

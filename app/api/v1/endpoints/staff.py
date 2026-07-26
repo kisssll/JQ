@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.models.models import (
     User, SalonMember, SalonRole, AdminAudit,
-    SALON_PERMISSION_KEYS, OWNER_DEFAULT_PERMISSIONS, ADMIN_DEFAULT_PERMISSIONS,
+    SALON_PERMISSION_KEYS, OWNER_DEFAULT_PERMISSIONS, MANAGER_DEFAULT_PERMISSIONS, ADMIN_DEFAULT_PERMISSIONS,
 )
 from app.schemas.salon_member import SalonMemberResponse, UpdatePermissionsRequest
 from app.schemas.user import try_normalize_phone
@@ -23,6 +23,35 @@ router = APIRouter()
 
 def _filter_permissions(overrides: dict) -> dict:
     return {k: bool(v) for k, v in overrides.items() if k in SALON_PERMISSION_KEYS}
+
+
+# Право, которым должен обладать нанимающий/снимающий, в зависимости от роли
+# ЦЕЛИ. Управляющего гейтим тем же правом, что и совладельца (manage_owners),
+# но для него это только необходимое условие — назначить/снять/поменять
+# права управляющего может дополнительно только сам создатель салона
+# (см. _require_creator_for_manager ниже), а не любой co-owner с этим правом.
+_ROLE_HIRE_PERMISSION = {
+    SalonRole.OWNER: "manage_owners",
+    SalonRole.MANAGER: "manage_owners",
+    SalonRole.ADMIN: "manage_admins",
+}
+_ROLE_DEFAULT_PERMISSIONS = {
+    SalonRole.OWNER: OWNER_DEFAULT_PERMISSIONS,
+    SalonRole.MANAGER: MANAGER_DEFAULT_PERMISSIONS,
+    SalonRole.ADMIN: ADMIN_DEFAULT_PERMISSIONS,
+}
+
+
+def _require_creator_for_manager(membership: SalonMember | None) -> None:
+    """Управляющего может назначить/снять/изменить только создатель салона
+    (или платформенный супер-админ — membership=None). Обычный совладелец с
+    правом manage_owners сюда не допускается: управляющий — это доверенное
+    лицо именно создателя, а не любого co-owner."""
+    if membership is not None and not membership.is_creator:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Это действие с управляющим может выполнить только владелец-создатель салона",
+        )
 
 
 @router.post("/add-web")
@@ -48,9 +77,11 @@ async def add_member_web(
     except ValueError:
         return RedirectResponse(url=f"/business/dashboard?tab=staff&salon_id={salon_id}&error=bad_role", status_code=302)
 
-    required_permission = "manage_owners" if salon_role == SalonRole.OWNER else "manage_admins"
+    required_permission = _ROLE_HIRE_PERMISSION[salon_role]
     try:
-        await check_salon_permission(db, user, salon_id, required_permission)
+        membership = await check_salon_permission(db, user, salon_id, required_permission)
+        if salon_role == SalonRole.MANAGER:
+            _require_creator_for_manager(membership)
     except HTTPException:
         return HTMLResponse(content="Недостаточно прав для управления сотрудниками", status_code=403)
 
@@ -85,7 +116,7 @@ async def add_member_web(
         existing.invited_by_id = user.id
         member_id = existing.id
     else:
-        default_perms = dict(OWNER_DEFAULT_PERMISSIONS if salon_role == SalonRole.OWNER else ADMIN_DEFAULT_PERMISSIONS)
+        default_perms = dict(_ROLE_DEFAULT_PERMISSIONS[salon_role])
         member = SalonMember(
             salon_id=salon_id,
             user_id=added_user.id,
@@ -126,7 +157,9 @@ async def update_member_permissions(
     if member is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Участник не найден")
 
-    await check_salon_permission(db, current_user, member.salon_id, "manage_owners")
+    actor_membership = await check_salon_permission(db, current_user, member.salon_id, "manage_owners")
+    if member.role == SalonRole.MANAGER:
+        _require_creator_for_manager(actor_membership)
 
     if member.is_creator:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нельзя изменить права создателя салона")
@@ -157,8 +190,16 @@ async def remove_member(
     if member.is_creator:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Создателя салона нельзя снять")
 
-    required_permission = "manage_owners" if member.role == SalonRole.OWNER else "manage_admins"
-    await check_salon_permission(db, current_user, member.salon_id, required_permission)
+    if member.role == SalonRole.MANAGER and current_user.id == member.user_id:
+        # Управляющий сам покидает салон — без доп. прав, сам факт, что это
+        # его же членство, уже достаточное основание.
+        pass
+    elif member.role == SalonRole.MANAGER:
+        actor_membership = await check_salon_permission(db, current_user, member.salon_id, "manage_owners")
+        _require_creator_for_manager(actor_membership)
+    else:
+        required_permission = "manage_owners" if member.role == SalonRole.OWNER else "manage_admins"
+        await check_salon_permission(db, current_user, member.salon_id, required_permission)
 
     member.is_active = False
 
