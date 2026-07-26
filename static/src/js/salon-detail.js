@@ -148,7 +148,12 @@
                 <span class="day-number">${dayNumber}</span>
                 <span class="month-label">${month}</span>
             `;
-            btn.dataset.date = d.toISOString().split('T')[0];
+            // Локальная дата (не toISOString — он переводит в UTC и в TZ впереди
+            // UTC сдвигает дату на день назад, из-за чего кнопка «27» слала «26»).
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            btn.dataset.date = `${yyyy}-${mm}-${dd}`;
             btn.addEventListener('click', () => selectDate(btn.dataset.date));
             grid.appendChild(btn);
         });

@@ -386,3 +386,42 @@
 .dashboard-page .schedule-closures-list .closure-item:last-child {
     border-bottom: none;
 }
+/* ===== Индивидуальный график работы мастера ===== */
+.dashboard-page .mschedule { margin-top: 1rem; padding: 1.25rem; }
+.dashboard-page .mschedule-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap;
+}
+.dashboard-page .mschedule-header h3 {
+    display: flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 1rem;
+}
+.dashboard-page .mschedule-list {
+    display: grid; grid-template-columns: 1fr; gap: 0.35rem;
+}
+.dashboard-page .mschedule-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.4rem 0.6rem; border-radius: 0.5rem; background: var(--color-surface-2, #f6f6f8);
+}
+.dashboard-page .mschedule-day { min-width: 2.2rem; font-weight: 600; color: var(--color-text, #222); }
+.dashboard-page .mschedule-val { font-size: 0.9rem; }
+
+/* Модалка редактора */
+.dashboard-page .mschedule-edit-box { max-width: 520px; }
+.dashboard-page .mschedule-edit-days { display: flex; flex-direction: column; gap: 0.85rem; }
+.dashboard-page .mschedule-edit-day {
+    border: 1px solid var(--color-border, #e5e5ea); border-radius: 0.6rem; padding: 0.6rem 0.75rem;
+}
+.dashboard-page .mschedule-edit-day-head {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;
+}
+.dashboard-page .mschedule-edit-rows { display: flex; flex-direction: column; gap: 0.4rem; }
+.dashboard-page .mschedule-edit-row { display: flex; align-items: center; gap: 0.5rem; }
+.dashboard-page .mschedule-edit-row input[type="time"] {
+    flex: 1; padding: 0.4rem 0.5rem; border: 1px solid var(--color-border, #e5e5ea); border-radius: 0.45rem;
+}
+.dashboard-page .mschedule-edit-dash { color: var(--color-muted, #888); }
+.dashboard-page .mschedule-edit-del {
+    background: none; border: none; cursor: pointer; font-size: 1.25rem; line-height: 1;
+    color: var(--color-muted, #999); padding: 0 0.25rem;
+}
+.dashboard-page .mschedule-edit-del:hover { color: var(--color-danger, #e5484d); }

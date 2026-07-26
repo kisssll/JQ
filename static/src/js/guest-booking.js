@@ -96,7 +96,10 @@
     // Шаг 3 — дата и слоты
     const dateInput = document.getElementById('gb-date');
     function setupDate() {
-        const today = new Date().toISOString().slice(0, 10);
+        // Локальная дата (toISOString даёт UTC — в TZ впереди UTC ранним утром
+        // это «вчера», и min/дефолт съезжают на день назад).
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         dateInput.min = today;
         if (!dateInput.value) dateInput.value = today;
         loadSlots();

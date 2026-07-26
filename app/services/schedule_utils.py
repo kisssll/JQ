@@ -1,10 +1,12 @@
 # app/services/schedule_utils.py
 import json
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+Interval = Tuple[datetime, datetime]
 
 DAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 DAY_NAMES_SHORT_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
@@ -90,21 +92,83 @@ def is_within_booking_window(target_date: datetime) -> bool:
     return target_date.date() <= horizon
 
 
-async def get_effective_work_hours(
+# ---------------------------------------------------------------------------
+# Чистые (без БД) хелперы для пересечения смен мастера с часами салона.
+# Вынесены отдельно, чтобы покрыть логику доступности юнит-тестами.
+# ---------------------------------------------------------------------------
+
+def merge_intervals(intervals: List[Interval]) -> List[Interval]:
+    """Сортирует и склеивает пересекающиеся/смежные интервалы одного дня."""
+    valid = sorted((s, e) for s, e in intervals if e > s)
+    merged: List[Interval] = []
+    for s, e in valid:
+        if merged and s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    return merged
+
+
+def intersect_intervals(intervals: List[Interval], window: Interval) -> List[Interval]:
+    """Пересекает список интервалов с окном (часами салона). Что вне окна —
+    отбрасывается; пустые пересечения не попадают в результат."""
+    ws, we = window
+    out: List[Interval] = []
+    for s, e in intervals:
+        cs, ce = max(s, ws), min(e, we)
+        if ce > cs:
+            out.append((cs, ce))
+    return merge_intervals(out)
+
+
+def build_day_intervals(schedule_rows, target_date: datetime) -> List[Interval]:
+    """Строит datetime-интервалы на target_date из строк Schedule (start_time/
+    end_time — time-объекты). Некорректные (end<=start) пропускаются."""
+    out: List[Interval] = []
+    for r in schedule_rows:
+        s = target_date.replace(hour=r.start_time.hour, minute=r.start_time.minute, second=0, microsecond=0)
+        e = target_date.replace(hour=r.end_time.hour, minute=r.end_time.minute, second=0, microsecond=0)
+        if e > s:
+            out.append((s, e))
+    return merge_intervals(out)
+
+
+def compute_effective_intervals(
+    salon_hours: Optional[Interval],
+    has_any_master_schedule: bool,
+    master_day_intervals: List[Interval],
+) -> List[Interval]:
+    """Итоговые рабочие интервалы мастера на день (чистая функция):
+    - салон в этот день закрыт (salon_hours=None) → [] ;
+    - у мастера НЕТ индивидуального графика вообще → работает по часам салона
+      (обратная совместимость) → [salon_hours] ;
+    - у мастера ЕСТЬ график, но не на этот день недели → выходной → [] ;
+    - иначе — смены мастера, обрезанные часами салона."""
+    if salon_hours is None:
+        return []
+    if not has_any_master_schedule:
+        return [salon_hours]
+    if not master_day_intervals:
+        return []
+    return intersect_intervals(master_day_intervals, salon_hours)
+
+
+async def get_effective_work_intervals(
     db: AsyncSession, salon, master_id: int, target_date: datetime
-) -> Optional[Tuple[datetime, datetime]]:
-    """Единая точка правды о доступности дня для записи: сочетает окно
-    в 2 месяца, недельный график салона (get_salon_work_hours) и закрытые
-    даты (ScheduleClosure — на весь салон или на конкретного мастера).
-    None — в этот день записаться нельзя ни по какой из причин."""
-    from app.models.models import ScheduleClosure  # локальный импорт — без цикла с models.py
+) -> List[Interval]:
+    """Единая точка правды о доступности дня для записи. Сочетает окно в 2
+    месяца, недельный график салона, индивидуальный график мастера (Schedule)
+    и закрытые даты (ScheduleClosure — на весь салон или на мастера).
+    Возвращает список рабочих интервалов (несколько — при сплит-сменах);
+    пустой список — записаться нельзя ни по какой из причин."""
+    from app.models.models import ScheduleClosure, Schedule  # локальный импорт — без цикла с models.py
 
     if not is_within_booking_window(target_date):
-        return None
+        return []
 
-    hours = get_salon_work_hours(salon.working_hours, target_date)
-    if hours is None:
-        return None
+    salon_hours = get_salon_work_hours(salon.working_hours, target_date)
+    if salon_hours is None:
+        return []
 
     closed = await db.execute(
         select(ScheduleClosure.id).where(
@@ -114,6 +178,14 @@ async def get_effective_work_hours(
         )
     )
     if closed.first() is not None:
-        return None
+        return []
 
-    return hours
+    # Индивидуальный график мастера. Пусто совсем → fallback на часы салона.
+    all_rows = (await db.execute(
+        select(Schedule).where(Schedule.master_id == master_id)
+    )).scalars().all()
+    has_any = len(all_rows) > 0
+    day_intervals = build_day_intervals(
+        [r for r in all_rows if r.day_of_week == target_date.weekday()], target_date
+    )
+    return compute_effective_intervals(salon_hours, has_any, day_intervals)

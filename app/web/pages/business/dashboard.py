@@ -46,46 +46,121 @@ from app.web.pages.business.tabs.my_salon import render_my_salon_tab
 from app.crm.tabs.clients import render_crm_tab
 
 
+_PERM_KEYS = (
+    "manage_salon", "manage_owners", "manage_admins", "manage_masters",
+    "manage_schedule", "manage_promotions", "manage_reviews",
+    "view_finances", "manage_tariff", "view_audit_log",
+    "manage_inventory", "manage_payroll",
+)
+
+
+def _compute_perms(membership: SalonMember) -> dict:
+    return {
+        key: (membership.is_creator or membership.permissions.get(key, False))
+        for key in _PERM_KEYS
+    }
+
+
+def _int_or_none(raw):
+    return int(raw) if raw and str(raw).isdigit() else None
+
+
+async def render_dashboard_tab(
+    db: AsyncSession, user, salon: Salon, membership: SalonMember,
+    perms: dict, masters, master_ids, tab_name: str, query_params: dict,
+) -> str:
+    """Рендер ОДНОЙ вкладки бизнес-панели. Каждая вкладка сама грузит только
+    свои данные — так при ленивой (по-вкладочной) загрузке мы не платим за
+    остальные 13 вкладок. Возвращает '' для скрытой/неизвестной вкладки."""
+    qp = query_params
+
+    if tab_name == "overview":
+        services_count = 0
+        if master_ids:
+            services_count = (await db.execute(
+                select(func.count(Service.id)).where(Service.master_id.in_(master_ids))
+            )).scalar() or 0
+        promotions = (await db.execute(
+            select(Promotion).where(Promotion.salon_id == salon.id)
+        )).scalars().all()
+        overview_data = await get_overview_revenue_data(db, master_ids)
+        return await render_overview_tab(
+            db, salon, masters, master_ids, services_count, promotions, **overview_data,
+        )
+
+    if tab_name == "analytics":
+        return await render_analytics_tab(db, salon, master_ids) if perms["view_finances"] else ""
+
+    if tab_name == "schedule":
+        return await render_schedule_tab(
+            db, salon, masters, perms["manage_schedule"], _int_or_none(qp.get("schedule_master_id")),
+        )
+
+    if tab_name == "employees":
+        return await render_employees_tab(db, salon, masters, user, membership, perms)
+
+    if tab_name == "services":
+        return await render_services_tab(
+            db, salon, masters,
+            can_manage=perms["manage_masters"],
+            filter_master_id=_int_or_none(qp.get("service_master")),
+            filter_service_name=qp.get("service_search") or None,
+        )
+
+    if tab_name == "payroll":
+        return await render_payroll_tab(db, salon, masters, master_ids, qp.get("period")) if perms["manage_payroll"] else ""
+
+    if tab_name == "cost":
+        return await render_cost_tab(db, salon, masters, master_ids, qp.get("period")) if perms["view_finances"] else ""
+
+    if tab_name == "records":
+        records_filters = {
+            "date_from": qp.get("date_from"), "date_to": qp.get("date_to"),
+            "master_id": qp.get("master_id"), "status": qp.get("status"),
+        }
+        return await render_records_tab(db, salon, masters, master_ids, records_filters, perms["manage_schedule"])
+
+    if tab_name == "warehouse":
+        if not perms["manage_inventory"]:
+            return ""
+        return await render_warehouse_tab(db, salon, masters, master_ids, {"audit_id": qp.get("audit_id")}, membership)
+
+    if tab_name == "models":
+        return await render_promo_models_tab(db, salon) if perms["manage_masters"] else ""
+
+    if tab_name == "promos":
+        promotions = (await db.execute(
+            select(Promotion).where(Promotion.salon_id == salon.id)
+        )).scalars().all()
+        return render_promos_tab(promotions, can_manage=perms["manage_promotions"], salon_id=salon.id)
+
+    if tab_name == "reviews":
+        reviews = (await db.execute(
+            select(Review).where(Review.salon_id == salon.id).order_by(Review.created_at.desc())
+        )).scalars().all()
+        return await render_reviews_tab(db, reviews, salon)
+
+    if tab_name == "crm":
+        return await render_crm_tab(db, salon, masters, master_ids)
+
+    if tab_name == "edit":
+        return await render_my_salon_tab(
+            db, salon, user, query_params,
+            can_manage_salon=perms["manage_salon"], is_creator=membership.is_creator,
+        )
+
+    return ""
+
+
 async def render_business_dashboard(db: AsyncSession, user, salon: Salon, membership: SalonMember, query_params=None) -> str:
-    """Бизнес-панель с аналитикой."""
+    """Бизнес-панель. Ленивая загрузка по вкладкам: сервер рендерит только
+    активную вкладку (?tab=…), остальные подгружаются полной навигацией по
+    клику. Раньше на каждый заход строились все 14 вкладок (~9с) — теперь одна."""
 
     query_params = query_params or {}
     active_tab = query_params.get("tab", "overview")
-    records_filters = {
-        "date_from": query_params.get("date_from"),
-        "date_to": query_params.get("date_to"),
-        "master_id": query_params.get("master_id"),
-        "status": query_params.get("status"),
-    }
-    warehouse_filters = {
-        "audit_id": query_params.get("audit_id"),
-    }
-    period_raw = query_params.get("period")
-    staff_notice = {
-        "added": query_params.get("added"),
-        "temp_pw": query_params.get("temp_pw"),
-        "error": query_params.get("error"),
-    }
-    schedule_master_id_raw = query_params.get("schedule_master_id")
-    schedule_master_id = int(schedule_master_id_raw) if schedule_master_id_raw and schedule_master_id_raw.isdigit() else None
 
-    # Фильтры для услуг
-    filter_service_master = query_params.get("service_master")
-    if filter_service_master and filter_service_master.isdigit():
-        filter_service_master = int(filter_service_master)
-    else:
-        filter_service_master = None
-    filter_service_search = query_params.get("service_search") or None
-
-    perms = {
-        key: (membership.is_creator or membership.permissions.get(key, False))
-        for key in (
-            "manage_salon", "manage_owners", "manage_admins", "manage_masters",
-            "manage_schedule", "manage_promotions", "manage_reviews",
-            "view_finances", "manage_tariff", "view_audit_log",
-            "manage_inventory", "manage_payroll",
-        )
-    }
+    perms = _compute_perms(membership)
 
     # Салоны, доступные пользователю — для свитчера в шапке
     other_memberships = (await db.execute(
@@ -95,119 +170,61 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         .order_by(Salon.name)
     )).all()
 
-    # Общие данные
+    # Мастера нужны большинству вкладок — грузим один раз
     masters, masters_rows = await get_masters_data(db, salon.id)
     master_ids = get_master_ids(masters)
 
-    services_count = 0
-    if master_ids:
-        svc = await db.execute(select(func.count(Service.id)).where(Service.master_id.in_(master_ids)))
-        services_count = svc.scalar() or 0
+    # Счётчики для меток вкладок — дешёвым COUNT, без загрузки самих списков
+    promos_count = (await db.execute(
+        select(func.count(Promotion.id)).where(Promotion.salon_id == salon.id)
+    )).scalar() or 0
+    reviews_count = (await db.execute(
+        select(func.count(Review.id)).where(Review.salon_id == salon.id)
+    )).scalar() or 0
 
-    promos_result = await db.execute(select(Promotion).where(Promotion.salon_id == salon.id))
-    promotions = promos_result.scalars().all()
-
-    reviews_result = await db.execute(
-        select(Review).where(Review.salon_id == salon.id).order_by(Review.created_at.desc())
-    )
-    reviews = reviews_result.scalars().all()
-
-    overview_data = await get_overview_revenue_data(db, master_ids)
-
-    # Рендерим вкладки
-    tabs_html = []
-    tab_buttons = []
-
-    # Обзор
-    tab_buttons.append(('overview', ICON_LAYOUT_DASHBOARD, 'Обзор', True))
-    tabs_html.append(await render_overview_tab(
-        db, salon, masters, master_ids, services_count, promotions, **overview_data,
-    ))
-
-    # Аналитика (только с правом view_finances)
-    tab_buttons.append(('analytics', ICON_CHART_COLUMN, 'Аналитика', perms["view_finances"]))
-    if perms["view_finances"]:
-        tabs_html.append(await render_analytics_tab(db, salon, master_ids))
-
-    # Расписание
-    tab_buttons.append(('schedule', ICON_CLOCK, 'Расписание', True))
-    tabs_html.append(await render_schedule_tab(db, salon, masters, perms["manage_schedule"], schedule_master_id))
-
-    # Мастера (сотрудники)
-    tab_buttons.append(('employees', ICON_USERS, 'Сотрудники', True))
-    tabs_html.append(await render_employees_tab(db, salon, masters, user, membership, perms))
-
-    # Услуги
-    tab_buttons.append(('services', ICON_USER_CHECK, 'Услуги', True))
-    tabs_html.append(await render_services_tab(
-        db, salon, masters,
-        can_manage=perms["manage_masters"],
-        filter_master_id=filter_service_master,
-        filter_service_name=filter_service_search,
-    ))
-
-    # Зарплаты
-    tab_buttons.append(('payroll', ICON_WALLET, 'Зарплаты', perms["manage_payroll"]))
-    if perms["manage_payroll"]:
-        tabs_html.append(await render_payroll_tab(db, salon, masters, master_ids, period_raw))
-
-    # Себестоимость
-    tab_buttons.append(('cost', ICON_PACKAGE, 'Себестоимость', perms["view_finances"]))
-    if perms["view_finances"]:
-        tabs_html.append(await render_cost_tab(db, salon, masters, master_ids, period_raw))
-
-    # Записи
-    tab_buttons.append(('records', ICON_CALENDAR_DAYS, 'Записи', True))
-    tabs_html.append(await render_records_tab(db, salon, masters, master_ids, records_filters, perms["manage_schedule"]))
-
-    # Склад
-    tab_buttons.append(('warehouse', ICON_PACKAGE, 'Склад', perms["manage_inventory"]))
-    if perms["manage_inventory"]:
-        tabs_html.append(await render_warehouse_tab(db, salon, masters, master_ids, warehouse_filters, membership))
-
-    # Чат — убран
-    # tab_buttons.append(('chat', ICON_MESSAGE_CIRCLE, 'Чат', True))
-    # tabs_html.append(await render_chat_tab(db, salon, user))
-
-    # Модели
-    tab_buttons.append(('models', ICON_HEART, 'Модели', perms["manage_masters"]))
-    if perms["manage_masters"]:
-        tabs_html.append(await render_promo_models_tab(db, salon, masters))
-
-    # Акции
-    tab_buttons.append(('promos', ICON_SPARKLES, f'Акции ({len(promotions)})', True))
-    tabs_html.append(render_promos_tab(promotions, can_manage=perms["manage_promotions"], salon_id=salon.id))
-
-    # Отзывы
-    tab_buttons.append(('reviews', ICON_STAR_FILLED, f'Отзывы ({len(reviews)})', True))
-    tabs_html.append(await render_reviews_tab(db, reviews, salon))
-
-    # CRM – Клиенты
-    tab_buttons.append(('crm', ICON_USER_CHECK, 'Клиенты', True))
-    tabs_html.append(await render_crm_tab(db, salon, masters, master_ids))
-
-    # Редактировать салон
-    tab_buttons.append(('edit', ICON_SETTINGS_GEAR_SMALL, 'Редактировать салон', True))
-    tabs_html.append(await render_my_salon_tab(
-        db, salon, user, query_params,
-        can_manage_salon=perms["manage_salon"], is_creator=membership.is_creator,
-    ))
+    tab_buttons = [
+        ('overview', ICON_LAYOUT_DASHBOARD, 'Обзор', True),
+        ('analytics', ICON_CHART_COLUMN, 'Аналитика', perms["view_finances"]),
+        ('schedule', ICON_CLOCK, 'Расписание', True),
+        ('employees', ICON_USERS, 'Сотрудники', True),
+        ('services', ICON_USER_CHECK, 'Услуги', True),
+        ('payroll', ICON_WALLET, 'Зарплаты', perms["manage_payroll"]),
+        ('cost', ICON_PACKAGE, 'Себестоимость', perms["view_finances"]),
+        ('records', ICON_CALENDAR_DAYS, 'Записи', True),
+        ('warehouse', ICON_PACKAGE, 'Склад', perms["manage_inventory"]),
+        ('models', ICON_HEART, 'Модели', perms["manage_masters"]),
+        ('promos', ICON_SPARKLES, f'Акции ({promos_count})', True),
+        ('reviews', ICON_STAR_FILLED, f'Отзывы ({reviews_count})', True),
+        ('crm', ICON_USER_CHECK, 'Клиенты', True),
+        ('edit', ICON_SETTINGS_GEAR_SMALL, 'Редактировать салон', True),
+    ]
 
     visible_slugs = [slug for slug, _, _, visible in tab_buttons if visible]
     if active_tab not in visible_slugs:
         active_tab = "overview"
+
+    # Ссылку на вкладку строим с сохранением салона (свитчер) — переключение
+    # вкладки = полная навигация на /business/dashboard?tab=…
+    def _tab_href(slug: str) -> str:
+        return f"/business/dashboard?salon_id={salon.id}&tab={slug}"
 
     nav_buttons_html = ""
     for slug, icon, label, visible in tab_buttons:
         if not visible:
             continue
         active_class = " active" if slug == active_tab else ""
-        nav_buttons_html += f'<button class="tab-btn{active_class}" onclick="switchTab(\'{slug}\')">{icon} {label}</button>'
+        nav_buttons_html += (
+            f'<button class="tab-btn{active_class}" '
+            f'onclick="window.location.href=\'{_tab_href(slug)}\'">{icon} {label}</button>'
+        )
 
-    tabs_body_html = "\n".join(tabs_html)
-    # Добавляем класс active к нужной вкладке
+    # Рендерим ТОЛЬКО активную вкладку
+    active_body = await render_dashboard_tab(
+        db, user, salon, membership, perms, masters, master_ids, active_tab, query_params,
+    )
+    # Помечаем её active (её показ управляется классом .tab-content.active)
     pattern = re.compile(f'(id="tab-{active_tab}" class="tab-content)([^"]*)"')
-    tabs_body_html = pattern.sub(r'\1\2 active"', tabs_body_html)
+    tabs_body_html = pattern.sub(r'\1\2 active"', active_body)
 
     switcher_html = ""
     if len(other_memberships) > 1:
@@ -278,37 +295,5 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     {render_footer(user)}
 </body>
 </html>"""
-
-    # Скрипт для обновления URL при переключении вкладок
-    script_block = """
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.tab-btn').forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
-                    setTimeout(function() {
-                        var tabName = null;
-                        var onclickAttr = btn.getAttribute('onclick');
-                        if (onclickAttr) {
-                            var match = onclickAttr.match(/switchTab\\(['"]([^'"]+)['"]\\)/);
-                            if (match) tabName = match[1];
-                        }
-                        if (!tabName) {
-                            tabName = btn.textContent.trim().toLowerCase();
-                        }
-                        if (tabName) {
-                            var url = new URL(window.location);
-                            url.searchParams.set('tab', tabName);
-                            url.searchParams.delete('added');
-                            url.searchParams.delete('deleted');
-                            url.searchParams.delete('updated');
-                            window.history.pushState({}, '', url);
-                        }
-                    }, 50);
-                });
-            });
-        });
-    </script>
-    """
-    html = html.replace('</body>', script_block + '\n</body>')
 
     return html

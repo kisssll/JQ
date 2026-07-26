@@ -3,7 +3,7 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.models import Booking, Master, Service, User as UserModel, BookingStatus, ScheduleClosure
+from app.models.models import Booking, Master, Service, User as UserModel, BookingStatus, ScheduleClosure, Schedule
 from app.services.schedule_utils import get_salon_work_hours, MAX_BOOKING_DAYS_AHEAD
 from app.services.schedule_service import ScheduleService
 from app.web.components.hint import hint as _hint
@@ -20,6 +20,7 @@ MONTH_NAMES_RU = [
     "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
 ]
 WEEKDAY_NAMES_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+WEEKDAY_NAMES_FULL_RU = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
 
 
 async def render_schedule_tab(
@@ -355,6 +356,90 @@ async def render_schedule_tab(
             </div>
         </div>"""
 
+    # --- Индивидуальный недельный график выбранного мастера ---
+    sched_rows = (await db.execute(
+        select(Schedule).where(Schedule.master_id == selected_master.id)
+        .order_by(Schedule.day_of_week, Schedule.start_time)
+    )).scalars().all()
+    by_day: dict[int, list] = {i: [] for i in range(7)}
+    for r in sched_rows:
+        by_day[r.day_of_week].append((r.start_time.strftime("%H:%M"), r.end_time.strftime("%H:%M")))
+    has_custom_schedule = len(sched_rows) > 0
+    can_edit_schedule = can_manage_schedule or (
+        viewer_master_id is not None and viewer_master_id == selected_master.id
+    )
+
+    summary_rows = ""
+    for d in range(7):
+        if not has_custom_schedule:
+            value = '<span class="text-muted">по часам салона</span>'
+        elif by_day[d]:
+            value = " · ".join(f"{s}–{e}" for s, e in by_day[d])
+        else:
+            value = '<span class="text-muted">выходной</span>'
+        summary_rows += (
+            f'<div class="mschedule-row"><span class="mschedule-day">{WEEKDAY_NAMES_RU[d]}</span>'
+            f'<span class="mschedule-val">{value}</span></div>'
+        )
+
+    edit_btn = (
+        f'<button class="btn-primary" style="font-size:0.85rem;padding:0.5rem 1rem" '
+        f'onclick="openMasterScheduleModal()">{ICON_PLUS_SMALL} Изменить график</button>'
+    ) if can_edit_schedule else ''
+
+    schedule_work_section = f"""
+        <div class="mschedule card">
+            <div class="mschedule-header">
+                <h3>{ICON_CALENDAR_SMALL} График работы — {master_names.get(selected_master.id, "—")}</h3>
+                {edit_btn}
+            </div>
+            <div class="mschedule-list">{summary_rows}</div>
+            <p class="text-muted" style="font-size:0.8rem;margin-top:0.75rem">
+                Если график не задан — мастер работает по часам салона. Заданный график
+                ограничивает время, доступное клиентам для записи (в пределах часов салона).
+            </p>
+        </div>"""
+
+    # Модалка редактора графика — только тем, кто может править
+    master_schedule_modal = ""
+    if can_edit_schedule:
+        day_blocks = ""
+        for d in range(7):
+            intervals = by_day[d] if has_custom_schedule else []
+            rows_html = "".join(
+                f'<div class="mschedule-edit-row">'
+                f'<input type="time" class="ms-start" value="{s}">'
+                f'<span class="mschedule-edit-dash">–</span>'
+                f'<input type="time" class="ms-end" value="{e}">'
+                f'<button type="button" class="mschedule-edit-del" '
+                f'onclick="this.closest(\'.mschedule-edit-row\').remove()">&times;</button>'
+                f'</div>'
+                for s, e in intervals
+            )
+            day_blocks += f"""
+                <div class="mschedule-edit-day" data-day="{d}">
+                    <div class="mschedule-edit-day-head">
+                        <strong>{WEEKDAY_NAMES_FULL_RU[d]}</strong>
+                        <button type="button" class="btn-outline" style="font-size:0.75rem;padding:0.2rem 0.55rem" onclick="msAddRow({d})">{ICON_PLUS_SMALL} интервал</button>
+                    </div>
+                    <div class="mschedule-edit-rows" id="msRows{d}">{rows_html}</div>
+                </div>"""
+
+        master_schedule_modal = f"""
+        <div class="schedule-modal-overlay" id="masterScheduleModal">
+            <div class="schedule-modal-box mschedule-edit-box">
+                <button class="schedule-modal-close" onclick="document.getElementById('masterScheduleModal').classList.remove('active')">&times;</button>
+                <h2 style="margin-bottom:0.5rem">График работы</h2>
+                <p class="text-muted" style="font-size:0.8rem;margin-bottom:1rem">
+                    Оставьте день пустым — это выходной. Несколько интервалов в дне —
+                    сплит-смена (например 09:00–13:00 и 16:00–20:00).
+                </p>
+                <input type="hidden" id="msMasterId" value="{selected_master.id}">
+                <div class="mschedule-edit-days">{day_blocks}</div>
+                <button type="button" class="btn-primary" style="width:100%;margin-top:1rem" onclick="saveMasterSchedule()">Сохранить график</button>
+            </div>
+        </div>"""
+
     return f"""
     <div id="tab-schedule" class="tab-content">
         {calendar_html}
@@ -365,8 +450,12 @@ async def render_schedule_tab(
             <span><span class="dot closed"></span> Вне графика/закрыто</span>
         </div>
 
+        {schedule_work_section}
+
         {closures_section}
     </div>
+
+    {master_schedule_modal}
 
     <!-- Модалка завершения записи -->
     <div class="schedule-modal-overlay" id="completeBookingModal">
