@@ -27,6 +27,13 @@ class BookingStatus(str, enum.Enum):
     CANCELLED = "cancelled"
     NO_SHOW = "no_show"
 
+# Статусы, которые считаются «деньги добавлены» для всей финансовой
+# статистики салона (Обзор, Аналитика, Зарплаты, Себестоимость) — единый
+# источник, чтобы цифры не расходились между вкладками панели владельца.
+# CONFIRMED уже считается доходом (бронь подтверждена/оплачена), не нужно
+# дожидаться отметки «Пришёл» (COMPLETED) для признания выручки.
+PAID_BOOKING_STATUSES = (BookingStatus.CONFIRMED, BookingStatus.COMPLETED)
+
 class SubscriptionTier(str, enum.Enum):
     START = "start"
     PRO = "pro"
@@ -34,6 +41,12 @@ class SubscriptionTier(str, enum.Enum):
 
 class SalonRole(str, enum.Enum):
     OWNER = "owner"
+    # Управляющий: правая рука владельца — шире обычного админа (по
+    # умолчанию видит финансы/тариф/склад/зарплаты/аудит, может нанимать
+    # админов), но не назначает совладельцев. Назначить/снять/поменять права
+    # управляющего может только создатель салона (is_creator) — см.
+    # app/api/v1/endpoints/staff.py.
+    MANAGER = "manager"
     ADMIN = "admin"
     # MASTER сюда сознательно не входит: у мастера уже есть своя таблица
     # Master с operatonal-доступом, заскоупленным через Master.user_id —
@@ -108,6 +121,12 @@ SALON_PERMISSION_KEYS = (
 )
 
 OWNER_DEFAULT_PERMISSIONS: Dict[str, bool] = {k: True for k in SALON_PERMISSION_KEYS}
+# Управляющий: всё, что у владельца, кроме назначения совладельцев — это
+# единственная привилегия, которая остаётся только у создателя салона.
+MANAGER_DEFAULT_PERMISSIONS: Dict[str, bool] = {
+    **OWNER_DEFAULT_PERMISSIONS,
+    "manage_owners": False,
+}
 ADMIN_DEFAULT_PERMISSIONS: Dict[str, bool] = {
     **OWNER_DEFAULT_PERMISSIONS,
     "view_finances": False,
@@ -195,6 +214,79 @@ class SalonModerationStatus(str, enum.Enum):
     REJECTED = "rejected"
 
 
+class SalonChain(Base):
+    """Сеть салонов одного бренда: несколько независимых салонов (у каждого
+    свой владелец/creator_id, сотрудники, брони, фото) показывают друг друга
+    на публичной странице как «другой адрес этой же сети». Сама по себе
+    ничего не даёт — только группировка + общее имя; формируется исключительно
+    через обоюдное согласие ВСЕХ текущих владельцев объединяемых салонов, см.
+    SalonChainRequest/SalonChainVote и app/services/salon_chain_service.py.
+    """
+    __tablename__ = "salon_chains"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    salons: Mapped[List["Salon"]] = relationship(back_populates="chain")
+
+
+class SalonChainRequestStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+
+
+class SalonChainRequest(Base):
+    """Запрос на объединение сети между салоном-инициатором (from_salon) и
+    выбранным целевым салоном (to_salon). Если у одного или обоих салонов уже
+    есть сеть — запрос фактически объединяет ДВЕ сети целиком, а не только два
+    салона: salon_ids фиксирует на момент создания полный список салонов
+    обеих сторон, чьё согласие нужно для слияния (по одному голосу от
+    создателя каждого салона — см. SalonChainVote)."""
+    __tablename__ = "salon_chain_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    initiator_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    from_salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"))
+    to_salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"))
+    # Зафиксированный на момент создания запроса список ID салонов, чьё
+    # согласие требуется (объединение всех участников обеих сетей). Не
+    # пересчитывается позже — если состав сети успел измениться параллельным
+    # запросом, голосование просто гасится (см. сервис).
+    salon_ids: Mapped[List[int]] = mapped_column(JSON, nullable=False)
+    status: Mapped[SalonChainRequestStatus] = mapped_column(
+        Enum(SalonChainRequestStatus), default=SalonChainRequestStatus.PENDING,
+        server_default="PENDING", nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    votes: Mapped[List["SalonChainVote"]] = relationship(back_populates="request", cascade="all, delete-orphan")
+
+
+class SalonChainVote(Base):
+    """Один голос «за/против» слияния от создателя одного из затронутых
+    салонов (по голосу на салон, не на человека — если один и тот же
+    человек — создатель нескольких затронутых салонов, голосует за каждый
+    отдельно). Любой отказ (approved=False) сразу отклоняет весь запрос."""
+    __tablename__ = "salon_chain_votes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[int] = mapped_column(ForeignKey("salon_chain_requests.id", ondelete="CASCADE"))
+    salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"))
+    approved: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    voted_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    voted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    request: Mapped["SalonChainRequest"] = relationship(back_populates="votes")
+
+    __table_args__ = (
+        UniqueConstraint("request_id", "salon_id", name="uq_chain_vote_request_salon"),
+    )
+
+
 class Salon(Base):
     __tablename__ = "salons"
 
@@ -240,6 +332,10 @@ class Salon(Base):
     # и недоступен для новой записи, пока владелец не включит обратно.
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # Сеть салонов (см. SalonChain) — NULL, если салон ни с кем не объединён.
+    chain_id: Mapped[Optional[int]] = mapped_column(ForeignKey("salon_chains.id", ondelete="SET NULL"), nullable=True)
+    chain: Mapped[Optional["SalonChain"]] = relationship(back_populates="salons")
 
     # Модерация регистрации бизнеса: новый салон = pending (виден только
     # владельцу для настройки), админ подтверждает договор → approved.
