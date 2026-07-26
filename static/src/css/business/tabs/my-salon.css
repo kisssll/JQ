@@ -718,3 +718,91 @@
     justify-content: flex-end;
     margin-top: 1.5rem;
 }
+
+/* ===== Сеть салонов ===== */
+.chain-search-box {
+    position: relative;
+    max-width: 420px;
+    margin: 0.75rem 0 1rem;
+}
+.chain-search-box input {
+    width: 100%;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+}
+.chain-search-results {
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    left: 0;
+    right: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 5;
+}
+.chain-search-item {
+    padding: 0.55rem 0.9rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.chain-search-item:hover {
+    background: var(--color-surface-alt);
+}
+.chain-search-empty {
+    padding: 0.55rem 0.9rem;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.chain-siblings-list,
+.chain-requests-list {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.chain-siblings-list li,
+.chain-requests-list li {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+}
+.chain-requests-list li {
+    justify-content: space-between;
+}
+.chain-cancel-btn,
+.chain-vote-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--color-border);
+    border-radius: 2rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: transparent;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.chain-vote-accept {
+    color: #16a34a;
+    border-color: #16a34a;
+}
+.chain-vote-reject,
+.chain-cancel-btn {
+    color: #dc2626;
+    border-color: #dc2626;
+}

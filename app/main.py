@@ -50,6 +50,7 @@ from app.api.v1.endpoints import favorites
 
 from app.api.v1.endpoints import admin
 from app.api.v1.endpoints import staff
+from app.api.v1.endpoints import salon_chains
 from app.api.v1.endpoints import inventory
 from app.api.v1.endpoints import payroll
 from app.api.v1.endpoints import loyalty
@@ -111,6 +112,7 @@ app.include_router(services.router, prefix="/api/v1", tags=["services"])
 app.include_router(favorites.router, prefix="/api/v1", tags=["favorites"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(staff.router, prefix="/api/v1/business/staff", tags=["staff"])
+app.include_router(salon_chains.router, prefix="/api/v1/business/chain", tags=["salon-chains"])
 app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["inventory"])
 app.include_router(payroll.router, prefix="/api/v1/payroll", tags=["payroll"])
 app.include_router(uploads.router, prefix="/api/v1/upload", tags=["uploads"])

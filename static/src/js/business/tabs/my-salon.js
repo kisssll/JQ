@@ -681,4 +681,127 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ===== Сеть салонов: поиск партнёра, запрос, голосование, выход =====
+    const chainSearchInput = document.getElementById('chainSearchInput');
+    if (chainSearchInput) {
+        const resultsBox = document.getElementById('chainSearchResults');
+        const sendBtn = document.getElementById('chainSendRequestBtn');
+        let selectedSalonId = null;
+        let searchTimer = null;
+
+        chainSearchInput.addEventListener('input', function() {
+            selectedSalonId = null;
+            if (sendBtn) sendBtn.disabled = true;
+            clearTimeout(searchTimer);
+            const q = this.value.trim();
+            if (q.length < 2) { resultsBox.innerHTML = ''; return; }
+            searchTimer = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/v1/business/chain/search-salons?q=${encodeURIComponent(q)}&exclude_salon_id=${sendBtn.dataset.salonId}`);
+                    const items = res.ok ? await res.json() : [];
+                    resultsBox.innerHTML = '';
+                    if (!items.length) {
+                        resultsBox.innerHTML = '<div class="chain-search-empty">Ничего не найдено</div>';
+                        return;
+                    }
+                    items.forEach(item => {
+                        const row = document.createElement('div');
+                        row.className = 'chain-search-item';
+                        row.textContent = item.name + (item.address ? ' — ' + item.address : '');
+                        row.addEventListener('click', () => {
+                            selectedSalonId = item.id;
+                            chainSearchInput.value = item.name;
+                            resultsBox.innerHTML = '';
+                            if (sendBtn) sendBtn.disabled = false;
+                        });
+                        resultsBox.appendChild(row);
+                    });
+                } catch (e) { /* сеть моргнула */ }
+            }, 300);
+        });
+
+        if (sendBtn) {
+            sendBtn.addEventListener('click', async function() {
+                if (!selectedSalonId) return;
+                this.disabled = true;
+                try {
+                    const res = await fetch('/api/v1/business/chain/request', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ from_salon_id: parseInt(this.dataset.salonId), to_salon_id: selectedSalonId }),
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        alert(data.status === 'accepted' ? 'Салоны объединены в сеть!' : 'Запрос отправлен, ждём согласия второй стороны.');
+                        location.reload();
+                    } else {
+                        const d = await res.json().catch(() => ({}));
+                        alert(d.detail || 'Не удалось отправить запрос');
+                        this.disabled = false;
+                    }
+                } catch (e) {
+                    alert('Ошибка сети, попробуйте ещё раз');
+                    this.disabled = false;
+                }
+            });
+        }
+    }
+
+    document.querySelectorAll('.chain-cancel-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            if (!confirm('Отменить запрос на объединение?')) return;
+            this.disabled = true;
+            try {
+                const res = await fetch(`/api/v1/business/chain/request/${this.dataset.requestId}/cancel`, { method: 'POST' });
+                if (res.ok) { location.reload(); return; }
+                const d = await res.json().catch(() => ({}));
+                alert(d.detail || 'Ошибка');
+                this.disabled = false;
+            } catch (e) { alert('Ошибка сети'); this.disabled = false; }
+        });
+    });
+
+    document.querySelectorAll('.chain-vote-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const approve = this.dataset.approve === '1';
+            if (!confirm(approve ? 'Согласиться на объединение в сеть?' : 'Отклонить запрос на объединение?')) return;
+            this.disabled = true;
+            try {
+                const res = await fetch(`/api/v1/business/chain/request/${this.dataset.requestId}/vote`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ salon_id: parseInt(this.dataset.salonId), approve }),
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (approve && data.status === 'pending') alert('Ваш голос учтён, ждём остальных владельцев.');
+                    location.reload();
+                } else {
+                    const d = await res.json().catch(() => ({}));
+                    alert(d.detail || 'Ошибка');
+                    this.disabled = false;
+                }
+            } catch (e) { alert('Ошибка сети'); this.disabled = false; }
+        });
+    });
+
+    const chainLeaveBtn = document.getElementById('chainLeaveBtn');
+    if (chainLeaveBtn) {
+        chainLeaveBtn.addEventListener('click', async function() {
+            if (!confirm('Покинуть сеть? Салон перестанет показываться как «другой адрес» для партнёров.')) return;
+            this.disabled = true;
+            try {
+                const res = await fetch('/api/v1/business/chain/leave', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ salon_id: parseInt(this.dataset.salonId) }),
+                });
+                if (res.ok) { location.reload(); return; }
+                const d = await res.json().catch(() => ({}));
+                alert(d.detail || 'Ошибка');
+                this.disabled = false;
+            } catch (e) { alert('Ошибка сети'); this.disabled = false; }
+        });
+    }
+
 });

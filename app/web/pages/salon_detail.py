@@ -5,7 +5,7 @@ from sqlalchemy import select, func
 from datetime import datetime, timedelta
 from app.models.models import (
     Salon, SalonPhoto, Master, Service, Promotion, User,
-    Review, ReviewPhoto, ReviewTargetType, SalonModerationStatus,
+    Review, ReviewPhoto, ReviewTargetType, SalonModerationStatus, SalonChain,
 )
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
@@ -40,6 +40,30 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
 
     if not salon:
         return """<!DOCTYPE html><html><body class="error-page"><div class="section-container-sm"><h1>Салон не найден</h1><a class="btn-primary" href="/salons">← Вернуться на главную</a></div></body></html>"""
+
+    # Другие адреса той же сети (если салон в сети) — те же публичные фильтры,
+    # что и у самого салона выше.
+    chain_siblings_html = ""
+    if salon.chain_id is not None:
+        chain = (await db.execute(select(SalonChain).where(SalonChain.id == salon.chain_id))).scalar_one_or_none()
+        siblings = (await db.execute(select(Salon).where(
+            Salon.chain_id == salon.chain_id,
+            Salon.id != salon.id,
+            Salon.is_active == True,
+            Salon.moderation_status == SalonModerationStatus.APPROVED,
+            Salon.is_hidden == False,
+        ).order_by(Salon.name))).scalars().all()
+        if chain and siblings:
+            items = "".join(
+                f'<a class="chain-sibling-link" href="/salons/{s.id}">{ICON_MAP_PIN} {s.address or s.name} →</a>'
+                for s in siblings
+            )
+            chain_siblings_html = f"""
+            <div class="salon-chain-note">
+                <span class="salon-chain-label">Сеть «{chain.name}» — ещё {len(siblings)} адрес(ов):</span>
+                <div class="salon-chain-links">{items}</div>
+            </div>
+            """
 
     masters_result = await db.execute(
         select(Master).where(Master.salon_id == salon.id, Master.is_active == True)
@@ -194,6 +218,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                         <span class="contact-item">{ICON_PHONE} {salon.phone or '—'}</span>
                         <span class="contact-item">{ICON_CLOCK} {format_working_hours_summary(salon.working_hours)}</span>
                     </div>
+                    {chain_siblings_html}
                 </div>
             </div>
         </div>

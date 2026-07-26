@@ -3,7 +3,11 @@ import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.models import Salon, SalonLoyaltySettings, LoyaltyOffer, User as UserModel, SalonPhoto
+from app.models.models import (
+    Salon, SalonLoyaltySettings, LoyaltyOffer, User as UserModel, SalonPhoto,
+    SalonChain, SalonChainRequest, SalonChainRequestStatus,
+)
+from app.services.salon_chain_service import pending_requests_for_salon_ids
 
 DAY_KEYS_RU = [
     ("mon", "Понедельник"), ("tue", "Вторник"), ("wed", "Среда"), ("thu", "Четверг"),
@@ -20,6 +24,7 @@ from app.web.components.icons import (
     ICON_STAR_FILLED,
     ICON_X,
     ICON_EYE,
+    ICON_CHECK,
 )
 
 _ERROR_MESSAGES = {
@@ -106,7 +111,7 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
                 </div>
                 <div class="salon-edit-field">
                     <label>Телефон</label>
-                    <input type="tel" id="salonEditPhoneInput" value="{salon.phone or ''}" class="salon-edit-input phone-input">
+                    <input type="tel" id="salonEditPhoneInput" value="{salon.phone or '+7'}" class="salon-edit-input phone-input">
                 </div>
                 <div class="salon-edit-field">
                     <label>Адрес</label>
@@ -180,6 +185,95 @@ def _render_danger_zone(salon: Salon, can_manage_salon: bool, is_creator: bool) 
     """
 
 
+async def _render_chain_section(db: AsyncSession, salon: Salon, is_creator: bool) -> str:
+    """Блок «Сеть салонов»: текущая сеть (если есть) + поиск партнёра и запрос
+    на объединение + входящие/исходящие запросы на решение. Только для
+    создателя — это решение о бренде салона, не операционное право."""
+    if not is_creator:
+        return ""
+
+    chain_block = ""
+    if salon.chain_id is not None:
+        chain = (await db.execute(select(SalonChain).where(SalonChain.id == salon.chain_id))).scalar_one_or_none()
+        siblings = (await db.execute(
+            select(Salon).where(Salon.chain_id == salon.chain_id, Salon.id != salon.id).order_by(Salon.name)
+        )).scalars().all()
+        siblings_html = "".join(
+            f'<li>{ICON_MAP_PIN} <a href="/salons/{s.id}" target="_blank" class="text-link">{s.name}</a> — {s.address or "адрес не указан"}</li>'
+            for s in siblings
+        ) or '<li class="text-muted">Пока больше никого нет</li>'
+        chain_block = f"""
+        <p class="my-salon-card-hint">Салон в сети «{chain.name if chain else "?"}» вместе с {len(siblings)} другими:</p>
+        <ul class="chain-siblings-list">{siblings_html}</ul>
+        <button type="button" class="my-salon-btn-outline" id="chainLeaveBtn" data-salon-id="{salon.id}"
+                style="color:#dc2626;border-color:#dc2626;margin-top:0.75rem">
+            Покинуть сеть
+        </button>
+        """
+    else:
+        chain_block = f"""
+        <p class="my-salon-card-hint">
+            Салон пока не в сети. Найдите салон-партнёра и отправьте запрос на объединение —
+            сработает, только когда согласятся владельцы всех затронутых салонов.
+        </p>
+        <div class="chain-search-box">
+            <input type="text" id="chainSearchInput" placeholder="Начните вводить название салона…" autocomplete="off">
+            <div id="chainSearchResults" class="chain-search-results"></div>
+        </div>
+        <button type="button" class="my-salon-btn-primary" id="chainSendRequestBtn" data-salon-id="{salon.id}" disabled>
+            {ICON_PLUS} Отправить запрос на объединение
+        </button>
+        """
+
+    outgoing = (await db.execute(
+        select(SalonChainRequest).where(
+            SalonChainRequest.from_salon_id == salon.id,
+            SalonChainRequest.status == SalonChainRequestStatus.PENDING,
+        )
+    )).scalars().all()
+    outgoing_html = ""
+    if outgoing:
+        rows = ""
+        for req in outgoing:
+            to_salon = (await db.execute(select(Salon).where(Salon.id == req.to_salon_id))).scalar_one_or_none()
+            rows += f"""
+            <li>
+                Ждём решения от «{to_salon.name if to_salon else "?"}» ({len(req.salon_ids)} салон(ов) затронуто)
+                <button type="button" class="chain-cancel-btn" data-request-id="{req.id}">Отменить</button>
+            </li>"""
+        outgoing_html = f"""
+        <h3 style="margin:1.5rem 0 0.5rem;font-size:1rem">Исходящие запросы</h3>
+        <ul class="chain-requests-list">{rows}</ul>
+        """
+
+    incoming = await pending_requests_for_salon_ids(db, [salon.id])
+    incoming_html = ""
+    if incoming:
+        rows = ""
+        for req in incoming:
+            from_salon = (await db.execute(select(Salon).where(Salon.id == req.from_salon_id))).scalar_one_or_none()
+            rows += f"""
+            <li>
+                «{from_salon.name if from_salon else "?"}» предлагает объединиться в сеть
+                ({len(req.salon_ids)} салон(ов) затронуто)
+                <button type="button" class="chain-vote-btn chain-vote-accept" data-request-id="{req.id}" data-salon-id="{salon.id}" data-approve="1">{ICON_CHECK} Согласиться</button>
+                <button type="button" class="chain-vote-btn chain-vote-reject" data-request-id="{req.id}" data-salon-id="{salon.id}" data-approve="0">{ICON_X} Отклонить</button>
+            </li>"""
+        incoming_html = f"""
+        <h3 style="margin:1.5rem 0 0.5rem;font-size:1rem">Входящие запросы — нужно ваше решение</h3>
+        <ul class="chain-requests-list">{rows}</ul>
+        """
+
+    return f"""
+    <div class="my-salon-card">
+        <h2 class="my-salon-card-title">Сеть салонов</h2>
+        {chain_block}
+        {outgoing_html}
+        {incoming_html}
+    </div>
+    """
+
+
 async def render_my_salon_tab(
     db: AsyncSession, salon: Salon, user=None, query_params=None,
     can_manage_salon: bool = False, is_creator: bool = False,
@@ -190,6 +284,8 @@ async def render_my_salon_tab(
     photos = (
         await db.execute(select(SalonPhoto).where(SalonPhoto.salon_id == salon.id).order_by(SalonPhoto.id))
     ).scalars().all()
+
+    chain_section_html = await _render_chain_section(db, salon, is_creator)
 
     error_banner = ""
     error_code = query_params.get("error")
@@ -376,6 +472,8 @@ async def render_my_salon_tab(
                     </table>
                 </div>
             </div>
+
+            {chain_section_html}
 
             {_render_danger_zone(salon, can_manage_salon, is_creator) if can_manage_salon else ""}
 

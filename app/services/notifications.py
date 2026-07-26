@@ -34,6 +34,7 @@ from app.models.models import (
     Review,
     ReviewTargetType,
     Salon,
+    SalonChainRequest,
     SalonMember,
     Service,
     User,
@@ -428,3 +429,60 @@ async def notify_model_match(db: AsyncSession, match: ModelMatch) -> None:
             )
     except Exception:
         logger.exception("notify_model_match(%s): не поставлено", match.id)
+
+
+# ── Сеть салонов (объединение по единогласному согласию создателей) ─────────
+
+async def _creators_for_salons(db: AsyncSession, salon_ids: list[int]) -> list[User]:
+    rows = (
+        await db.execute(
+            select(User)
+            .join(SalonMember, SalonMember.user_id == User.id)
+            .where(
+                SalonMember.salon_id.in_(salon_ids),
+                SalonMember.is_creator == True,  # noqa: E712
+                SalonMember.is_active == True,  # noqa: E712
+                User.tg_chat_id.isnot(None),
+            )
+        )
+    ).scalars().all()
+    return list(rows)
+
+
+async def notify_chain_request_created(db: AsyncSession, request: SalonChainRequest) -> None:
+    """Новый запрос на объединение в сеть → создателям всех затронутых
+    салонов, КРОМЕ инициатора (он и так знает — сам отправил)."""
+    if not settings.TG_NOTIFY_ENABLED:
+        return
+    try:
+        from_salon = (await db.execute(select(Salon).where(Salon.id == request.from_salon_id))).scalar_one_or_none()
+        if from_salon is None:
+            return
+        other_ids = [sid for sid in request.salon_ids if sid != request.from_salon_id]
+        fanout = _Fanout()
+        for creator in await _creators_for_salons(db, other_ids):
+            await fanout.send(
+                creator,
+                f"🔗 Салон «{from_salon.name}» предлагает объединиться в сеть — решите в панели, "
+                f"вкладка «Редактировать салон»",
+            )
+    except Exception:
+        logger.exception("notify_chain_request_created(%s): не поставлено", request.id)
+
+
+async def notify_chain_request_resolved(db: AsyncSession, request: SalonChainRequest) -> None:
+    """Запрос закрыт (принят/отклонён) → создателям всех затронутых салонов."""
+    if not settings.TG_NOTIFY_ENABLED:
+        return
+    try:
+        from_salon = (await db.execute(select(Salon).where(Salon.id == request.from_salon_id))).scalar_one_or_none()
+        to_salon = (await db.execute(select(Salon).where(Salon.id == request.to_salon_id))).scalar_one_or_none()
+        if from_salon is None or to_salon is None:
+            return
+        verdict = "объединены в сеть 🎉" if request.status.value == "accepted" else "не объединены — кто-то отклонил запрос"
+        text = f"🔗 «{from_salon.name}» и «{to_salon.name}»: {verdict}"
+        fanout = _Fanout()
+        for creator in await _creators_for_salons(db, request.salon_ids):
+            await fanout.send(creator, text)
+    except Exception:
+        logger.exception("notify_chain_request_resolved(%s): не поставлено", request.id)
