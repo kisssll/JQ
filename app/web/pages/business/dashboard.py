@@ -26,6 +26,7 @@ from app.web.components.icons import (
     ICON_USER_CHECK,
     ICON_SPARKLES,
     ICON_SETTINGS_GEAR_SMALL,
+    ICON_PLUS,
 )
 from app.web.pages.business.utils import get_masters_data, get_master_ids, get_overview_revenue_data
 from app.web.pages.business.tabs.overview import render_overview_tab
@@ -41,7 +42,6 @@ from app.web.pages.business.tabs.payroll import render_payroll_tab
 from app.web.pages.business.tabs.cost import render_cost_tab
 from app.web.pages.business.tabs.promo_models import render_promo_models_tab
 # from app.web.pages.business.tabs.chat import render_chat_tab
-from app.web.pages.business.tabs.staff import render_staff_tab
 from app.web.pages.business.tabs.my_salon import render_my_salon_tab
 from app.crm.tabs.clients import render_crm_tab
 
@@ -233,9 +233,17 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             for _, s in other_memberships
         )
         switcher_html = f"""
-        <select onchange="window.location.href='/business/dashboard?salon_id=' + this.value" style="padding:0.5rem 0.75rem;border:1px solid var(--color-border);border-radius:0.5rem;font-size:0.85rem">
+        <select class="salon-switcher" onchange="window.location.href='/business/dashboard?salon_id=' + this.value">
             {options}
         </select>"""
+
+    # Ссылка «Добавить салон» — только для настоящих владельцев (создателей
+    # своих салонов), чтобы не путать нанятых сотрудников: у них тоже есть
+    # доступ к /business/register-salon (по сайт-роли BUSINESS), но кнопка
+    # в панели чужого салона выглядела бы так, будто она про этот салон.
+    add_salon_html = ""
+    if membership.is_creator:
+        add_salon_html = f'<a class="salon-switcher-add" href="/business/register-salon">{ICON_PLUS} Добавить салон</a>'
 
     # Баннер статуса заявки
     moderation_banner = ""
@@ -262,9 +270,13 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
                 <h1>Панель салона</h1>
                 <p>Салон «{salon.name}» • {salon.address.split(',')[0] if salon.address else 'Адрес не указан'}</p>
             </div>
-            <span class="dashboard-badge">
-                {ICON_SPARKLES} Бизнес PRO
-            </span>
+            <div class="dashboard-header-actions">
+                {switcher_html}
+                {add_salon_html}
+                <span class="dashboard-badge">
+                    {ICON_SPARKLES} Бизнес PRO
+                </span>
+            </div>
         </div>
     </div>
     """
