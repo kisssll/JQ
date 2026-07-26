@@ -110,7 +110,9 @@ async def set_salon_cover(
     if photo is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Фото не найдено")
 
-    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one()
+    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
+    if salon is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Салон не найден")
     salon.logo_url = photo.url
     await db.commit()
     return RedirectResponse(url=_safe_next(next, "/business/my-salon"), status_code=302)
@@ -137,7 +139,9 @@ async def delete_salon_photo(
     await db.delete(photo)
 
     # Если удалили обложку — переназначаем на первое оставшееся фото
-    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one()
+    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
+    if salon is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Салон не найден")
     if salon.logo_url == url:
         remaining = (
             await db.execute(

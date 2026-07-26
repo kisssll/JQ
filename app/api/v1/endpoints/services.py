@@ -49,6 +49,12 @@ async def create_service_web(
     except HTTPException:
         return HTMLResponse(content="Недостаточно прав для управления услугами", status_code=403)
 
+    try:
+        parsed_quota = int(model_quota) if model_quota.strip() else None
+        parsed_desired_date = date.fromisoformat(model_desired_date) if model_desired_date.strip() else None
+    except ValueError:
+        return HTMLResponse(content="Некорректный формат квоты моделей или желаемой даты отработки", status_code=400)
+
     service = Service(
         master_id=master_id,
         name=name,
@@ -56,8 +62,8 @@ async def create_service_web(
         duration_minutes=duration_minutes,
         description=description,
         is_model_practice=is_model_practice,
-        model_quota=int(model_quota) if model_quota.strip() else None,
-        model_desired_date=date.fromisoformat(model_desired_date) if model_desired_date.strip() else None,
+        model_quota=parsed_quota,
+        model_desired_date=parsed_desired_date,
     )
     db.add(service)
     await db.commit()

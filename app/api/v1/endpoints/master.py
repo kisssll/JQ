@@ -82,7 +82,9 @@ async def create_master_web(
         await check_salon_permission(db, user, resolved_id, "manage_masters")
     except HTTPException:
         return HTMLResponse(content="Недостаточно прав для управления мастерами", status_code=403)
-    salon = (await db.execute(select(Salon).where(Salon.id == resolved_id))).scalar_one()
+    salon = (await db.execute(select(Salon).where(Salon.id == resolved_id))).scalar_one_or_none()
+    if salon is None:
+        return HTMLResponse(content="Салон не найден", status_code=404)
 
     # Телефон из формы может быть в любом виде ("+7 (948) 758-97-34" и т.п.) —
     # нормализуем к +7XXXXXXXXXX, иначе не влезет в users.phone (String(15))
