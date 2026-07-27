@@ -486,3 +486,38 @@ async def notify_chain_request_resolved(db: AsyncSession, request: SalonChainReq
             await fanout.send(creator, text)
     except Exception:
         logger.exception("notify_chain_request_resolved(%s): не поставлено", request.id)
+
+
+async def send_guest_booking_email(
+    db: AsyncSession, booking, base_url: str, title: str, intro: str,
+) -> None:
+    """Брендированное письмо гостю (гостевая бронь без регистрации) со ссылкой
+    отслеживания статуса записи. Тихо выходит, если email не оставляли.
+    base_url — внешний адрес сайта (из request.base_url), нужен для абсолютной
+    ссылки на страницу управления бронью /guest-booking/<token>."""
+    if not getattr(booking, "guest_email", None):
+        return
+    try:
+        from app.models.models import Service, Master, Salon
+        from app.services.email_templates import booking_status_email
+
+        service = (await db.execute(select(Service).where(Service.id == booking.service_id))).scalar_one_or_none()
+        master = (await db.execute(select(Master).where(Master.id == booking.master_id))).scalar_one_or_none()
+        salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none() if master else None
+
+        when = booking.start_time.strftime("%d.%m.%Y %H:%M") if booking.start_time else "—"
+        track_url = None
+        if booking.guest_manage_token:
+            base = (base_url or "").rstrip("/").replace("http://", "https://")
+            track_url = f"{base}/guest-booking/{booking.guest_manage_token}"
+
+        plain, html = booking_status_email(
+            title=title, intro=intro,
+            salon_name=salon.name if salon else "—",
+            service_name=service.name if service else "—",
+            when=when, track_url=track_url,
+        )
+        pool = await get_arq_pool()
+        await pool.enqueue_job("send_email", booking.guest_email, f"{title} — Руми", plain, html)
+    except Exception:
+        logger.exception("send_guest_booking_email(booking=%s): не поставлено", getattr(booking, "id", "?"))

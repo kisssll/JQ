@@ -89,7 +89,7 @@ async def test_send_email_retries_on_transient(arq_pool, monkeypatch):
     """Email-задача: временные сбои SMTP ретраятся, как у SMS/TG."""
     calls = {"n": 0}
 
-    async def flaky(to, subject, body):
+    async def flaky(to, subject, body, html=None):
         calls["n"] += 1
         if calls["n"] < 3:
             raise tasks.TransientTaskError("SMTP 421")

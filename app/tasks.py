@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from arq.worker import Retry
 
@@ -175,11 +175,13 @@ async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
 # ── Email (noreply@rrumi.ru через SMTP Timeweb) ──────────────────
 
 
-async def _send_via_smtp(to: str, subject: str, body: str) -> None:
+async def _send_via_smtp(to: str, subject: str, body: str, html: Optional[str] = None) -> None:
     """Единственная точка отправки писем. mock — в лог (dev/до кредов).
 
-    Сетевые сбои и 4xx-коды SMTP (временные) — TransientTaskError;
-    постоянные отказы (несуществующий ящик, 5xx) не ретраим.
+    body — текстовый вариант (fallback), html — опциональная HTML-версия
+    (add_alternative: почтовые клиенты покажут HTML, но текст останется для
+    тех, кто HTML не рендерит). Сетевые сбои и 4xx-коды SMTP (временные) —
+    TransientTaskError; постоянные отказы (несуществующий ящик, 5xx) не ретраим.
     """
     from app.core.config import settings
 
@@ -196,6 +198,8 @@ async def _send_via_smtp(to: str, subject: str, body: str) -> None:
     msg["To"] = to
     msg["Subject"] = subject
     msg.set_content(body)
+    if html:
+        msg.add_alternative(html, subtype="html")
 
     try:
         await aiosmtplib.send(
@@ -215,10 +219,11 @@ async def _send_via_smtp(to: str, subject: str, body: str) -> None:
         raise TransientTaskError(f"SMTP: {exc}") from exc
 
 
-async def send_email(ctx: dict[str, Any], to: str, subject: str, body: str) -> str:
-    """Отправка письма вне запроса (сброс пароля, сервисные письма)."""
+async def send_email(ctx: dict[str, Any], to: str, subject: str, body: str, html: Optional[str] = None) -> str:
+    """Отправка письма вне запроса (сброс пароля, сервисные письма).
+    html — опциональная HTML-версия (для брендированных писем)."""
     try:
-        await _send_via_smtp(to, subject, body)
+        await _send_via_smtp(to, subject, body, html)
     except TransientTaskError as exc:
         logger.warning("send_email %s: временный сбой (попытка %d): %s",
                        to, ctx["job_try"], exc)
