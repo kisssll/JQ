@@ -343,51 +343,6 @@ jobs:
           path: zap-reports/
           if-no-files-found: ignore
 
-  # ---------------------------------------------------------------
-  # Тесты (блок 12): pytest + httpx против приложения (ASGI, без сервера),
-  # БД и Redis — сервис-контейнеры. Схема тестовой БД собирается СТРОГО
-  # миграциями (alembic upgrade head) — заодно ловим дрейф моделей/миграций.
-  # ---------------------------------------------------------------
-  tests:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: beauty_user
-          POSTGRES_PASSWORD: ci_test_pass
-          POSTGRES_DB: postgres
-        ports:
-          - "5432:5432"
-        options: >-
-          --health-cmd "pg_isready -U beauty_user"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - "6379:6379"
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      SECRET_KEY: ci-tests-only-secret-0123456789
-      POSTGRES_USER: beauty_user
-      POSTGRES_PASSWORD: ci_test_pass
-      POSTGRES_HOST: localhost
-      POSTGRES_PORT: "5432"
-      TEST_REDIS_URL: redis://localhost:6379/9
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-      - name: Install deps
-        run: pip install -r requirements-dev.txt
-      - name: Syntax check (compileall)
-        # Ловит SyntaxError, которые pytest пропускает, если модуль не
-        # импортируется тестами (напр. backslash в f-string на py3.11,
-        # ронявший вкладки «Услуги»/«Акции» 500 при открытии панели).
-        run: python -m compileall -q app/
-      - name: Run tests (gate)
-        run: pytest -q
+  # Тесты-гейт (pytest + compileall + smoke всех страниц) вынесены в отдельный
+  # workflow .github/workflows/ci.yml — он же гейтит прод-деплой (deploy-prod
+  # needs: [tests]). Здесь оставлены только security-сканеры.
