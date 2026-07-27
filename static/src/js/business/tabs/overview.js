@@ -1,26 +1,55 @@
-// static/src/js/business/overview.js
+// static/src/js/business/tabs/overview.js
 
 (function() {
-    // Получаем данные, переданные из Python
     const weekOperations = window.weekOperations || [];
     const days = window.days || [];
+    let currentOpenDay = null;
+    let activeColumn = null;
 
-    // Глобальные функции для вызова из HTML
-    window.showDayDetails = function(index, dayName, revenue, prevRevenue) {
+    function closeDayDetails() {
+        const accordion = document.getElementById('dayAccordion');
+        if (accordion) accordion.style.display = 'none';
+        currentOpenDay = null;
+        // Снимаем выделение со столбца
+        setActiveColumn(null);
+    }
+
+    function setActiveColumn(col) {
+        // Сбрасываем предыдущий активный
+        if (activeColumn) {
+            const prevFill = activeColumn.querySelector('.chart-fill');
+            if (prevFill) {
+                prevFill.style.background = 'linear-gradient(to top, #34d399, #34d399cc)';
+            }
+            activeColumn.classList.remove('active');
+        }
+        activeColumn = col;
+        if (col) {
+            const fill = col.querySelector('.chart-fill');
+            if (fill) {
+                fill.style.background = 'linear-gradient(to top, #059669, #059669cc)';
+            }
+            col.classList.add('active');
+        }
+    }
+
+    function toggleDayDetails(index, dayName, revenue, prevRevenue) {
+        const accordion = document.getElementById('dayAccordion');
+        const title = document.getElementById('accordionDayTitle');
+        const summary = document.getElementById('accordionDaySummary');
+        const container = document.getElementById('accordionDayOperations');
+        
+        if (currentOpenDay === index && accordion.style.display !== 'none') {
+            closeDayDetails();
+            return;
+        }
+        
         const ops = weekOperations[index] || [];
-        const overlay = document.getElementById('dayDetailsOverlay');
-        const sheet = document.getElementById('dayDetailsModal');
-        const title = document.getElementById('modalDayTitle');
-        const summary = document.getElementById('modalDaySummary');
-        const container = document.getElementById('modalDayOperations');
-
-        if (!overlay || !sheet) return;
-
         title.textContent = `Операции за ${dayName}`;
         const totalOps = ops.length;
         const paidCount = ops.filter(o => o.status === 'completed').length;
         summary.textContent = `${totalOps} операций • ${revenue.toLocaleString()} ₽ • Оплачено: ${paidCount}/${totalOps}`;
-
+        
         container.innerHTML = '';
         if (totalOps === 0) {
             container.innerHTML = '<p class="text-muted">Нет операций за этот день</p>';
@@ -53,23 +82,59 @@
                 container.appendChild(item);
             });
         }
+        
+        accordion.style.display = 'block';
+        accordion.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        currentOpenDay = index;
 
-        overlay.classList.add('active');
-        sheet.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    };
+        // Выделяем столбец
+        const columns = document.querySelectorAll('#overviewChartBar .chart-column');
+        if (columns[index]) {
+            setActiveColumn(columns[index]);
+        }
+    }
 
-    window.closeDayDetails = function() {
-        const overlay = document.getElementById('dayDetailsOverlay');
-        const sheet = document.getElementById('dayDetailsModal');
-        if (overlay) overlay.classList.remove('active');
-        if (sheet) sheet.classList.remove('active');
-        document.body.style.overflow = '';
-    };
+    // Назначаем обработчики кликов на столбцы
+    document.addEventListener('DOMContentLoaded', function() {
+        const columns = document.querySelectorAll('#overviewChartBar .chart-column');
+        columns.forEach((col, index) => {
+            col.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const dayName = days[index] || `День ${index+1}`;
+                const revenue = weekOperations[index]?.reduce((sum, op) => sum + (op.final_price || op.service.price), 0) || 0;
+                const prevRevenue = 0; // можно не использовать
+                toggleDayDetails(index, dayName, revenue, prevRevenue);
+            });
+        });
+    });
+
+    // Глобальная функция для вызова из HTML (оставлена для обратной совместимости)
+    window.toggleDayDetails = toggleDayDetails;
+    window.closeDayDetails = closeDayDetails;
+
+    // Обработчик крестика
+    document.addEventListener('click', function(e) {
+        const closeBtn = e.target.closest('.accordion-close');
+        if (closeBtn) {
+            e.preventDefault();
+            closeDayDetails();
+        }
+    });
 
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            window.closeDayDetails();
+            closeDayDetails();
+        }
+    });
+
+    // Закрытие при клике вне аккордеона и вне столбцов
+    document.addEventListener('click', function(e) {
+        const accordion = document.getElementById('dayAccordion');
+        if (accordion && accordion.style.display !== 'none') {
+            const target = e.target;
+            if (!accordion.contains(target) && !target.closest('#overviewChartBar .chart-column')) {
+                closeDayDetails();
+            }
         }
     });
 })();
