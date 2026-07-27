@@ -9,6 +9,7 @@ from app.web.components.icons import (
     ICON_USER_PLUS,
     ICON_TRASH,
     ICON_POWER,
+    ICON_LOCK,
     ICON_USER,
     ICON_CHEVRON_DOWN,
     ICON_FILE_TEXT,
@@ -117,7 +118,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             if can_edit_perms_this:
                 actions += f"""<button class="action-btn edit-btn" onclick='openPermissionsModal({member.id}, "{member_name}", {perms_json})' title="Права">{ICON_EDIT}</button>"""
             if can_remove_this and not member.is_creator:
-                actions += f"""<button class="action-btn" onclick="resetMemberPassword({member.id})" title="Сбросить пароль">🔑</button>"""
+                actions += f"""<button class="action-btn" onclick="resetMemberPassword({member.id})" title="Сбросить пароль">{ICON_LOCK}</button>"""
             if can_remove_this:
                 actions += f"""<button class="action-btn delete-btn" onclick="removeMember({member.id}, '{member_name}')" title="Снять">{ICON_TRASH}</button>"""
 
@@ -167,7 +168,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
                     <input type="hidden" name="salon_id" value="{salon.id}">
                     <div class="form-group">
                         <label for="invitePhone">Телефон *</label>
-                        <input type="tel" id="invitePhone" name="phone" value="+7" required placeholder="+7XXXXXXXXXX">
+                        <input type="tel" id="invitePhone" name="phone" value="+7" required placeholder="+7XXXXXXXXXX" class="phone-input">
                     </div>
                     <div class="form-group">
                         <label for="inviteName">Имя (если новый пользователь)</label>
@@ -237,7 +238,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({m.id}, '{user_name}', {str(m.is_active).lower()})" title="{'Отключить' if m.is_active else 'Включить'}">{ICON_POWER}</button>
         """
         if can_manage_masters:
-            actions += f'<button class="action-btn" onclick="resetMasterPassword({m.id})" title="Сбросить пароль">🔑</button>'
+            actions += f'<button class="action-btn" onclick="resetMasterPassword({m.id})" title="Сбросить пароль">{ICON_LOCK}</button>'
             actions += f'<button class="action-btn delete-btn" onclick="deleteEmployee({m.id}, \'{user_name}\')" title="Удалить">{ICON_TRASH}</button>'
 
         masters_rows += f"""
@@ -327,7 +328,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
                 </div>
                 <div class="form-group">
                     <label for="employeePhone">Телефон *</label>
-                    <input type="tel" name="phone" id="employeePhone" value="+7" required placeholder="+7XXXXXXXXXX">
+                    <input type="tel" name="phone" id="employeePhone" value="+7" required placeholder="+7XXXXXXXXXX" class="phone-input">
                 </div>
                 <div class="form-group">
                     <label for="employeeSpec">Специализация *</label>
