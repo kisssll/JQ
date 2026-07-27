@@ -105,9 +105,7 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                                 <span class="home-search-title">Найти салон или услугу</span>
                                 <span class="home-search-desc">Маникюр, стрижка, окрашивание, брови...</span>
                             </div>
-                            <div class="home-search-btn hidden sm:flex">
-                                Найти
-                            </div>
+                            <div class="home-search-btn">Найти</div>
                         </a>
                     </div>
 
