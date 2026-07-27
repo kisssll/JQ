@@ -110,3 +110,29 @@ async def test_send_email_retries_on_transient(arq_pool, monkeypatch):
 
     assert result == "sent"
     assert calls["n"] == 3
+
+
+async def test_html_email_base64_keeps_long_href_intact(monkeypatch):
+    """HTML-письмо кодируется base64 (не QP): длинный href не рвётся мягким
+    переносом на 76 символах — иначе часть клиентов ломает ссылки."""
+    import aiosmtplib
+    from app.core import config
+    from app import tasks as _tasks
+
+    monkeypatch.setattr(config.settings, "EMAIL_MODE", "live")
+    monkeypatch.setattr(config.settings, "SMTP_PASSWORD", "dummy")
+    captured = {}
+
+    async def fake_send(msg, **kwargs):
+        captured["msg"] = msg
+
+    monkeypatch.setattr(aiosmtplib, "send", fake_send)
+
+    url = "https://staging.201-24-60-247.sslip.io/guest-booking/" + "T" * 50
+    html = f'<a href="{url}">Отслеживать запись</a>'
+    await _tasks._send_via_smtp("guest@example.com", "тема", "текст", html)
+
+    msg = captured["msg"]
+    html_part = next(p for p in msg.walk() if p.get_content_type() == "text/html")
+    assert html_part.get("Content-Transfer-Encoding") == "base64"
+    assert url in html_part.get_content(), "href должен остаться целым после декодирования"

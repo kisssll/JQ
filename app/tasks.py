@@ -199,7 +199,11 @@ async def _send_via_smtp(to: str, subject: str, body: str, html: Optional[str] =
     msg["Subject"] = subject
     msg.set_content(body)
     if html:
-        msg.add_alternative(html, subtype="html")
+        # base64, а не quoted-printable по умолчанию: QP переносит длинные
+        # строки на 76 символах мягким переносом (=\n) прямо посреди href, и
+        # часть почтовых клиентов ломает на этом ссылки. base64 декодируется
+        # байт-в-байт — URL остаются целыми.
+        msg.add_alternative(html, subtype="html", cte="base64")
 
     try:
         await aiosmtplib.send(
