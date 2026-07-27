@@ -30,6 +30,27 @@
             });
     };
 
+    // Подтверждение/отклонение записи салоном (PENDING → CONFIRMED / CANCELLED).
+    // Гостю уходит письмо о решении. Доступно везде, где есть кнопки записи —
+    // вкладка «Записи» и модалка расписания (в т.ч. в кабинете мастера).
+    window.acceptBooking = function(bookingId) {
+        if (!confirm('Подтвердить запись?')) return;
+        fetch(`/api/v1/bookings/${bookingId}/accept`, { method: 'POST' })
+            .then(r => {
+                if (r.ok) location.reload();
+                else r.json().then(d => alert(d.detail || 'Не удалось подтвердить'));
+            });
+    };
+
+    window.rejectBooking = function(bookingId) {
+        if (!confirm('Отклонить запись? Клиент получит уведомление.')) return;
+        fetch(`/api/v1/bookings/${bookingId}/reject`, { method: 'POST' })
+            .then(r => {
+                if (r.ok) location.reload();
+                else r.json().then(d => alert(d.detail || 'Не удалось отклонить'));
+            });
+    };
+
     // Мастер отмечает, что видел плановую запись — без подтверждения, чтобы
     // не мешать быстро пробежаться по календарю
     window.markSeen = function(bookingId, btn) {

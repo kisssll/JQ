@@ -82,7 +82,12 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
         needs_badge = b.status == BookingStatus.COMPLETED and not b.consumption_reported
         badge = f'<span class="not-reported-badge">не списано</span>' if needs_badge else ""
         actions = ""
-        if can_manage_schedule and b.status in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
+        if can_manage_schedule and b.status == BookingStatus.PENDING:
+            actions = f"""
+            <button class="btn-action btn-action-success" onclick="acceptBooking({b.id})">Подтвердить</button>
+            <button class="btn-action btn-action-danger" onclick="rejectBooking({b.id})">Отклонить</button>
+            """
+        elif can_manage_schedule and b.status == BookingStatus.CONFIRMED:
             actions = f"""
             <button class="btn-action btn-action-success" onclick="recordMarkBooking({b.id}, 'complete', this)">Пришёл</button>
             <button class="btn-action btn-action-danger" onclick="recordMarkBooking({b.id}, 'no-show', this)">Не пришёл</button>
@@ -109,7 +114,12 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
         needs_badge = b.status == BookingStatus.COMPLETED and not b.consumption_reported
         badge = f'<span class="not-reported-badge">не списано</span>' if needs_badge else ""
         actions = ""
-        if can_manage_schedule and b.status in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
+        if can_manage_schedule and b.status == BookingStatus.PENDING:
+            actions = f"""
+            <button class="btn-action btn-action-success" onclick="acceptBooking({b.id})">Подтвердить</button>
+            <button class="btn-action btn-action-danger" onclick="rejectBooking({b.id})">Отклонить</button>
+            """
+        elif can_manage_schedule and b.status == BookingStatus.CONFIRMED:
             actions = f"""
             <button class="btn-action btn-action-success" onclick="recordMarkBooking({b.id}, 'complete', this)">Пришёл</button>
             <button class="btn-action btn-action-danger" onclick="recordMarkBooking({b.id}, 'no-show', this)">Не пришёл</button>
