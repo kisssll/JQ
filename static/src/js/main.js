@@ -19,6 +19,7 @@ import './pwa.js';
 import './business/tabs/schedule.js';
 import './business/tabs/master-schedule.js';
 import './business/tabs/employees.js';
+import './business/tabs/employee-credentials.js';
 import './business/tabs/records.js';
 import './business/tabs/analytics.js';
 import './business/tabs/my-salon.js';

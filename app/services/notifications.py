@@ -158,6 +158,7 @@ async def _enqueue(chat_id: int, text: str, **kwargs) -> None:
 
 
 async def notify_booking_created(db: AsyncSession, booking: Booking) -> None:
+    await _salon_booking_email(db, booking, "created")  # копия на почту салона (не зависит от TG)
     if not settings.TG_NOTIFY_ENABLED:
         return
     try:
@@ -207,6 +208,7 @@ async def notify_booking_created(db: AsyncSession, booking: Booking) -> None:
 
 
 async def notify_booking_cancelled(db: AsyncSession, booking: Booking) -> None:
+    await _salon_booking_email(db, booking, "cancelled")  # копия на почту салона (не зависит от TG)
     if not settings.TG_NOTIFY_ENABLED:
         return
     try:
@@ -521,3 +523,48 @@ async def send_guest_booking_email(
         await pool.enqueue_job("send_email", booking.guest_email, f"{title} — Руми", plain, html)
     except Exception:
         logger.exception("send_guest_booking_email(booking=%s): не поставлено", getattr(booking, "id", "?"))
+
+
+async def send_employee_credentials_email(db: AsyncSession, salon, name: str, login: str, password: str):
+    """Отправляет реквизиты входа нового сотрудника на почту салона.
+    Возвращает адрес, на который отправлено, либо None (если почта не задана).
+    Исключения НЕ глотаем — вызывающий эндпоинт сообщает об успехе/ошибке."""
+    if salon is None or not salon.email:
+        return None
+    from app.services.email_templates import credentials_email
+    plain, html = credentials_email(name=name, login=login, password=password, salon_name=salon.name)
+    pool = await get_arq_pool()
+    await pool.enqueue_job("send_email", salon.email, f"Реквизиты для входа — {salon.name} — Руми", plain, html)
+    return salon.email
+
+
+async def _salon_booking_email(db: AsyncSession, booking, kind: str) -> None:
+    """Копия уведомления о записи/отмене на почту салона (если задана).
+    kind: 'created' | 'cancelled'. Тихо выходит без почты салона."""
+    try:
+        from app.models.models import Service, Master, Salon, User
+        from app.services.email_templates import booking_status_email
+        master = (await db.execute(select(Master).where(Master.id == booking.master_id))).scalar_one_or_none()
+        salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none() if master else None
+        if salon is None or not salon.email:
+            return
+        service = (await db.execute(select(Service).where(Service.id == booking.service_id))).scalar_one_or_none()
+        client = (await db.execute(select(User).where(User.id == booking.client_id))).scalar_one_or_none()
+        master_user = (await db.execute(select(User).where(User.id == master.user_id))).scalar_one_or_none() if master else None
+        when = booking.start_time.strftime("%d.%m.%Y %H:%M") if booking.start_time else "—"
+        client_name = client.full_name if client and client.full_name else "клиент"
+        master_name = master_user.full_name if master_user and master_user.full_name else "мастер"
+        if kind == "created":
+            title = "Новая запись"
+            intro = f"Клиент {client_name} записался к мастеру {master_name}. Подробности — в панели салона."
+        else:
+            title = "Запись отменена"
+            intro = f"Запись клиента {client_name} к мастеру {master_name} отменена."
+        plain, html = booking_status_email(
+            title=title, intro=intro, salon_name=salon.name,
+            service_name=service.name if service else "—", when=when, track_url=None,
+        )
+        pool = await get_arq_pool()
+        await pool.enqueue_job("send_email", salon.email, f"{title} — {salon.name} — Руми", plain, html)
+    except Exception:
+        logger.exception("_salon_booking_email(%s): не поставлено", getattr(booking, "id", "?"))

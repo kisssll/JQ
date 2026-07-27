@@ -8,6 +8,49 @@ _BG = "#faf9fb"
 _MUTED = "#9a93a8"
 
 
+def credentials_email(
+    *, name: str, login: str, password: str, salon_name: str,
+) -> Tuple[str, str]:
+    """(plain, html) — письмо с реквизитами входа нового сотрудника салона."""
+    plain = "\n".join([
+        f"Реквизиты для входа — {salon_name}", "",
+        f"Сотрудник: {name}",
+        f"Логин (телефон): {login}",
+        f"Временный пароль: {password}", "",
+        "Вход: https://rrumi.ru/login — после первого входа смените пароль.",
+        "", "— Руми · rrumi.ru",
+    ])
+    html = f"""<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:{_BG};font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#1a1523">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{_BG};padding:28px 12px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 6px 28px rgba(20,10,40,.07)">
+        <tr><td style="background:{ACCENT};padding:20px 28px">
+          <span style="color:#fff;font-size:22px;font-weight:800;letter-spacing:-.5px">руми<span style="opacity:.65">.</span></span>
+        </td></tr>
+        <tr><td style="padding:28px 28px 6px">
+          <h1 style="margin:0 0 10px;font-size:21px;line-height:1.25">Реквизиты для входа сотрудника</h1>
+          <p style="margin:0;color:#6b6577;font-size:15px;line-height:1.55">Передайте эти данные сотруднику <b>{name}</b> для входа в панель «{salon_name}».</p>
+        </td></tr>
+        <tr><td style="padding:18px 28px 0">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{_BG};border-radius:12px">
+            <tr><td style="padding:14px 16px 4px;color:{_MUTED};font-size:13px;width:150px">Логин (телефон)</td><td style="padding:14px 16px 4px;font-size:15px;font-weight:700">{login}</td></tr>
+            <tr><td style="padding:4px 16px 14px;color:{_MUTED};font-size:13px">Временный пароль</td><td style="padding:4px 16px 14px;font-size:15px;font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace">{password}</td></tr>
+          </table>
+        </td></tr>
+        <tr><td align="center" style="padding:22px 28px 4px"><a href="https://rrumi.ru/login" style="display:inline-block;background:{ACCENT};color:#fff;text-decoration:none;font-weight:600;padding:13px 30px;border-radius:11px;font-size:15px">Войти в панель →</a></td></tr>
+        <tr><td style="padding:24px 28px 26px;color:{_MUTED};font-size:12px;line-height:1.5;border-top:1px solid #f0eef4">
+          Из соображений безопасности попросите сотрудника сменить пароль после первого входа · <a href="https://rrumi.ru" style="color:{ACCENT};text-decoration:none">rrumi.ru</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return plain, html
+
+
 def booking_status_email(
     *,
     title: str,

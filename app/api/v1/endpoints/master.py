@@ -2,7 +2,7 @@
 from typing import Optional
 from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, status
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 import secrets
@@ -68,72 +68,97 @@ async def create_master_web(
     salon_id: Optional[int] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
-    """Добавление мастера владельцем/админом салона через веб-форму."""
+    """Добавление мастера владельцем/админом. Возвращает JSON; при создании
+    НОВОГО аккаунта — реквизиты для попапа (пароль не уходит в URL)."""
     from app.web.auth import get_current_user_from_cookie
 
     user = await get_current_user_from_cookie(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=302)
+        return JSONResponse({"status": "error", "detail": "Требуется вход"}, status_code=401)
 
     resolved_id = await get_user_primary_salon_id(db, user.id, salon_id)
     if resolved_id is None:
-        return RedirectResponse(url="/business/register-salon", status_code=302)
+        return JSONResponse({"status": "error", "detail": "Салон не найден"}, status_code=404)
     try:
         await check_salon_permission(db, user, resolved_id, "manage_masters")
     except HTTPException:
-        return HTMLResponse(content="Недостаточно прав для управления мастерами", status_code=403)
+        return JSONResponse({"status": "error", "detail": "Недостаточно прав для управления мастерами"}, status_code=403)
     salon = (await db.execute(select(Salon).where(Salon.id == resolved_id))).scalar_one_or_none()
     if salon is None:
-        return HTMLResponse(content="Салон не найден", status_code=404)
+        return JSONResponse({"status": "error", "detail": "Салон не найден"}, status_code=404)
 
-    # Телефон из формы может быть в любом виде ("+7 (948) 758-97-34" и т.п.) —
-    # нормализуем к +7XXXXXXXXXX, иначе не влезет в users.phone (String(15))
-    # и не совпадёт при поиске с уже зарегистрированным пользователем.
+    # Телефон нормализуем к +7XXXXXXXXXX — это же логин мастера.
     norm_phone = try_normalize_phone(phone)
     if norm_phone is None:
-        return RedirectResponse(url="/business/my-salon?error=bad_phone", status_code=302)
+        return JSONResponse({"status": "error", "detail": "Некорректный номер телефона"}, status_code=400)
 
-    # Проверяем, нет ли уже мастера с таким телефоном
     temp_password = None
     existing_user = (await db.execute(select(User).where(User.phone == norm_phone))).scalar_one_or_none()
     if existing_user:
-        # Если пользователь уже есть, просто создаём профиль мастера
         existing_master = (await db.execute(select(Master).where(Master.user_id == existing_user.id))).scalar_one_or_none()
         if existing_master:
-            return RedirectResponse(url="/business/my-salon?error=master_exists", status_code=302)
+            return JSONResponse({"status": "error", "detail": "Мастер с таким телефоном уже добавлен"}, status_code=400)
         master_user = existing_user
     else:
-        # Уникальный случайный временный пароль (не общий "master123").
-        # Показываем владельцу один раз; мастер обязан сменить его при входе.
+        # Уникальный временный пароль — показываем в попапе один раз.
         temp_password = secrets.token_urlsafe(9)
         master_user = User(
-            phone=norm_phone,
-            full_name=full_name,
+            phone=norm_phone, full_name=full_name,
             hashed_password=get_password_hash(temp_password),
-            role=UserRole.MASTER,
-            is_active=True
+            role=UserRole.MASTER, is_active=True,
         )
         db.add(master_user)
         await db.flush()
-    
-    # Создаём профиль мастера
+
     master = Master(
-        user_id=master_user.id,
-        salon_id=salon.id,
-        specialization=specialization,
-        experience_years=experience_years,
-        rating=0.0
+        user_id=master_user.id, salon_id=salon.id,
+        specialization=specialization, experience_years=experience_years, rating=0.0,
     )
     db.add(master)
     await db.commit()
 
-    # Показываем временный пароль владельцу один раз (для передачи мастеру)
+    # Реквизиты возвращаем только для НОВОГО аккаунта (у существующего — свой пароль).
+    creds = None
     if temp_password:
-        return RedirectResponse(
-            url=f"/business/my-salon?added=1&temp_pw={quote(temp_password)}",
-            status_code=302,
-        )
-    return RedirectResponse(url="/business/my-salon?added=1", status_code=302)
+        creds = {"name": full_name, "login": norm_phone, "password": temp_password}
+    return JSONResponse({"status": "ok", "credentials": creds})
+
+
+@router.post("/{master_id}/reset-password")
+async def reset_master_password(
+    master_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Сброс пароля мастера: генерит новый временный пароль и возвращает
+    реквизиты для попапа (на случай «упустил окно» / забытого пароля)."""
+    from app.web.auth import get_current_user_from_cookie
+
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        return JSONResponse({"status": "error", "detail": "Требуется вход"}, status_code=401)
+
+    master = (await db.execute(select(Master).where(Master.id == master_id))).scalar_one_or_none()
+    if master is None:
+        return JSONResponse({"status": "error", "detail": "Мастер не найден"}, status_code=404)
+    try:
+        await check_salon_permission(db, user, master.salon_id, "manage_masters")
+    except HTTPException:
+        return JSONResponse({"status": "error", "detail": "Недостаточно прав"}, status_code=403)
+
+    master_user = (await db.execute(select(User).where(User.id == master.user_id))).scalar_one_or_none()
+    if master_user is None:
+        return JSONResponse({"status": "error", "detail": "Аккаунт мастера не найден"}, status_code=404)
+    salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none()
+    if salon is not None and salon.creator_id == master_user.id:
+        return JSONResponse({"status": "error", "detail": "Нельзя сбросить пароль создателя салона"}, status_code=400)
+
+    new_password = secrets.token_urlsafe(9)
+    master_user.hashed_password = get_password_hash(new_password)
+    await db.commit()
+    return JSONResponse({"status": "ok", "credentials": {
+        "name": master_user.full_name, "login": master_user.phone, "password": new_password,
+    }})
 
 
 @router.post("/{master_id}/update")

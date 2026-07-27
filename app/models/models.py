@@ -307,6 +307,9 @@ class Salon(Base):
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
 
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Контактная почта салона (необязательная): реквизиты новых сотрудников +
+    # копии уведомлений о записях/отменах. Не путать с почтой пользователя.
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     # Принимать записи без регистрации (гостевые по ссылке/QR). По умолчанию вкл.
     guest_booking_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
