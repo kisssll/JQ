@@ -17,7 +17,7 @@ from app.web.components.icons import (
 
 
 async def render_salons_page(db: AsyncSession, user=None) -> str:
-    """Страница со списком салонов с акциями в карточках."""
+    """Страница со списком салонов."""
 
     result = await db.execute(
         select(Salon).where(
