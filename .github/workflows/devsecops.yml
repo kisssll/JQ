@@ -384,5 +384,10 @@ jobs:
           cache: pip
       - name: Install deps
         run: pip install -r requirements-dev.txt
+      - name: Syntax check (compileall)
+        # Ловит SyntaxError, которые pytest пропускает, если модуль не
+        # импортируется тестами (напр. backslash в f-string на py3.11,
+        # ронявший вкладки «Услуги»/«Акции» 500 при открытии панели).
+        run: python -m compileall -q app/
       - name: Run tests (gate)
         run: pytest -q
