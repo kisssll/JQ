@@ -1,4 +1,7 @@
-// static/src/js/custom-forms.js
+/* ==========================================================================
+   static/src/js/custom-forms.js
+   ========================================================================== */
+
 import Choices from 'choices.js';
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/l10n/ru.js';
@@ -12,40 +15,43 @@ document.querySelectorAll('select.custom-select').forEach(el => {
         position: 'auto',
         placeholder: true,
         placeholderValue: el.getAttribute('placeholder') || 'Выберите...',
-        renderSelectedChoices: 'always', // выбранный элемент остаётся в списке
+        renderSelectedChoices: 'auto',
+        hideSelected: true,
+        removeItemButton: false,
+        allowHTML: false,
     });
 });
 
 // Инициализация date/time/month инпутов с классом .custom-date
 document.querySelectorAll('input.custom-date').forEach(el => {
-    // Для скрытых полей (picker) — настраиваем отдельно
-    const isPicker = el.id === 'datePickerInput' || el.id === 'weekPickerInput';
     const config = {
         dateFormat: el.type === 'date' ? 'Y-m-d' : (el.type === 'month' ? 'Y-m' : 'H:i'),
         locale: 'ru',
         allowInput: true,
         disableMobile: true,
     };
+
     if (el.type === 'time') {
         config.enableTime = true;
         config.noCalendar = true;
         config.time_24hr = true;
         config.dateFormat = 'H:i';
-    }
-    if (el.type === 'date') {
-        config.dateFormat = 'Y-m-d';
-    }
-    if (el.type === 'month') {
+    } else if (el.type === 'month') {
         config.dateFormat = 'Y-m';
-    }
-    // Для пикеров добавляем отключение прошедших дат
-    if (isPicker) {
-        config.disable = [
-            {
-                from: '2020-01-01',
-                to: new Date(new Date().setDate(new Date().getDate() - 1))
+    } else {
+        // Календарь выбора даты
+        config.dateFormat = 'Y-m-d';
+        config.onDayCreate = function(dObj, dStr, fp, dayElem) {
+            const dayDate = new Date(dayElem.dateObj);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Для прошедших дней добавляем класс .past-day
+            if (dayDate < today) {
+                dayElem.classList.add('past-day');
             }
-        ];
+        };
     }
+
     flatpickr(el, config);
 });

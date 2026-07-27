@@ -1,4 +1,6 @@
-/* static/src/css/custom-forms.css */
+/* ==========================================================================
+   static/src/css/custom-forms.css
+   ========================================================================== */
 
 /* ---- Стили для Choices.js (кастомные селекты) ---- */
 .choices {
@@ -64,6 +66,7 @@
     border-bottom: 1px solid var(--color-border);
     background: var(--color-surface);
 }
+
 .choices__list--dropdown .choices__item:last-child {
     border-bottom: none;
     border-radius: 0 0 25px 25px;
@@ -73,9 +76,10 @@
     background: var(--color-accent-light);
     color: var(--color-primary);
 }
+
+/* Скрываем выбранный элемент в выпадающем списке */
 .choices__list--dropdown .choices__item.is-selected {
-    background: var(--color-primary);
-    color: #fff;
+    display: none !important;
 }
 
 /* Скрываем пустой элемент-заглушку плейсхолдера */
@@ -83,7 +87,22 @@
     display: none !important;
 }
 
-/* ---- Стили для всех текстовых полей и инпутов (поиск, дата, месяц, время) ---- */
+/* ---- Стили для выбранного элемента внутри поля ---- */
+.choices__inner .choices__item {
+    color: var(--color-heading) !important;
+    font-weight: 500;
+}
+
+.choices__inner .choices__item--selectable {
+    color: var(--color-heading) !important;
+}
+
+.choices__inner .choices__placeholder {
+    color: var(--color-muted) !important;
+    font-weight: 400;
+}
+
+/* ---- Стили для всех текстовых полей и инпутов ---- */
 input[type="text"],
 input[type="search"],
 input[type="date"],
@@ -103,7 +122,7 @@ input[type="time"],
     box-sizing: border-box;
 }
 
-/* При фокусе – обводка и подсветка, форма не меняется */
+/* При фокусе – обводка и подсветка */
 input[type="text"]:focus,
 input[type="search"]:focus,
 input[type="date"]:focus,
@@ -115,7 +134,7 @@ input[type="time"]:focus,
     box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
 }
 
-/* Для дат – убираем стандартную стрелку, оставляем свой фон */
+/* Иконки встроенных календарей */
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="month"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
@@ -123,6 +142,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     filter: invert(0.3);
     cursor: pointer;
 }
+
 input[type="date"]::-webkit-calendar-picker-indicator:hover,
 input[type="month"]::-webkit-calendar-picker-indicator:hover,
 input[type="time"]::-webkit-calendar-picker-indicator:hover {
@@ -141,42 +161,97 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     font-size: 0.8rem;
 }
 
-/* Скрываем элемент .numInput.cur-year, который виден под месяцем */
-.flatpickr-calendar .numInput.cur-year {
-    display: none !important;
-}
-
-/* Месяц отображается как обычный текст, без селектора */
-.flatpickr-calendar .flatpickr-month {
-    color: var(--color-heading);
-    font-size: 0.9rem;
-    font-weight: 600;
-    pointer-events: none; /* чтобы нельзя было кликнуть */
-}
-
-/* Скрываем выпадающий список месяцев (если он вдруг появляется) */
-.flatpickr-calendar .flatpickr-monthDropdown-months {
-    display: none !important;
-}
-
+/* Шапка календаря – flex-контейнер для стрелок и месяца на одном уровне */
 .flatpickr-calendar .flatpickr-months {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    position: relative;
+    padding: 0.2rem 0.25rem;
     margin-bottom: 0.5rem;
 }
 
+/* Стрелки переключения месяцев – опускаем и выравниваем по вертикали */
 .flatpickr-calendar .flatpickr-prev-month,
 .flatpickr-calendar .flatpickr-next-month {
+    position: static !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: auto !important;
+    width: auto !important;
+    padding: 0 4px !important;
+    margin: 0 !important;
     color: var(--color-muted);
     fill: var(--color-muted);
+    cursor: pointer;
+    line-height: 1 !important;
 }
+
+.flatpickr-calendar .flatpickr-prev-month svg,
+.flatpickr-calendar .flatpickr-next-month svg {
+    vertical-align: middle;
+}
+
 .flatpickr-calendar .flatpickr-prev-month:hover,
 .flatpickr-calendar .flatpickr-next-month:hover {
     color: var(--color-primary);
     fill: var(--color-primary);
 }
 
+/* Контейнеры месяца – строго по центру */
+.flatpickr-calendar .flatpickr-month {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 1;
+    height: auto !important;
+}
+
+.flatpickr-calendar .flatpickr-current-month {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    line-height: 1 !important;
+}
+
+/* Скрываем ввод года */
+.flatpickr-calendar .numInput.cur-year,
+.flatpickr-calendar .flatpickr-current-month .cur-year {
+    display: none !important;
+}
+
+/* Название месяца: обычный (не жирный) шрифт, центрирование */
+.flatpickr-calendar .flatpickr-monthDropdown-months {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 0.9rem !important;
+    font-weight: 400 !important;
+    color: var(--color-heading) !important;
+    pointer-events: none;
+    cursor: default;
+    box-shadow: none !important;
+    text-align: center !important;
+    line-height: 1 !important;
+    height: auto !important;
+}
+
+.flatpickr-calendar .flatpickr-monthDropdown-months::-ms-expand {
+    display: none;
+}
+
+/* Дни недели */
 .flatpickr-calendar .flatpickr-weekdays {
     display: flex;
     justify-content: space-around;
@@ -190,6 +265,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     text-transform: uppercase;
 }
 
+/* Сетка дней */
 .flatpickr-calendar .flatpickr-days {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -222,6 +298,29 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     border-color: var(--color-primary);
 }
 
+/* Прошедшие дни – серым шрифтом, но полностью кликабельные */
+.flatpickr-calendar .flatpickr-day.past-day {
+    color: var(--color-muted, #9ca3af) !important;
+    opacity: 0.65;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+}
+
+.flatpickr-calendar .flatpickr-day.past-day:hover {
+    background: var(--color-accent-light);
+    border-color: var(--color-primary);
+    color: var(--color-primary) !important;
+    opacity: 1;
+}
+
+.flatpickr-calendar .flatpickr-day.past-day.selected {
+    background: var(--color-primary);
+    color: #fff !important;
+    border-color: var(--color-primary);
+    opacity: 1;
+}
+
+/* Выбранный и сегодняшний день */
 .flatpickr-calendar .flatpickr-day.selected {
     background: var(--color-primary);
     color: #fff;
@@ -229,9 +328,6 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .flatpickr-calendar .flatpickr-day.today {
-    border-color: var(--color-primary);
-}
-.flatpickr-calendar .flatpickr-day.today.selected {
     border-color: var(--color-primary);
 }
 
@@ -242,11 +338,8 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     color: #9ca3af !important;
     cursor: not-allowed;
 }
-.flatpickr-calendar .flatpickr-day.disabled:hover,
-.flatpickr-calendar .flatpickr-day.flatpickr-disabled:hover {
-    background: #f3f4f6 !important;
-}
 
+/* Время */
 .flatpickr-calendar .flatpickr-time {
     border-top: 1px solid var(--color-border);
     padding-top: 0.4rem;
@@ -255,6 +348,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     align-items: center;
     justify-content: center;
 }
+
 .flatpickr-calendar .flatpickr-time input {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
@@ -265,10 +359,12 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
     width: 45px;
     text-align: center;
 }
+
 .flatpickr-calendar .flatpickr-time input:focus {
     border-color: var(--color-primary);
     outline: none;
 }
+
 .flatpickr-calendar .flatpickr-time .flatpickr-am-pm {
     display: none;
 }
