@@ -126,7 +126,7 @@ async def render_dashboard_tab(
         return await render_warehouse_tab(db, salon, masters, master_ids, {"audit_id": qp.get("audit_id")}, membership)
 
     if tab_name == "models":
-        return await render_promo_models_tab(db, salon) if perms["manage_masters"] else ""
+        return await render_promo_models_tab(db, salon, masters) if perms["manage_masters"] else ""
 
     if tab_name == "promos":
         promotions = (await db.execute(
