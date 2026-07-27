@@ -1,15 +1,26 @@
 # app/web/pages/business/tabs/promos.py
 from app.web.components.hint import hint as _hint
-from app.web.components.icons import ICON_PLUS, ICON_TRASH, ICON_EDIT
+from app.web.components.icons import (
+    ICON_PLUS, ICON_TRASH, ICON_EDIT, ICON_SAVE, ICON_COPY,
+)
+from app.models.models import SalonLoyaltySettings, LoyaltyOffer  # для типов, но данные передаются
 
 
-def render_promos_tab(promotions, can_manage: bool = False, salon_id: int = None) -> str:
+def render_promos_tab(
+    promotions,
+    can_manage: bool = False,
+    salon_id: int = None,
+    loyalty_settings=None,
+    loyalty_offers=None,
+) -> str:
     """
     Вкладка Акции.
     - can_manage: есть ли право manage_promotions (кнопка добавления и удаления).
-    - salon_id: нужен для формы добавления.
+    - salon_id: нужен для форм.
+    - loyalty_settings: объект SalonLoyaltySettings или None.
+    - loyalty_offers: список LoyaltyOffer.
     """
-    # Строим таблицу
+    # ---- Акции (существующий блок) ----
     promos_rows = ""
     for p in promotions:
         delete_btn = ""
@@ -43,7 +54,7 @@ def render_promos_tab(promotions, can_manage: bool = False, salon_id: int = None
         cols = 3 if not can_manage else 4
         promos_rows = f'<tr><td colspan="{cols}" class="empty-state">Пока нет акций</td></tr>'
 
-    # Кнопка добавления только если есть права
+    # Кнопка добавления акции (только если есть права)
     add_btn = ""
     if can_manage and salon_id:
         add_btn = f'''
@@ -52,7 +63,7 @@ def render_promos_tab(promotions, can_manage: bool = False, salon_id: int = None
         </button>
         '''
 
-    # Модалка добавления
+    # Модалка добавления акции
     add_modal_html = ""
     if can_manage and salon_id:
         add_modal_html = f'''
@@ -80,7 +91,7 @@ def render_promos_tab(promotions, can_manage: bool = False, salon_id: int = None
         </div>
         '''
 
-    # Модалка редактирования
+    # Модалка редактирования акции
     edit_modal_html = ""
     if can_manage and salon_id:
         edit_modal_html = f'''
@@ -111,7 +122,101 @@ def render_promos_tab(promotions, can_manage: bool = False, salon_id: int = None
         </div>
         '''
 
-    # Заголовок с подсказкой
+    # ---- Блоки лояльности (только если can_manage) ----
+    loyalty_html = ""
+    if can_manage and salon_id:
+        # Настройки лояльности
+        settings = loyalty_settings
+        offers = loyalty_offers or []
+
+        # Формируем строки таблицы именных скидок
+        offers_rows = ""
+        for o in offers:
+            code_str = o.promo_code or "—"
+            offers_rows += f"""
+            <tr>
+                <td><strong>{o.title}</strong></td>
+                <td>{o.discount_percent}%</td>
+                <td><code>{code_str}</code></td>
+                <td>
+                    <button onclick="deleteLoyaltyOffer({o.id}, '{o.title}')" class="delete-btn-icon">{ICON_TRASH}</button>
+                </td>
+            </tr>
+            """
+        if not offers_rows:
+            offers_rows = '<tr><td colspan="4" class="empty-state">Пока нет именных скидок</td></tr>'
+
+        loyalty_html = f"""
+        <!-- Лояльность -->
+        <div class="my-salon-card">
+            <h2 class="my-salon-card-title">Лояльность</h2>
+            <p class="my-salon-card-hint">
+                Скидку клиенту даёт только ваш салон — настройте её сами. Мастер такие скидки не применяет,
+                это делает администратор при завершении записи в «Расписании».
+            </p>
+
+            <div class="my-salon-grid-2">
+                <div class="loyalty-field">
+                    <label for="loyaltyRegularPercent">Скидка «постоянному клиенту», %</label>
+                    <input type="number" id="loyaltyRegularPercent" min="0" max="99" value="{settings.regular_client_discount_percent if settings else 0}">
+                </div>
+                <div class="loyalty-field">
+                    <label for="loyaltyVisitsThreshold">Визитов за год для авто-статуса</label>
+                    <input type="number" id="loyaltyVisitsThreshold" min="1" placeholder="Не задано — только вручную" value="{settings.regular_client_visits_threshold if settings and settings.regular_client_visits_threshold else ''}">
+                </div>
+            </div>
+            <div class="loyalty-field full-width">
+                <label for="loyaltyBonusAccrual">Автоначисление баллов после оплаты, % от чека</label>
+                <input type="number" id="loyaltyBonusAccrual" min="0" max="99" step="0.1" placeholder="0 — выключено" value="{settings.bonus_accrual_percent if settings else 0}">
+            </div>
+            <button type="button" class="my-salon-btn-primary" onclick="saveLoyaltySettings({salon_id})">{ICON_SAVE} Сохранить настройки лояльности</button>
+
+            <div class="loyalty-offers-header">
+                <h3>Именные скидки и промокоды</h3>
+                <button class="my-salon-btn-primary" onclick="document.getElementById('addLoyaltyOfferModal').classList.add('active')">
+                    {ICON_PLUS} Добавить
+                </button>
+            </div>
+            <div class="table-wrap">
+                <table class="my-salon-table">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Скидка</th>
+                            <th>Промокод</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {offers_rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Модальное окно: Добавить именную скидку/промокод -->
+        <div class="my-salon-modal-overlay" id="addLoyaltyOfferModal">
+            <div class="my-salon-modal-box">
+                <button class="my-salon-modal-close" onclick="document.getElementById('addLoyaltyOfferModal').classList.remove('active')">&times;</button>
+                <h2>Добавить скидку</h2>
+                <div class="my-salon-form-group">
+                    <label for="loyaltyOfferTitle">Название *</label>
+                    <input type="text" id="loyaltyOfferTitle" required placeholder="Например: День рождения">
+                </div>
+                <div class="my-salon-form-group">
+                    <label for="loyaltyOfferPercent">Скидка, % *</label>
+                    <input type="number" id="loyaltyOfferPercent" min="1" max="99" required>
+                </div>
+                <div class="my-salon-form-group">
+                    <label for="loyaltyOfferCode">Промокод</label>
+                    <input type="text" id="loyaltyOfferCode" placeholder="Необязательно, например BDAY15">
+                </div>
+                <button type="button" class="my-salon-btn-primary" style="width:100%" onclick="addLoyaltyOffer({salon_id})">Добавить</button>
+            </div>
+        </div>
+        """
+
+    # Заголовок вкладки с подсказкой
     hint_text = "Метки-акции, которые видят клиенты на странице салона (например «Скидка новым клиентам»)."
     if not can_manage:
         hint_text += " У вас нет прав на управление акциями."
@@ -141,11 +246,16 @@ def render_promos_tab(promotions, can_manage: bool = False, salon_id: int = None
     </div>
     '''
 
+    # Добавляем скрипт для установки window.salonId, чтобы функции лояльности работали
+    salon_script = f'<script>window.salonId = {salon_id};</script>'
+
     return f'''
     <div id="tab-promos" class="tab-content promos-tab">
         {header}
         {table}
         {add_modal_html}
         {edit_modal_html}
+        {loyalty_html}
+        {salon_script}
     </div>
     '''

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
     SalonMember, User as UserModel, SalonModerationStatus,
+    SalonLoyaltySettings, LoyaltyOffer,
 )
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
@@ -40,7 +41,6 @@ from app.web.pages.business.tabs.warehouse import render_warehouse_tab
 from app.web.pages.business.tabs.payroll import render_payroll_tab
 from app.web.pages.business.tabs.cost import render_cost_tab
 from app.web.pages.business.tabs.promo_models import render_promo_models_tab
-# from app.web.pages.business.tabs.chat import render_chat_tab
 from app.web.pages.business.tabs.my_salon import render_my_salon_tab
 from app.crm.tabs.clients import render_crm_tab
 
@@ -130,7 +130,21 @@ async def render_dashboard_tab(
         promotions = (await db.execute(
             select(Promotion).where(Promotion.salon_id == salon.id)
         )).scalars().all()
-        return render_promos_tab(promotions, can_manage=perms["manage_promotions"], salon_id=salon.id)
+        # Загружаем настройки лояльности и предложения
+        loyalty_settings = (await db.execute(
+            select(SalonLoyaltySettings).where(SalonLoyaltySettings.salon_id == salon.id)
+        )).scalar_one_or_none()
+        loyalty_offers_result = await db.execute(
+            select(LoyaltyOffer).where(LoyaltyOffer.salon_id == salon.id).order_by(LoyaltyOffer.created_at.desc())
+        )
+        loyalty_offers = loyalty_offers_result.scalars().all()
+        return render_promos_tab(
+            promotions,
+            can_manage=perms["manage_promotions"],
+            salon_id=salon.id,
+            loyalty_settings=loyalty_settings,
+            loyalty_offers=loyalty_offers,
+        )
 
     if tab_name == "reviews":
         reviews = (await db.execute(

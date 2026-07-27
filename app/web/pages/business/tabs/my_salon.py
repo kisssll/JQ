@@ -4,7 +4,7 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import (
-    Salon, SalonLoyaltySettings, LoyaltyOffer, User as UserModel, SalonPhoto,
+    Salon, SalonPhoto,
     SalonChain, SalonChainRequest, SalonChainRequestStatus,
 )
 from app.services.salon_chain_service import pending_requests_for_salon_ids
@@ -315,28 +315,6 @@ async def render_my_salon_tab(
             '<div class="alert success">Мастер добавлен.</div>'
         )
 
-    loyalty_settings = (await db.execute(
-        select(SalonLoyaltySettings).where(SalonLoyaltySettings.salon_id == salon.id)
-    )).scalar_one_or_none()
-    loyalty_offers_result = await db.execute(
-        select(LoyaltyOffer).where(LoyaltyOffer.salon_id == salon.id).order_by(LoyaltyOffer.created_at.desc())
-    )
-    loyalty_offers = loyalty_offers_result.scalars().all()
-
-    loyalty_offers_rows = ""
-    for o in loyalty_offers:
-        code_str = o.promo_code or "—"
-        loyalty_offers_rows += f"""
-        <tr>
-            <td><strong>{o.title}</strong></td>
-            <td>{o.discount_percent}%</td>
-            <td><code>{code_str}</code></td>
-            <td>
-                <button onclick="deleteLoyaltyOffer({o.id}, '{o.title}')" class="delete-btn-icon">{ICON_TRASH}</button>
-            </td>
-        </tr>
-        """
-
     parsed_hours = {}
     if salon.working_hours:
         try:
@@ -430,77 +408,10 @@ async def render_my_salon_tab(
                 </div>
             </div>
 
-            <!-- Лояльность -->
-            <div class="my-salon-card">
-                <h2 class="my-salon-card-title">Лояльность</h2>
-                <p class="my-salon-card-hint">
-                    Скидку клиенту даёт только ваш салон — настройте её сами. Мастер такие скидки не применяет,
-                    это делает администратор при завершении записи в «Расписании».
-                </p>
-
-                <div class="my-salon-grid-2">
-                    <div class="loyalty-field">
-                        <label for="loyaltyRegularPercent">Скидка «постоянному клиенту», %</label>
-                        <input type="number" id="loyaltyRegularPercent" min="0" max="99" value="{loyalty_settings.regular_client_discount_percent if loyalty_settings else 0}">
-                    </div>
-                    <div class="loyalty-field">
-                        <label for="loyaltyVisitsThreshold">Визитов за год для авто-статуса</label>
-                        <input type="number" id="loyaltyVisitsThreshold" min="1" placeholder="Не задано — только вручную" value="{loyalty_settings.regular_client_visits_threshold if loyalty_settings and loyalty_settings.regular_client_visits_threshold else ''}">
-                    </div>
-                </div>
-                <div class="loyalty-field full-width">
-                    <label for="loyaltyBonusAccrual">Автоначисление баллов после оплаты, % от чека</label>
-                    <input type="number" id="loyaltyBonusAccrual" min="0" max="99" step="0.1" placeholder="0 — выключено" value="{loyalty_settings.bonus_accrual_percent if loyalty_settings else 0}">
-                </div>
-                <button type="button" class="my-salon-btn-primary" onclick="saveLoyaltySettings({salon.id})">{ICON_SAVE} Сохранить настройки лояльности</button>
-
-                <div class="loyalty-offers-header">
-                    <h3>Именные скидки и промокоды</h3>
-                    <button class="my-salon-btn-primary" onclick="document.getElementById('addLoyaltyOfferModal').classList.add('active')">
-                        {ICON_PLUS} Добавить
-                    </button>
-                </div>
-                <div class="table-wrap">
-                    <table class="my-salon-table">
-                        <thead>
-                            <tr>
-                                <th>Название</th>
-                                <th>Скидка</th>
-                                <th>Промокод</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loyalty_offers_rows or '<tr><td colspan="4" class="empty-state">Пока нет именных скидок</td></tr>'}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             {chain_section_html}
 
             {_render_danger_zone(salon, can_manage_salon, is_creator) if can_manage_salon else ""}
 
-            <!-- Модальное окно: Добавить именную скидку/промокод -->
-            <div class="my-salon-modal-overlay" id="addLoyaltyOfferModal">
-                <div class="my-salon-modal-box">
-                    <button class="my-salon-modal-close" onclick="document.getElementById('addLoyaltyOfferModal').classList.remove('active')">&times;</button>
-                    <h2>Добавить скидку</h2>
-                    <div class="my-salon-form-group">
-                        <label for="loyaltyOfferTitle">Название *</label>
-                        <input type="text" id="loyaltyOfferTitle" required placeholder="Например: День рождения">
-                    </div>
-                    <div class="my-salon-form-group">
-                        <label for="loyaltyOfferPercent">Скидка, % *</label>
-                        <input type="number" id="loyaltyOfferPercent" min="1" max="99" required>
-                    </div>
-                    <div class="my-salon-form-group">
-                        <label for="loyaltyOfferCode">Промокод</label>
-                        <input type="text" id="loyaltyOfferCode" placeholder="Необязательно, например BDAY15">
-                    </div>
-                    <button type="button" class="my-salon-btn-primary" style="width:100%" onclick="addLoyaltyOffer({salon.id})">Добавить</button>
-                </div>
-            </div>
         </div>
     </div>
 
