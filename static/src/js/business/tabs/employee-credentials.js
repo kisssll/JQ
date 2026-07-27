@@ -4,6 +4,15 @@
 (function () {
     let current = null; // {name, login, password}
 
+    // detail может быть строкой, массивом (валидация FastAPI) или объектом —
+    // приводим к читаемому тексту, чтобы не показывать «[object Object]».
+    function errText(data, fallback) {
+        const d = data && data.detail;
+        if (Array.isArray(d)) return d.map(x => (x && x.msg) ? x.msg : JSON.stringify(x)).join('; ');
+        if (d && typeof d === 'object') return JSON.stringify(d);
+        return d || fallback || 'Не удалось выполнить действие';
+    }
+
     function showCredentials(c) {
         current = c;
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v || '—'; };
@@ -20,7 +29,7 @@
         let data = {};
         try { data = await res.json(); } catch (e) { /* not json */ }
         if (!res.ok || data.status === 'error') {
-            alert(data.detail || 'Не удалось выполнить действие');
+            alert(errText(data));
             return null;
         }
         return data;
@@ -87,7 +96,7 @@
         let data = {};
         try { data = await resp.json(); } catch (e) { /* */ }
         if (!resp.ok || data.status === 'error') {
-            if (res) { res.textContent = data.detail || 'Не удалось отправить'; res.className = 'creds-email-result err'; }
+            if (res) { res.textContent = errText(data, 'Не удалось отправить'); res.className = 'creds-email-result err'; }
             return;
         }
         if (res) { res.textContent = 'Отправлено на ' + (data.sent_to || 'почту салона'); res.className = 'creds-email-result ok'; }

@@ -305,6 +305,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         </div>
     </main>
     {render_footer(user)}
+    <script>window.salonId = {salon.id};</script>
 </body>
 </html>"""
 
