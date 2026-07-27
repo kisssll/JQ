@@ -89,18 +89,9 @@ async def render_dashboard_tab(
         return await render_analytics_tab(db, salon, master_ids) if perms["view_finances"] else ""
 
     if tab_name == "schedule":
-        # Передаём параметр schedule_date из query_params
-        date_str = qp.get("date")
-        schedule_date = None
-        if date_str:
-            try:
-                schedule_date = datetime.fromisoformat(date_str).date()
-            except ValueError:
-                pass
         return await render_schedule_tab(
             db, salon, masters, perms["manage_schedule"],
             _int_or_none(qp.get("schedule_master_id")),
-            schedule_date=schedule_date,
         )
 
     if tab_name == "employees":
