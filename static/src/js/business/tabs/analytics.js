@@ -9,6 +9,7 @@
     const salonId = root.dataset.salonId;
     let currentGranularity = 'day';
     let currentOpenDate = null;
+    let activeColumn = null;
 
     function formatMoney(n) {
         return (n || 0).toLocaleString('ru-RU') + ' ₽';
@@ -60,29 +61,62 @@
         chart.classList.toggle('chart-bar--dense', data.points.length > 14);
 
         const maxRevenue = Math.max(...data.points.map(p => p.revenue), 1);
+        const MAX_BAR_HEIGHT = 80;
+        const MIN_BAR_HEIGHT = 8;
+
         data.points.forEach(p => {
-            const height = Math.max(8, Math.round((p.revenue / maxRevenue) * 100));
-            const isHighest = p.revenue > 0 && p.revenue === maxRevenue;
-            const barColor = isHighest ? '#059669' : '#34d399';
+            const height = Math.max(MIN_BAR_HEIGHT, Math.round((p.revenue / maxRevenue) * MAX_BAR_HEIGHT));
+            // Все столбцы светло-зелёные, выделение будет через активный класс
+            const barColor = '#34d399';
 
             const col = document.createElement('div');
             col.className = 'chart-column';
+            col.dataset.periodStart = p.period_start;
+            col.dataset.revenue = p.revenue;
             col.title = `${formatLabel(p.period_start, data.granularity)}: ${formatMoney(p.revenue)}`;
             col.innerHTML = `
                 <div class="chart-value">${formatMoney(p.revenue)}</div>
-                <div class="chart-fill ${isHighest ? 'highest' : ''}" style="height:${height}px;background:linear-gradient(to top, ${barColor}, ${barColor}cc)"></div>
+                <div class="chart-fill" style="height:${height}px;background:linear-gradient(to top, ${barColor}, ${barColor}cc)"></div>
                 <span class="chart-label">${formatLabel(p.period_start, data.granularity)}</span>
             `;
             if (data.granularity === 'day') {
                 col.style.cursor = 'pointer';
-                col.addEventListener('click', () => showDayDetails(p.period_start, p.revenue));
+                col.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (activeColumn === this) {
+                        closeDayDetails();
+                        return;
+                    }
+                    showDayDetails(p.period_start, p.revenue);
+                    setActiveColumn(this);
+                });
             }
             chart.appendChild(col);
         });
 
+        activeColumn = null;
+
         const hint = document.getElementById('analyticsChartHint');
         if (hint) {
             hint.style.display = data.granularity === 'day' ? '' : 'none';
+        }
+    }
+
+    function setActiveColumn(col) {
+        if (activeColumn) {
+            const prevFill = activeColumn.querySelector('.chart-fill');
+            if (prevFill) {
+                prevFill.style.background = 'linear-gradient(to top, #34d399, #34d399cc)';
+            }
+            activeColumn.classList.remove('active');
+        }
+        activeColumn = col;
+        if (col) {
+            const fill = col.querySelector('.chart-fill');
+            if (fill) {
+                fill.style.background = 'linear-gradient(to top, #059669, #059669cc)';
+            }
+            col.classList.add('active');
         }
     }
 
@@ -111,7 +145,6 @@
         closeDayDetails();
     }
 
-    // Первая отрисовка — без запроса, сервер уже посчитал дефолт (по дням, 14 дней)
     if (window.analyticsInitial) {
         applyData(window.analyticsInitial);
     }
@@ -148,11 +181,11 @@
         });
     }
 
-    // ---- Аккордеон «детали дня» ----
     function closeDayDetails() {
         const accordion = document.getElementById('dayAccordion');
         if (accordion) accordion.style.display = 'none';
         currentOpenDate = null;
+        setActiveColumn(null);
     }
 
     async function showDayDetails(dateStr, revenue) {
@@ -218,6 +251,18 @@
     });
 
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') closeDayDetails();
+        if (e.key === 'Escape') {
+            closeDayDetails();
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        const accordion = document.getElementById('dayAccordion');
+        if (accordion && accordion.style.display !== 'none') {
+            const target = e.target;
+            if (!accordion.contains(target) && !target.closest('.chart-column')) {
+                closeDayDetails();
+            }
+        }
     });
 })();

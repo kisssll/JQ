@@ -62,9 +62,9 @@ async def render_analytics_tab(db: AsyncSession, salon, master_ids) -> str:
                 <button type="button" class="analytics-gran-btn" data-granularity="year">По годам</button>
             </div>
             <div class="analytics-daterange">
-                <input type="date" id="analyticsDateFrom" value="{date_from.isoformat()}">
+                <input type="date" id="analyticsDateFrom" class="custom-date" value="{date_from.isoformat()}">
                 <span class="analytics-daterange-sep">—</span>
-                <input type="date" id="analyticsDateTo" value="{date_to.isoformat()}">
+                <input type="date" id="analyticsDateTo" class="custom-date" value="{date_to.isoformat()}">
                 <button type="button" class="btn-outline" id="analyticsApplyRange">Показать</button>
             </div>
         </div>
