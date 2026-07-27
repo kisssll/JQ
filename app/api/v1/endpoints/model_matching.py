@@ -22,7 +22,7 @@ from app.services.model_matching_service import (
     count_booked_for_service, get_active_matches_for_model, get_candidate_models, get_feed_cards,
     get_history_for_model, get_invitations_for_model, get_salon_matches, is_service_open_for_models, record_swipe,
 )
-from app.services.notifications import notify_booking_created, notify_model_match
+from app.services.notifications import notify_booking_cancelled, notify_booking_created, notify_model_match
 from app.services.uploads import UploadError, delete_stored, save_image
 
 router = APIRouter()
@@ -200,6 +200,18 @@ async def decline_match(
     else:
         await check_salon_permission(db, current_user, match.salon_id, "manage_masters")
         declined_by = "salon"
+
+    if match.status == ModelMatchStatus.DECLINED:
+        return {"status": "declined"}  # идемпотентно — повторный decline не ошибка
+
+    # Если по мэтчу уже создана бронь (BOOKED) — отменяем её, иначе останется
+    # «осиротевшая» активная запись при отменённом мэтче.
+    if match.status == ModelMatchStatus.BOOKED and match.booking_id is not None:
+        booking = (await db.execute(select(Booking).where(Booking.id == match.booking_id))).scalar_one_or_none()
+        if booking is not None and booking.status in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
+            booking.status = BookingStatus.CANCELLED
+            await db.flush()
+            await notify_booking_cancelled(db, booking)
 
     match.status = ModelMatchStatus.DECLINED
     match.declined_by = declined_by
