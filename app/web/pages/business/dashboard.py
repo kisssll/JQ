@@ -2,7 +2,7 @@
 import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func
 from datetime import datetime, timedelta
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
@@ -172,8 +172,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
 
     perms = _compute_perms(membership)
 
-    # Салоны, доступные пользователю — для свитчера в шапке
-    # Загружаем все салоны, где пользователь является активным членом ИЛИ создателем
+    # Салоны для свитчера: объединяем членства и созданные салоны
     memberships_result = await db.execute(
         select(SalonMember, Salon)
         .join(Salon, Salon.id == SalonMember.salon_id)
@@ -183,23 +182,25 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         )
         .order_by(Salon.name)
     )
-    other_memberships = memberships_result.all()
+    member_salons = [(member, salon) for member, salon in memberships_result.all()]
 
-    # Если членств меньше двух, но пользователь является создателем нескольких салонов —
-    # добавляем их в список для селектора (чтобы тесты проходили)
-    if len(other_memberships) <= 1:
-        created_salons_result = await db.execute(
-            select(Salon).where(
-                Salon.creator_id == user.id,
-                Salon.is_active == True
-            ).order_by(Salon.name)
-        )
-        created_salons = created_salons_result.scalars().all()
-        
-        existing_ids = {m.Salon.id for _, m in other_memberships}
-        for s in created_salons:
-            if s.id not in existing_ids:
-                other_memberships.append((None, s))
+    created_salons_result = await db.execute(
+        select(Salon).where(
+            Salon.creator_id == user.id,
+            Salon.is_active == True
+        ).order_by(Salon.name)
+    )
+    created_salons = created_salons_result.scalars().all()
+
+    # Собираем уникальные салоны (по id) из обоих списков
+    salons_by_id = {}
+    for member, salon in member_salons:
+        salons_by_id[salon.id] = (member, salon)
+    for salon in created_salons:
+        if salon.id not in salons_by_id:
+            salons_by_id[salon.id] = (None, salon)
+
+    other_memberships = list(salons_by_id.values())
 
     # Мастера нужны большинству вкладок — грузим один раз
     masters, masters_rows = await get_masters_data(db, salon.id)
