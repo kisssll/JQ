@@ -92,7 +92,7 @@
 
 /* График выручки */
 .dashboard-page .chart-bar {
-    height: 134px;
+    height: 140px;
     display: flex;
     align-items: flex-end;
     gap: 0.75rem;
@@ -343,7 +343,6 @@
 
     /* График — фиксированная высота, минимальная ширина столбцов, скролл */
     .dashboard-page .chart-bar {
-        height: 120px;
         gap: 0.5rem;
         padding: 0.25rem 0;
         overflow-x: auto;
@@ -406,7 +405,6 @@
         font-size: 1.1rem;
     }
     .dashboard-page .chart-bar {
-        height: 100px;
         gap: 0.35rem;
     }
     .dashboard-page .chart-column {

@@ -172,7 +172,7 @@
     color: var(--color-muted);
 }
 
-/* Увеличиваем высоту контейнера графика на 10px (было 220px) */
+/* Контейнер графика */
 .dashboard-page .chart-bar {
     height: 230px;
     display: flex;
@@ -422,7 +422,6 @@
 /* ===== Адаптив для графика на маленьких экранах ===== */
 @media (max-width: 768px) {
     .dashboard-page .chart-bar {
-        height: 200px; /* чуть меньше, чтобы влезало, но сохраняем место */
         overflow-x: auto;
         gap: 0.5rem;
         padding: 0.25rem 0;
@@ -444,7 +443,6 @@
 
 @media (max-width: 480px) {
     .dashboard-page .chart-bar {
-        height: 180px;
         gap: 0.35rem;
     }
     .dashboard-page .chart-column {

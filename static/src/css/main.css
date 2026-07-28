@@ -35,6 +35,7 @@
 @import './business/tabs/my-salon.css';
 @import './business/tabs/promos.css';
 @import './business/tabs/services.css';
+@import './business/tabs/payroll.css';
 
 /* Импорты для кастомных форм */
 @import 'choices.js/public/assets/styles/choices.min.css';

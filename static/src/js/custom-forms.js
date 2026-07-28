@@ -1,6 +1,4 @@
-/* ==========================================================================
-   static/src/js/custom-forms.js
-   ========================================================================== */
+/* static/src/js/custom-forms.js */
 
 import Choices from 'choices.js';
 import flatpickr from 'flatpickr';

@@ -1,4 +1,3 @@
-# app/web/pages/business/dashboard.py
 import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -245,15 +244,10 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             for _, s in other_memberships
         )
         switcher_html = f"""
-        <select class="salon-switcher" onchange="window.location.href='/business/dashboard?salon_id=' + this.value">
+        <select class="salon-switcher custom-select" onchange="window.location.href='/business/dashboard?salon_id=' + this.value">
             {options}
         </select>"""
 
-
-    # Ссылка «Добавить салон» — только для настоящих владельцев (создателей
-    # своих салонов), чтобы не путать нанятых сотрудников: у них тоже есть
-    # доступ к /business/register-salon (по сайт-роли BUSINESS), но кнопка
-    # в панели чужого салона выглядела бы так, будто она про этот салон.
     add_salon_html = ""
     if membership.is_creator:
         add_salon_html = f'<a class="salon-switcher-add" href="/business/register-salon">{ICON_PLUS} Добавить салон</a>'
@@ -279,11 +273,11 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     header_html = f"""
     <div class="dashboard-header">
         <div class="dashboard-header-inner">
-            <div>
+            <div class="header-title">
                 <h1>Панель салона</h1>
                 <p>Салон «{salon.name}» • {salon.address.split(',')[0] if salon.address else 'Адрес не указан'}</p>
             </div>
-            <div class="dashboard-header-actions">
+            <div class="header-controls">
                 {switcher_html}
                 {add_salon_html}
                 <span class="dashboard-badge">

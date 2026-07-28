@@ -1,11 +1,10 @@
-/* ==========================================================================
-   static/src/css/custom-forms.css
-   ========================================================================== */
+/* static/src/css/custom-forms.css */
 
 /* ---- Стили для Choices.js (кастомные селекты) ---- */
 .choices {
     font-family: var(--font-body);
     font-size: 0.875rem;
+    margin-bottom: 0; 
 }
 
 .choices__inner {
@@ -16,7 +15,9 @@
     min-height: auto;
     transition: border-color 0.2s, box-shadow 0.2s;
     width: auto;
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
 }
 
 .choices__inner:hover {
