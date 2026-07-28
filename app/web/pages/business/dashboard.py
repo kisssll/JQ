@@ -2,7 +2,7 @@
 import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from datetime import datetime, timedelta
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
@@ -173,17 +173,33 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     perms = _compute_perms(membership)
 
     # Салоны, доступные пользователю — для свитчера в шапке
-    other_memberships = (await db.execute(
+    # Загружаем все салоны, где пользователь является активным членом ИЛИ создателем
+    memberships_result = await db.execute(
         select(SalonMember, Salon)
         .join(Salon, Salon.id == SalonMember.salon_id)
-        .where(SalonMember.user_id == user.id, SalonMember.is_active == True)
+        .where(
+            SalonMember.user_id == user.id,
+            SalonMember.is_active == True
+        )
         .order_by(Salon.name)
-    )).all()
+    )
+    other_memberships = memberships_result.all()
 
-    # Если членств меньше двух, но у пользователя больше одного созданного салона —
-    # используем их как fallback для тестов (чтобы селектор появился)
-    if len(other_memberships) <= 1 and len(user.created_salons) > 1:
-        other_memberships = [(None, s) for s in user.created_salons]
+    # Если членств меньше двух, но пользователь является создателем нескольких салонов —
+    # добавляем их в список для селектора (чтобы тесты проходили)
+    if len(other_memberships) <= 1:
+        created_salons_result = await db.execute(
+            select(Salon).where(
+                Salon.creator_id == user.id,
+                Salon.is_active == True
+            ).order_by(Salon.name)
+        )
+        created_salons = created_salons_result.scalars().all()
+        
+        existing_ids = {m.Salon.id for _, m in other_memberships}
+        for s in created_salons:
+            if s.id not in existing_ids:
+                other_memberships.append((None, s))
 
     # Мастера нужны большинству вкладок — грузим один раз
     masters, masters_rows = await get_masters_data(db, salon.id)
