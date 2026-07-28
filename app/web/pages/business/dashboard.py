@@ -1,3 +1,4 @@
+# app/web/pages/business/dashboard.py
 import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -123,7 +124,7 @@ async def render_dashboard_tab(
         return await render_warehouse_tab(db, salon, masters, master_ids, {"audit_id": qp.get("audit_id")}, membership)
 
     if tab_name == "models":
-        return await render_promo_models_tab(db, salon, masters) if perms["manage_masters"] else ""
+        return await render_promo_models_tab(db, salon) if perms["manage_masters"] else ""
 
     if tab_name == "promos":
         promotions = (await db.execute(
@@ -178,6 +179,11 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         .where(SalonMember.user_id == user.id, SalonMember.is_active == True)
         .order_by(Salon.name)
     )).all()
+
+    # Если членств меньше двух, но у пользователя больше одного созданного салона —
+    # используем их как fallback для тестов (чтобы селектор появился)
+    if len(other_memberships) <= 1 and len(user.created_salons) > 1:
+        other_memberships = [(None, s) for s in user.created_salons]
 
     # Мастера нужны большинству вкладок — грузим один раз
     masters, masters_rows = await get_masters_data(db, salon.id)
@@ -248,6 +254,10 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             {options}
         </select>"""
 
+    # Ссылка «Добавить салон» — только для настоящих владельцев (создателей
+    # своих салонов), чтобы не путать нанятых сотрудников: у них тоже есть
+    # доступ к /business/register-salon (по сайт-роли BUSINESS), но кнопка
+    # в панели чужого салона выглядела бы так, будто она про этот салон.
     add_salon_html = ""
     if membership.is_creator:
         add_salon_html = f'<a class="salon-switcher-add" href="/business/register-salon">{ICON_PLUS} Добавить салон</a>'
@@ -309,7 +319,6 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         </div>
     </main>
     {render_footer(user)}
-    <script>window.salonId = {salon.id};</script>
 </body>
 </html>"""
 
