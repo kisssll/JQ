@@ -383,3 +383,20 @@
         max-width: 150px;
     }
 }
+/* ===== Попап реквизитов сотрудника ===== */
+.dashboard-page .creds-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 0.6rem 0.85rem; background: var(--color-surface-2, #f6f6f8);
+    border-radius: 0.6rem; margin-bottom: 0.5rem; font-size: 0.9rem;
+}
+.dashboard-page .creds-row span { color: var(--color-muted, #888); }
+.dashboard-page .creds-row b { font-weight: 700; }
+.dashboard-page .creds-row code {
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700;
+    background: #fff; padding: 0.2rem 0.5rem; border-radius: 0.4rem; border: 1px solid var(--color-border, #e5e5ea);
+}
+.dashboard-page .creds-actions { display: flex; gap: 0.6rem; margin-top: 1rem; }
+.dashboard-page .creds-actions button { flex: 1; }
+.dashboard-page .creds-email-result { margin-top: 0.7rem; font-size: 0.85rem; min-height: 1.1rem; text-align: center; }
+.dashboard-page .creds-email-result.ok { color: #16a34a; }
+.dashboard-page .creds-email-result.err { color: #e5484d; }

@@ -148,16 +148,25 @@ async def render_schedule_tab(
             )
 
         actions = ""
-        if can_manage_schedule and b.status == BookingStatus.CONFIRMED:
+        if can_manage_schedule and b.status == BookingStatus.PENDING:
+            # Запись ещё не подтверждена — салон/мастер принимает или отклоняет.
+            actions = f"""
+                <button onclick="event.stopPropagation();acceptBooking({b.id})"
+                        title="Подтвердить запись" class="complete-btn">{ICON_CHECK_SMALL} Подтвердить</button>
+                <button onclick="event.stopPropagation();rejectBooking({b.id})"
+                        title="Отклонить запись" class="no-show-btn">{ICON_X} Отклонить</button>
+            """
+        elif can_manage_schedule and b.status == BookingStatus.CONFIRMED:
             actions = f"""
                 <button onclick="event.stopPropagation();openCompleteModal({b.id}, {b.client_id})"
-                        title="Выполнено" class="complete-btn">{ICON_CHECK_SMALL} Выполнено</button>
+                        title="Клиент пришёл" class="complete-btn">{ICON_CHECK_SMALL} Пришёл</button>
                 <button onclick="event.stopPropagation();markBooking({b.id}, 'no-show')"
-                        title="Неявка" class="no-show-btn">{ICON_X} Неявка</button>
+                        title="Клиент не пришёл" class="no-show-btn">{ICON_X} Не пришёл</button>
             """
 
+        wrapper_status_class = "pending" if b.status == BookingStatus.PENDING else "confirmed"
         return f"""
-        <div class="schedule-booking-wrapper" data-booking-id="{b.id}">
+        <div class="schedule-booking-wrapper {wrapper_status_class}" data-booking-id="{b.id}">
             <div class="schedule-booking-header">
                 <span class="booking-time">{time_str}</span>
                 <span class="booking-service">{svc_name}</span>
@@ -213,9 +222,12 @@ async def render_schedule_tab(
                 within_hours = bool(hours) and hours[0].hour <= h < (hours[1].hour + (1 if hours[1].minute else 0))
                 slot_start = datetime.combine(d, datetime.min.time()).replace(hour=h)
                 slot_end = slot_start + timedelta(hours=1)
+                # Запись показываем ОДИН раз — в её стартовом часе (в ячейке
+                # видно полный интервал времени). Раньше рендерили в каждом
+                # пересекаемом часе, и одна запись на 3 часа выглядела как 3.
                 content = "".join(
                     booking_cell_html(b) for b in bookings_by_date.get(d, [])
-                    if b.start_time < slot_end and b.end_time > slot_start
+                    if b.start_time.hour == h
                 )
                 cell_bg = "" if within_hours else "background:repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 6px,#fafafa 6px,#fafafa 12px)"
                 day_cols[h] += f'<td style="padding:0.2rem;vertical-align:top;{cell_bg}">{content}</td>'

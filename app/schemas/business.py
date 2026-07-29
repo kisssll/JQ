@@ -14,6 +14,7 @@ class SalonUpdateRequest(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     working_hours: Optional[str] = None  # JSON-строка с графиком
+    email: Optional[str] = None          # Контактная почта салона (для реквизитов/уведомлений)
     photos: Optional[List[str]] = None   # Список URL всех фото
     logo_url: Optional[str] = None       # URL обложки
 

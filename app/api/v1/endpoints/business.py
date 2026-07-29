@@ -81,6 +81,7 @@ async def create_or_update_salon(
     description: str = Form(""),
     address: str = Form(...),
     phone: str = Form(...),
+    email: str = Form(""),
     method_override: str = Form(""),
     salon_id: Optional[int] = Form(None),
     offer_accepted: str = Form(""),
@@ -112,6 +113,7 @@ async def create_or_update_salon(
         salon.description = description
         salon.address = address
         salon.phone = phone
+        salon.email = email.strip() or None
         await db.commit()
         return RedirectResponse(url="/business/dashboard?updated=1", status_code=302)
 
@@ -151,6 +153,7 @@ async def create_or_update_salon(
         description=description,
         address=address,
         phone=phone,
+        email=email.strip() or None,
         latitude=salon_latitude,
         longitude=salon_longitude,
         rating=0.0,
@@ -345,6 +348,11 @@ async def update_my_salon(
         salon.longitude = update_data.longitude
     if update_data.working_hours is not None:
         salon.working_hours = update_data.working_hours
+    if update_data.email is not None:
+        email = update_data.email.strip()
+        if email and ("@" not in email or "." not in email.split("@")[-1]):
+            raise HTTPException(status_code=400, detail="Некорректный email салона")
+        salon.email = email or None  # пустая строка = очистить почту
 
     # Обработка фото
     if update_data.photos is not None:

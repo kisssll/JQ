@@ -63,6 +63,16 @@ async def _execute_merge(db: AsyncSession, request: SalonChainRequest) -> SalonC
     return target_chain
 
 
+async def _pending_requests_touching(db: AsyncSession, salon_ids) -> list[SalonChainRequest]:
+    """Активные (PENDING) запросы, чей состав пересекается с salon_ids.
+    salon_ids хранится JSON-массивом, поэтому фильтруем в Python."""
+    wanted = set(salon_ids)
+    pending = (await db.execute(
+        select(SalonChainRequest).where(SalonChainRequest.status == SalonChainRequestStatus.PENDING)
+    )).scalars().all()
+    return [r for r in pending if wanted & set(r.salon_ids)]
+
+
 async def create_request(db: AsyncSession, initiator_user_id: int, from_salon: Salon, to_salon: Salon) -> SalonChainRequest:
     if from_salon.id == to_salon.id:
         raise SalonChainError("Нельзя объединить салон сам с собой")
@@ -70,6 +80,14 @@ async def create_request(db: AsyncSession, initiator_user_id: int, from_salon: S
         raise SalonChainError("Эти салоны уже в одной сети")
 
     salon_ids = await _affected_salon_ids(db, from_salon, to_salon)
+
+    # Не допускаем пересекающиеся активные запросы: иначе состав сети мог бы
+    # измениться другим слиянием между созданием этого запроса и его
+    # исполнением, и merge ушёл бы по устаревшему salon_ids. Один активный
+    # запрос на салон за раз — состав фиксирован на время голосования.
+    if await _pending_requests_touching(db, salon_ids):
+        raise SalonChainError("По одному из этих салонов уже есть активный запрос на объединение — дождитесь его завершения")
+
     creators = dict((await db.execute(
         select(Salon.id, Salon.creator_id).where(Salon.id.in_(salon_ids))
     )).all())
@@ -152,6 +170,18 @@ async def leave_chain(db: AsyncSession, salon: Salon) -> None:
     old_chain_id = salon.chain_id
     if old_chain_id is None:
         raise SalonChainError("Салон не состоит в сети")
+
+    # Состав сети сейчас меняется — активные запросы, где участвует этот салон
+    # или его сеть, ссылаются на устаревший salon_ids. Отменяем их, чтобы
+    # merge не ушёл по неверному составу.
+    chain_member_ids = set((await db.execute(
+        select(Salon.id).where(Salon.chain_id == old_chain_id)
+    )).scalars().all())
+    chain_member_ids.add(salon.id)
+    for req in await _pending_requests_touching(db, chain_member_ids):
+        req.status = SalonChainRequestStatus.CANCELLED
+        req.resolved_at = datetime.now(_tz.utc)
+
     salon.chain_id = None
     await db.flush()
 

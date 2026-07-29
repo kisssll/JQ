@@ -260,3 +260,70 @@ async def test_search_salons_excludes_self(client, db_session):
     r = await client.get(f"/api/v1/business/chain/search-salons?q=Findme&exclude_salon_id=0")
     assert r.status_code == 200
     assert any(item["id"] == salon_id for item in r.json())
+
+
+async def test_overlapping_pending_request_rejected(db_session):
+    """Пока по салону есть активный запрос, второй пересекающийся запрос
+    отклоняется — иначе состав сети мог бы измениться под pending-запросом."""
+    import pytest
+    from app.models.models import Salon
+    from app.services import salon_chain_service as chain_service
+
+    async with db_session() as db:
+        _, salon_a = await _make_salon_with_owner(db, "+79997771010", "OA", "+70000000710")
+        _, salon_b = await _make_salon_with_owner(db, "+79997771011", "OB", "+70000000711")
+        _, salon_c = await _make_salon_with_owner(db, "+79997771012", "OC", "+70000000712")
+        a, b, c = salon_a.id, salon_b.id, salon_c.id
+
+    async with db_session() as db:
+        sa, sb = await db.get(Salon, a), await db.get(Salon, b)
+        req = await chain_service.create_request(db, sa.creator_id, sa, sb)
+        assert req.status == SalonChainRequestStatus.PENDING
+
+    async with db_session() as db:
+        sa, sc = await db.get(Salon, a), await db.get(Salon, c)
+        with pytest.raises(chain_service.SalonChainError):
+            await chain_service.create_request(db, sa.creator_id, sa, sc)
+
+
+async def test_leave_chain_cancels_pending_request(db_session):
+    """Выход салона из сети отменяет активные запросы, чей состав его
+    затрагивал (их salon_ids больше не актуальны)."""
+    from app.models.models import Salon, SalonChainRequest
+    from app.services import salon_chain_service as chain_service
+
+    async with db_session() as db:
+        owner, salon_a = await _make_salon_with_owner(db, "+79997771020", "LA", "+70000000720")
+        salon_b = Salon(name="LB", address="b", phone="+70000000721", latitude=1.0, longitude=1.0,
+                        timezone="Europe/Moscow", moderation_status=SalonModerationStatus.APPROVED,
+                        is_active=True, creator_id=owner.id)
+        db.add(salon_b)
+        await db.commit()
+        await db.refresh(salon_b)
+        db.add(SalonMember(salon_id=salon_b.id, user_id=owner.id, role=SalonRole.OWNER,
+                           is_creator=True, permissions={}, is_active=True))
+        await db.commit()
+        _, salon_c = await _make_salon_with_owner(db, "+79997771021", "LC", "+70000000722")
+        a, b, c = salon_a.id, salon_b.id, salon_c.id
+
+    # A+B — своя сеть (один владелец → мгновенно)
+    async with db_session() as db:
+        sa, sb = await db.get(Salon, a), await db.get(Salon, b)
+        req = await chain_service.create_request(db, sa.creator_id, sa, sb)
+        assert req.status == SalonChainRequestStatus.ACCEPTED
+
+    # Запрос (A,B) → C, ждёт согласия C
+    async with db_session() as db:
+        sa, sc = await db.get(Salon, a), await db.get(Salon, c)
+        req = await chain_service.create_request(db, sa.creator_id, sa, sc)
+        assert req.status == SalonChainRequestStatus.PENDING
+        req_id = req.id
+
+    # B выходит из сети → pending-запрос отменён
+    async with db_session() as db:
+        sb = await db.get(Salon, b)
+        await chain_service.leave_chain(db, sb)
+
+    async with db_session() as db:
+        req = await db.get(SalonChainRequest, req_id)
+        assert req.status == SalonChainRequestStatus.CANCELLED

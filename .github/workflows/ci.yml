@@ -1,0 +1,102 @@
+# CI: тесты-гейт + гейтированный прод-деплой.
+#
+# Задача — не пустить в прод код, который роняет страницы. Джоба `tests`
+# производит required-статус `tests` (branch protection на main), а прод
+# катится ТОЛЬКО после её успеха (deploy-prod: needs: [tests]). Медленные
+# security-сканеры живут отдельно (devsecops.yml) и деплой не блокируют.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------
+  # Тесты: pytest + httpx против приложения (ASGI, без сервера), БД и Redis —
+  # сервис-контейнеры. Схема тестовой БД собирается СТРОГО миграциями
+  # (alembic upgrade head) — заодно ловим дрейф моделей/миграций.
+  # ---------------------------------------------------------------
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: beauty_user
+          POSTGRES_PASSWORD: ci_test_pass
+          POSTGRES_DB: postgres
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U beauty_user"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SECRET_KEY: ci-tests-only-secret-0123456789
+      POSTGRES_USER: beauty_user
+      POSTGRES_PASSWORD: ci_test_pass
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      TEST_REDIS_URL: redis://localhost:6379/9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install deps
+        run: pip install -r requirements-dev.txt
+      - name: Syntax check (compileall)
+        # Ловит SyntaxError, которые pytest пропускает, если модуль не
+        # импортируется тестами (напр. backslash в f-string на py3.11,
+        # ронявший вкладки «Услуги»/«Акции» 500 при открытии панели).
+        run: python -m compileall -q app/
+      - name: Run tests (gate)
+        # Включает smoke-тесты всех страниц/вкладок панели (test_pages_smoke,
+        # test_dashboard_tabs_smoke) — ловят 500 на рендере до прода.
+        run: pytest -q
+
+  # ---------------------------------------------------------------
+  # Прод-деплой по SSH — ТОЛЬКО после зелёных тестов (needs: [tests]) и только
+  # для пуша/ручного запуска в main. Если tests упали — джоба не стартует.
+  # SSH-ключ на сервере ограничен форс-командой (умеет только deploy.sh prod).
+  # Требуемые secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_PROD_SSH_KEY.
+  # ---------------------------------------------------------------
+  deploy-prod:
+    needs: [tests]
+    runs-on: ubuntu-latest
+    if: >-
+      ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+          && github.ref == 'refs/heads/main' }}
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PROD_SSH_KEY: ${{ secrets.DEPLOY_PROD_SSH_KEY }}
+    steps:
+      - name: Deploy prod over SSH
+        if: ${{ env.DEPLOY_HOST != '' && env.DEPLOY_PROD_SSH_KEY != '' }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_PROD_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              'cd /opt/rumi/be && ./deploy.sh prod'
+      - name: Skipped (нет секретов прод-деплоя)
+        if: ${{ env.DEPLOY_HOST == '' || env.DEPLOY_PROD_SSH_KEY == '' }}
+        run: echo "Секреты прод-деплоя не заданы — пропускаем."

@@ -3,20 +3,22 @@
 import secrets
 from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
+from pydantic import BaseModel
 from app.models.models import (
-    User, SalonMember, SalonRole, AdminAudit,
+    User, SalonMember, SalonRole, AdminAudit, Salon,
     SALON_PERMISSION_KEYS, OWNER_DEFAULT_PERMISSIONS, MANAGER_DEFAULT_PERMISSIONS, ADMIN_DEFAULT_PERMISSIONS,
 )
 from app.schemas.salon_member import SalonMemberResponse, UpdatePermissionsRequest
 from app.schemas.user import try_normalize_phone
-from app.api.deps import get_current_user, check_salon_permission
+from app.api.deps import get_current_user, check_salon_permission, get_salon_membership
 from app.core.security import get_password_hash
+from app.services.notifications import send_employee_credentials_email
 
 router = APIRouter()
 
@@ -70,12 +72,12 @@ async def add_member_web(
 
     user = await get_current_user_from_cookie(request, db)
     if not user:
-        return RedirectResponse(url="/login", status_code=302)
+        return JSONResponse({"status": "error", "detail": "Требуется вход"}, status_code=401)
 
     try:
         salon_role = SalonRole(role)
     except ValueError:
-        return RedirectResponse(url=f"/business/dashboard?tab=staff&salon_id={salon_id}&error=bad_role", status_code=302)
+        return JSONResponse({"status": "error", "detail": "Некорректная роль"}, status_code=400)
 
     required_permission = _ROLE_HIRE_PERMISSION[salon_role]
     try:
@@ -83,11 +85,11 @@ async def add_member_web(
         if salon_role == SalonRole.MANAGER:
             _require_creator_for_manager(membership)
     except HTTPException:
-        return HTMLResponse(content="Недостаточно прав для управления сотрудниками", status_code=403)
+        return JSONResponse({"status": "error", "detail": "Недостаточно прав для управления сотрудниками"}, status_code=403)
 
     norm_phone = try_normalize_phone(phone)
     if norm_phone is None:
-        return RedirectResponse(url=f"/business/dashboard?tab=staff&salon_id={salon_id}&error=bad_phone", status_code=302)
+        return JSONResponse({"status": "error", "detail": "Некорректный номер телефона"}, status_code=400)
 
     temp_password = None
     added_user = (await db.execute(select(User).where(User.phone == norm_phone))).scalar_one_or_none()
@@ -108,7 +110,7 @@ async def add_member_web(
         select(SalonMember).where(SalonMember.salon_id == salon_id, SalonMember.user_id == added_user.id)
     )).scalar_one_or_none()
     if existing is not None and existing.is_active:
-        return RedirectResponse(url=f"/business/dashboard?tab=staff&salon_id={salon_id}&error=member_exists", status_code=302)
+        return JSONResponse({"status": "error", "detail": "Этот сотрудник уже в салоне"}, status_code=400)
 
     if existing is not None:
         existing.is_active = True
@@ -137,10 +139,10 @@ async def add_member_web(
     ))
     await db.commit()
 
-    redirect_url = f"/business/dashboard?tab=staff&salon_id={salon_id}&added=1"
+    creds = None
     if temp_password:
-        redirect_url += f"&temp_pw={quote(temp_password)}"
-    return RedirectResponse(url=redirect_url, status_code=302)
+        creds = {"name": full_name or norm_phone, "login": norm_phone, "password": temp_password}
+    return JSONResponse({"status": "ok", "credentials": creds})
 
 
 @router.post("/{member_id}/permissions", response_model=SalonMemberResponse)
@@ -210,3 +212,92 @@ async def remove_member(
     ))
     await db.commit()
     return {"status": "removed"}
+
+
+@router.post("/{member_id}/reset-password")
+async def reset_member_password(
+    member_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Сброс пароля сотрудника: новый временный пароль + реквизиты для попапа.
+    Права — как на управление этим участником (управляющего — только создатель),
+    пароль создателя салона сбросить нельзя."""
+    from app.web.auth import get_current_user_from_cookie
+
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        return JSONResponse({"status": "error", "detail": "Требуется вход"}, status_code=401)
+
+    member = (await db.execute(select(SalonMember).where(SalonMember.id == member_id))).scalar_one_or_none()
+    if member is None:
+        return JSONResponse({"status": "error", "detail": "Участник не найден"}, status_code=404)
+    if member.is_creator:
+        return JSONResponse({"status": "error", "detail": "Нельзя сбросить пароль создателя салона"}, status_code=400)
+
+    try:
+        if member.role == SalonRole.MANAGER:
+            actor = await check_salon_permission(db, user, member.salon_id, "manage_owners")
+            _require_creator_for_manager(actor)
+        else:
+            perm = "manage_owners" if member.role == SalonRole.OWNER else "manage_admins"
+            await check_salon_permission(db, user, member.salon_id, perm)
+    except HTTPException:
+        return JSONResponse({"status": "error", "detail": "Недостаточно прав"}, status_code=403)
+
+    target = (await db.execute(select(User).where(User.id == member.user_id))).scalar_one_or_none()
+    if target is None:
+        return JSONResponse({"status": "error", "detail": "Аккаунт не найден"}, status_code=404)
+
+    new_password = secrets.token_urlsafe(9)
+    target.hashed_password = get_password_hash(new_password)
+    db.add(AdminAudit(
+        actor_id=user.id, action="reset_salon_member_password",
+        target_type="salon_member", target_id=member.id, salon_id=member.salon_id,
+        detail=f"Сброшен пароль участника #{member.user_id}",
+    ))
+    await db.commit()
+    return JSONResponse({"status": "ok", "credentials": {
+        "name": target.full_name or target.phone, "login": target.phone, "password": new_password,
+    }})
+
+
+class SendCredentialsRequest(BaseModel):
+    salon_id: int
+    name: str
+    login: str
+    password: str
+
+
+@router.post("/send-credentials")
+async def send_credentials(
+    body: SendCredentialsRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Отправить реквизиты сотрудника на почту салона (кнопка в попапе)."""
+    from app.web.auth import get_current_user_from_cookie
+
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        return JSONResponse({"status": "error", "detail": "Требуется вход"}, status_code=401)
+
+    membership = await get_salon_membership(db, user.id, body.salon_id)
+    can_manage_staff = membership is not None and (
+        membership.is_creator
+        or any(membership.permissions.get(p, False) for p in ("manage_masters", "manage_admins", "manage_owners"))
+    )
+    if not can_manage_staff:
+        return JSONResponse({"status": "error", "detail": "Недостаточно прав"}, status_code=403)
+
+    salon = (await db.execute(select(Salon).where(Salon.id == body.salon_id))).scalar_one_or_none()
+    if salon is None:
+        return JSONResponse({"status": "error", "detail": "Салон не найден"}, status_code=404)
+    if not salon.email:
+        return JSONResponse({"status": "error", "detail": "У салона не указана почта — добавьте её в настройках салона"}, status_code=400)
+
+    try:
+        sent_to = await send_employee_credentials_email(db, salon, body.name, body.login, body.password)
+    except Exception:
+        return JSONResponse({"status": "error", "detail": "Не удалось отправить письмо"}, status_code=502)
+    return JSONResponse({"status": "ok", "sent_to": sent_to})

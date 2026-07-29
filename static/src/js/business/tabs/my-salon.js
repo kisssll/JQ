@@ -343,10 +343,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        const inputEmail = document.getElementById('salonEditEmailInput');
         const data = {
             name: inputName.value,
             phone: inputPhone.value,
             address: inputAddress.value,
+            email: inputEmail ? inputEmail.value : undefined,
             description: inputDesc.value,
             photos: currentPhotos.map(p => p.url),
             logo_url: currentLogo

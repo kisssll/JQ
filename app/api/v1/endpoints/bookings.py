@@ -28,7 +28,7 @@ async def _salon_bookable(db, master_id: int) -> bool:
     return bool(row) and row[0] and row[1] == SalonModerationStatus.APPROVED and not row[2] and row[3]
 from app.schemas.booking import BookingCreate, BookingResponse, BookingCancel
 from app.api.deps import get_current_user, get_salon_membership
-from app.services.notifications import notify_booking_cancelled, notify_booking_created
+from app.services.notifications import notify_booking_cancelled, notify_booking_created, send_guest_booking_email
 from app.services.booking_service import BookingService
 from app.services.loyalty_service import LoyaltyService, LoyaltyError
 from app.services.schedule_utils import get_effective_work_intervals, is_within_booking_window, MAX_BOOKING_DAYS_AHEAD
@@ -456,26 +456,10 @@ async def mark_booking_seen(
     return await BookingService.mark_seen_by_master(db, booking)
 
 
-async def _email_guest_status(booking: Booking, status_text: str) -> None:
-    """Письмо гостю (гостевая запись) о смене статуса — если оставлял email."""
-    if not booking.guest_email:
-        return
-    try:
-        from app.core.worker import get_arq_pool
-        pool = await get_arq_pool()
-        when = booking.start_time.strftime("%d.%m.%Y %H:%M") if booking.start_time else ""
-        await pool.enqueue_job(
-            "send_email", booking.guest_email, "Статус записи — Руми",
-            f"Ваша запись {when}: {status_text}.\n\n"
-            "Управление бронью — по ссылке, которую вы получили при записи на rrumi.ru.",
-        )
-    except Exception:
-        pass
-
-
 @router.post("/{booking_id}/accept", response_model=BookingResponse)
 async def accept_booking(
     booking_id: int,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -490,13 +474,19 @@ async def accept_booking(
     booking.status = BookingStatus.CONFIRMED
     await db.commit()
     await db.refresh(booking)
-    await _email_guest_status(booking, "подтверждена салоном ✅")
+    await send_guest_booking_email(
+        db, booking, str(request.base_url),
+        "Запись подтверждена ✅",
+        "Салон подтвердил вашу запись — ждём вас в назначенное время. "
+        "Актуальный статус всегда можно посмотреть по кнопке ниже.",
+    )
     return booking
 
 
 @router.post("/{booking_id}/reject", response_model=BookingResponse)
 async def reject_booking(
     booking_id: int,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -511,7 +501,12 @@ async def reject_booking(
     booking.status = BookingStatus.CANCELLED
     await db.commit()
     await db.refresh(booking)
-    await _email_guest_status(booking, "отклонена салоном")
+    await send_guest_booking_email(
+        db, booking, str(request.base_url),
+        "Запись отклонена",
+        "К сожалению, салон не смог принять эту запись. Вы можете выбрать другое "
+        "время на сайте — будем рады видеть вас.",
+    )
     await notify_booking_cancelled(db, booking)
     return booking
 

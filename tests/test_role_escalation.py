@@ -40,7 +40,7 @@ async def test_owner_adding_admin_does_not_grant_site_moderator(client, db_sessi
     r = await client.post("/api/v1/business/staff/add-web",
                           data={"phone": new_phone, "full_name": "Салон-Админ",
                                 "role": "admin", "salon_id": salon_id})
-    assert r.status_code == 302, r.text
+    assert r.status_code == 200, r.text
 
     async with db_session() as db:
         u = (await db.execute(select(User).where(User.phone == try_normalize_phone(new_phone)))).scalar_one()

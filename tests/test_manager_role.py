@@ -59,7 +59,8 @@ async def _setup_salon(db_session):
 async def _hire_manager(client, salon_id, phone="+79995550004") -> None:
     r = await client.post("/api/v1/business/staff/add-web",
                           data={"phone": phone, "full_name": "Manager", "role": "manager", "salon_id": salon_id})
-    assert r.status_code == 302, r.text
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "ok"
 
 
 async def test_creator_can_hire_manager_with_wide_default_permissions(client, db_session):

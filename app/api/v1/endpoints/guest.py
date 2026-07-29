@@ -24,7 +24,7 @@ from app.schemas.user import try_normalize_phone
 from app.core.security import get_password_hash
 from app.core.limiter import limiter
 from app.services.booking_service import BookingService
-from app.services.notifications import notify_booking_created
+from app.services.notifications import notify_booking_created, send_guest_booking_email
 
 router = APIRouter()
 
@@ -124,6 +124,13 @@ async def create_guest_booking(
     await db.refresh(booking)
 
     await notify_booking_created(db, booking)  # салон/мастер узнают о заявке
+    # Гостю (если оставил email) — письмо со ссылкой отслеживания статуса.
+    await send_guest_booking_email(
+        db, booking, str(request.base_url),
+        "Заявка на запись создана",
+        "Мы приняли вашу заявку — салон скоро её подтвердит, и вы получите ещё одно "
+        "письмо. Следить за статусом записи можно по кнопке ниже.",
+    )
 
     return {"status": "pending", "booking_id": booking.id, "manage_token": token}
 

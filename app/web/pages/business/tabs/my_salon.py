@@ -124,6 +124,10 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
                     {f'<input type="hidden" id="salonEditLat" value="{salon.latitude}"><input type="hidden" id="salonEditLon" value="{salon.longitude}">' if yandex_maps_enabled() else ''}
                 </div>
                 <div class="salon-edit-field">
+                    <label>Почта салона</label>
+                    <input type="email" id="salonEditEmailInput" value="{salon.email or ''}" placeholder="salon@example.com (для реквизитов и уведомлений)" class="salon-edit-input">
+                </div>
+                <div class="salon-edit-field">
                     <label>Описание</label>
                     <textarea id="salonEditDescInput" class="salon-edit-input salon-edit-textarea">{salon.description or ''}</textarea>
                 </div>
