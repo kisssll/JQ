@@ -13,7 +13,7 @@
     border-radius: 9999px;
     padding: 0.5rem 1.2rem;
     min-height: auto;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s;
     width: auto;
     display: flex;
     align-items: center;
@@ -26,37 +26,39 @@
 
 .choices.is-focused .choices__inner {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+    /* box-shadow полностью убран */
 }
 
-/* Открытое состояние – верхние углы скруглены, нижние прямые */
+/* Открытое состояние – верхние углы скруглены, нижние прямые, убираем нижнюю границу */
 .choices.is-open .choices__inner {
     border-radius: 25px 25px 0 0;
+    border-bottom: none;
 }
 
-/* Выпадающий список – стыкуется, имеет обводку и подсветку при фокусе */
+/* Выпадающий список – стыкуется */
 .choices__list--dropdown {
     border: 1px solid var(--color-border);
     border-top: none;
-    border-radius: 0 0 25px 25px;
+    border-radius: 0 0 0px 0px;
     background: var(--color-surface);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* обычная тень, не розовая */
     margin-top: -1px;
-    padding: 0 0 7px 0;
+    padding: 0;
     overflow: hidden;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s;
 }
 
-/* Когда селектор в фокусе, выпадающий список получает такую же обводку и подсветку */
+/* Когда селектор в фокусе – только цвет границы, без розовой обводки */
 .choices.is-focused .choices__list--dropdown {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+    /* box-shadow убран (остаётся только тень от родителя) */
 }
 
-/* Сам список внутри – тоже скругляем */
+/* Сам список внутри */
 .choices__list--dropdown .choices__list {
-    border-radius: 0 0 25px 25px;
+    border-radius: 0 0 0px 0px;
     overflow: hidden;
+    padding-left: 0.9rem;
 }
 
 /* Элементы списка */
@@ -66,11 +68,12 @@
     font-size: 0.875rem;
     border-bottom: 1px solid var(--color-border);
     background: var(--color-surface);
+    text-align: left;
 }
 
 .choices__list--dropdown .choices__item:last-child {
     border-bottom: none;
-    border-radius: 0 0 25px 25px;
+    border-radius: 0 0 0px 0px;
 }
 
 .choices__list--dropdown .choices__item.is-highlighted {
@@ -92,6 +95,7 @@
 .choices__inner .choices__item {
     color: var(--color-heading) !important;
     font-weight: 500;
+    text-align: left;
 }
 
 .choices__inner .choices__item--selectable {
@@ -101,6 +105,7 @@
 .choices__inner .choices__placeholder {
     color: var(--color-muted) !important;
     font-weight: 400;
+    text-align: left;
 }
 
 /* ---- Стили для всех текстовых полей и инпутов ---- */
@@ -118,12 +123,12 @@ input[type="time"],
     font-size: 0.875rem;
     font-family: var(--font-body);
     color: var(--color-heading);
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s;
     width: auto;
     box-sizing: border-box;
 }
 
-/* При фокусе – обводка и подсветка */
+/* При фокусе – только смена цвета границы, без розовой обводки */
 input[type="text"]:focus,
 input[type="search"]:focus,
 input[type="date"]:focus,
@@ -132,7 +137,7 @@ input[type="time"]:focus,
 .custom-date:focus {
     outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+    /* box-shadow полностью убран */
 }
 
 /* Иконки встроенных календарей */
