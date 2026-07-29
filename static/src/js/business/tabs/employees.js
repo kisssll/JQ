@@ -1,4 +1,4 @@
-// static/src/js/business/employees.js
+// static/src/js/business/tabs/employees.js
 
 (function() {
     // Переменные для модального окна
@@ -120,6 +120,40 @@
         if (form) form.reset();
         document.getElementById('employeeId').value = '';
         form.action = '/api/v1/master/create-web';
+    });
+
+    // ===== Функции для мобильных карточек =====
+    // Переключаем класс .open на родительском элементе карточки
+    function toggleStaffCard(header) {
+        const card = header.closest('.staff-card');
+        if (card) {
+            card.classList.toggle('open');
+        }
+    }
+
+    function toggleMasterCard(header) {
+        const card = header.closest('.master-card');
+        if (card) {
+            card.classList.toggle('open');
+        }
+    }
+
+    // Навешиваем обработчики через делегирование на контейнеры карточек
+    document.addEventListener('click', function(e) {
+        // Карточки участников
+        const staffHeader = e.target.closest('.staff-card-header');
+        if (staffHeader) {
+            e.stopPropagation();
+            toggleStaffCard(staffHeader);
+            return;
+        }
+        // Карточки мастеров
+        const masterHeader = e.target.closest('.master-card-header');
+        if (masterHeader) {
+            e.stopPropagation();
+            toggleMasterCard(masterHeader);
+            return;
+        }
     });
 
     console.log('Employees JS loaded');

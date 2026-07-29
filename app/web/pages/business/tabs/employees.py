@@ -9,10 +9,10 @@ from app.web.components.icons import (
     ICON_USER_PLUS,
     ICON_TRASH,
     ICON_POWER,
-    ICON_LOCK,
     ICON_USER,
     ICON_CHEVRON_DOWN,
     ICON_FILE_TEXT,
+    ICON_LOCK_MINI,
 )
 from app.web.components.hint import hint as _hint
 
@@ -42,6 +42,104 @@ PERMISSION_LABELS = {
     "manage_inventory": "Склад",
     "manage_payroll": "Зарплаты",
 }
+
+
+def _render_staff_card(member, user_data, can_edit_perms, can_remove):
+    """Возвращает HTML карточки участника (владелец/админ/управляющий) для мобильной версии."""
+    role_label = ROLE_LABELS.get(member.role, "Админ")
+    creator_badge = ' <span class="creator-badge">(создатель)</span>' if member.is_creator else ""
+    perms_summary = ", ".join(
+        PERMISSION_LABELS[k] for k in SALON_PERMISSION_KEYS
+        if (member.is_creator or member.permissions.get(k, False))
+    ) or "—"
+
+    member_name = (user_data.full_name or user_data.phone).replace("'", "").replace('"', "")
+    effective_perms = {k: (member.is_creator or member.permissions.get(k, False)) for k in SALON_PERMISSION_KEYS}
+    perms_json = json.dumps(effective_perms)
+
+    actions = ""
+    if can_edit_perms:
+        actions += f"""<button class="action-btn edit-btn" onclick='openPermissionsModal({member.id}, "{member_name}", {perms_json})' title="Права">{ICON_EDIT}</button>"""
+    if can_remove and not member.is_creator:
+        actions += f"""<button class="action-btn" onclick="resetMemberPassword({member.id})" title="Сбросить пароль">{ICON_LOCK_MINI}</button>"""
+    if can_remove:
+        actions += f"""<button class="action-btn delete-btn" onclick="removeMember({member.id}, '{member_name}')" title="Снять">{ICON_TRASH}</button>"""
+
+    return f"""
+    <div class="staff-card" data-member-id="{member.id}">
+        <div class="staff-card-header">
+            <div class="staff-card-main">
+                <div class="staff-card-top">
+                    <span class="staff-card-name">{user_data.full_name or '—'}{creator_badge}</span>
+                    <span class="staff-card-role">{role_label}</span>
+                </div>
+                <div class="staff-card-bottom">
+                    <span class="staff-card-phone">{user_data.phone}</span>
+                    <span class="staff-card-chevron">{ICON_CHEVRON_DOWN}</span>
+                </div>
+            </div>
+        </div>
+        <div class="staff-card-body">
+            <div class="staff-card-row">
+                <span class="staff-card-label">Права</span>
+                <span class="staff-card-value perms-cell">{perms_summary}</span>
+            </div>
+            <div class="staff-card-actions">
+                {actions}
+            </div>
+        </div>
+    </div>
+    """
+
+
+def _render_master_card(master, user_data, can_manage_masters):
+    """Возвращает HTML карточки мастера для мобильной версии."""
+    user_name = user_data.full_name if user_data else "—"
+    phone = user_data.phone if user_data else "—"
+    status_class = "on" if master.is_active else "off"
+    status_text = "На смене" if master.is_active else "Отключён"
+
+    actions = f"""
+        <button class="action-btn edit-btn" onclick="editEmployee({master.id}, '{user_name}', '{master.specialization}', {master.experience_years})" title="Редактировать">{ICON_EDIT}</button>
+        <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({master.id}, '{user_name}', {str(master.is_active).lower()})" title="{'Отключить' if master.is_active else 'Включить'}">{ICON_POWER}</button>
+    """
+    if can_manage_masters:
+        actions += f'<button class="action-btn" onclick="resetMasterPassword({master.id})" title="Сбросить пароль">{ICON_LOCK_MINI}</button>'
+        actions += f'<button class="action-btn delete-btn" onclick="deleteEmployee({master.id}, \'{user_name}\')" title="Удалить">{ICON_TRASH}</button>'
+
+    return f"""
+    <div class="master-card" data-master-id="{master.id}">
+        <div class="master-card-header">
+            <div class="master-card-main">
+                <div class="master-card-top">
+                    <span class="master-card-name">{user_name}</span>
+                    <span class="master-card-status-text {status_class}">{status_text}</span>
+                </div>
+                <div class="master-card-bottom">
+                    <span class="master-card-spec">{master.specialization}</span>
+                    <span class="master-card-chevron">{ICON_CHEVRON_DOWN}</span>
+                </div>
+            </div>
+        </div>
+        <div class="master-card-body">
+            <div class="master-card-row">
+                <span class="master-card-label">Телефон</span>
+                <span class="master-card-value">{phone}</span>
+            </div>
+            <div class="master-card-row">
+                <span class="master-card-label">Опыт</span>
+                <span class="master-card-value">{master.experience_years} лет</span>
+            </div>
+            <div class="master-card-row">
+                <span class="master-card-label">Рейтинг</span>
+                <span class="master-card-value">⭐ {master.rating}</span>
+            </div>
+            <div class="master-card-actions">
+                {actions}
+            </div>
+        </div>
+    </div>
+    """
 
 
 async def render_employees_tab(db: AsyncSession, salon, masters, user, membership, perms, query_params=None) -> str:
@@ -79,6 +177,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
 
     # ----- БЛОК УЧАСТНИКОВ (владельцы/админы) — только для полного доступа -----
     staff_section = ""
+    staff_cards_html = ""
     if is_full_admin:
         members_result = await db.execute(
             select(SalonMember, UserModel)
@@ -99,8 +198,6 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
 
             is_self = user.id == member.user_id
             if member.role == SalonRole.MANAGER:
-                # Управляющего может редактировать/снять только создатель салона;
-                # снять (но не редактировать права) может также сам управляющий.
                 can_edit_perms_this = (not member.is_creator) and is_creator
                 can_remove_this = (not member.is_creator) and (is_creator or is_self)
             else:
@@ -118,7 +215,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             if can_edit_perms_this:
                 actions += f"""<button class="action-btn edit-btn" onclick='openPermissionsModal({member.id}, "{member_name}", {perms_json})' title="Права">{ICON_EDIT}</button>"""
             if can_remove_this and not member.is_creator:
-                actions += f"""<button class="action-btn" onclick="resetMemberPassword({member.id})" title="Сбросить пароль">{ICON_LOCK}</button>"""
+                actions += f"""<button class="action-btn" onclick="resetMemberPassword({member.id})" title="Сбросить пароль">{ICON_LOCK_MINI}</button>"""
             if can_remove_this:
                 actions += f"""<button class="action-btn delete-btn" onclick="removeMember({member.id}, '{member_name}')" title="Снять">{ICON_TRASH}</button>"""
 
@@ -137,8 +234,12 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
                 </td>
             </tr>"""
 
+            # Генерируем карточку для мобильной версии
+            staff_cards_html += _render_staff_card(member, u, can_edit_perms_this, can_remove_this)
+
         if not staff_rows:
             staff_rows = '<tr><td colspan="4" class="empty-state">Пока нет других участников</td></tr>'
+            staff_cards_html = '<div class="empty-state">Пока нет других участников</div>'
 
         invite_btn = ""
         if can_manage_owners or can_manage_admins:
@@ -146,9 +247,6 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             if can_manage_owners:
                 role_options += '<option value="owner">Владелец</option>'
             if is_creator:
-                # Управляющего назначает только создатель салона — обычному
-                # совладельцу с правом manage_owners эта опция не предлагается,
-                # чтобы не показывать пункт, который на бэкенде всё равно 403.
                 role_options += '<option value="manager">Управляющий</option>'
             if can_manage_admins:
                 role_options += '<option value="admin">Админ</option>'
@@ -214,6 +312,10 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
                     <tbody>{staff_rows}</tbody>
                 </table>
             </div>
+            <!-- Мобильные карточки участников -->
+            <div class="staff-mobile-cards">
+                {staff_cards_html}
+            </div>
         </div>
         {invite_form}
         {permissions_modal}
@@ -224,6 +326,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
     total_masters = len(masters)
 
     masters_rows = ""
+    masters_cards_html = ""
     for m in masters:
         user_result = await db.execute(select(UserModel).where(UserModel.id == m.user_id))
         master_user = user_result.scalar_one_or_none()
@@ -238,7 +341,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({m.id}, '{user_name}', {str(m.is_active).lower()})" title="{'Отключить' if m.is_active else 'Включить'}">{ICON_POWER}</button>
         """
         if can_manage_masters:
-            actions += f'<button class="action-btn" onclick="resetMasterPassword({m.id})" title="Сбросить пароль">{ICON_LOCK}</button>'
+            actions += f'<button class="action-btn" onclick="resetMasterPassword({m.id})" title="Сбросить пароль">{ICON_LOCK_MINI}</button>'
             actions += f'<button class="action-btn delete-btn" onclick="deleteEmployee({m.id}, \'{user_name}\')" title="Удалить">{ICON_TRASH}</button>'
 
         masters_rows += f"""
@@ -267,8 +370,12 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             </td>
         </tr>"""
 
+        # Генерируем карточку мастера для мобильной версии
+        masters_cards_html += _render_master_card(m, master_user, can_manage_masters)
+
     if not masters_rows:
         masters_rows = '<tr><td colspan="6" class="empty-state">Пока нет мастеров</td></tr>'
+        masters_cards_html = '<div class="empty-state">Пока нет мастеров</div>'
 
     add_master_btn = ""
     if can_manage_masters:
@@ -310,6 +417,10 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
                     {masters_rows}
                 </tbody>
             </table>
+        </div>
+        <!-- Мобильные карточки мастеров -->
+        <div class="masters-mobile-cards">
+            {masters_cards_html}
         </div>
     </div>
     """
