@@ -111,7 +111,9 @@ async def test_registration_requires_offer(client, db_session):
 
 # ── Админ-модерация ──────────────────────────────────────────────────────────
 
-async def test_admin_approve_makes_salon_public(client, db_session):
+async def test_admin_approve_does_not_auto_publish(client, db_session):
+    # Одобрение админом больше НЕ выводит салон в каталог само по себе —
+    # published_at остаётся NULL, пока владелец не нажмёт «Опубликовать».
     await _mk_user(db_session, ADMIN_PHONE, role=UserRole.ADMIN, pw="Adminpass1")
     sid = await _mk_salon(db_session, SalonModerationStatus.PENDING, name="КОдобрениюZZ")
     await _login(client, ADMIN_PHONE, "Adminpass1")
@@ -122,8 +124,9 @@ async def test_admin_approve_makes_salon_public(client, db_session):
         s = (await db.execute(select(Salon).where(Salon.id == sid))).scalar_one()
         assert s.moderation_status == SalonModerationStatus.APPROVED
         assert s.is_active is True
-    # теперь виден в каталоге
-    assert "КОдобрениюZZ" in (await client.get("/salons")).text
+        assert s.published_at is None  # ещё не опубликован
+    # в каталоге пока НЕ виден — ждёт публикации владельцем
+    assert "КОдобрениюZZ" not in (await client.get("/salons")).text
 
 
 async def test_checkout_apply_requires_login(client):

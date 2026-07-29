@@ -540,7 +540,15 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     static_pages = ["", "salons", "business", "model", "login", "register"]
     urls = [f"https://rrumi.ru/{p}" for p in static_pages]
 
-    salons = (await db.execute(select(Salon.id).where(Salon.is_active == True, Salon.is_hidden == False))).scalars().all()
+    # В карту сайта — только реально публичные салоны: одобрены, опубликованы
+    # владельцем и не скрыты (иначе ссылки вели бы на 404 карточки).
+    from app.models.models import SalonModerationStatus
+    salons = (await db.execute(select(Salon.id).where(
+        Salon.is_active == True,  # noqa: E712
+        Salon.moderation_status == SalonModerationStatus.APPROVED,
+        Salon.published_at.isnot(None),
+        Salon.is_hidden == False,  # noqa: E712
+    ))).scalars().all()
     urls += [f"https://rrumi.ru/salons/{sid}" for sid in salons]
 
     body = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
