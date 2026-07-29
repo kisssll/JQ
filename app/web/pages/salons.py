@@ -1,7 +1,8 @@
 # app/web/pages/salons.py
+import html
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.models import Salon, Promotion, SalonModerationStatus
+from app.models.models import Salon, Promotion, Master, Service, SalonModerationStatus
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
@@ -13,11 +14,18 @@ from app.web.components.icons import (
     ICON_HEART,
     ICON_HEART_FILLED,
     ICON_ARROW_RIGHT,
+    ICON_FILTER,
 )
+
+# Категории услуг для чипов на карточках и фильтра — единый источник, чтобы
+# теги на карточке и кнопки фильтра всегда совпадали.
+SERVICE_CATEGORIES = ["стрижка", "борода", "маникюр", "педикюр", "окрашивание", "укладка", "брови"]
 
 
 async def render_salons_page(db: AsyncSession, user=None) -> str:
-    """Страница со списком салонов с акциями в карточках."""
+    """Страница со списком салонов: поиск (по названию/описанию/реальным
+    услугам мастеров), фильтры (категория/рейтинг/акции) и сортировка
+    (рейтинг/отзывы/расстояние) — всё на клиенте, без перезагрузки страницы."""
 
     result = await db.execute(
         select(Salon).where(
@@ -40,19 +48,34 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
         for p in promotions:
             promotions_by_salon.setdefault(p.salon_id, []).append(p)
 
+    # Реальные названия услуг мастеров каждого салона — чтобы поиск и теги
+    # на карточке отражали то, что салон реально предлагает, а не только
+    # ключевые слова, которые владелец случайно упомянул в описании.
+    services_by_salon: dict[int, list[str]] = {}
+    if salon_ids:
+        services_result = await db.execute(
+            select(Master.salon_id, Service.name)
+            .join(Master, Master.id == Service.master_id)
+            .where(
+                Master.salon_id.in_(salon_ids), Master.is_active == True,
+                Service.is_active == True, Service.is_model_practice == False,
+            )
+        )
+        for salon_id, service_name in services_result.all():
+            services_by_salon.setdefault(salon_id, []).append(service_name)
+
     salon_cards = ""
     for s in salons:
-        # Теги услуг
-        service_chips = ""
-        if s.description:
-            keywords = ["стрижка", "борода", "маникюр", "педикюр", "окрашивание", "укладка", "брови"]
-            found = [kw for kw in keywords if kw in s.description.lower()]
-            if found:
-                service_chips = "".join(
-                    f'<span class="service-chip">{kw.capitalize()}</span>' for kw in found[:3]
-                )
-        if not service_chips:
-            service_chips = '<span class="service-chip">Услуги</span>'
+        service_names = services_by_salon.get(s.id, [])
+        # Общий "стог сена" для поиска/категорий: описание салона + реальные
+        # названия услуг мастеров — салон найдётся по слову "стрижка", даже
+        # если он не упомянул её в описании, но она есть у мастера.
+        haystack = ((s.description or "") + " " + " ".join(service_names)).lower()
+        matched_categories = [kw for kw in SERVICE_CATEGORIES if kw in haystack]
+
+        service_chips = "".join(
+            f'<span class="service-chip">{kw.capitalize()}</span>' for kw in matched_categories[:3]
+        ) or '<span class="service-chip">Услуги</span>'
 
         rating = s.rating or 0.0
         reviews = s.reviews_count or 0
@@ -108,8 +131,18 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
             </div>
             """
 
+        search_haystack = html.escape(f"{s.name} {haystack}", quote=True)
+
         salon_cards += f"""
-        <div class="salon-card" data-salon-id="{s.id}">
+        <div class="salon-card"
+             data-salon-id="{s.id}"
+             data-search="{search_haystack}"
+             data-categories="{' '.join(matched_categories)}"
+             data-rating="{rating}"
+             data-reviews="{reviews}"
+             data-lat="{s.latitude}"
+             data-lon="{s.longitude}"
+             data-has-promo="{1 if promos else 0}">
             <div class="salon-card-inner">
                 <div class="salon-image">
                     {image_html}
@@ -160,7 +193,42 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
         </div>
         """
 
-    html = f"""<!DOCTYPE html>
+    category_chips = "".join(
+        f'<button type="button" class="filter-chip" data-category="{cat}">{cat.capitalize()}</button>'
+        for cat in SERVICE_CATEGORIES
+    )
+
+    filter_bar = f"""
+    <div class="salons-filter-bar">
+        <div class="filter-row filter-categories">
+            <span class="filter-label">{ICON_FILTER} Категория:</span>
+            <button type="button" class="filter-chip active" data-category="">Все</button>
+            {category_chips}
+        </div>
+        <div class="filter-row filter-controls">
+            <div class="filter-group" id="ratingFilterGroup">
+                <button type="button" class="filter-chip active" data-min-rating="0">Любой рейтинг</button>
+                <button type="button" class="filter-chip" data-min-rating="4.5">от 4.5</button>
+                <button type="button" class="filter-chip" data-min-rating="4">от 4.0</button>
+                <button type="button" class="filter-chip" data-min-rating="3.5">от 3.5</button>
+            </div>
+            <label class="promo-toggle">
+                <input type="checkbox" id="promoOnlyToggle">
+                Только с акциями
+            </label>
+            <div class="sort-group">
+                <label for="sortSelect">Сортировка:</label>
+                <select id="sortSelect" class="sort-select">
+                    <option value="rating">По рейтингу</option>
+                    <option value="reviews">По отзывам</option>
+                    <option value="distance">Рядом со мной</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    """
+
+    page_html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
@@ -181,7 +249,7 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
                     <p class="text-body-lg salons-subtitle">Найдите лучший салон рядом с вами по названию или услуге</p>
                     <div class="search-box">
                         {ICON_SEARCH}
-                        <input type="text" id="searchInput" placeholder="Поиск салона по названию..." class="search-input">
+                        <input type="text" id="searchInput" placeholder="Поиск салона по названию или услуге..." class="search-input">
                     </div>
                 </div>
             </div>
@@ -189,9 +257,11 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
 
         <section class="section-py bg-surface salons-list-section">
             <div class="section-container">
+                {filter_bar}
                 <div id="salons-list" class="salons-grid">
                     {salon_cards}
                 </div>
+                <p id="salonsEmptyState" class="text-muted" style="display:none;text-align:center;padding:2rem">Ничего не найдено — попробуйте изменить фильтры.</p>
             </div>
         </section>
 
@@ -200,4 +270,4 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
 </body>
 </html>"""
 
-    return html
+    return page_html

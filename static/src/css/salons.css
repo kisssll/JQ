@@ -85,6 +85,110 @@
     border-color: var(--color-accent);
 }
 
+/* ===== Панель фильтров и сортировки ===== */
+.salons-filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.filter-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    margin-right: 0.25rem;
+}
+.filter-label svg {
+    width: 0.9rem;
+    height: 0.9rem;
+}
+
+.filter-chip {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--color-heading);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+.filter-chip:hover {
+    border-color: var(--color-accent);
+}
+.filter-chip.active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #fff;
+}
+
+.filter-controls {
+    justify-content: space-between;
+    border-top: 1px solid var(--color-border);
+    padding-top: 0.75rem;
+}
+
+.filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.promo-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--color-heading);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.promo-toggle input {
+    accent-color: var(--color-accent);
+}
+
+.sort-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    margin-left: auto;
+}
+
+.sort-select {
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    cursor: pointer;
+}
+
+@media (max-width: 640px) {
+    .filter-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .sort-group {
+        margin-left: 0;
+        justify-content: space-between;
+    }
+}
+
 .salons-grid {
     display: flex;
     flex-direction: column;
