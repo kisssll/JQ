@@ -28,6 +28,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputAddress = document.getElementById('salonEditAddressInput');
     const inputPhone = document.getElementById('salonEditPhoneInput');
     const inputDesc = document.getElementById('salonEditDescInput');
+    // Есть только если задан YANDEX_MAPS_API_KEY (см. yandex_maps.py) — иначе
+    // адрес остаётся обычным текстом без координат.
+    const inputLat = document.getElementById('salonEditLat');
+    const inputLon = document.getElementById('salonEditLon');
 
     const photoContainer = document.getElementById('salonEditPhotoContainer');
     const photoUploadLabel = document.getElementById('salonEditPhotoUpload');
@@ -54,7 +58,9 @@ document.addEventListener('DOMContentLoaded', function() {
             phone: displayPhone.textContent.trim(),
             desc: displayDesc.textContent.trim(),
             photos: currentPhotos.map(p => ({id: p.id, url: p.url})),
-            logo: currentLogo
+            logo: currentLogo,
+            lat: inputLat ? inputLat.value : '',
+            lon: inputLon ? inputLon.value : '',
         };
     }
 
@@ -67,6 +73,10 @@ document.addEventListener('DOMContentLoaded', function() {
         inputAddress.value = originalValues.address;
         inputPhone.value = originalValues.phone;
         inputDesc.value = originalValues.desc;
+        if (inputLat) inputLat.value = originalValues.lat || '';
+        if (inputLon) inputLon.value = originalValues.lon || '';
+        // Адрес откатили к исходному — координаты снова соответствуют тексту.
+        if (inputAddress) inputAddress.dataset.confirmed = '1';
         currentPhotos = (originalValues.photos || []).map(p => ({id: p.id, url: p.url}));
         currentLogo = originalValues.logo || '';
         renderGallery();
@@ -324,6 +334,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== СОХРАНЕНИЕ =====
     async function saveChanges() {
         if (!isEditing) return;
+
+        // Если подключены подсказки Яндекса (inputLat/inputLon есть в DOM) и
+        // адрес поменяли — не даём сохранить без выбора варианта из подсказок,
+        // иначе координаты салона останутся неточными/старыми.
+        if (inputLat && inputAddress.value.trim() && inputAddress.dataset.confirmed !== '1') {
+            alert('Выберите адрес из подсказок, чтобы мы могли определить точное расположение салона.');
+            return;
+        }
+
         const data = {
             name: inputName.value,
             phone: inputPhone.value,
@@ -332,6 +351,8 @@ document.addEventListener('DOMContentLoaded', function() {
             photos: currentPhotos.map(p => p.url),
             logo_url: currentLogo
         };
+        if (inputLat && inputLat.value) data.latitude = parseFloat(inputLat.value);
+        if (inputLon && inputLon.value) data.longitude = parseFloat(inputLon.value);
         const salonId = window.salonId;
         try {
             const res = await fetch('/api/v1/business/my-salon?salon_id=' + salonId, {

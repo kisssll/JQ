@@ -27,6 +27,15 @@ from app.api.deps import (
     get_current_user, check_salon_permission, get_user_primary_salon_id, get_salon_membership,
 )
 from app.services.analytics_service import AnalyticsService
+from app.core.config import settings
+
+
+def _validate_coords(latitude: Optional[float], longitude: Optional[float]) -> bool:
+    """True, если координаты присутствуют и в разумных пределах."""
+    return (
+        latitude is not None and longitude is not None
+        and -90 <= latitude <= 90 and -180 <= longitude <= 180
+    )
 
 router = APIRouter()
 
@@ -75,6 +84,8 @@ async def create_or_update_salon(
     method_override: str = Form(""),
     salon_id: Optional[int] = Form(None),
     offer_accepted: str = Form(""),
+    latitude: Optional[float] = Form(None),
+    longitude: Optional[float] = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
     """Создание ИЛИ обновление салона через веб-форму."""
@@ -115,6 +126,23 @@ async def create_or_update_salon(
             status_code=400,
         )
 
+    # С подключённым геокодером (YANDEX_MAPS_API_KEY) адрес обязан прийти
+    # с координатами из подсказок — иначе салон получил бы московские
+    # координаты по умолчанию и никогда не нашёлся бы в поиске «рядом».
+    # Без ключа (лок. разработка/тесты) — старое поведение с дефолтом.
+    if settings.YANDEX_MAPS_API_KEY:
+        if not _validate_coords(latitude, longitude):
+            from app.web.pages.register_salon import render_register_salon_page
+            return HTMLResponse(
+                content=render_register_salon_page(
+                    user, error="Выберите адрес из подсказок, чтобы мы могли определить точное расположение салона."
+                ),
+                status_code=400,
+            )
+        salon_latitude, salon_longitude = latitude, longitude
+    else:
+        salon_latitude, salon_longitude = 55.7558, 37.6173
+
     from datetime import datetime, timezone as _tz
     # Лимита на число салонов на владельца сейчас нет (тарифы нигде не enforced).
     salon = Salon(
@@ -123,8 +151,8 @@ async def create_or_update_salon(
         description=description,
         address=address,
         phone=phone,
-        latitude=55.7558,
-        longitude=37.6173,
+        latitude=salon_latitude,
+        longitude=salon_longitude,
         rating=0.0,
         reviews_count=0,
         is_active=True,
@@ -302,7 +330,19 @@ async def update_my_salon(
     if update_data.phone is not None:
         salon.phone = update_data.phone
     if update_data.address is not None:
+        address_changed = update_data.address != salon.address
+        # Меняем адрес и подключён геокодер → координаты из подсказок
+        # обязательны, иначе салон останется на старой/дефолтной точке.
+        if address_changed and settings.YANDEX_MAPS_API_KEY:
+            if not _validate_coords(update_data.latitude, update_data.longitude):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Выберите адрес из подсказок, чтобы определить точные координаты",
+                )
         salon.address = update_data.address
+    if _validate_coords(update_data.latitude, update_data.longitude):
+        salon.latitude = update_data.latitude
+        salon.longitude = update_data.longitude
     if update_data.working_hours is not None:
         salon.working_hours = update_data.working_hours
 

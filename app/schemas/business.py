@@ -9,6 +9,10 @@ class SalonUpdateRequest(BaseModel):
     description: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    # Координаты нового адреса — обязательны вместе с address, когда на
+    # сервере включены подсказки Яндекса (см. business.py::update_my_salon).
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     working_hours: Optional[str] = None  # JSON-строка с графиком
     photos: Optional[List[str]] = None   # Список URL всех фото
     logo_url: Optional[str] = None       # URL обложки

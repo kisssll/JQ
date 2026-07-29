@@ -1,4 +1,5 @@
 # app/web/pages/salon_detail.py
+import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -11,6 +12,7 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.components.yandex_maps import render_yandex_maps_script, yandex_maps_enabled
 from app.services.loyalty_service import LoyaltyService
 from app.services.schedule_utils import MAX_BOOKING_DAYS_AHEAD, format_working_hours_summary
 from app.web.components.icons import (
@@ -64,6 +66,17 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                 <div class="salon-chain-links">{items}</div>
             </div>
             """
+
+    # Встроенная карта с меткой — только если подключён геокодер (см.
+    # app/web/components/yandex_maps.py); заодно закрывает условие
+    # бесплатного тарифа Яндекса («показывать результат на карте»).
+    salon_map_html = ""
+    if yandex_maps_enabled():
+        salon_map_html = (
+            f'<div id="salonMap" class="salon-static-map" style="height:220px;border-radius:0.75rem;overflow:hidden;margin-top:1rem"'
+            f' data-lat="{salon.latitude}" data-lon="{salon.longitude}"'
+            f' data-title="{html.escape(salon.name, quote=True)}"></div>'
+        )
 
     masters_result = await db.execute(
         select(Master).where(Master.salon_id == salon.id, Master.is_active == True)
@@ -218,6 +231,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                         <span class="contact-item">{ICON_PHONE} {salon.phone or '—'}</span>
                         <span class="contact-item">{ICON_CLOCK} {format_working_hours_summary(salon.working_hours)}</span>
                     </div>
+                    {salon_map_html}
                     {chain_siblings_html}
                 </div>
             </div>
@@ -559,13 +573,14 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
     </script>
     """
 
-    html = f"""<!DOCTYPE html>
+    page_html = f"""<!DOCTYPE html>
 <html lang="ru" data-theme="light">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{salon.name} | руми</title>
     {get_base_styles()}
+    {render_yandex_maps_script()}
 </head>
 <body class="page-body">
     {render_header("salons")}
@@ -596,7 +611,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
     </script>
 </body>
 </html>"""
-    return html
+    return page_html
 
 def _get_service_tags(salon: Salon) -> str:
     if not salon.description:

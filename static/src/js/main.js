@@ -27,3 +27,4 @@ import './business/dashboard.js';
 import './business/tabs/overview.js';
 import './business/tabs/promos.js';
 import './business/tabs/services.js';
+import './address-geocoder.js';
