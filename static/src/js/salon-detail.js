@@ -420,14 +420,16 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                 });
-                if (response.ok) {
+                if (response.redirected) {
+                    // fetch сам сходил по редиректу на /login (не авторизован) —
+                    // response.ok при этом true, проверяем раньше него.
+                    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+                } else if (response.ok) {
                     if (isLiked) {
                         this.classList.remove('liked');
                     } else {
                         this.classList.add('liked');
                     }
-                } else if (response.status === 302) {
-                    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
                 } else {
                     alert('Не удалось изменить избранное. Попробуйте позже.');
                 }

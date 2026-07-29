@@ -25,7 +25,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     headers: { 'Content-Type': 'application/json' },
                 });
 
-                if (response.ok) {
+                if (response.redirected) {
+                    // Сессия истекла прямо на странице избранного — fetch сам
+                    // сходил на /login, response.ok при этом true, поэтому
+                    // проверяем раньше него.
+                    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+                } else if (response.ok) {
                     // Без хрупких прогулок по DOM: убрали карточку; была
                     // последней — сервер сам нарисует «пусто» при reload.
                     // (Раньше: card.remove() отсоединял узел, closest() по
@@ -33,8 +38,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     // и показывал «Ошибка соединения» при успешном удалении.)
                     if (card) card.remove();
                     if (!document.querySelector('.fav-card')) location.reload();
-                } else if (response.status === 302) {
-                    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
                 } else {
                     alert('Не удалось удалить из избранного. Попробуйте позже.');
                 }
