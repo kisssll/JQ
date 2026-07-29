@@ -1,8 +1,7 @@
 /* static/src/css/business/tabs/promos.css */
 
-/* Вкладка Акции */
 .promos-tab {
-    margin-bottom: 12rem;
+    margin-bottom: 2.5rem;
 }
 
 .promos-header {
@@ -100,7 +99,7 @@
     width: 100%;
 }
 
-/* ===== Модальное окно (общее) ===== */
+/* Модальное окно */
 .promos-modal-overlay {
     display: none;
     position: fixed;
@@ -224,6 +223,272 @@
 .promos-btn-outline:hover {
     background: var(--color-surface-alt);
     border-color: var(--color-primary);
+}
+
+/* Стили для блоков лояльности */
+
+.promos-tab .my-salon-card {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin-top: 4.5rem; 
+    margin-bottom: 4rem;
+}
+
+.promos-tab .my-salon-card-title {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin: 0 0 1rem 0;
+}
+
+.promos-tab .my-salon-card-hint {
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+}
+
+.promos-tab .my-salon-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 640px) {
+    .promos-tab .my-salon-grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.promos-tab .my-salon-grid-2 > div,
+.promos-tab .loyalty-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.promos-tab .my-salon-grid-2 label,
+.promos-tab .loyalty-field label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--color-heading);
+}
+
+.promos-tab .my-salon-grid-2 input,
+.promos-tab .loyalty-field input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.promos-tab .my-salon-grid-2 input:focus,
+.promos-tab .loyalty-field input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+}
+
+.promos-tab .loyalty-field.full-width {
+    max-width: calc(50% - 0.75rem);
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 640px) {
+    .promos-tab .loyalty-field.full-width {
+        max-width: 100%;
+    }
+}
+
+/* Таблица именных скидок */
+.promos-tab .table-wrap {
+    overflow-x: auto;
+}
+
+.promos-tab .my-salon-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.promos-tab .my-salon-table th {
+    text-align: left;
+    padding: 0.75rem;
+    border-bottom: 2px solid var(--color-border);
+    font-weight: 600;
+    color: var(--color-heading);
+}
+
+.promos-tab .my-salon-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+}
+
+.promos-tab .my-salon-table .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-muted);
+}
+
+.promos-tab .my-salon-table .delete-btn-icon {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.25rem;
+    transition: color 0.2s;
+}
+
+.promos-tab .my-salon-table .delete-btn-icon:hover {
+    color: #dc2626;
+}
+
+.promos-tab .loyalty-offers-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 2rem 0 1rem;
+}
+
+.promos-tab .loyalty-offers-header h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin: 0;
+}
+
+/* Кнопки внутри блоков лояльности */
+.promos-tab .my-salon-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.5rem;
+    border: none;
+    border-radius: 2rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-btn-text);
+    background: var(--color-accent);
+    transition: all 0.2s;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.promos-tab .my-salon-btn-primary:hover {
+    background: var(--color-accent-hover);
+}
+
+.promos-tab .my-salon-btn-outline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.2rem;
+    border: 1px solid var(--color-border);
+    border-radius: 2rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-heading);
+    background: transparent;
+    transition: all 0.2s;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.promos-tab .my-salon-btn-outline:hover {
+    background: var(--color-surface-alt);
+    border-color: var(--color-primary);
+}
+
+.my-salon-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.my-salon-modal-overlay.active {
+    display: flex;
+}
+
+.my-salon-modal-box {
+    background: var(--color-surface);
+    border-radius: 1rem;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.my-salon-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--color-muted);
+    transition: color 0.2s;
+}
+
+.my-salon-modal-close:hover {
+    color: var(--color-heading);
+}
+
+.my-salon-modal-box h2 {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin-bottom: 1.5rem;
+}
+
+.my-salon-form-group {
+    margin-bottom: 1rem;
+}
+
+.my-salon-form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--color-heading);
+}
+
+.my-salon-form-group input,
+.my-salon-form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: var(--font-body);
+}
+
+.my-salon-form-group input:focus,
+.my-salon-form-group textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
 }
 
 /* Адаптив */

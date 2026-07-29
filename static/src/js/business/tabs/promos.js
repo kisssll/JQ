@@ -88,7 +88,92 @@
         if (e.key === 'Escape') {
             if (addModal) addModal.classList.remove('active');
             if (editModal) editModal.classList.remove('active');
+            const loyaltyModal = document.getElementById('addLoyaltyOfferModal');
+            if (loyaltyModal) loyaltyModal.classList.remove('active');
         }
+    });
+
+    // ---- Функции лояльности (перенесены из my-salon.js) ----
+
+    // Сохранение настроек лояльности
+    window.saveLoyaltySettings = async function(salonId) {
+        const body = {
+            regular_client_discount_percent: parseInt(document.getElementById('loyaltyRegularPercent').value) || 0,
+            regular_client_visits_threshold: document.getElementById('loyaltyVisitsThreshold').value
+                ? parseInt(document.getElementById('loyaltyVisitsThreshold').value) : null,
+            bonus_accrual_percent: parseFloat(document.getElementById('loyaltyBonusAccrual').value) || 0,
+        };
+        try {
+            const res = await fetch(`/api/v1/loyalty/salon/${salonId}/settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                alert('Настройки лояльности сохранены');
+            } else {
+                const d = await res.json();
+                alert(d.detail || 'Ошибка');
+            }
+        } catch (e) {
+            alert('Ошибка сети');
+        }
+    };
+
+    // Добавление именной скидки / промокода
+    window.addLoyaltyOffer = async function(salonId) {
+        const title = document.getElementById('loyaltyOfferTitle').value.trim();
+        const discount_percent = parseInt(document.getElementById('loyaltyOfferPercent').value);
+        const promo_code = document.getElementById('loyaltyOfferCode').value.trim() || null;
+        if (!title || !discount_percent) {
+            alert('Заполните название и размер скидки');
+            return;
+        }
+        try {
+            const res = await fetch(`/api/v1/loyalty/salon/${salonId}/offers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, discount_percent, promo_code })
+            });
+            if (res.ok) {
+                location.reload();
+            } else {
+                const d = await res.json();
+                alert(d.detail || 'Ошибка');
+            }
+        } catch (e) {
+            alert('Ошибка сети');
+        }
+    };
+
+    // Удаление именной скидки
+    window.deleteLoyaltyOffer = function(id, title) {
+        if (!confirm(`Удалить скидку «${title}»?`)) return;
+        const salonId = window.salonId; // теперь определён
+        if (!salonId) {
+            alert('Не удалось определить салон');
+            return;
+        }
+        fetch(`/api/v1/loyalty/salon/${salonId}/offers/${id}`, { method: 'DELETE' })
+            .then(r => {
+                if (r.ok) location.reload();
+                else r.json().then(d => alert(d.detail || 'Ошибка'));
+            });
+    };
+
+    // Закрытие модалок лояльности
+    document.querySelectorAll('.my-salon-modal-close').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.closest('.my-salon-modal-overlay').classList.remove('active');
+        });
+    });
+
+    document.querySelectorAll('.my-salon-modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('active');
+            }
+        });
     });
 
 })();

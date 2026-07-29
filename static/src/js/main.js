@@ -29,3 +29,7 @@ import './business/tabs/overview.js';
 import './business/tabs/promos.js';
 import './business/tabs/services.js';
 import './address-geocoder.js';
+import './business/tabs/payroll.js';
+
+/* Импорт для кастомных форм */
+import './custom-forms.js';

@@ -176,7 +176,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
                     </div>
                     <div class="form-group">
                         <label for="inviteRole">Роль</label>
-                        <select id="inviteRole" name="role">{role_options}</select>
+                        <select id="inviteRole" name="role" class="custom-select">{role_options}</select>
                     </div>
                     <button type="submit" class="btn-primary" style="width:100%">Добавить</button>
                 </form>

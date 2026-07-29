@@ -13,7 +13,7 @@
         service: null,
         date: null,
         time: null,
-        reminder: 60, // минут
+        reminder: 60,
         reminderEnabled: true,
     };
 
@@ -27,22 +27,18 @@
         confirm: document.getElementById('step-confirm'),
     };
 
-    // Функция переключения шага (без скролла вверх)
     function goToStep(stepName) {
         Object.keys(steps).forEach(key => {
             steps[key].style.display = (key === stepName) ? 'block' : 'none';
         });
-        // Убираем принудительный скролл вверх
     }
 
-    // Всегда показываем список мастеров, даже если только один
+    // Всегда показываем список мастеров
     goToStep('masters');
     renderMasters();
 
     // ---- Шаг 1: Мастера ----
     function renderMasters() {
-        const grid = document.querySelector('.masters-grid');
-        // Уже отрендерено через HTML, добавляем обработчики
         document.querySelectorAll('.master-card .master-book-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -69,15 +65,12 @@
     // ---- Шаг 2: Услуги ----
     function renderServices() {
         const master = state.master;
-        // Обновляем хлебные крошки
         document.getElementById('breadcrumb-master').textContent = master.name;
-        // Сводка
         document.getElementById('selected-master-name').textContent = master.name;
         document.getElementById('selected-master-spec').textContent = master.specialization;
         const avatar = document.getElementById('selected-master-avatar');
         avatar.innerHTML = master.avatar ? `<img src="${master.avatar}" alt="">` : `<span>${master.name[0]}</span>`;
 
-        // Список услуг
         const list = document.getElementById('services-list');
         list.innerHTML = '';
         master.services.forEach(service => {
@@ -95,8 +88,6 @@
             btn.addEventListener('click', () => selectService(service.id));
             list.appendChild(btn);
         });
-
-        // Показываем шаг
         goToStep('services');
     }
 
@@ -112,10 +103,8 @@
     function renderDateSelection() {
         const master = state.master;
         const service = state.service;
-        // Обновляем breadcrumb
         document.getElementById('breadcrumb-master-2').textContent = master.name;
         document.getElementById('breadcrumb-service').textContent = service.name;
-        // Сводка
         document.getElementById('selected-master-name-2').textContent = master.name;
         document.getElementById('selected-master-spec-2').textContent = master.specialization;
         const avatar = document.getElementById('selected-master-avatar-2');
@@ -123,7 +112,6 @@
         document.getElementById('selected-service-summary').textContent = service.name;
         document.getElementById('selected-service-price').textContent = `${service.price.toLocaleString()} ₽`;
 
-        // Генерируем даты (сегодня + MAX_BOOKING_DAYS_AHEAD дней)
         const today = new Date();
         today.setHours(0,0,0,0);
         const dates = [];
@@ -161,7 +149,6 @@
 
     function selectDate(dateStr) {
         state.date = dateStr;
-        // Обновляем активную кнопку
         document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
         document.querySelector(`.date-btn[data-date="${dateStr}"]`)?.classList.add('active');
         goToStep('time');
@@ -173,13 +160,11 @@
         const master = state.master;
         const service = state.service;
         const date = state.date;
-        // Обновляем breadcrumb
         document.getElementById('breadcrumb-master-3').textContent = master.name;
         document.getElementById('breadcrumb-service-2').textContent = service.name;
         const dateObj = new Date(date + 'T00:00:00');
         const dateStr = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
         document.getElementById('breadcrumb-date').textContent = dateStr;
-        // Сводка
         document.getElementById('selected-master-name-3').textContent = master.name;
         document.getElementById('selected-master-spec-3').textContent = master.specialization;
         const avatar = document.getElementById('selected-master-avatar-3');
@@ -188,7 +173,6 @@
         document.getElementById('selected-service-price-2').textContent = `${service.price.toLocaleString()} ₽`;
         document.getElementById('selected-date-summary').textContent = dateStr;
 
-        // Загружаем слоты
         const grid = document.getElementById('times-grid');
         grid.innerHTML = '<p style="color:var(--color-muted)">Загрузка...</p>';
         fetch(`/api/v1/bookings/available/${master.id}?date=${date}&service_id=${service.id}`)
@@ -237,7 +221,6 @@
         document.getElementById('breadcrumb-service-3').textContent = service.name;
         document.getElementById('breadcrumb-date-2').textContent = dateStr;
         document.getElementById('breadcrumb-time').textContent = timeStr;
-        // Сводка
         document.getElementById('selected-master-name-4').textContent = master.name;
         document.getElementById('selected-master-spec-4').textContent = master.specialization;
         const avatar = document.getElementById('selected-master-avatar-4');
@@ -247,13 +230,11 @@
         document.getElementById('selected-date-summary-2').textContent = dateStr;
         document.getElementById('selected-time-summary').textContent = timeStr;
 
-        // Напоминание
         const toggle = document.getElementById('reminder-toggle');
         toggle.classList.toggle('active', state.reminderEnabled);
         document.querySelectorAll('.reminder-option').forEach(btn => {
             btn.classList.toggle('active', parseInt(btn.dataset.minutes) === state.reminder);
         });
-        // Обработчики
         toggle.onclick = function() {
             state.reminderEnabled = !state.reminderEnabled;
             this.classList.toggle('active');
@@ -292,51 +273,95 @@
         document.getElementById('confirm-datetime').textContent = datetimeStr;
         document.getElementById('confirm-reminder').textContent = reminderLabel;
 
-        // Данные пользователя
-        if (userData) {
+        // === НОВОЕ: работа с блоком данных пользователя ===
+        const userBlock = document.querySelector('.confirm-user');
+        if (!userData) {
+            // Гость – скрываем блок, кнопка ведёт на логин/регистрацию
+            userBlock.style.display = 'none';
+            const submitBtn = document.getElementById('confirm-submit');
+            submitBtn.textContent = 'Войти или зарегистрироваться';
+            submitBtn.onclick = function() {
+                const stateData = {
+                    masterId: master.id,
+                    serviceId: service.id,
+                    date: date,
+                    time: time,
+                };
+                localStorage.setItem('bookingState', JSON.stringify(stateData));
+                window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+            };
+        } else {
+            // Авторизован – показываем данные
+            userBlock.style.display = 'block';
             document.getElementById('confirm-user-name').textContent = userData.full_name || 'Гость';
             document.getElementById('confirm-user-phone').textContent = userData.phone || '';
-        } else {
-            document.getElementById('confirm-user-name').textContent = 'Гость';
-            document.getElementById('confirm-user-phone').textContent = '';
-        }
-
-        // Кнопка записи
-        document.getElementById('confirm-submit').onclick = function() {
-            if (!userData) {
-                window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
-                return;
-            }
-            const data = {
-                master_id: master.id,
-                service_id: service.id,
-                start_time: time,
+            const submitBtn = document.getElementById('confirm-submit');
+            submitBtn.textContent = 'Записаться';
+            submitBtn.onclick = function() {
+                const data = {
+                    master_id: master.id,
+                    service_id: service.id,
+                    start_time: time,
+                };
+                fetch('/api/v1/bookings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                })
+                .then(r => r.json())
+                .then(result => {
+                    if (result.id) {
+                        alert('Запись успешно создана!');
+                        window.location.href = '/bookings';
+                    } else {
+                        alert(result.detail || 'Ошибка при создании записи');
+                    }
+                })
+                .catch(err => {
+                    alert('Сетевая ошибка, попробуйте позже.');
+                });
             };
-            fetch('/api/v1/bookings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            })
-            .then(r => r.json())
-            .then(result => {
-                if (result.id) {
-                    alert('Запись успешно создана!');
-                    window.location.href = '/bookings';
-                } else {
-                    alert(result.detail || 'Ошибка при создании записи');
-                }
-            })
-            .catch(err => {
-                alert('Сетевая ошибка, попробуйте позже.');
-            });
-        };
+        }
     }
+
+    // ---- Восстановление состояния после входа/регистрации с прокруткой ----
+    document.addEventListener('DOMContentLoaded', function() {
+        const saved = localStorage.getItem('bookingState');
+        if (saved && userData) {
+            try {
+                const data = JSON.parse(saved);
+                const master = masters.find(m => m.id === data.masterId);
+                const service = master ? master.services.find(s => s.id === data.serviceId) : null;
+                if (master && service) {
+                    state.master = master;
+                    state.service = service;
+                    state.date = data.date;
+                    state.time = data.time;
+                    goToStep('confirm');
+                    renderConfirm();
+                    localStorage.removeItem('bookingState');
+
+                    // Прокручиваем к блоку подтверждения
+                    setTimeout(() => {
+                        const confirmStep = document.getElementById('step-confirm');
+                        if (confirmStep) {
+                            const header = document.getElementById('main-header');
+                            const headerHeight = header ? header.offsetHeight : 80;
+                            const rect = confirmStep.getBoundingClientRect();
+                            const top = rect.top + window.pageYOffset - headerHeight - 20;
+                            window.scrollTo({ top: top, behavior: 'smooth' });
+                        }
+                    }, 300);
+                }
+            } catch (e) {}
+        }
+    });
 
     // ---- Вспомогательные функции ----
     function getIcon(name) {
         const icons = {
             'chevron-right': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
-            'arrow-left': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
+            'arrow-left': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7 7-7-7"/><path d="M19 12H5"/></svg>`,
         };
         return icons[name] || '';
     }
@@ -345,7 +370,6 @@
     document.querySelectorAll('.breadcrumb-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const step = this.dataset.step;
-            // Если идём на шаг мастера, сбрасываем выбор
             if (step === 'masters') {
                 state.master = null;
                 state.service = null;
@@ -355,7 +379,6 @@
                 renderMasters();
             } else {
                 goToStep(step);
-                // Перерендерить соответствующий шаг
                 if (step === 'services') renderServices();
                 else if (step === 'date') renderDateSelection();
                 else if (step === 'time') renderTimeSelection();
@@ -381,7 +404,7 @@
         });
     });
 
-    // ---- Инициализация избранного (салон + мастера) ----
+    // ---- Избранное ----
     async function loadFavorites() {
         try {
             const response = await fetch('/api/v1/favorites/my');

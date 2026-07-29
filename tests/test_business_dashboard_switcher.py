@@ -45,7 +45,7 @@ async def test_switcher_and_add_salon_link_shown_for_owner_with_multiple_salons(
     await _login(client, "+79996660001")
     r = await client.get("/business/dashboard")
     assert r.status_code == 200
-    assert 'class="salon-switcher"' in r.text
+    assert '<select class="salon-switcher' in r.text  # доп. классы (custom-select и т.п.) допустимы
     assert "Салон А" in r.text and "Салон Б" in r.text
     assert 'class="salon-switcher-add"' in r.text
     assert 'href="/business/register-salon"' in r.text

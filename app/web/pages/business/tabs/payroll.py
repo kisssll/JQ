@@ -5,6 +5,7 @@ from datetime import datetime
 
 from app.models.models import MasterPayrollSettings, User as UserModel
 from app.services.payroll_service import PayrollService
+from app.web.components.icons import ICON_CHEVRON_DOWN, ICON_CHEVRON_UP
 
 
 def _parse_period(period: str | None) -> datetime:
@@ -28,8 +29,10 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, perio
         master_user_names[m.id] = mu.full_name if mu else "—"
 
     rows_html = ""
+    cards_html = ""
     total_payroll = 0
     total_revenue = 0
+
     for m in masters:
         result = await PayrollService.calculate_payroll(db, master_id=m.id, period_month=period)
         total_payroll += result["total"]
@@ -43,122 +46,156 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, perio
         revenue_str = f"{result['revenue']:,}".replace(",", " ")
         commission_str = f"{result['commission']:,}".replace(",", " ")
         total_str = f"{result['total']:,}".replace(",", " ")
+        master_name = master_user_names.get(m.id, "—")
 
         rows_html += f"""
         <tr>
-            <td><strong>{master_user_names.get(m.id, '—')}</strong></td>
+            <td><strong>{master_name}</strong></td>
             <td>{salary_str} ₽</td>
             <td>{result['commission_percent']:g}%</td>
             <td>{revenue_str} ₽</td>
             <td>{commission_str} ₽</td>
-            <td style="max-width:220px;font-size:0.8rem" class="text-muted">{adj_summary}</td>
-            <td><strong style="color:#22c55e">{total_str} ₽</strong></td>
-            <td>
-                <button class="btn-outline" style="padding:0.35rem 0.75rem;font-size:0.75rem" onclick="openRateModal({m.id}, {result['base_salary']}, {result['commission_percent']})">Ставка</button>
-                <button class="btn-outline" style="padding:0.35rem 0.75rem;font-size:0.75rem" onclick="openAdjustmentModal({m.id})">Бонус/штраф</button>
+            <td class="adj-cell">{adj_summary}</td>
+            <td class="total-cell">{total_str} ₽</td>
+            <td class="actions-cell">
+                <button class="btn-outline" onclick="openRateModal({m.id}, {result['base_salary']}, {result['commission_percent']})">Ставка</button>
+                <button class="btn-outline" onclick="openAdjustmentModal({m.id})">Бонус/штраф</button>
             </td>
         </tr>"""
+
+        cards_html += f"""
+        <div class="payroll-card">
+            <div class="payroll-card-header">
+                <span class="payroll-card-name">{master_name}</span>
+                <span class="payroll-card-chevron">{ICON_CHEVRON_DOWN}</span>
+            </div>
+            <div class="payroll-card-body">
+                <div class="payroll-card-row">
+                    <span class="payroll-card-label">Оклад</span>
+                    <span>{salary_str} ₽</span>
+                </div>
+                <div class="payroll-card-row">
+                    <span class="payroll-card-label">% от выручки</span>
+                    <span>{result['commission_percent']:g}%</span>
+                </div>
+                <div class="payroll-card-row">
+                    <span class="payroll-card-label">Выручка</span>
+                    <span>{revenue_str} ₽</span>
+                </div>
+                <div class="payroll-card-row">
+                    <span class="payroll-card-label">Комиссия</span>
+                    <span>{commission_str} ₽</span>
+                </div>
+                <div class="payroll-card-row">
+                    <span class="payroll-card-label">Бонусы/штрафы</span>
+                    <span>{adj_summary}</span>
+                </div>
+                <div class="payroll-card-row">
+                    <span class="payroll-card-label">Итого</span>
+                    <span class="payroll-card-total">{total_str} ₽</span>
+                </div>
+                <div class="payroll-card-actions">
+                    <button class="btn-outline" onclick="openRateModal({m.id}, {result['base_salary']}, {result['commission_percent']})">Ставка</button>
+                    <button class="btn-outline" onclick="openAdjustmentModal({m.id})">Бонус/штраф</button>
+                </div>
+            </div>
+        </div>"""
+
+    if not rows_html:
+        rows_html = '<tr><td colspan="8" class="empty-state">Мастеров пока нет</td></tr>'
+        cards_html = '<div class="empty-state">Мастеров пока нет</div>'
 
     master_options = "".join(f'<option value="{m.id}">{master_user_names.get(m.id, "—")}</option>' for m in masters)
 
     return f"""
     <div id="tab-payroll" class="tab-content">
-        <form method="get" action="/business/dashboard" style="display:flex;gap:0.75rem;align-items:flex-end;margin-bottom:1.5rem">
+        <!-- Форма выбора периода -->
+        <form method="get" action="/business/dashboard" class="payroll-period-form">
             <input type="hidden" name="salon_id" value="{salon.id}">
             <input type="hidden" name="tab" value="payroll">
             <div>
-                <label class="text-muted" style="display:block;font-size:0.75rem;margin-bottom:0.25rem">Период</label>
-                <input type="month" name="period" value="{period_str}" style="padding:0.5rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                <label class="period-label">Период</label>
+                <input type="month" name="period" class="period-input custom-date" value="{period_str}">
             </div>
-            <button type="submit" class="btn-outline">Показать</button>
+            <button type="submit" class="btn-outline period-submit">Показать</button>
         </form>
 
-        <div class="analytics-kpi">
-            <div class="kpi-card"><div class="kpi-label">Выручка за период</div><div class="kpi-value" style="color:#22c55e">{f"{total_revenue:,}".replace(",", " ")} ₽</div></div>
-            <div class="kpi-card"><div class="kpi-label">Фонд зарплаты</div><div class="kpi-value" style="color:#f59e0b">{f"{total_payroll:,}".replace(",", " ")} ₽</div></div>
+        <!-- KPI карточки -->
+        <div class="payroll-kpi">
+            <div class="kpi-card">
+                <div class="kpi-label">Выручка за период</div>
+                <div class="kpi-value" style="color:#22c55e">{f"{total_revenue:,}".replace(",", " ")} ₽</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Фонд зарплаты</div>
+                <div class="kpi-value" style="color:#f59e0b">{f"{total_payroll:,}".replace(",", " ")} ₽</div>
+            </div>
         </div>
 
-        <div class="card" style="overflow-x:auto">
-            <table>
+        <!-- Заголовок таблицы -->
+        <h3 class="payroll-section-title">Сотрудники</h3>
+
+        <!-- Десктопная таблица -->
+        <div class="card payroll-table-wrap">
+            <table class="payroll-table">
                 <thead>
-                    <tr><th>Мастер</th><th>Оклад</th><th>%</th><th>Выручка</th><th>Комиссия</th><th>Бонусы/штрафы</th><th>Итого</th><th></th></tr>
+                    <tr>
+                        <th>Мастер</th>
+                        <th>Оклад</th>
+                        <th>%</th>
+                        <th>Выручка</th>
+                        <th>Комиссия</th>
+                        <th>Бонусы/штрафы</th>
+                        <th>Итого</th>
+                        <th></th>
+                    </tr>
                 </thead>
                 <tbody>
-                    {rows_html or '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-muted)">Мастеров пока нет</td></tr>'}
+                    {rows_html}
                 </tbody>
             </table>
         </div>
+
+        <!-- Мобильные карточки -->
+        <div class="payroll-mobile">
+            {cards_html}
+        </div>
     </div>
 
-    <div class="modal-overlay" id="rateModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;align-items:center;justify-content:center">
-        <div class="card" style="max-width:360px;width:90%">
-            <h3 style="margin-bottom:1rem">Ставка мастера</h3>
+    <!-- Модалка ставки -->
+    <div class="payroll-modal-overlay" id="rateModal">
+        <div class="payroll-modal-box">
+            <h3>Ставка мастера</h3>
             <form id="rateForm">
-                <label class="text-muted" style="display:block;font-size:0.8rem;margin-bottom:0.25rem">Оклад за месяц, ₽</label>
-                <input type="number" id="rateSalary" name="base_salary" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:0.75rem">
-                <label class="text-muted" style="display:block;font-size:0.8rem;margin-bottom:0.25rem">% от выручки</label>
-                <input type="number" step="0.1" id="rateCommission" name="commission_percent" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:1rem">
-                <div style="display:flex;gap:0.5rem">
-                    <button type="button" class="btn-outline" style="flex:1" onclick="closeModal('rateModal')">Отмена</button>
-                    <button type="submit" class="btn-primary" style="flex:1">Сохранить</button>
+                <label class="modal-label">Оклад за месяц, ₽</label>
+                <input type="number" id="rateSalary" name="base_salary" class="modal-input" required>
+                <label class="modal-label">% от выручки</label>
+                <input type="number" step="0.1" id="rateCommission" name="commission_percent" class="modal-input" required>
+                <div class="payroll-modal-actions">
+                    <button type="button" class="btn-outline" onclick="closeModal('rateModal')">Отмена</button>
+                    <button type="submit" class="btn-primary">Сохранить</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="modal-overlay" id="adjustmentModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;align-items:center;justify-content:center">
-        <div class="card" style="max-width:360px;width:90%">
-            <h3 style="margin-bottom:1rem">Бонус / штраф</h3>
+    <!-- Модалка бонуса/штрафа -->
+    <div class="payroll-modal-overlay" id="adjustmentModal">
+        <div class="payroll-modal-box">
+            <h3>Бонус / штраф</h3>
             <form id="adjustmentForm">
-                <label class="text-muted" style="display:block;font-size:0.8rem;margin-bottom:0.25rem">Сумма (отрицательная — штраф)</label>
-                <input type="number" id="adjustmentAmount" name="amount" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:0.75rem">
-                <label class="text-muted" style="display:block;font-size:0.8rem;margin-bottom:0.25rem">Причина</label>
-                <input type="text" id="adjustmentReason" name="reason" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:1rem">
-                <div style="display:flex;gap:0.5rem">
-                    <button type="button" class="btn-outline" style="flex:1" onclick="closeModal('adjustmentModal')">Отмена</button>
-                    <button type="submit" class="btn-primary" style="flex:1">Начислить</button>
+                <label class="modal-label">Сумма (отрицательная — штраф)</label>
+                <input type="number" id="adjustmentAmount" name="amount" class="modal-input" required>
+                <label class="modal-label">Причина</label>
+                <input type="text" id="adjustmentReason" name="reason" class="modal-input" required>
+                <div class="payroll-modal-actions">
+                    <button type="button" class="btn-outline" onclick="closeModal('adjustmentModal')">Отмена</button>
+                    <button type="submit" class="btn-primary">Начислить</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script>
-    (function() {{
-        const salonId = {salon.id};
-        const period = "{period_str}";
-        let activeMasterId = null;
-
-        window.openRateModal = function(masterId, salary, commission) {{
-            activeMasterId = masterId;
-            document.getElementById('rateSalary').value = salary;
-            document.getElementById('rateCommission').value = commission;
-            document.getElementById('rateModal').style.display = 'flex';
-        }};
-        window.openAdjustmentModal = function(masterId) {{
-            activeMasterId = masterId;
-            document.getElementById('adjustmentAmount').value = '';
-            document.getElementById('adjustmentReason').value = '';
-            document.getElementById('adjustmentModal').style.display = 'flex';
-        }};
-        window.closeModal = function(id) {{
-            document.getElementById(id).style.display = 'none';
-        }};
-
-        document.getElementById('rateForm').addEventListener('submit', function(e) {{
-            e.preventDefault();
-            this.action = '/api/v1/payroll/master/' + activeMasterId + '/settings';
-            this.method = 'post';
-            this.submit();
-        }});
-        document.getElementById('adjustmentForm').addEventListener('submit', function(e) {{
-            e.preventDefault();
-            const form = this;
-            const periodInput = document.createElement('input');
-            periodInput.type = 'hidden'; periodInput.name = 'period_month'; periodInput.value = period;
-            form.appendChild(periodInput);
-            form.action = '/api/v1/payroll/master/' + activeMasterId + '/adjustment';
-            form.method = 'post';
-            form.submit();
-        }});
-    }})();
-    </script>"""
+    <!-- Скрытое поле для периода (используется в JS) -->
+    <input type="hidden" id="payrollPeriod" value="{period_str}">
+    """

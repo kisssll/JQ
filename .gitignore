@@ -11,6 +11,7 @@ htmlcov/
 alembic/versions/*.pyc
 node_modules/
 static/dist/ 
+generate_extra_bookings.py
 # Приватные ключи JWT и любые PEM — никогда в git
 keys/
 *.pem

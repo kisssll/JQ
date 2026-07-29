@@ -94,33 +94,40 @@
     .home-hero-content { padding-left: 4%; }
 }
 
+/* ---------- БЛОК ПОИСКА ---------- */
 .home-search-card {
     max-width: 42rem;
 }
 
 .home-search-link {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
     width: 100%;
     padding: 1rem 1.25rem;
-    background: var(--color-surface);
-    border: 2px solid transparent;
+    background: linear-gradient(135deg, #fff5f5, #ffe8f0);
+    border: 2px solid var(--color-secondary);
     border-radius: 1rem;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
     transition: all 0.2s ease;
     cursor: pointer;
     text-decoration: none;
     min-height: 64px;
 }
+
 .home-search-link:hover {
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
     border-color: var(--color-primary);
 }
+
 @media (min-width: 640px) {
-    .home-search-link { padding: 1.25rem 1.5rem; }
+    .home-search-link {
+        padding: 1.25rem 1.5rem;
+        flex-wrap: nowrap; /* на десктопе не переносим */
+    }
 }
 
+/* Иконка поиска (круг с градиентом) */
 .home-search-icon-wrapper {
     display: flex;
     align-items: center;
@@ -142,6 +149,7 @@
     }
 }
 
+/* Текстовая часть */
 .home-search-info {
     flex: 1;
     text-align: left;
@@ -151,44 +159,64 @@
     min-width: 0;
 }
 
-/* Увеличены шрифты на 20% */
 .home-search-title {
-    font-size: 1.2rem;          /* было 1rem, +20% */
+    font-size: 1.2rem;
     font-weight: 600;
     color: var(--color-heading);
 }
 @media (min-width: 640px) {
     .home-search-title {
-        font-size: 1.35rem;     /* было 1.125rem, +20% */
+        font-size: 1.35rem;
     }
 }
 
 .home-search-desc {
-    font-size: 1.05rem;         /* было 0.875rem, +20% */
+    font-size: 1.05rem;
     color: var(--color-muted);
 }
 
 .home-search-btn {
-    display: none;
+    display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.625rem 1.25rem;
+    justify-content: center;
+    padding: 0.625rem 1.5rem;
     border-radius: 9999px;
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: white;
+    color: #fff;
     font-size: 0.875rem;
     font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
     flex-shrink: 0;
-    transition: transform 0.2s;
-}
-.group:hover .home-search-btn {
-    transform: scale(1.05);
-}
-@media (min-width: 640px) {
-    .home-search-btn { display: flex; }
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* Теги удалены, стили для них не нужны */
+@media (min-width: 1024px) {
+    .home-search-btn {
+        padding: 0.75rem 2.5rem;   
+        min-width: 140px;          
+    }
+}
+
+.home-search-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+}
+
+/* На мобильных кнопка занимает всю ширину и идёт с новой строки */
+@media (max-width: 639px) {
+    .home-search-link {
+        flex-wrap: wrap;
+    }
+    .home-search-btn {
+        width: 100%;
+        margin-top: 0.5rem;
+        padding: 0.75rem;
+        font-size: 1rem;
+    }
+}
 
 /* ---------- СЕКЦИЯ "КАК ЗАПИСАТЬСЯ" ---------- */
 .steps-four-grid {

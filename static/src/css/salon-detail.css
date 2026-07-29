@@ -1169,3 +1169,12 @@
         min-height: 120px;
     }
 }
+
+@media (max-width: 767px) {
+    .salon-top-section {
+        padding-top: 5rem;
+    }
+    .salon-info-wrapper {
+        margin-top: 2rem;
+    }
+}
