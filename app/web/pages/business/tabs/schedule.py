@@ -30,6 +30,7 @@ async def render_schedule_tab(
     db: AsyncSession, salon, masters, can_manage_schedule: bool = False,
     schedule_master_id: int = None, can_close_dates: bool = None,
     viewer_master_id: int = None, schedule_date: date_type = None,
+    evening_deal_html: str = "",
 ) -> str:
     """
     Вкладка «Расписание»:
@@ -398,6 +399,7 @@ async def render_schedule_tab(
     # --- Итоговый HTML ---
     return f"""
     <div id="tab-schedule" class="tab-content">
+        {evening_deal_html}
         <!-- Мобильная версия -->
         {mobile_block}
 

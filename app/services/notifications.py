@@ -56,10 +56,12 @@ TOPIC_WAREHOUSE = "warehouse"
 TOPIC_REVIEWS = "reviews"
 TOPIC_REPORTS = "reports"
 TOPIC_MODELS = "models"
+TOPIC_EVENING_DEALS = "evening_deals"  # клиентская рассылка вечерних окон со скидкой
 
 TOPIC_LABELS = {
     TOPIC_BOOKINGS: "Записи (новые и отмены)",
     TOPIC_REMINDERS: "Напоминания о визите",
+    TOPIC_EVENING_DEALS: "Вечерние скидки",
     TOPIC_WAREHOUSE: "Склад и заявки",
     TOPIC_REVIEWS: "Отзывы",
     TOPIC_REPORTS: "Жалобы на фото",
