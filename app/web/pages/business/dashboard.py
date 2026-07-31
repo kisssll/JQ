@@ -13,6 +13,7 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.components.yandex_maps import render_yandex_maps_script
 from app.web.components.icons import (
     ICON_LAYOUT_DASHBOARD,
     ICON_CLOCK,
@@ -124,7 +125,7 @@ async def render_dashboard_tab(
         return await render_warehouse_tab(db, salon, masters, master_ids, {"audit_id": qp.get("audit_id")}, membership)
 
     if tab_name == "models":
-        return await render_promo_models_tab(db, salon) if perms["manage_masters"] else ""
+        return await render_promo_models_tab(db, salon, masters) if perms["manage_masters"] else ""
 
     if tab_name == "promos":
         promotions = (await db.execute(
@@ -321,6 +322,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Бизнес-панель — {salon.name} — руми</title>
     {get_base_styles()}
+    {render_yandex_maps_script()}
 </head>
 <body>
     {render_header("business")}

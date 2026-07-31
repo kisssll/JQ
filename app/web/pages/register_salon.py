@@ -3,6 +3,7 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.components.yandex_maps import render_yandex_maps_script, yandex_maps_enabled
 
 
 def render_register_salon_page(user=None, error: str = "") -> str:
@@ -17,12 +18,35 @@ def render_register_salon_page(user=None, error: str = "") -> str:
             f'{_html.escape(error)}</div>'
         )
 
+    # Подсказки адреса + мини-карта — только если задан YANDEX_MAPS_API_KEY
+    # (см. app/core/config.py). Без ключа поле остаётся обычным текстом.
+    geocoding = yandex_maps_enabled()
+    address_geo_attrs = (
+        ' id="salonAddressInput" class="address-geocode" autocomplete="off"'
+        ' data-lat-field="salonLat" data-lon-field="salonLon" data-map-id="salonAddressMap"'
+        if geocoding else ""
+    )
+    address_hidden_coords = (
+        '<input type="hidden" name="latitude" id="salonLat">'
+        '<input type="hidden" name="longitude" id="salonLon">'
+        if geocoding else ""
+    )
+    address_map_block = (
+        '<div id="salonAddressMap" style="display:none;height:220px;border-radius:0.75rem;margin-bottom:1.5rem;overflow:hidden"></div>'
+        if geocoding else ""
+    )
+    address_hint = (
+        '<p class="text-muted" style="font-size:0.8rem;margin:-1rem 0 1rem">Начните печатать и выберите вариант из подсказок — так мы точно определим адрес на карте.</p>'
+        if geocoding else ""
+    )
+
     html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Добавить салон — руми</title>
     {get_base_styles()}
+    {render_yandex_maps_script()}
 </head>
 <body>
     {render_header("business")}
@@ -43,8 +67,11 @@ def render_register_salon_page(user=None, error: str = "") -> str:
                     <textarea name="description" rows="3" placeholder="Опишите ваш салон, услуги, особенности..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem; resize: vertical;"></textarea>
                     
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Адрес *</label>
-                    <input type="text" name="address" required placeholder="Город, улица, дом" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem;">
-                    
+                    <input type="text" name="address" required placeholder="Город, улица, дом" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 0.5rem;"{address_geo_attrs}>
+                    {address_hint}
+                    {address_map_block}
+                    {address_hidden_coords}
+
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Телефон *</label>
                     <input type="tel" name="phone" value="+7" required placeholder="+7XXXXXXXXXX" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem;">
 

@@ -6,19 +6,124 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    // === Поиск ===
+    // === Поиск + фильтры + сортировка ===
     const searchInput = document.getElementById('searchInput');
-    const cards = document.querySelectorAll('.salon-card');
+    const grid = document.getElementById('salons-list');
+    const cards = Array.from(document.querySelectorAll('.salon-card'));
+    const emptyState = document.getElementById('salonsEmptyState');
+    const sortSelect = document.getElementById('sortSelect');
 
-    searchInput.addEventListener('input', function() {
-        const query = this.value.toLowerCase().trim();
+    const filterState = { query: '', category: '', minRating: 0, promoOnly: false, sort: 'rating' };
+    let userCoords = null; // {lat, lon} — заполняется после согласия на геолокацию
+
+    function applyFilters() {
+        let anyVisible = false;
         cards.forEach(card => {
-            const name = card.querySelector('.salon-name')?.textContent.toLowerCase() || '';
-            const desc = card.querySelector('.salon-desc')?.textContent.toLowerCase() || '';
-            const match = name.includes(query) || desc.includes(query);
-            card.style.display = match ? '' : 'none';
+            const haystack = card.dataset.search || '';
+            const categories = (card.dataset.categories || '').split(' ');
+            const rating = parseFloat(card.dataset.rating) || 0;
+            const hasPromo = card.dataset.hasPromo === '1';
+
+            const matches = (
+                (!filterState.query || haystack.includes(filterState.query)) &&
+                (!filterState.category || categories.includes(filterState.category)) &&
+                (rating >= filterState.minRating) &&
+                (!filterState.promoOnly || hasPromo)
+            );
+            card.style.display = matches ? '' : 'none';
+            if (matches) anyVisible = true;
+        });
+        if (emptyState) emptyState.style.display = anyVisible ? 'none' : '';
+    }
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function applySort() {
+        if (!grid) return;
+        const sorted = [...cards].sort((a, b) => {
+            if (filterState.sort === 'reviews') {
+                return (parseInt(b.dataset.reviews) || 0) - (parseInt(a.dataset.reviews) || 0);
+            }
+            if (filterState.sort === 'distance' && userCoords) {
+                const da = haversineKm(userCoords.lat, userCoords.lon, parseFloat(a.dataset.lat), parseFloat(a.dataset.lon));
+                const db = haversineKm(userCoords.lat, userCoords.lon, parseFloat(b.dataset.lat), parseFloat(b.dataset.lon));
+                return da - db;
+            }
+            return (parseFloat(b.dataset.rating) || 0) - (parseFloat(a.dataset.rating) || 0);
+        });
+        sorted.forEach(card => grid.appendChild(card));
+    }
+
+    function requestGeolocationAndSort() {
+        if (!navigator.geolocation) {
+            alert('Ваш браузер не поддерживает геолокацию.');
+            if (sortSelect) sortSelect.value = 'rating';
+            filterState.sort = 'rating';
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            function(pos) {
+                userCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+                applySort();
+            },
+            function() {
+                alert('Не удалось определить местоположение — разрешите доступ к геолокации в браузере.');
+                if (sortSelect) sortSelect.value = 'rating';
+                filterState.sort = 'rating';
+            }
+        );
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            filterState.query = this.value.toLowerCase().trim();
+            applyFilters();
+        });
+    }
+
+    document.querySelectorAll('.filter-categories .filter-chip[data-category]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.filter-categories .filter-chip').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            filterState.category = this.dataset.category;
+            applyFilters();
         });
     });
+
+    document.querySelectorAll('#ratingFilterGroup .filter-chip').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('#ratingFilterGroup .filter-chip').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            filterState.minRating = parseFloat(this.dataset.minRating) || 0;
+            applyFilters();
+        });
+    });
+
+    const promoToggle = document.getElementById('promoOnlyToggle');
+    if (promoToggle) {
+        promoToggle.addEventListener('change', function() {
+            filterState.promoOnly = this.checked;
+            applyFilters();
+        });
+    }
+
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            filterState.sort = this.value;
+            if (filterState.sort === 'distance' && !userCoords) {
+                requestGeolocationAndSort();
+            } else {
+                applySort();
+            }
+        });
+    }
 
     // === Избранное ===
     const favButtons = document.querySelectorAll('.favorite-btn');
@@ -38,7 +143,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     headers: { 'Content-Type': 'application/json' },
                 });
 
-                if (response.ok) {
+                if (response.redirected) {
+                    // fetch сам сходил по редиректу на /login (не авторизован) —
+                    // response.ok при этом true (страница логина отдаёт 200),
+                    // поэтому проверяем ДО response.ok, иначе выглядело бы
+                    // как успешное добавление в избранное.
+                    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+                } else if (response.ok) {
                     if (isLiked) {
                         this.classList.remove('liked');
                         this.querySelector('.heart-icon').innerHTML = heartIcon;
@@ -46,8 +157,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         this.classList.add('liked');
                         this.querySelector('.heart-icon').innerHTML = heartFilledIcon;
                     }
-                } else if (response.status === 302) {
-                    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
                 } else {
                     alert('Не удалось изменить избранное. Попробуйте позже.');
                 }

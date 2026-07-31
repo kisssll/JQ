@@ -8,6 +8,7 @@ from app.models.models import (
     SalonChain, SalonChainRequest, SalonChainRequestStatus,
 )
 from app.services.salon_chain_service import pending_requests_for_salon_ids
+from app.web.components.yandex_maps import yandex_maps_enabled
 
 DAY_KEYS_RU = [
     ("mon", "Понедельник"), ("tue", "Вторник"), ("wed", "Среда"), ("thu", "Четверг"),
@@ -115,7 +116,12 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
                 </div>
                 <div class="salon-edit-field">
                     <label>Адрес</label>
-                    <input type="text" id="salonEditAddressInput" value="{salon.address or ''}" class="salon-edit-input">
+                    <input type="text" id="salonEditAddressInput" value="{salon.address or ''}"
+                           class="salon-edit-input{' address-geocode' if yandex_maps_enabled() else ''}"
+                           {'data-lat-field="salonEditLat" data-lon-field="salonEditLon" data-map-id="salonEditAddressMap" data-confirmed="1" autocomplete="off"' if yandex_maps_enabled() else ''}>
+                    {'<p class="my-salon-card-hint" style="margin-top:0.35rem">Если меняете адрес — выберите новый вариант из подсказок, иначе сохранить не получится.</p>' if yandex_maps_enabled() else ''}
+                    {'<div id="salonEditAddressMap" style="display:none;height:200px;border-radius:0.75rem;margin-top:0.5rem;overflow:hidden"></div>' if yandex_maps_enabled() else ''}
+                    {f'<input type="hidden" id="salonEditLat" value="{salon.latitude}"><input type="hidden" id="salonEditLon" value="{salon.longitude}">' if yandex_maps_enabled() else ''}
                 </div>
                 <div class="salon-edit-field">
                     <label>Почта салона</label>
