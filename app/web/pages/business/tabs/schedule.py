@@ -13,6 +13,8 @@ from app.web.components.icons import (
     ICON_PLUS_SMALL,
     ICON_LOCK_SMALL,
     ICON_CALENDAR_SMALL,
+    ICON_CHEVRON_LEFT,
+    ICON_CHEVRON_RIGHT,
 )
 
 MONTH_NAMES_RU = [
@@ -28,23 +30,10 @@ async def render_schedule_tab(
     schedule_master_id: int = None, can_close_dates: bool = None,
     viewer_master_id: int = None,
 ) -> str:
-    """Вкладка «Расписание»: выбор мастера → месяц → неделя → сетка
-
-    дни×часы на MAX_BOOKING_DAYS_AHEAD (2 месяца) вперёд, плюс закрытие дат.
-
-    can_manage_schedule — можно отмечать записи выполненными/неявкой (владелец/
-    админ салона, либо сам мастер — на своих записях это уже разрешено бэкендом
-    независимо от SalonMember). can_close_dates по умолчанию равен
-    can_manage_schedule (владелец/админ), но у мастера, просматривающего только
-    свой календарь, эти права разные: закрытие дат требует SalonMember,
-    которого у мастера нет, поэтому вызывающий код передаёт False явно.
-
-    viewer_master_id — id профиля Master текущего пользователя, если он сам
-    мастер (просматривает свой календарь): тогда у его записей показывается
-    кнопка «Видел». Для владельца/админа (viewer_master_id=None) вместо кнопки
-    показывается только индикатор с подсказкой — сам он это отметить не может,
-    это личное подтверждение мастера."""
-
+    """Вкладка «Расписание»: выбор мастера → неделя → сетка.
+    На десктопе навигация по неделям через стрелки, на мобилке — старые кнопки.
+    Все недели отображаются полными (7 дней, Пн–Вс).
+    """
     if can_close_dates is None:
         can_close_dates = can_manage_schedule
 
@@ -61,15 +50,27 @@ async def render_schedule_tab(
         master_names[m.id] = mu.full_name if mu else "—"
 
     today = datetime.now().date()
-    days = [today + timedelta(days=i) for i in range(MAX_BOOKING_DAYS_AHEAD)]
+    # Начинаем с понедельника текущей недели, чтобы все недели были полными
+    start_of_week = today - timedelta(days=today.weekday())  # Пн
+
+    # Диапазон дней: от понедельника текущей недели до MAX_BOOKING_DAYS_AHEAD + 7 дней вперёд
+    # чтобы покрыть все полные недели в пределах окна записи
+    end_date = start_of_week + timedelta(days=MAX_BOOKING_DAYS_AHEAD + 7)
+    days = []
+    d = start_of_week
+    while d <= end_date:
+        days.append(d)
+        d += timedelta(days=1)
+
     window_start = datetime.combine(today, datetime.min.time())
     window_end = window_start + timedelta(days=MAX_BOOKING_DAYS_AHEAD)
 
+    # Закрытия и записи берём только для дней в пределах окна записи
     closures_result = await db.execute(
         select(ScheduleClosure).where(
             ScheduleClosure.salon_id == salon.id,
             ScheduleClosure.date >= today,
-            ScheduleClosure.date < today + timedelta(days=MAX_BOOKING_DAYS_AHEAD),
+            ScheduleClosure.date <= end_date,
             (ScheduleClosure.master_id.is_(None)) | (ScheduleClosure.master_id == selected_master.id),
         )
     )
@@ -100,10 +101,15 @@ async def render_schedule_tab(
         (await db.execute(select(UserModel).where(UserModel.id.in_(client_ids)))).scalars().all() if client_ids else []
     )}
 
+    # Определяем часы работы для каждого дня (только для дней в пределах окна записи)
     weekly_hours_cache = {}
     day_hours = {}
     min_hour = max_hour = None
     for d in days:
+        if d < today or d > today + timedelta(days=MAX_BOOKING_DAYS_AHEAD):
+            # Дни вне окна записи (прошедшие или слишком далёкие) считаем закрытыми
+            day_hours[d] = None
+            continue
         weekday = d.weekday()
         if weekday not in weekly_hours_cache:
             weekly_hours_cache[weekday] = get_salon_work_hours(salon.working_hours, datetime.combine(d, datetime.min.time()))
@@ -129,9 +135,9 @@ async def render_schedule_tab(
         status_label = "Подтверждена" if b.status == BookingStatus.CONFIRMED else "Ожидает"
         time_str = f"{b.start_time.strftime('%H:%M')}-{b.end_time.strftime('%H:%M')}"
 
+        # Элемент подсказки (или кнопка "Видел")
         seen_html = ""
         if viewer_master_id is not None and b.master_id == viewer_master_id:
-            # Сам мастер смотрит свою запись — может отметить «Видел», если ещё не отметил.
             if b.master_seen_at is None:
                 seen_html = (
                     f'<button onclick="event.stopPropagation();markSeen({b.id}, this)" '
@@ -140,16 +146,15 @@ async def render_schedule_tab(
             else:
                 seen_html = '<span class="seen-indicator" title="Вы отметили, что видели эту запись">👁 Видели</span>'
         elif viewer_master_id is None:
-            # Владелец/админ — только индикатор, отметить за мастера нельзя.
             seen_html = (
                 _hint(f"Мастер видел плановую запись: {b.master_seen_at.strftime('%d.%m.%Y %H:%M')}")
                 if b.master_seen_at else
                 _hint("Мастер ещё не отмечал, что видел эту запись")
             )
 
+        # Действия (кнопки)
         actions = ""
         if can_manage_schedule and b.status == BookingStatus.PENDING:
-            # Запись ещё не подтверждена — салон/мастер принимает или отклоняет.
             actions = f"""
                 <button onclick="event.stopPropagation();acceptBooking({b.id})"
                         title="Подтвердить запись" class="complete-btn">{ICON_CHECK_SMALL} Подтвердить</button>
@@ -165,20 +170,19 @@ async def render_schedule_tab(
             """
 
         wrapper_status_class = "pending" if b.status == BookingStatus.PENDING else "confirmed"
+
+        # Структура карточки: две строки (flex-wrap)
+        # Верхняя строка: время + подсказка
+        # Нижняя строка: имя клиента + стрелка
         return f"""
         <div class="schedule-booking-wrapper {wrapper_status_class}" data-booking-id="{b.id}">
             <div class="schedule-booking-header">
                 <span class="booking-time">{time_str}</span>
-                <span class="booking-service">{svc_name}</span>
+                <span class="booking-hint">{seen_html}</span>
                 <span class="booking-client">{client_name}</span>
-                {seen_html}
                 <span class="booking-arrow">▼</span>
             </div>
             <div class="schedule-booking-details">
-                <div class="detail-row">
-                    <span class="detail-label">Клиент:</span>
-                    <span class="detail-value">{client_name}</span>
-                </div>
                 <div class="detail-row">
                     <span class="detail-label">Телефон:</span>
                     <span class="detail-value">{client_phone}</span>
@@ -200,125 +204,112 @@ async def render_schedule_tab(
         </div>
         """
 
-    def build_week_grid(week_days) -> str:
+    def build_week_grid(week_days, week_index) -> str:
         day_headers = ""
         day_cols = {h: "" for h in row_hours}
         for d in week_days:
             is_today = d == today
+            is_past = d < today
+            is_outside = d > today + timedelta(days=MAX_BOOKING_DAYS_AHEAD)
             header_style = "background:var(--color-accent-light)" if is_today else ""
             closure = closures_by_date.get(d)
-            hours = day_hours[d]
+            hours = day_hours.get(d)
             if closure:
                 closed_label = f'<div style="font-size:0.65rem;color:#ef4444">{ICON_LOCK_SMALL} закрыто' + ('' if closure.master_id is None else ' (личное)') + '</div>'
-            elif hours is None:
+            elif hours is None or is_outside:
                 closed_label = '<div style="font-size:0.65rem;color:var(--color-muted)">выходной</div>'
             else:
                 closed_label = ""
             day_headers += (
                 f'<th style="text-align:center;font-size:0.75rem;padding:0.4rem;min-width:110px;{header_style}">'
-                f'{WEEKDAY_NAMES_RU[d.weekday()]} {d.strftime("%d.%m")}{closed_label}</th>'
+                f'{WEEKDAY_NAMES_RU[d.weekday()]} {d.strftime("%d")}{closed_label}</th>'
             )
             for h in row_hours:
                 within_hours = bool(hours) and hours[0].hour <= h < (hours[1].hour + (1 if hours[1].minute else 0))
                 slot_start = datetime.combine(d, datetime.min.time()).replace(hour=h)
                 slot_end = slot_start + timedelta(hours=1)
-                # Запись показываем ОДИН раз — в её стартовом часе (в ячейке
-                # видно полный интервал времени). Раньше рендерили в каждом
-                # пересекаемом часе, и одна запись на 3 часа выглядела как 3.
                 content = "".join(
                     booking_cell_html(b) for b in bookings_by_date.get(d, [])
                     if b.start_time.hour == h
                 )
-                cell_bg = "" if within_hours else "background:repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 6px,#fafafa 6px,#fafafa 12px)"
-                day_cols[h] += f'<td style="padding:0.2rem;vertical-align:top;{cell_bg}">{content}</td>'
+                # Полупрозрачная заливка для недоступного времени (вне часов работы или выходной)
+                if not within_hours or is_outside:
+                    cell_bg = "background:rgba(0,0,0,0.05);"
+                else:
+                    cell_bg = ""
+                past_class = " past-day" if is_past else ""
+                day_cols[h] += f'<td class="{past_class}" style="padding:0.2rem;vertical-align:top;{cell_bg}">{content}</td>'
 
         rows_html = "".join(
             f'<tr><td class="time-label">{h}:00</td>{day_cols[h]}</tr>'
             for h in row_hours
         )
-        return f'<div class="schedule-grid"><table><thead><tr><th></th>{day_headers}</tr></thead><tbody>{rows_html}</tbody></table></div>'
+        return f'<div class="schedule-week-panel" data-week-index="{week_index}"><div class="schedule-grid"><table><thead><tr><th></th>{day_headers}</tr></thead><tbody>{rows_html}</tbody></table></div></div>'
 
-    months = OrderedDict()
-    for d in days:
-        months.setdefault((d.year, d.month), []).append(d)
+    # Группируем дни по неделям (по 7 дней, начиная с понедельника)
+    weeks_data = []
+    week_index = 0
+    for i in range(0, len(days), 7):
+        week_days = days[i:i+7]
+        while len(week_days) < 7:
+            last_day = week_days[-1] + timedelta(days=1)
+            week_days.append(last_day)
+        first_day = week_days[0]
+        month_name = MONTH_NAMES_RU[first_day.month - 1]
+        year_str = str(first_day.year)
+        weeks_data.append({
+            'index': week_index,
+            'month_name': month_name,
+            'year': year_str,
+            'days': week_days,
+        })
+        week_index += 1
 
-    def split_weeks(month_days):
-        weeks, cur = [], []
-        for d in month_days:
-            if cur and d.weekday() == 0:
-                weeks.append(cur)
-                cur = []
-            cur.append(d)
-        if cur:
-            weeks.append(cur)
-        return weeks
+    active_index = 0
+    for i, w in enumerate(weeks_data):
+        if today in w['days']:
+            active_index = i
+            break
 
-    # Строим селект мастера
+    weeks_panels_html = ""
+    for w in weeks_data:
+        panel = build_week_grid(w['days'], w['index'])
+        active_class = " active" if w['index'] == active_index else ""
+        weeks_panels_html += f'<div class="schedule-week-panel-wrapper{active_class}" data-week-index="{w["index"]}">{panel}</div>'
+
+    nav_desktop_html = f"""
+    <div class="schedule-nav-desktop">
+        <button class="schedule-nav-btn" id="schedulePrevWeek" title="Предыдущая неделя">{ICON_CHEVRON_LEFT}</button>
+        <span class="schedule-current-month" id="scheduleCurrentMonth">{weeks_data[active_index]['month_name']} {weeks_data[active_index]['year']}</span>
+        <button class="schedule-nav-btn" id="scheduleNextWeek" title="Следующая неделя">{ICON_CHEVRON_RIGHT}</button>
+    </div>
+    """
+
     master_select_options = "".join(
         f'<option value="{m.id}"{" selected" if m.id == selected_master.id else ""}>{master_names.get(m.id, "—")} — {m.specialization}</option>'
         for m in masters
     )
     master_select_html = f"""
     <div class="schedule-master-select">
-        <select onchange="window.location.href='/business/dashboard?tab=schedule&salon_id={salon.id}&schedule_master_id=' + this.value">
+        <select class="custom-select" onchange="window.location.href='/business/dashboard?tab=schedule&salon_id={salon.id}&schedule_master_id=' + this.value">
             {master_select_options}
         </select>
     </div>
     """
 
-    if not row_hours:
-        calendar_html = ('<div class="card" style="padding:2rem;text-align:center;color:var(--color-muted)">'
-                          'У салона не задан рабочий график — нечего показывать</div>')
-    else:
-        month_tabs = ""
-        month_panels = ""
-        for mi, ((year, month), month_days) in enumerate(months.items()):
-            month_key = f"{year}-{month:02d}"
-            weeks = split_weeks(month_days)
+    calendar_html = f"""
+    <div class="schedule-calendar">
+        <div class="schedule-nav-wrapper">
+            {nav_desktop_html}
+            {master_select_html}
+        </div>
+        <div class="schedule-weeks-container" id="scheduleWeeksContainer">
+            {weeks_panels_html}
+        </div>
+    </div>
+    """
 
-            week_tabs = ""
-            week_panels = ""
-            for wi, week_days in enumerate(weeks):
-                week_id = f"{month_key}-w{wi}"
-                label = f"{week_days[0].strftime('%d.%m')}–{week_days[-1].strftime('%d.%m')}"
-                active_week = " active" if wi == 0 else ""
-                week_tabs += (
-                    f'<button class="schedule-week-btn{active_week}" data-month="{month_key}" data-week="{week_id}" '
-                    f'onclick="showWeek(\'{month_key}\',\'{week_id}\')">{label}</button>'
-                )
-                active_panel = " active" if wi == 0 else ""
-                week_panels += (
-                    f'<div class="schedule-week-panel{active_panel}" id="week-{week_id}" data-month="{month_key}">'
-                    f'{build_week_grid(week_days)}</div>'
-                )
-
-            active_month = " active" if mi == 0 else ""
-            month_tabs += f'<button class="schedule-month-btn{active_month}" data-month="{month_key}" onclick="showMonth(\'{month_key}\')">{MONTH_NAMES_RU[month - 1]} {year}</button>'
-            month_panels += f"""
-            <div class="schedule-month-panel{active_month}" id="month-{month_key}">
-                <div class="schedule-week-tabs">{week_tabs}</div>
-                {week_panels}
-            </div>"""
-
-        calendar_html = f"""
-        <div class="schedule-calendar">
-            <div class="schedule-month-nav">
-                <div class="schedule-month-buttons">
-                    {month_tabs}
-                </div>
-                {master_select_html}
-            </div>
-            {month_panels}
-        </div>"""
-
-
-    master_select_options = "".join(
-        f'<option value="{m.id}"{" selected" if m.id == selected_master.id else ""}>{master_names.get(m.id, "—")} — {m.specialization}</option>'
-        for m in masters
-    )
-
-
-    # Закрытие дат — отдельное право от отметки записей (см. docstring)
+    # Закрытие дат — без изменений
     closures_section = ""
     if can_close_dates:
         upcoming_closures = await ScheduleService.list_closures(db, salon.id)
@@ -368,7 +359,7 @@ async def render_schedule_tab(
             </div>
         </div>"""
 
-    # --- Индивидуальный недельный график выбранного мастера ---
+    # График работы мастера — без изменений
     sched_rows = (await db.execute(
         select(Schedule).where(Schedule.master_id == selected_master.id)
         .order_by(Schedule.day_of_week, Schedule.start_time)
@@ -412,7 +403,6 @@ async def render_schedule_tab(
             </p>
         </div>"""
 
-    # Модалка редактора графика — только тем, кто может править
     master_schedule_modal = ""
     if can_edit_schedule:
         day_blocks = ""
@@ -452,6 +442,17 @@ async def render_schedule_tab(
             </div>
         </div>"""
 
+    import json
+    weeks_json = json.dumps([
+        {
+            'index': w['index'],
+            'month_name': w['month_name'],
+            'year': w['year'],
+            'first_day': w['days'][0].strftime('%Y-%m-%d'),
+        }
+        for w in weeks_data
+    ])
+
     return f"""
     <div id="tab-schedule" class="tab-content">
         {calendar_html}
@@ -478,4 +479,9 @@ async def render_schedule_tab(
             <button type="button" class="btn-primary" style="width:100%;margin-top:1rem" onclick="submitCompleteWithDiscount()">Подтвердить</button>
         </div>
     </div>
+
+    <script>
+        window.weekData = {weeks_json};
+        window.activeWeekIndex = {active_index};
+    </script>
     """

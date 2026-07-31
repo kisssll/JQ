@@ -1,26 +1,62 @@
-// static/src/js/tabs/schedule.js
+// static/src/js/business/tabs/schedule.js
+// Управление навигацией по неделям (стрелки) и общие функции для расписания
 
-(function() {
-    // Переключение месяцев
-    window.showMonth = function(monthKey) {
-        document.querySelectorAll('.schedule-month-panel').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.schedule-month-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById('month-' + monthKey).classList.add('active');
-        const btn = document.querySelector(`.schedule-month-btn[data-month="${monthKey}"]`);
-        if (btn) btn.classList.add('active');
+(function () {
+    'use strict';
+
+    // --- Навигация по неделям (стрелки) ---
+    let currentWeekIndex = window.activeWeekIndex || 0;
+    const weekData = window.weekData || [];
+    const totalWeeks = weekData.length;
+
+    function updateWeekDisplay(index) {
+        if (index < 0 || index >= totalWeeks) return;
+
+        document.querySelectorAll('.schedule-week-panel-wrapper').forEach(el => {
+            el.classList.remove('active');
+        });
+        const target = document.querySelector(`.schedule-week-panel-wrapper[data-week-index="${index}"]`);
+        if (target) target.classList.add('active');
+
+        const monthSpan = document.getElementById('scheduleCurrentMonth');
+        if (monthSpan && weekData[index]) {
+            monthSpan.textContent = `${weekData[index].month_name} ${weekData[index].year}`;
+        }
+
+        const prevBtn = document.getElementById('schedulePrevWeek');
+        const nextBtn = document.getElementById('scheduleNextWeek');
+        if (prevBtn) prevBtn.disabled = (index === 0);
+        if (nextBtn) nextBtn.disabled = (index === totalWeeks - 1);
+
+        currentWeekIndex = index;
+    }
+
+    window.goToWeek = function (index) {
+        if (index < 0 || index >= totalWeeks) return;
+        updateWeekDisplay(index);
     };
 
-    // Переключение недель
-    window.showWeek = function(monthKey, weekId) {
-        document.querySelectorAll(`.schedule-week-panel[data-month="${monthKey}"]`).forEach(el => el.classList.remove('active'));
-        document.querySelectorAll(`.schedule-week-btn[data-month="${monthKey}"]`).forEach(el => el.classList.remove('active'));
-        document.getElementById('week-' + weekId).classList.add('active');
-        const btn = document.querySelector(`.schedule-week-btn[data-month="${monthKey}"][data-week="${weekId}"]`);
-        if (btn) btn.classList.add('active');
+    window.prevWeek = function () {
+        if (currentWeekIndex > 0) {
+            updateWeekDisplay(currentWeekIndex - 1);
+        }
     };
 
-    // Отметка записи
-    window.markBooking = function(bookingId, action) {
+    window.nextWeek = function () {
+        if (currentWeekIndex < totalWeeks - 1) {
+            updateWeekDisplay(currentWeekIndex + 1);
+        }
+    };
+
+    function initScheduleNavigation() {
+        if (!weekData.length) return;
+        updateWeekDisplay(currentWeekIndex);
+        document.getElementById('schedulePrevWeek')?.addEventListener('click', window.prevWeek);
+        document.getElementById('scheduleNextWeek')?.addEventListener('click', window.nextWeek);
+    }
+
+    // --- Остальные функции (без изменений) ---
+    window.markBooking = function (bookingId, action) {
         const label = action === 'complete' ? 'выполненной' : 'неявкой';
         if (!confirm(`Отметить запись ${label}?`)) return;
         fetch(`/api/v1/bookings/${bookingId}/${action}`, { method: 'POST' })
@@ -30,10 +66,7 @@
             });
     };
 
-    // Подтверждение/отклонение записи салоном (PENDING → CONFIRMED / CANCELLED).
-    // Гостю уходит письмо о решении. Доступно везде, где есть кнопки записи —
-    // вкладка «Записи» и модалка расписания (в т.ч. в кабинете мастера).
-    window.acceptBooking = function(bookingId) {
+    window.acceptBooking = function (bookingId) {
         if (!confirm('Подтвердить запись?')) return;
         fetch(`/api/v1/bookings/${bookingId}/accept`, { method: 'POST' })
             .then(r => {
@@ -42,7 +75,7 @@
             });
     };
 
-    window.rejectBooking = function(bookingId) {
+    window.rejectBooking = function (bookingId) {
         if (!confirm('Отклонить запись? Клиент получит уведомление.')) return;
         fetch(`/api/v1/bookings/${bookingId}/reject`, { method: 'POST' })
             .then(r => {
@@ -51,9 +84,7 @@
             });
     };
 
-    // Мастер отмечает, что видел плановую запись — без подтверждения, чтобы
-    // не мешать быстро пробежаться по календарю
-    window.markSeen = function(bookingId, btn) {
+    window.markSeen = function (bookingId, btn) {
         fetch(`/api/v1/bookings/${bookingId}/mark-seen`, { method: 'POST' })
             .then(r => {
                 if (r.ok) {
@@ -64,10 +95,9 @@
             });
     };
 
-    // Модалка завершения
     let completeModalBookingId = null;
 
-    window.openCompleteModal = async function(bookingId, clientId) {
+    window.openCompleteModal = async function (bookingId, clientId) {
         completeModalBookingId = bookingId;
         const body = document.getElementById('completeModalBody');
         body.innerHTML = 'Загрузка…';
@@ -107,7 +137,7 @@
         body.innerHTML = html;
     };
 
-    window.submitCompleteWithDiscount = async function() {
+    window.submitCompleteWithDiscount = async function () {
         const selected = document.querySelector('input[name="discountChoice"]:checked');
         const discount_choice = selected ? selected.value : 'none';
         const promo_code = selected && selected.dataset.code ? selected.dataset.code : null;
@@ -123,8 +153,7 @@
         else { const d = await res.json(); alert(d.detail || 'Ошибка'); }
     };
 
-    // Закрытие даты
-    window.submitCloseDate = async function() {
+    window.submitCloseDate = async function () {
         const date = document.getElementById('closeDateInput').value;
         const masterId = document.getElementById('closeDateMaster').value;
         const reason = document.getElementById('closeDateReason').value;
@@ -138,34 +167,32 @@
         else { const d = await res.json(); alert(d.detail || 'Ошибка'); }
     };
 
-    window.reopenClosure = function(closureId) {
+    window.reopenClosure = function (closureId) {
         if (!confirm('Открыть эту дату снова для записи?')) return;
         fetch(`/api/v1/schedule/salon/${window.salonId}/closures/${closureId}`, { method: 'DELETE' })
             .then(async r => { if (r.ok) location.reload(); else { const d = await r.json(); alert(d.detail || 'Ошибка'); } });
     };
 
-    // Закрытие модалок
     document.querySelectorAll('.schedule-modal-close').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             this.closest('.schedule-modal-overlay').classList.remove('active');
         });
     });
 
     document.querySelectorAll('.schedule-modal-overlay').forEach(overlay => {
-        overlay.addEventListener('click', function(e) {
+        overlay.addEventListener('click', function (e) {
             if (e.target === this) {
                 this.classList.remove('active');
             }
         });
     });
 
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
             document.querySelectorAll('.schedule-modal-overlay.active').forEach(el => el.classList.remove('active'));
         }
     });
 
-    // ===== Раскрывающиеся карточки записей =====
     function closeAllBookingCards() {
         document.querySelectorAll('.schedule-booking-wrapper.open').forEach(w => {
             w.classList.remove('open');
@@ -177,7 +204,6 @@
         const wrapper = header.closest('.schedule-booking-wrapper');
         if (!wrapper) return;
         const isOpen = wrapper.classList.contains('open');
-        // Закрываем все остальные
         closeAllBookingCards();
         if (!isOpen) {
             wrapper.classList.add('open');
@@ -185,28 +211,28 @@
         }
     }
 
-    // Делегирование на клик по заголовкам карточек
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         const header = e.target.closest('.schedule-booking-header');
         if (header) {
             e.stopPropagation();
             toggleBookingCard(header);
             return;
         }
-        // Если клик вне карточки, закрываем все
         const wrapper = e.target.closest('.schedule-booking-wrapper');
         if (!wrapper) {
             closeAllBookingCards();
         }
     });
 
-    // Закрытие при нажатии Escape
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
             closeAllBookingCards();
         }
     });
 
-    // При смене мастера или страницы не нужно дополнительно закрывать, это произойдёт при перезагрузке
+    document.addEventListener('DOMContentLoaded', function () {
+        initScheduleNavigation();
+    });
+
     console.log('Schedule JS loaded');
 })();
