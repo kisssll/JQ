@@ -1,6 +1,6 @@
 /* static/src/css/business/tabs/schedule.css */
 
-/* ===== Календарь ===== */
+/* ===== Календарь (общие) ===== */
 .dashboard-page .schedule-calendar {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
@@ -20,7 +20,7 @@
     padding-bottom: 0.75rem;
 }
 
-/* ===== Навигация (стрелки + месяц) ===== */
+/* ===== Десктопная навигация (стрелки + месяц) ===== */
 .dashboard-page .schedule-nav-desktop {
     display: flex;
     align-items: center;
@@ -84,7 +84,7 @@
     border-color: var(--color-primary);
 }
 
-/* ===== Контейнер недель ===== */
+/* ===== Контейнер недель (десктоп) ===== */
 .dashboard-page .schedule-week-panel-wrapper {
     display: none;
 }
@@ -93,7 +93,7 @@
     display: block;
 }
 
-/* ===== Таблица расписания ===== */
+/* ===== Таблица расписания (десктоп) ===== */
 .dashboard-page .schedule-grid table {
     border-collapse: collapse;
     width: 100%;
@@ -128,7 +128,7 @@
     border-right: 1px solid var(--color-border);
 }
 
-/* Остальные столбцы равномерно распределяются и занимают оставшееся место */
+/* Остальные столбцы равномерно распределяются */
 .dashboard-page .schedule-grid th:not(:first-child),
 .dashboard-page .schedule-grid td:not(:first-child) {
     width: auto;
@@ -157,7 +157,7 @@
     min-width: 100px;
 }
 
-/* Жесткая фиксация для ячеек времени (дублирование для надежности) */
+/* Жесткая фиксация для ячеек времени */
 .dashboard-page .schedule-grid td:first-child {
     width: 60px;
     min-width: 60px;
@@ -178,85 +178,110 @@
     background: var(--color-surface);
 }
 
-/* ===== Двухуровневые карточки записей ===== */
+/* ===== Двухуровневые карточки записей (десктопные) ===== */
 .dashboard-page .schedule-booking-wrapper {
-    margin-bottom: 0.15rem;
-    border-radius: 0.25rem;
-    background: #dcfce7;
+    margin-bottom: 0.25rem;
+    border-radius: 0.35rem;
+    background: var(--color-surface);
+    border-left: 3px solid transparent;
+    border: 1px solid var(--color-border);
     overflow: hidden;
-    transition: background 0.2s;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.dashboard-page .schedule-booking-wrapper:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 .dashboard-page .schedule-booking-wrapper.pending {
-    background: #fef9c3;
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+}
+
+.dashboard-page .schedule-booking-wrapper.confirmed {
+    border-left-color: #10b981;
+    background: #ecfdf5;
 }
 
 .dashboard-page .schedule-booking-header {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    padding: 0.2rem 0.4rem;
+    padding: 0.35rem 0.5rem;
     cursor: pointer;
-    font-size: 0.65rem;
-    gap: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    gap: 0.2rem 0.4rem;
     user-select: none;
 }
 
-/* Верхняя строка: время слева, подсказка справа */
 .dashboard-page .schedule-booking-header .booking-time {
     font-weight: 600;
-    white-space: nowrap;
+    color: var(--color-heading);
     order: 1;
-    flex: 0 0 auto;
 }
 
 .dashboard-page .schedule-booking-header .booking-hint {
     order: 2;
     margin-left: auto;
-    flex: 0 0 auto;
 }
 
-/* Нижняя строка: имя клиента слева, стрелка справа */
 .dashboard-page .schedule-booking-header .booking-client {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 6rem;
+    max-width: 6.5rem;
     color: var(--color-heading);
+    font-weight: 500;
     order: 3;
     flex: 1 1 auto;
 }
 
 .dashboard-page .schedule-booking-header .booking-arrow {
-    font-size: 0.5rem;
+    font-size: 0.6rem;
     transition: transform 0.2s ease;
-    flex-shrink: 0;
+    color: var(--color-muted);
     order: 4;
     margin-left: auto;
+    display: flex;
+    align-items: center;
 }
 
-.dashboard-page .schedule-booking-header.open .booking-arrow {
+.dashboard-page .schedule-booking-wrapper.open .booking-arrow {
     transform: rotate(180deg);
 }
 
 /* Детали карточки (раскрываемая часть) */
 .dashboard-page .schedule-booking-details {
     display: none;
-    padding: 0.3rem 0.4rem 0.4rem;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
-    background: rgba(255, 255, 255, 0.4);
+    padding: 0.4rem 0.5rem 0.5rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.04);
+    background: #ffffff;
     font-size: 0.7rem;
     line-height: 1.5;
 }
 
 .dashboard-page .schedule-booking-wrapper.open .schedule-booking-details {
     display: block;
+    animation: fadeInDown 0.2s ease;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-3px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .dashboard-page .schedule-booking-details .detail-row {
     display: flex;
     justify-content: space-between;
-    padding: 0.1rem 0;
+    padding: 0.15rem 0;
 }
 
 .dashboard-page .schedule-booking-details .detail-label {
@@ -270,33 +295,41 @@
 }
 
 .dashboard-page .schedule-booking-details .detail-value.status-pending {
-    color: #f59e0b;
+    color: #d97706;
 }
 
 .dashboard-page .schedule-booking-details .detail-value.status-confirmed {
-    color: #22c55e;
+    color: #059669;
 }
 
 .dashboard-page .schedule-booking-details .detail-actions {
     display: flex;
     gap: 0.3rem;
-    margin-top: 0.3rem;
+    margin-top: 0.4rem;
     flex-wrap: wrap;
 }
 
 .dashboard-page .schedule-booking-details .detail-actions button {
     border: none;
-    border-radius: 0.2rem;
-    font-size: 0.6rem;
-    padding: 0.1rem 0.4rem;
+    border-radius: 0.3rem;
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 0.2rem 0.5rem;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 0.15rem;
+    justify-content: center;
+    gap: 0.2rem;
+    transition: filter 0.2s;
+    flex: 1;
+}
+
+.dashboard-page .schedule-booking-details .detail-actions button:hover {
+    filter: brightness(0.9);
 }
 
 .dashboard-page .schedule-booking-details .detail-actions .complete-btn {
-    background: #22c55e;
+    background: #10b981;
     color: white;
 }
 
@@ -305,7 +338,6 @@
     color: white;
 }
 
-/* Кнопка "Видел" и подсказки */
 .dashboard-page .schedule-booking .seen-btn {
     display: inline-block;
     border: none;
@@ -335,7 +367,159 @@
     cursor: help;
 }
 
-/* ===== Легенда ===== */
+/* ===== Мобильные карточки ===== */
+.dashboard-page .record-card {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-left: 4px solid transparent;
+    border-radius: 0.75rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    overflow: hidden;
+}
+
+.dashboard-page .record-card:hover {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+}
+
+.dashboard-page .record-card.pending {
+    border-left-color: #f59e0b;
+}
+
+.dashboard-page .record-card.confirmed {
+    border-left-color: #10b981;
+}
+
+.dashboard-page .record-card-header {
+    padding: 0.75rem;
+    cursor: pointer;
+    background: transparent;
+    user-select: none;
+}
+
+.dashboard-page .record-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+}
+
+.dashboard-page .record-card-date {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--color-heading);
+}
+
+.dashboard-page .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: 2rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.dashboard-page .status-badge.confirmed {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.dashboard-page .status-badge.pending {
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fde68a;
+}
+
+.dashboard-page .record-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dashboard-page .record-card-client {
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--color-heading);
+}
+
+.dashboard-page .record-card-chevron {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    transition: transform 0.2s ease;
+    display: flex;
+    align-items: center;
+}
+
+.dashboard-page .record-card.open .record-card-chevron {
+    transform: rotate(180deg);
+}
+
+.dashboard-page .record-card-body {
+    background: #f9fafb;
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.dashboard-page .record-card-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+}
+
+.dashboard-page .record-card-label {
+    color: var(--color-muted);
+    font-weight: 500;
+}
+
+.dashboard-page .record-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.dashboard-page .record-card-actions .btn-action {
+    flex: 1;
+    padding: 0.4rem;
+    border-radius: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    transition: filter 0.2s;
+}
+
+.dashboard-page .record-card-actions .btn-action:hover {
+    filter: brightness(0.9);
+}
+
+.dashboard-page .record-card-actions .btn-action-success {
+    background: #10b981;
+    color: white;
+}
+
+.dashboard-page .record-card-actions .btn-action-danger {
+    background: #ef4444;
+    color: white;
+}
+
+/* ===== Легенда (скрывается на мобилке) ===== */
+.dashboard-page .schedule-legend-wrapper {
+    display: block;
+}
+
+@media (max-width: 1023px) {
+    .dashboard-page .schedule-legend-wrapper {
+        display: none !important;
+    }
+}
+
 .dashboard-page .schedule-legend {
     display: flex;
     gap: 1rem;
@@ -354,11 +538,11 @@
 }
 
 .dashboard-page .schedule-legend .dot.confirmed {
-    background: #dcfce7;
+    background: #10b981;
 }
 
 .dashboard-page .schedule-legend .dot.pending {
-    background: #fef9c3;
+    background: #f59e0b;
 }
 
 .dashboard-page .schedule-legend .dot.closed {
@@ -552,7 +736,124 @@
     color: var(--color-danger, #e5484d);
 }
 
-/* ===== Адаптив для мобильных устройств (менее 1024px) ===== */
+/* ======================================================== */
+/* ===== МОБИЛЬНАЯ ВЕРСИЯ (экраны < 1024px) ===== */
+/* ======================================================== */
+
+.dashboard-page .schedule-desktop-block {
+    display: block;
+}
+
+@media (max-width: 1023px) {
+    .dashboard-page .schedule-desktop-block {
+        display: none !important;
+    }
+}
+
+.dashboard-page .schedule-mobile-block {
+    display: none;
+    flex-direction: column;
+    min-height: 150px;
+}
+
+@media (max-width: 1023px) {
+    .dashboard-page .schedule-mobile-block {
+        display: flex !important;
+    }
+}
+
+/* ===== Мобильный блок ===== */
+.dashboard-page .schedule-mobile-master-select {
+    margin-bottom: 0.75rem;
+    flex-shrink: 0;
+}
+
+.dashboard-page .schedule-mobile-master-select select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    appearance: auto;
+}
+
+.dashboard-page .schedule-mobile-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+}
+
+.dashboard-page .schedule-mobile-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--color-surface-alt);
+    color: var(--color-heading);
+    border: 1px solid var(--color-border);
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 0;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.dashboard-page .schedule-mobile-nav-btn:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.dashboard-page .schedule-mobile-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+    pointer-events: none;
+}
+
+.dashboard-page .schedule-mobile-datepicker {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    flex-shrink: 0;
+    max-width: 140px;
+}
+
+.schedule-mobile-nav .schedule-mobile-datepicker {
+    height: 42px !important;
+    padding: 0.3rem 0.5rem;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.dashboard-page .schedule-mobile-bookings {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    min-height: 300px;
+}
+
+.dashboard-page .schedule-mobile-empty {
+    text-align: center;
+    padding: 2rem 0;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    margin: auto 0;
+}
+
+/* ===== Адаптив для десктопной навигации на средних экранах (менее 1024px) ===== */
 @media (max-width: 1023px) {
     .dashboard-page .schedule-nav-desktop .schedule-nav-btn {
         width: 1.8rem;
@@ -571,7 +872,6 @@
         padding: 0.2rem;
     }
 
-    /* Принудительная ширина первого столбца для мобилок */
     .dashboard-page .schedule-grid th:first-child {
         width: 60px;
         min-width: 60px;
@@ -584,7 +884,6 @@
         padding: 0.1rem;
     }
 
-    /* Принудительная ширина первого столбца для мобилок */
     .dashboard-page .schedule-grid td:first-child {
         width: 60px;
         min-width: 60px;

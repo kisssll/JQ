@@ -1,10 +1,10 @@
 // static/src/js/business/tabs/schedule.js
-// Управление навигацией по неделям (стрелки) и общие функции для расписания
+// Управление навигацией по неделям (десктоп) и по дням (мобилка), общие функции
 
 (function () {
     'use strict';
 
-    // --- Навигация по неделям (стрелки) ---
+    // ========== ДЕСКТОП: НАВИГАЦИЯ ПО НЕДЕЛЯМ ==========
     let currentWeekIndex = window.activeWeekIndex || 0;
     const weekData = window.weekData || [];
     const totalWeeks = weekData.length;
@@ -48,17 +48,125 @@
         }
     };
 
-    function initScheduleNavigation() {
+    function initDesktopNavigation() {
         if (!weekData.length) return;
         updateWeekDisplay(currentWeekIndex);
         document.getElementById('schedulePrevWeek')?.addEventListener('click', window.prevWeek);
         document.getElementById('scheduleNextWeek')?.addEventListener('click', window.nextWeek);
     }
 
-    // --- Остальные функции (без изменений) ---
-    window.markBooking = function (bookingId, action) {
-        const label = action === 'complete' ? 'выполненной' : 'неявкой';
-        if (!confirm(`Отметить запись ${label}?`)) return;
+    // ========== МОБИЛЬНАЯ ВЕРСИЯ: НАВИГАЦИЯ ПО ДНЯМ ==========
+    const allDates = window.mobileAllDates || [];
+    const bookingsByDate = window.mobileBookingsByDate || {};
+    let currentDateIndex = 0;
+
+    function initMobileDate() {
+        const today = window.mobileToday || new Date().toISOString().slice(0, 10);
+        let idx = allDates.indexOf(today);
+        if (idx === -1) {
+            idx = allDates.findIndex(d => d >= today);
+            if (idx === -1) idx = 0;
+        }
+        currentDateIndex = idx;
+    }
+
+    function renderMobileBookings(dateStr) {
+        const container = document.getElementById('mobileBookingsContainer');
+        if (!container) return;
+
+        const html = bookingsByDate[dateStr] || '';
+        container.innerHTML = html || '<p class="schedule-mobile-empty">Нет записей на этот день</p>';
+
+        // Обновить отображение даты в навигации
+        const dateSpan = document.getElementById('mobileCurrentDate');
+        if (dateSpan) {
+            const parts = dateStr.split('-');
+            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+            const month = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][d.getMonth()];
+            dateSpan.textContent = `${d.getDate()} ${month}`;
+        }
+
+        // Обновить input date
+        const datePicker = document.getElementById('mobileDatePicker');
+        if (datePicker) datePicker.value = dateStr;
+
+        // Обновить состояние стрелок
+        const prevBtn = document.getElementById('mobilePrevDay');
+        const nextBtn = document.getElementById('mobileNextDay');
+        if (prevBtn) prevBtn.disabled = (currentDateIndex === 0);
+        if (nextBtn) nextBtn.disabled = (currentDateIndex === allDates.length - 1);
+    }
+
+    function goToMobileDate(index) {
+        if (index < 0 || index >= allDates.length) return;
+        currentDateIndex = index;
+        renderMobileBookings(allDates[index]);
+    }
+
+    window.prevDay = function () {
+        if (currentDateIndex > 0) {
+            goToMobileDate(currentDateIndex - 1);
+        }
+    };
+
+    window.nextDay = function () {
+        if (currentDateIndex < allDates.length - 1) {
+            goToMobileDate(currentDateIndex + 1);
+        }
+    };
+
+    function initMobileNavigation() {
+        if (!allDates.length) return;
+        initMobileDate();
+        goToMobileDate(currentDateIndex);
+
+        document.getElementById('mobilePrevDay')?.addEventListener('click', window.prevDay);
+        document.getElementById('mobileNextDay')?.addEventListener('click', window.nextDay);
+
+        const datePicker = document.getElementById('mobileDatePicker');
+        if (datePicker) {
+            datePicker.addEventListener('change', function () {
+                const val = this.value;
+                if (val) {
+                    const idx = allDates.indexOf(val);
+                    if (idx !== -1) {
+                        goToMobileDate(idx);
+                    } else {
+                        alert('На эту дату нет данных');
+                        this.value = allDates[currentDateIndex] || '';
+                    }
+                }
+            });
+            if (allDates.length) {
+                datePicker.min = allDates[0];
+                datePicker.max = allDates[allDates.length - 1];
+            }
+        }
+    }
+
+    // ========== ФУНКЦИИ ДЛЯ РАСКРЫТИЯ КАРТОЧЕК ==========
+    window.toggleDesktopCard = function (header) {
+        const wrapper = header.closest('.schedule-booking-wrapper');
+        wrapper.classList.toggle('open');
+    };
+
+    window.toggleRecordCard = function (header) {
+        const card = header.closest('.record-card');
+        const body = header.nextElementSibling;
+
+        if (body.style.display === 'none' || !body.style.display) {
+            body.style.display = 'block';
+            if (card) card.classList.add('open');
+        } else {
+            body.style.display = 'none';
+            if (card) card.classList.remove('open');
+        }
+    };
+
+    // ========== ОБЩИЕ ФУНКЦИИ (для кнопок в карточках) ==========
+    window.recordMarkBooking = function (bookingId, action, btn) {
+        const label = action === 'complete' ? 'что клиент пришёл' : 'неявку клиента';
+        if (!confirm(`Отметить ${label}?`)) return;
         fetch(`/api/v1/bookings/${bookingId}/${action}`, { method: 'POST' })
             .then(r => {
                 if (r.ok) location.reload();
@@ -95,6 +203,7 @@
             });
     };
 
+    // ========== МОДАЛКА ЗАВЕРШЕНИЯ (без изменений) ==========
     let completeModalBookingId = null;
 
     window.openCompleteModal = async function (bookingId, clientId) {
@@ -153,6 +262,7 @@
         else { const d = await res.json(); alert(d.detail || 'Ошибка'); }
     };
 
+    // ========== ЗАКРЫТИЕ ДАТ ==========
     window.submitCloseDate = async function () {
         const date = document.getElementById('closeDateInput').value;
         const masterId = document.getElementById('closeDateMaster').value;
@@ -173,6 +283,7 @@
             .then(async r => { if (r.ok) location.reload(); else { const d = await r.json(); alert(d.detail || 'Ошибка'); } });
     };
 
+    // ========== ЗАКРЫТИЕ МОДАЛОК ==========
     document.querySelectorAll('.schedule-modal-close').forEach(btn => {
         btn.addEventListener('click', function () {
             this.closest('.schedule-modal-overlay').classList.remove('active');
@@ -193,45 +304,13 @@
         }
     });
 
-    function closeAllBookingCards() {
-        document.querySelectorAll('.schedule-booking-wrapper.open').forEach(w => {
-            w.classList.remove('open');
-            w.querySelector('.schedule-booking-header')?.classList.remove('open');
-        });
-    }
-
-    function toggleBookingCard(header) {
-        const wrapper = header.closest('.schedule-booking-wrapper');
-        if (!wrapper) return;
-        const isOpen = wrapper.classList.contains('open');
-        closeAllBookingCards();
-        if (!isOpen) {
-            wrapper.classList.add('open');
-            header.classList.add('open');
-        }
-    }
-
-    document.addEventListener('click', function (e) {
-        const header = e.target.closest('.schedule-booking-header');
-        if (header) {
-            e.stopPropagation();
-            toggleBookingCard(header);
-            return;
-        }
-        const wrapper = e.target.closest('.schedule-booking-wrapper');
-        if (!wrapper) {
-            closeAllBookingCards();
-        }
-    });
-
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-            closeAllBookingCards();
-        }
-    });
-
+    // ========== ИНИЦИАЛИЗАЦИЯ ==========
     document.addEventListener('DOMContentLoaded', function () {
-        initScheduleNavigation();
+        initDesktopNavigation();
+        initMobileNavigation();
+        // Передаём иконки в глобальный объект (оставили для обратной совместимости)
+        window.ICON_CHEVRON_DOWN = '▼';
+        window.ICON_CHEVRON_UP = '▲';
     });
 
     console.log('Schedule JS loaded');
