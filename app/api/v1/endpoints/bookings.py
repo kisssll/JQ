@@ -60,30 +60,33 @@ async def create_booking(
     if not await _salon_bookable(db, booking_data.master_id):
         raise HTTPException(status_code=403, detail="Салон ещё не подтверждён — запись недоступна.")
 
-    now = datetime.now()
-    if booking_data.start_time.replace(tzinfo=None) < now:
+    # Салон нужен для таймзоны и «вечерних окон со скидкой». start_time хранится
+    # наивным в зоне салона, поэтому «прошедшее время» проверяем салонно-локальным
+    # «сейчас» — так же, как слот-генератор скрывает прошедшие слоты (иначе для
+    # салонов не в UTC проверка расходится с показанными слотами).
+    salon = (await db.execute(
+        select(Salon).join(Master, Master.salon_id == Salon.id).where(Master.id == booking_data.master_id)
+    )).scalar_one_or_none()
+
+    start_time = booking_data.start_time.replace(tzinfo=None)
+    salon_now = get_salon_time(salon.timezone).replace(tzinfo=None) if salon else datetime.now()
+    if start_time < salon_now:
         raise HTTPException(status_code=400, detail="Нельзя записаться на прошедшее время.")
-    
+
     is_available = await BookingService.is_slot_available(
-        db, booking_data.master_id,
-        booking_data.start_time.replace(tzinfo=None),
-        service.duration_minutes
+        db, booking_data.master_id, start_time, service.duration_minutes
     )
-    
+
     if not is_available:
         raise HTTPException(status_code=409, detail="Это время уже занято")
-    
+
     final_price = await BookingService.calculate_price(current_user, service)
-    start_time = booking_data.start_time.replace(tzinfo=None)
     end_time = start_time + timedelta(minutes=service.duration_minutes)
 
     # «Вечернее окно со скидкой»: если слот реально попадает в валидное вечернее
     # окно салона (ре-валидация на сервере — клиенту не доверяем), применяем
     # скидку к цене брони.
     from app.services.evening_deals_service import evening_deal_discount, discounted_price
-    salon = (await db.execute(
-        select(Salon).join(Master, Master.salon_id == Salon.id).where(Master.id == booking_data.master_id)
-    )).scalar_one_or_none()
     discount_percent = 0
     if salon is not None:
         ev = await evening_deal_discount(db, salon, start_time, service.id)
