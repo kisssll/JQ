@@ -14,7 +14,6 @@ document.querySelectorAll('select.custom-select').forEach(el => {
         placeholder: true,
         placeholderValue: el.getAttribute('placeholder') || 'Выберите...',
         renderSelectedChoices: 'auto',
-        hideSelected: true,
         removeItemButton: false,
         allowHTML: false,
     });

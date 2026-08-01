@@ -1,28 +1,172 @@
 // static/src/js/business/tabs/schedule.js
-(function() {
+// Управление навигацией по неделям (десктоп) и по дням (мобилка), общие функции
+
+(function () {
     'use strict';
 
-    // ===== Десктопные функции =====
-    window.showMonth = function(monthKey) {
-        document.querySelectorAll('.schedule-month-panel').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.schedule-month-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById('month-' + monthKey).classList.add('active');
-        const btn = document.querySelector(`.schedule-month-btn[data-month="${monthKey}"]`);
-        if (btn) btn.classList.add('active');
+    // ========== ДЕСКТОП: НАВИГАЦИЯ ПО НЕДЕЛЯМ ==========
+    let currentWeekIndex = window.activeWeekIndex || 0;
+    const weekData = window.weekData || [];
+    const totalWeeks = weekData.length;
+
+    function updateWeekDisplay(index) {
+        if (index < 0 || index >= totalWeeks) return;
+
+        document.querySelectorAll('.schedule-week-panel-wrapper').forEach(el => {
+            el.classList.remove('active');
+        });
+        const target = document.querySelector(`.schedule-week-panel-wrapper[data-week-index="${index}"]`);
+        if (target) target.classList.add('active');
+
+        const monthSpan = document.getElementById('scheduleCurrentMonth');
+        if (monthSpan && weekData[index]) {
+            monthSpan.textContent = `${weekData[index].month_name} ${weekData[index].year}`;
+        }
+
+        const prevBtn = document.getElementById('schedulePrevWeek');
+        const nextBtn = document.getElementById('scheduleNextWeek');
+        if (prevBtn) prevBtn.disabled = (index === 0);
+        if (nextBtn) nextBtn.disabled = (index === totalWeeks - 1);
+
+        currentWeekIndex = index;
+    }
+
+    window.goToWeek = function (index) {
+        if (index < 0 || index >= totalWeeks) return;
+        updateWeekDisplay(index);
     };
 
-    window.showWeek = function(monthKey, weekId) {
-        document.querySelectorAll(`.schedule-week-panel[data-month="${monthKey}"]`).forEach(el => el.classList.remove('active'));
-        document.querySelectorAll(`.schedule-week-btn[data-month="${monthKey}"]`).forEach(el => el.classList.remove('active'));
-        document.getElementById('week-' + weekId).classList.add('active');
-        const btn = document.querySelector(`.schedule-week-btn[data-month="${monthKey}"][data-week="${weekId}"]`);
-        if (btn) btn.classList.add('active');
+    window.prevWeek = function () {
+        if (currentWeekIndex > 0) {
+            updateWeekDisplay(currentWeekIndex - 1);
+        }
     };
 
-    // ===== Универсальные функции для отметок =====
-    window.markBooking = function(bookingId, action) {
-        const label = action === 'complete' ? 'выполненной' : 'неявкой';
-        if (!confirm(`Отметить запись ${label}?`)) return;
+    window.nextWeek = function () {
+        if (currentWeekIndex < totalWeeks - 1) {
+            updateWeekDisplay(currentWeekIndex + 1);
+        }
+    };
+
+    function initDesktopNavigation() {
+        if (!weekData.length) return;
+        updateWeekDisplay(currentWeekIndex);
+        document.getElementById('schedulePrevWeek')?.addEventListener('click', window.prevWeek);
+        document.getElementById('scheduleNextWeek')?.addEventListener('click', window.nextWeek);
+    }
+
+    // ========== МОБИЛЬНАЯ ВЕРСИЯ: НАВИГАЦИЯ ПО ДНЯМ ==========
+    const allDates = window.mobileAllDates || [];
+    const bookingsByDate = window.mobileBookingsByDate || {};
+    let currentDateIndex = 0;
+
+    function initMobileDate() {
+        const today = window.mobileToday || new Date().toISOString().slice(0, 10);
+        let idx = allDates.indexOf(today);
+        if (idx === -1) {
+            idx = allDates.findIndex(d => d >= today);
+            if (idx === -1) idx = 0;
+        }
+        currentDateIndex = idx;
+    }
+
+    function renderMobileBookings(dateStr) {
+        const container = document.getElementById('mobileBookingsContainer');
+        if (!container) return;
+
+        const html = bookingsByDate[dateStr] || '';
+        container.innerHTML = html || '<p class="schedule-mobile-empty">Нет записей на этот день</p>';
+
+        // Обновить отображение даты в навигации
+        const dateSpan = document.getElementById('mobileCurrentDate');
+        if (dateSpan) {
+            const parts = dateStr.split('-');
+            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+            const month = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][d.getMonth()];
+            dateSpan.textContent = `${d.getDate()} ${month}`;
+        }
+
+        // Обновить input date
+        const datePicker = document.getElementById('mobileDatePicker');
+        if (datePicker) datePicker.value = dateStr;
+
+        // Обновить состояние стрелок
+        const prevBtn = document.getElementById('mobilePrevDay');
+        const nextBtn = document.getElementById('mobileNextDay');
+        if (prevBtn) prevBtn.disabled = (currentDateIndex === 0);
+        if (nextBtn) nextBtn.disabled = (currentDateIndex === allDates.length - 1);
+    }
+
+    function goToMobileDate(index) {
+        if (index < 0 || index >= allDates.length) return;
+        currentDateIndex = index;
+        renderMobileBookings(allDates[index]);
+    }
+
+    window.prevDay = function () {
+        if (currentDateIndex > 0) {
+            goToMobileDate(currentDateIndex - 1);
+        }
+    };
+
+    window.nextDay = function () {
+        if (currentDateIndex < allDates.length - 1) {
+            goToMobileDate(currentDateIndex + 1);
+        }
+    };
+
+    function initMobileNavigation() {
+        if (!allDates.length) return;
+        initMobileDate();
+        goToMobileDate(currentDateIndex);
+
+        document.getElementById('mobilePrevDay')?.addEventListener('click', window.prevDay);
+        document.getElementById('mobileNextDay')?.addEventListener('click', window.nextDay);
+
+        const datePicker = document.getElementById('mobileDatePicker');
+        if (datePicker) {
+            datePicker.addEventListener('change', function () {
+                const val = this.value;
+                if (val) {
+                    const idx = allDates.indexOf(val);
+                    if (idx !== -1) {
+                        goToMobileDate(idx);
+                    } else {
+                        alert('На эту дату нет данных');
+                        this.value = allDates[currentDateIndex] || '';
+                    }
+                }
+            });
+            if (allDates.length) {
+                datePicker.min = allDates[0];
+                datePicker.max = allDates[allDates.length - 1];
+            }
+        }
+    }
+
+    // ========== ФУНКЦИИ ДЛЯ РАСКРЫТИЯ КАРТОЧЕК ==========
+    window.toggleDesktopCard = function (header) {
+        const wrapper = header.closest('.schedule-booking-wrapper');
+        wrapper.classList.toggle('open');
+    };
+
+    window.toggleRecordCard = function (header) {
+        const card = header.closest('.record-card');
+        const body = header.nextElementSibling;
+
+        if (body.style.display === 'none' || !body.style.display) {
+            body.style.display = 'block';
+            if (card) card.classList.add('open');
+        } else {
+            body.style.display = 'none';
+            if (card) card.classList.remove('open');
+        }
+    };
+
+    // ========== ОБЩИЕ ФУНКЦИИ (для кнопок в карточках) ==========
+    window.recordMarkBooking = function (bookingId, action, btn) {
+        const label = action === 'complete' ? 'что клиент пришёл' : 'неявку клиента';
+        if (!confirm(`Отметить ${label}?`)) return;
         fetch(`/api/v1/bookings/${bookingId}/${action}`, { method: 'POST' })
             .then(r => {
                 if (r.ok) location.reload();
@@ -30,8 +174,7 @@
             });
     };
 
-    // Подтверждение/отклонение записи салоном (PENDING → CONFIRMED / CANCELLED)
-    window.acceptBooking = function(bookingId) {
+    window.acceptBooking = function (bookingId) {
         if (!confirm('Подтвердить запись?')) return;
         fetch(`/api/v1/bookings/${bookingId}/accept`, { method: 'POST' })
             .then(r => {
@@ -40,7 +183,7 @@
             });
     };
 
-    window.rejectBooking = function(bookingId) {
+    window.rejectBooking = function (bookingId) {
         if (!confirm('Отклонить запись? Клиент получит уведомление.')) return;
         fetch(`/api/v1/bookings/${bookingId}/reject`, { method: 'POST' })
             .then(r => {
@@ -49,8 +192,7 @@
             });
     };
 
-    // Мастер отмечает, что видел плановую запись
-    window.markSeen = function(bookingId, btn) {
+    window.markSeen = function (bookingId, btn) {
         fetch(`/api/v1/bookings/${bookingId}/mark-seen`, { method: 'POST' })
             .then(r => {
                 if (r.ok) {
@@ -61,10 +203,10 @@
             });
     };
 
-    // ===== Модалка завершения =====
+    // ========== МОДАЛКА ЗАВЕРШЕНИЯ (без изменений) ==========
     let completeModalBookingId = null;
 
-    window.openCompleteModal = async function(bookingId, clientId) {
+    window.openCompleteModal = async function (bookingId, clientId) {
         completeModalBookingId = bookingId;
         const body = document.getElementById('completeModalBody');
         body.innerHTML = 'Загрузка…';
@@ -104,7 +246,7 @@
         body.innerHTML = html;
     };
 
-    window.submitCompleteWithDiscount = async function() {
+    window.submitCompleteWithDiscount = async function () {
         const selected = document.querySelector('input[name="discountChoice"]:checked');
         const discount_choice = selected ? selected.value : 'none';
         const promo_code = selected && selected.dataset.code ? selected.dataset.code : null;
@@ -120,8 +262,8 @@
         else { const d = await res.json(); alert(d.detail || 'Ошибка'); }
     };
 
-    // ===== Закрытие даты =====
-    window.submitCloseDate = async function() {
+    // ========== ЗАКРЫТИЕ ДАТ ==========
+    window.submitCloseDate = async function () {
         const date = document.getElementById('closeDateInput').value;
         const masterId = document.getElementById('closeDateMaster').value;
         const reason = document.getElementById('closeDateReason').value;
@@ -135,272 +277,40 @@
         else { const d = await res.json(); alert(d.detail || 'Ошибка'); }
     };
 
-    window.reopenClosure = function(closureId) {
+    window.reopenClosure = function (closureId) {
         if (!confirm('Открыть эту дату снова для записи?')) return;
         fetch(`/api/v1/schedule/salon/${window.salonId}/closures/${closureId}`, { method: 'DELETE' })
             .then(async r => { if (r.ok) location.reload(); else { const d = await r.json(); alert(d.detail || 'Ошибка'); } });
     };
 
-    // ===== Закрытие модалок =====
+    // ========== ЗАКРЫТИЕ МОДАЛОК ==========
     document.querySelectorAll('.schedule-modal-close').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             this.closest('.schedule-modal-overlay').classList.remove('active');
         });
     });
 
     document.querySelectorAll('.schedule-modal-overlay').forEach(overlay => {
-        overlay.addEventListener('click', function(e) {
+        overlay.addEventListener('click', function (e) {
             if (e.target === this) {
                 this.classList.remove('active');
             }
         });
     });
 
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
             document.querySelectorAll('.schedule-modal-overlay.active').forEach(el => el.classList.remove('active'));
         }
     });
 
-    // ===== Раскрывающиеся карточки (десктоп) =====
-    function closeAllBookingCards() {
-        document.querySelectorAll('.schedule-booking-wrapper.open').forEach(w => {
-            w.classList.remove('open');
-            w.querySelector('.schedule-booking-header')?.classList.remove('open');
-        });
-    }
-
-    function toggleBookingCard(header) {
-        const wrapper = header.closest('.schedule-booking-wrapper');
-        if (!wrapper) return;
-        const isOpen = wrapper.classList.contains('open');
-        closeAllBookingCards();
-        if (!isOpen) {
-            wrapper.classList.add('open');
-            header.classList.add('open');
-        }
-    }
-
-    document.addEventListener('click', function(e) {
-        const header = e.target.closest('.schedule-booking-header');
-        if (header) {
-            e.stopPropagation();
-            toggleBookingCard(header);
-            return;
-        }
-        const wrapper = e.target.closest('.schedule-booking-wrapper');
-        if (!wrapper) {
-            closeAllBookingCards();
-        }
-    });
-
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeAllBookingCards();
-        }
-    });
-
-    // ===== Мобильная навигация (без перезагрузки) =====
-    document.addEventListener('DOMContentLoaded', function() {
-        const mobileContainer = document.querySelector('.schedule-mobile-container');
-        if (!mobileContainer) {
-            console.log('Мобильный контейнер не найден');
-            return;
-        }
-
-        const listEl = document.getElementById('schedule-mobile-list');
-        const dateLabel = document.getElementById('mobile-date-label');
-        if (!listEl || !dateLabel) {
-            console.error('Не найдены элементы списка или даты');
-            return;
-        }
-
-        // Проверяем наличие данных
-        if (typeof window.weekData === 'undefined' || !window.weekData.length) {
-            console.warn('weekData не определён или пуст');
-            // Можно попробовать загрузить текущую неделю через fetch
-        }
-
-        const masterId = window.scheduleMasterId;
-        const salonId = window.scheduleSalonId;
-        let currentDateStr = window.currentDate || new Date().toISOString().split('T')[0];
-        let weekData = window.weekData || [];
-        let weekStart = window.weekStart || null;
-        let weekDays = window.weekDays || [];
-
-        // Функция рендеринга списка для конкретной даты
-        function renderDay(dateStr) {
-            // Находим день в weekData
-            let dayData = weekData.find(d => d.date === dateStr);
-            if (!dayData) {
-                // Если день не найден, возможно мы вышли за пределы недели
-                listEl.innerHTML = '<div class="schedule-mobile-empty">Загрузка...</div>';
-                fetchWeek(dateStr).then(() => {
-                    renderDay(dateStr);
-                });
-                return;
-            }
-
-            const bookings = dayData.bookings || [];
-            if (bookings.length === 0) {
-                listEl.innerHTML = '<div class="schedule-mobile-empty">На этот день записей нет</div>';
-                return;
-            }
-
-            let cards = '';
-            bookings.forEach(b => {
-                const canManage = window.canManageSchedule && (b.status === 'pending' || b.status === 'confirmed');
-                let actions = '';
-                if (canManage) {
-                    if (b.status === 'pending') {
-                        actions = `
-                            <div class="schedule-mobile-actions">
-                                <button class="btn-action btn-action-success" onclick="acceptBooking(${b.id})">Подтвердить</button>
-                                <button class="btn-action btn-action-danger" onclick="rejectBooking(${b.id})">Отклонить</button>
-                            </div>
-                        `;
-                    } else if (b.status === 'confirmed') {
-                        actions = `
-                            <div class="schedule-mobile-actions">
-                                <button class="btn-action btn-action-success" onclick="markBooking(${b.id}, 'complete')">Пришёл</button>
-                                <button class="btn-action btn-action-danger" onclick="markBooking(${b.id}, 'no-show')">Не пришёл</button>
-                            </div>
-                        `;
-                    }
-                }
-                cards += `
-                    <div class="schedule-mobile-card">
-                        <div class="schedule-mobile-header">
-                            <span class="schedule-mobile-time">${b.time}</span>
-                            <span class="status-badge ${b.status_class}">${b.status_label}</span>
-                        </div>
-                        <div class="schedule-mobile-body">
-                            <div><strong>${b.client_name}</strong></div>
-                            <div class="schedule-mobile-detail">${b.service_name}</div>
-                            <div class="schedule-mobile-detail">Сумма: ${b.price.toLocaleString()} ₽</div>
-                            ${actions}
-                        </div>
-                    </div>
-                `;
-            });
-            listEl.innerHTML = cards;
-
-            // Обновляем label
-            const d = new Date(dateStr + 'T00:00:00');
-            const monthNames = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-                                'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-            dateLabel.textContent = `${d.getDate()} ${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-            currentDateStr = dateStr;
-
-            // Обновляем URL без перезагрузки
-            const url = new URL(window.location);
-            url.searchParams.set('date', dateStr);
-            window.history.pushState({}, '', url);
-        }
-
-        // Функция загрузки новой недели (fetch)
-        function fetchWeek(dateStr) {
-            // Определяем начало недели для этой даты
-            const d = new Date(dateStr + 'T00:00:00');
-            const dayOfWeek = d.getDay(); // 0 = воскресенье
-            const startOfWeek = new Date(d);
-            startOfWeek.setDate(d.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)); // понедельник
-
-            const params = new URLSearchParams(window.location.search);
-            params.set('date', startOfWeek.toISOString().split('T')[0]);
-            params.set('tab', 'schedule');
-            if (masterId) params.set('schedule_master_id', masterId);
-            const url = window.location.pathname + '?' + params.toString();
-
-            return fetch(url)
-                .then(response => response.text())
-                .then(html => {
-                    // Парсим HTML, извлекаем window.weekData
-                    const match = html.match(/window\.weekData\s*=\s*(\[.*?\]);/s);
-                    if (match) {
-                        try {
-                            const newData = JSON.parse(match[1]);
-                            weekData = newData;
-                            // Обновляем weekStart, weekDays
-                            const matchStart = html.match(/window\.weekStart\s*=\s*['"](.*?)['"]/);
-                            if (matchStart) weekStart = matchStart[1];
-                            const matchDays = html.match(/window\.weekDays\s*=\s*(\[.*?\]);/s);
-                            if (matchDays) weekDays = JSON.parse(matchDays[1]);
-                            // Обновляем URL без перезагрузки
-                            const urlObj = new URL(window.location);
-                            urlObj.searchParams.set('date', startOfWeek.toISOString().split('T')[0]);
-                            window.history.pushState({}, '', urlObj);
-                            return Promise.resolve();
-                        } catch (e) {
-                            console.error('Ошибка парсинга weekData', e);
-                            return Promise.reject(e);
-                        }
-                    } else {
-                        console.error('Не удалось найти weekData в HTML');
-                        return Promise.reject('No weekData');
-                    }
-                })
-                .catch(err => {
-                    console.error('Ошибка загрузки недели:', err);
-                    listEl.innerHTML = '<div class="schedule-mobile-empty">Ошибка загрузки</div>';
-                    return Promise.reject(err);
-                });
-        }
-
-        // Обработчики кнопок
-        const navButtons = mobileContainer.querySelectorAll('.schedule-nav-btn');
-        navButtons.forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                const offset = parseInt(this.dataset.offset);
-                if (isNaN(offset)) return;
-
-                // Если offset = 0, переходим на сегодня
-                let targetDateStr;
-                if (offset === 0) {
-                    const todayObj = new Date();
-                    targetDateStr = todayObj.toISOString().split('T')[0];
-                } else {
-                    const currentDateObj = new Date(currentDateStr + 'T00:00:00');
-                    currentDateObj.setDate(currentDateObj.getDate() + offset);
-                    targetDateStr = currentDateObj.toISOString().split('T')[0];
-                }
-
-                // Проверяем, есть ли день в текущей неделе
-                const dayExists = weekData.some(d => d.date === targetDateStr);
-                if (dayExists) {
-                    renderDay(targetDateStr);
-                } else {
-                    // Загружаем новую неделю
-                    fetchWeek(targetDateStr).then(() => {
-                        renderDay(targetDateStr);
-                    }).catch(() => {
-                        // Если загрузка не удалась, пробуем перезагрузить страницу
-                        window.location.href = window.location.pathname + '?' + new URLSearchParams({
-                            tab: 'schedule',
-                            salon_id: salonId,
-                            schedule_master_id: masterId,
-                            date: targetDateStr
-                        }).toString();
-                    });
-                }
-            });
-        });
-
-        // Инициализация: рендерим текущий день
-        if (currentDateStr && weekData.length > 0) {
-            renderDay(currentDateStr);
-        } else {
-            // Если данных нет, загружаем неделю из текущего URL
-            const params = new URLSearchParams(window.location.search);
-            const dateParam = params.get('date') || new Date().toISOString().split('T')[0];
-            fetchWeek(dateParam).then(() => {
-                renderDay(dateParam);
-            }).catch(() => {
-                // Если не удалось загрузить, перезагружаем страницу
-                window.location.reload();
-            });
-        }
+    // ========== ИНИЦИАЛИЗАЦИЯ ==========
+    document.addEventListener('DOMContentLoaded', function () {
+        initDesktopNavigation();
+        initMobileNavigation();
+        // Передаём иконки в глобальный объект (оставили для обратной совместимости)
+        window.ICON_CHEVRON_DOWN = '▼';
+        window.ICON_CHEVRON_UP = '▲';
     });
 
     console.log('Schedule JS loaded');

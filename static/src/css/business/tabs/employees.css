@@ -367,22 +367,6 @@
     accent-color: var(--color-primary);
 }
 
-/* --- Адаптив --- */
-@media (max-width: 640px) {
-    #tab-employees .section-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    #tab-employees .stats-group {
-        justify-content: center;
-    }
-    #tab-employees .employee-actions {
-        flex-wrap: wrap;
-    }
-    #tab-employees .perms-cell {
-        max-width: 150px;
-    }
-}
 /* ===== Попап реквизитов сотрудника ===== */
 .dashboard-page .creds-row {
     display: flex; align-items: center; justify-content: space-between; gap: 1rem;
@@ -400,3 +384,245 @@
 .dashboard-page .creds-email-result { margin-top: 0.7rem; font-size: 0.85rem; min-height: 1.1rem; text-align: center; }
 .dashboard-page .creds-email-result.ok { color: #16a34a; }
 .dashboard-page .creds-email-result.err { color: #e5484d; }
+
+/* ===== Мобильные карточки (для экранов < 1024px) ===== */
+/* По умолчанию карточки скрыты, таблицы видны */
+.staff-mobile-cards,
+.masters-mobile-cards {
+    display: none;
+}
+
+/* Карточка участника */
+.staff-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+.staff-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.staff-card-header {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+.staff-card-header:hover {
+    background: var(--color-surface-alt);
+}
+.staff-card-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.staff-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+.staff-card-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--color-heading);
+}
+.staff-card-role {
+    font-size: 0.85rem;
+    color: var(--color-primary);
+    font-weight: 500;
+}
+.staff-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+.staff-card-phone {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+.staff-card-chevron {
+    color: var(--color-muted);
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+    line-height: 1;
+    margin-left: auto;
+}
+.staff-card-body {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 1rem 1rem;
+    border-top: 1px solid var(--color-border);
+    display: none;
+}
+.staff-card.open .staff-card-body {
+    display: block;
+}
+.staff-card.open .staff-card-chevron {
+    transform: rotate(180deg);
+}
+.staff-card-row {
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--color-border);
+}
+.staff-card-row:last-child {
+    border-bottom: none;
+}
+.staff-card-label {
+    color: var(--color-muted);
+    font-weight: 500;
+}
+.staff-card-value {
+    text-align: right;
+}
+.staff-card-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Карточка мастера */
+.master-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+.master-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.master-card-header {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+.master-card-header:hover {
+    background: var(--color-surface-alt);
+}
+.master-card-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.master-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+.master-card-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--color-heading);
+}
+.master-card-status-text {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.master-card-status-text.on {
+    color: #22c55e;
+}
+.master-card-status-text.off {
+    color: #ef4444;
+}
+.master-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+.master-card-spec {
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+.master-card-chevron {
+    color: var(--color-muted);
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+    line-height: 1;
+    margin-left: auto;
+}
+.master-card-body {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 1rem 1rem;
+    border-top: 1px solid var(--color-border);
+    display: none;
+}
+.master-card.open .master-card-body {
+    display: block;
+}
+.master-card.open .master-card-chevron {
+    transform: rotate(180deg);
+}
+.master-card-row {
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--color-border);
+}
+.master-card-row:last-child {
+    border-bottom: none;
+}
+.master-card-label {
+    color: var(--color-muted);
+    font-weight: 500;
+}
+.master-card-value {
+    text-align: right;
+}
+.master-card-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* ===== Адаптив для планшетов и телефонов < 1024px ===== */
+@media (max-width: 1024px) {
+    #tab-employees .staff-section .table-wrap,
+    #tab-employees .employees-section .table-wrap {
+        display: none;
+    }
+    .staff-mobile-cards,
+    .masters-mobile-cards {
+        display: block;
+    }
+
+    /* Лог действий с горизонтальной прокруткой */
+    #tab-employees .audit-section .table-wrap {
+        display: block;
+        overflow-x: auto;
+    }
+
+    /* Немного уменьшаем отступы в карточках */
+    .staff-card-header,
+    .master-card-header {
+        padding: 0.65rem 0.85rem;
+    }
+    .staff-card-body,
+    .master-card-body {
+        padding: 0 0.85rem 0.85rem;
+    }
+}

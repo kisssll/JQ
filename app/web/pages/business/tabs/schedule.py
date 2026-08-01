@@ -1,7 +1,6 @@
 # app/web/pages/business/tabs/schedule.py
 from collections import OrderedDict
-from datetime import datetime, timedelta, date as date_type
-import json
+from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Booking, Master, Service, User as UserModel, BookingStatus, ScheduleClosure, Schedule
@@ -15,8 +14,9 @@ from app.web.components.icons import (
     ICON_PLUS_SMALL,
     ICON_LOCK_SMALL,
     ICON_CALENDAR_SMALL,
-    ICON_ARROW_LEFT,
-    ICON_ARROW_RIGHT,
+    ICON_CHEVRON_LEFT,
+    ICON_CHEVRON_RIGHT,
+    ICON_CHEVRON_DOWN,
 )
 
 MONTH_NAMES_RU = [
@@ -30,13 +30,12 @@ WEEKDAY_NAMES_FULL_RU = ["Понедельник", "Вторник", "Среда
 async def render_schedule_tab(
     db: AsyncSession, salon, masters, can_manage_schedule: bool = False,
     schedule_master_id: int = None, can_close_dates: bool = None,
-    viewer_master_id: int = None, schedule_date: date_type = None,
+    viewer_master_id: int = None,
     evening_deal_html: str = "",
 ) -> str:
-    """
-    Вкладка «Расписание»:
-    - Десктоп: календарная сетка на неделю (Пн–Вс) с возможностью переключения недель.
-    - Мобильный: список записей на выбранный день с навигацией (без перезагрузки).
+    """Вкладка «Расписание»: выбор мастера → неделя → сетка.
+    На десктопе навигация по неделям через стрелки, на мобилке — по дням с карточками.
+    Все недели отображаются полными (7 дней, Пн–Вс).
     """
     if can_close_dates is None:
         can_close_dates = can_manage_schedule
@@ -45,7 +44,6 @@ async def render_schedule_tab(
         return ('<div id="tab-schedule" class="tab-content"><div class="card" '
                 'style="padding:2rem;text-align:center;color:var(--color-muted)">В салоне пока нет мастеров</div></div>')
 
-    # --- Определяем мастера ---
     master_by_id = {m.id: m for m in masters}
     selected_master = master_by_id.get(schedule_master_id) or masters[0]
 
@@ -55,33 +53,29 @@ async def render_schedule_tab(
         master_names[m.id] = mu.full_name if mu else "—"
 
     today = datetime.now().date()
+    start_of_week = today - timedelta(days=today.weekday())
+    end_date = start_of_week + timedelta(days=MAX_BOOKING_DAYS_AHEAD + 7)
+    days = []
+    d = start_of_week
+    while d <= end_date:
+        days.append(d)
+        d += timedelta(days=1)
 
-    # --- Для мобильного списка: дата (по умолчанию сегодня) ---
-    if schedule_date is None:
-        schedule_date = today
-    # Ограничим окно, чтобы не уйти слишком далеко
-    if schedule_date < today - timedelta(days=30):
-        schedule_date = today - timedelta(days=30)
-    elif schedule_date > today + timedelta(days=MAX_BOOKING_DAYS_AHEAD):
-        schedule_date = today + timedelta(days=MAX_BOOKING_DAYS_AHEAD)
-
-    # --- Десктопная календарная сетка (всегда 7 дней, Пн–Вс) ---
-    base_date = schedule_date if schedule_date else today
-    start_of_week = base_date - timedelta(days=base_date.weekday())  # Пн
-    week_days = [start_of_week + timedelta(days=i) for i in range(7)]
-
-    window_start = datetime.combine(start_of_week, datetime.min.time())
-    window_end = window_start + timedelta(days=7)
+    window_start = datetime.combine(today, datetime.min.time())
+    window_end = window_start + timedelta(days=MAX_BOOKING_DAYS_AHEAD)
 
     closures_result = await db.execute(
         select(ScheduleClosure).where(
             ScheduleClosure.salon_id == salon.id,
-            ScheduleClosure.date >= start_of_week,
-            ScheduleClosure.date < start_of_week + timedelta(days=7),
+            ScheduleClosure.date >= today,
+            ScheduleClosure.date <= end_date,
             (ScheduleClosure.master_id.is_(None)) | (ScheduleClosure.master_id == selected_master.id),
         )
     )
-    closures_by_date = {c.date: c for c in closures_result.scalars().all()}
+    closures_by_date = {}
+    for c in closures_result.scalars().all():
+        if c.date not in closures_by_date or c.master_id is not None:
+            closures_by_date[c.date] = c
 
     bookings_result = await db.execute(
         select(Booking).where(
@@ -105,11 +99,13 @@ async def render_schedule_tab(
         (await db.execute(select(UserModel).where(UserModel.id.in_(client_ids)))).scalars().all() if client_ids else []
     )}
 
-    # Определяем рабочие часы для каждого дня недели (по графику салона)
     weekly_hours_cache = {}
     day_hours = {}
     min_hour = max_hour = None
-    for d in week_days:
+    for d in days:
+        if d < today or d > today + timedelta(days=MAX_BOOKING_DAYS_AHEAD):
+            day_hours[d] = None
+            continue
         weekday = d.weekday()
         if weekday not in weekly_hours_cache:
             weekly_hours_cache[weekday] = get_salon_work_hours(salon.working_hours, datetime.combine(d, datetime.min.time()))
@@ -123,7 +119,8 @@ async def render_schedule_tab(
 
     row_hours = list(range(min_hour, max_hour)) if min_hour is not None else []
 
-    def booking_cell_html(b, day) -> str:
+    # ---------- ДЕСКТОПНАЯ КАРТОЧКА (с подсказкой, без статусного овала) ----------
+    def booking_cell_html(b) -> str:
         svc = services_by_id.get(b.service_id)
         client = clients_by_id.get(b.client_id)
         status = "confirmed" if b.status == BookingStatus.CONFIRMED else "pending"
@@ -132,7 +129,7 @@ async def render_schedule_tab(
         client_phone = client.phone if client else "—"
         price = b.final_price if b.final_price is not None else (svc.price if svc else 0)
         price_str = f"{price:,}".replace(",", " ")
-        status_label, _ = _status_label(b.status)
+        status_label = "Подтверждена" if b.status == BookingStatus.CONFIRMED else "Ожидает"
         time_str = f"{b.start_time.strftime('%H:%M')}-{b.end_time.strftime('%H:%M')}"
 
         seen_html = ""
@@ -153,7 +150,6 @@ async def render_schedule_tab(
 
         actions = ""
         if can_manage_schedule and b.status == BookingStatus.PENDING:
-            # Запись ещё не подтверждена — салон/мастер принимает или отклоняет.
             actions = f"""
                 <button onclick="event.stopPropagation();acceptBooking({b.id})"
                         title="Подтвердить запись" class="complete-btn">{ICON_CHECK_SMALL} Подтвердить</button>
@@ -174,26 +170,21 @@ async def render_schedule_tab(
                 )
             actions = f"""
                 {came_btn}
-                <button onclick="event.stopPropagation();markBooking({b.id}, 'no-show')"
+                <button onclick="event.stopPropagation();recordMarkBooking({b.id}, 'no-show', this)"
                         title="Клиент не пришёл" class="no-show-btn">{ICON_X} Не пришёл</button>
             """
 
-        is_past = day < today
         wrapper_status_class = "pending" if b.status == BookingStatus.PENDING else "confirmed"
+
         return f"""
-        <div class="schedule-booking-wrapper {wrapper_status_class} {'past-day' if is_past else ''}" data-booking-id="{b.id}">
-            <div class="schedule-booking-header">
+        <div class="schedule-booking-wrapper {wrapper_status_class}" data-booking-id="{b.id}">
+            <div class="schedule-booking-header" onclick="toggleDesktopCard(this)">
                 <span class="booking-time">{time_str}</span>
-                <span class="booking-service">{svc_name}</span>
-                <span class="booking-client">{client_name}</span>
-                {seen_html}
-                <span class="booking-arrow">▼</span>
+                <span class="booking-hint">{seen_html}</span>
+                <span class="booking-client" title="{client_name}">{client_name}</span>
+                <span class="booking-arrow">{ICON_CHEVRON_DOWN}</span>
             </div>
             <div class="schedule-booking-details">
-                <div class="detail-row">
-                    <span class="detail-label">Клиент:</span>
-                    <span class="detail-value">{client_name}</span>
-                </div>
                 <div class="detail-row">
                     <span class="detail-label">Телефон:</span>
                     <span class="detail-value">{client_phone}</span>
@@ -215,64 +206,141 @@ async def render_schedule_tab(
         </div>
         """
 
-    def build_week_grid() -> str:
+    # ---------- МОБИЛЬНАЯ КАРТОЧКА (белая, статусный овал, без подсказки) ----------
+    def mobile_booking_cell_html(b) -> str:
+        svc = services_by_id.get(b.service_id)
+        client = clients_by_id.get(b.client_id)
+        svc_name = svc.name if svc else "—"
+        client_name = client.full_name if client else "Клиент"
+        client_phone = client.phone if client else "—"
+        price = b.final_price if b.final_price is not None else (svc.price if svc else 0)
+        price_str = f"{price:,}".replace(",", " ")
+        status_label, status_class = ("Подтверждена", "confirmed") if b.status == BookingStatus.CONFIRMED else ("Ожидает", "pending")
+        time_str = f"{b.start_time.strftime('%H:%M')}"
+
+        # Кнопки действий (если есть права)
+        actions = ""
+        if can_manage_schedule and b.status == BookingStatus.PENDING:
+            actions = f"""
+                <button class="btn-action btn-action-success" onclick="event.stopPropagation();acceptBooking({b.id})">Подтвердить</button>
+                <button class="btn-action btn-action-danger" onclick="event.stopPropagation();rejectBooking({b.id})">Отклонить</button>
+            """
+        elif can_manage_schedule and b.status == BookingStatus.CONFIRMED:
+            actions = f"""
+                <button class="btn-action btn-action-success" onclick="event.stopPropagation();openCompleteModal({b.id}, {b.client_id})">Пришёл</button>
+                <button class="btn-action btn-action-danger" onclick="event.stopPropagation();recordMarkBooking({b.id}, 'no-show', this)">Не пришёл</button>
+            """
+
+        return f"""
+        <div class="record-card {status_class}" data-booking-id="{b.id}">
+            <div class="record-card-header" onclick="toggleRecordCard(this)">
+                <div class="record-card-main">
+                    <div class="record-card-top">
+                        <span class="record-card-date">{time_str}</span>
+                        <span class="record-card-status-wrapper">
+                            <span class="status-badge {status_class}">{status_label}</span>
+                        </span>
+                    </div>
+                    <div class="record-card-bottom">
+                        <span class="record-card-client">{client_name}</span>
+                        <span class="record-card-chevron">{ICON_CHEVRON_DOWN}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="record-card-body" style="display:none;">
+                <div class="record-card-row"><span class="record-card-label">Телефон:</span> <span class="record-card-value">{client_phone}</span></div>
+                <div class="record-card-row"><span class="record-card-label">Услуга:</span> <span class="record-card-value">{svc_name}</span></div>
+                <div class="record-card-row"><span class="record-card-label">Цена:</span> <span class="record-card-value">{price_str} ₽</span></div>
+                {f'<div class="record-card-actions">{actions}</div>' if actions else ''}
+            </div>
+        </div>
+        """
+
+    # ---------- Построение десктопных недель ----------
+    def build_week_grid(week_days, week_index) -> str:
         day_headers = ""
         day_cols = {h: "" for h in row_hours}
         for d in week_days:
             is_today = d == today
+            is_past = d < today
+            is_outside = d > today + timedelta(days=MAX_BOOKING_DAYS_AHEAD)
             header_style = "background:var(--color-accent-light)" if is_today else ""
             closure = closures_by_date.get(d)
-            hours = day_hours[d]
+            hours = day_hours.get(d)
             if closure:
-                closed_label = f'<div class="closed-label">{ICON_LOCK_SMALL} закрыто' + ('' if closure.master_id is None else ' (личное)') + '</div>'
-            elif hours is None:
-                closed_label = '<div class="closed-label">выходной</div>'
+                closed_label = f'<div style="font-size:0.65rem;color:#ef4444">{ICON_LOCK_SMALL} закрыто' + ('' if closure.master_id is None else ' (личное)') + '</div>'
+            elif is_past:
+                closed_label = ""
+            elif hours is None or is_outside:
+                closed_label = '<div style="font-size:0.65rem;color:var(--color-muted)">выходной</div>'
             else:
                 closed_label = ""
             day_headers += (
                 f'<th style="text-align:center;font-size:0.75rem;padding:0.4rem;min-width:110px;{header_style}">'
-                f'{WEEKDAY_NAMES_RU[d.weekday()]} {d.strftime("%d.%m")}{closed_label}</th>'
+                f'{WEEKDAY_NAMES_RU[d.weekday()]} {d.strftime("%d")}{closed_label}</th>'
             )
             for h in row_hours:
                 within_hours = bool(hours) and hours[0].hour <= h < (hours[1].hour + (1 if hours[1].minute else 0))
                 slot_start = datetime.combine(d, datetime.min.time()).replace(hour=h)
                 slot_end = slot_start + timedelta(hours=1)
-                # Запись показываем ОДИН раз — в её стартовом часе (в ячейке видно полный интервал времени).
                 content = "".join(
-                    booking_cell_html(b, d) for b in bookings_by_date.get(d, [])
-                    if b.start_time < slot_end and b.end_time > slot_start
+                    booking_cell_html(b) for b in bookings_by_date.get(d, [])
+                    if b.start_time.hour == h
                 )
-                is_past = d < today
-                cell_class = "past-day-cell" if is_past else ""
-                cell_bg = "" if within_hours else "background: repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 6px, #fafafa 6px, #fafafa 12px);"
-                day_cols[h] += f'<td class="{cell_class}" style="padding:0.2rem;vertical-align:top;{cell_bg}">{content}</td>'
+                if not within_hours or is_outside:
+                    cell_bg = "background:rgba(0,0,0,0.05);"
+                else:
+                    cell_bg = ""
+                past_class = " past-day" if is_past else ""
+                day_cols[h] += f'<td class="{past_class}" style="padding:0.2rem;vertical-align:top;{cell_bg}">{content}</td>'
 
         rows_html = "".join(
             f'<tr><td class="time-label">{h}:00</td>{day_cols[h]}</tr>'
             for h in row_hours
         )
-        return f'<div class="schedule-grid"><table><thead><tr><th></th>{day_headers}</tr></thead><tbody>{rows_html}</tbody></table></div>'
+        return f'<div class="schedule-week-panel" data-week-index="{week_index}"><div class="schedule-grid"><table><thead><tr><th></th>{day_headers}</tr></thead><tbody>{rows_html}</tbody></table></div></div>'
 
-    # Навигация по неделям для десктопа
-    def _week_url(offset_weeks: int) -> str:
-        new_date = start_of_week + timedelta(weeks=offset_weeks)
-        params = {
-            "tab": "schedule",
-            "salon_id": salon.id,
-            "schedule_master_id": selected_master.id,
-            "date": new_date.isoformat(),
-        }
-        return f"/business/dashboard?{ '&'.join(f'{k}={v}' for k,v in params.items()) }"
+    # Группируем дни по неделям для десктопа
+    weeks_data = []
+    week_index = 0
+    for i in range(0, len(days), 7):
+        week_days = days[i:i+7]
+        while len(week_days) < 7:
+            last_day = week_days[-1] + timedelta(days=1)
+            week_days.append(last_day)
+        first_day = week_days[0]
+        month_name = MONTH_NAMES_RU[first_day.month - 1]
+        year_str = str(first_day.year)
+        weeks_data.append({
+            'index': week_index,
+            'month_name': month_name,
+            'year': year_str,
+            'days': week_days,
+        })
+        week_index += 1
 
-    week_nav_html = f"""
-        <div class="schedule-week-nav">
-            <a href="{_week_url(-1)}" class="schedule-nav-btn">{ICON_ARROW_LEFT}</a>
-            <span class="schedule-week-label">Неделя {start_of_week.strftime('%d.%m')} – {(start_of_week + timedelta(days=6)).strftime('%d.%m')}</span>
-            <a href="{_week_url(1)}" class="schedule-nav-btn">{ICON_ARROW_RIGHT}</a>
-        </div>
+    active_index = 0
+    for i, w in enumerate(weeks_data):
+        if today in w['days']:
+            active_index = i
+            break
+
+    weeks_panels_html = ""
+    for w in weeks_data:
+        panel = build_week_grid(w['days'], w['index'])
+        active_class = " active" if w['index'] == active_index else ""
+        weeks_panels_html += f'<div class="schedule-week-panel-wrapper{active_class}" data-week-index="{w["index"]}">{panel}</div>'
+
+    # Десктопная навигация
+    nav_desktop_html = f"""
+    <div class="schedule-nav-desktop">
+        <button class="schedule-nav-btn" id="schedulePrevWeek" title="Предыдущая неделя">{ICON_CHEVRON_LEFT}</button>
+        <span class="schedule-current-month" id="scheduleCurrentMonth">{weeks_data[active_index]['month_name']} {weeks_data[active_index]['year']}</span>
+        <button class="schedule-nav-btn" id="scheduleNextWeek" title="Следующая неделя">{ICON_CHEVRON_RIGHT}</button>
+    </div>
     """
 
-    # Собираем селект мастера
+    # Селектор мастера (общий)
     master_select_options = "".join(
         f'<option value="{m.id}"{" selected" if m.id == selected_master.id else ""}>{master_names.get(m.id, "—")} — {m.specialization}</option>'
         for m in masters
@@ -285,23 +353,44 @@ async def render_schedule_tab(
     </div>
     """
 
-    if not row_hours:
-        calendar_html = ('<div class="card" style="padding:2rem;text-align:center;color:var(--color-muted)">'
-                          'У салона не задан рабочий график — нечего показывать</div>')
-    else:
-        calendar_html = f"""
-        <div class="schedule-calendar">
-            <div class="schedule-week-nav">
-                {week_nav_html}
-                {master_select_html}
-            </div>
-            {build_week_grid()}
-        </div>"""
+    # ---------- Подготовка мобильных данных ----------
+    all_dates = sorted(set(d for d in days if d >= today))
+    mobile_bookings_by_date = {}
+    for date_obj in all_dates:
+        date_str = date_obj.isoformat()
+        bookings_list = bookings_by_date.get(date_obj, [])
+        cards_html = ""
+        for b in bookings_list:
+            cards_html += mobile_booking_cell_html(b)
+        mobile_bookings_by_date[date_str] = cards_html
 
-    # --- Блок закрытых дат ---
+    # Мобильный блок
+    import json
+    all_dates_json = json.dumps([d.isoformat() for d in all_dates])
+    mobile_bookings_json = json.dumps(mobile_bookings_by_date)
+
+    mobile_block_html = f"""
+    <div class="schedule-mobile-block">
+        <div class="schedule-mobile-master-select">
+            <select class="custom-select" onchange="window.location.href='/business/dashboard?tab=schedule&salon_id={salon.id}&schedule_master_id=' + this.value">
+                {master_select_options}
+            </select>
+        </div>
+        <div class="schedule-mobile-nav">
+            <button class="schedule-mobile-nav-btn" id="mobilePrevDay">{ICON_CHEVRON_LEFT}</button>
+            <input type="date" id="mobileDatePicker" class="schedule-mobile-datepicker custom-date">
+            <button class="schedule-mobile-nav-btn" id="mobileNextDay">{ICON_CHEVRON_RIGHT}</button>
+        </div>
+        <div class="schedule-mobile-bookings" id="mobileBookingsContainer">
+            <!-- Карточки будут вставлены JS -->
+        </div>
+    </div>
+    """
+
+    # ---------- Остальные блоки (без изменений) ----------
     closures_section = ""
     if can_close_dates:
-        upcoming_closures = await ScheduleService.list_closures(db, salon.id, start_of_week)
+        upcoming_closures = await ScheduleService.list_closures(db, salon.id)
         closures_html = ""
         for c in upcoming_closures:
             scope = master_names.get(c.master_id, f"Мастер #{c.master_id}") if c.master_id else "Весь салон"
@@ -309,143 +398,184 @@ async def render_schedule_tab(
             closures_html += f"""
             <div class="closure-item">
                 <span>{ICON_LOCK_SMALL} {c.date.strftime('%d.%m.%Y')} — {scope}{reason_html}</span>
-                <button onclick="reopenClosure({c.id})" class="btn-outline">Открыть</button>
+                <button onclick="reopenClosure({c.id})" class="btn-outline" style="font-size:0.75rem;padding:0.25rem 0.6rem">Открыть</button>
             </div>"""
+
         closure_master_options = "".join(f'<option value="{m.id}">{master_names.get(m.id, "—")}</option>' for m in masters)
 
         closures_section = f"""
         <div class="schedule-closures card">
             <div class="schedule-closures-header">
                 <h3>{ICON_CALENDAR_SMALL} Закрытые даты</h3>
-                <button class="btn-primary" onclick="document.getElementById('closeDateModal').classList.add('active')">{ICON_PLUS_SMALL} Закрыть дату</button>
+                <button class="btn-primary" style="font-size:0.85rem;padding:0.5rem 1rem" onclick="document.getElementById('closeDateModal').classList.add('active')">{ICON_PLUS_SMALL} Закрыть дату</button>
             </div>
             <div class="schedule-closures-list">
-                {closures_html or '<p class="text-muted">Ближайших закрытий нет</p>'}
+                {closures_html or '<p class="text-muted" style="font-size:0.85rem">Ближайших закрытий нет</p>'}
             </div>
         </div>
 
         <div class="schedule-modal-overlay" id="closeDateModal">
             <div class="schedule-modal-box">
                 <button class="schedule-modal-close" onclick="document.getElementById('closeDateModal').classList.remove('active')">&times;</button>
-                <h2>Закрыть дату</h2>
-                <div>
-                    <label>Дата *</label>
-                    <input type="date" id="closeDateInput" class="custom-date" required>
+                <h2 style="margin-bottom:1.5rem">Закрыть дату</h2>
+                <div style="margin-bottom:1rem">
+                    <label style="display:block;font-weight:500;margin-bottom:0.5rem">Дата *</label>
+                    <input type="date" id="closeDateInput" required style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
                 </div>
-                <div>
-                    <label>Кто закрывается</label>
-                    <select id="closeDateMaster" class="custom-select">
+                <div style="margin-bottom:1rem">
+                    <label style="display:block;font-weight:500;margin-bottom:0.5rem">Кто закрывается</label>
+                    <select id="closeDateMaster" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
                         <option value="">Весь салон</option>
                         {closure_master_options}
                     </select>
                 </div>
-                <div>
-                    <label>Причина</label>
-                    <input type="text" id="closeDateReason" placeholder="Праздник, ремонт, отпуск…">
+                <div style="margin-bottom:1rem">
+                    <label style="display:block;font-weight:500;margin-bottom:0.5rem">Причина</label>
+                    <input type="text" id="closeDateReason" placeholder="Праздник, ремонт, отпуск…" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
                 </div>
-                <button type="button" class="btn-primary" onclick="submitCloseDate()">Закрыть дату</button>
+                <button type="button" class="btn-primary" style="width:100%" onclick="submitCloseDate()">Закрыть дату</button>
             </div>
         </div>"""
 
-    # --- Формируем данные для JS (мобильная навигация) ---
-    week_data = []
-    for d in week_days:
-        day_bookings = []
-        for b in bookings_by_date.get(d, []):
-            svc = services_by_id.get(b.service_id)
-            client = clients_by_id.get(b.client_id)
-            status_label, status_class = _status_label(b.status)
-            day_bookings.append({
-                "id": b.id,
-                "time": b.start_time.strftime("%H:%M"),
-                "client_name": client.full_name if client else "Клиент",
-                "client_phone": client.phone if client else "",
-                "service_name": svc.name if svc else "—",
-                "price": b.final_price if b.final_price is not None else (svc.price if svc else 0),
-                "status": b.status.value,
-                "status_label": status_label,
-                "status_class": status_class,
-            })
-        week_data.append({
-            "date": d.isoformat(),
-            "day_name": WEEKDAY_NAMES_RU[d.weekday()],
-            "bookings": day_bookings,
-        })
+    # График работы мастера
+    sched_rows = (await db.execute(
+        select(Schedule).where(Schedule.master_id == selected_master.id)
+        .order_by(Schedule.day_of_week, Schedule.start_time)
+    )).scalars().all()
+    by_day: dict[int, list] = {i: [] for i in range(7)}
+    for r in sched_rows:
+        by_day[r.day_of_week].append((r.start_time.strftime("%H:%M"), r.end_time.strftime("%H:%M")))
+    has_custom_schedule = len(sched_rows) > 0
+    can_edit_schedule = can_manage_schedule or (
+        viewer_master_id is not None and viewer_master_id == selected_master.id
+    )
 
-    week_data_json = json.dumps(week_data, ensure_ascii=False)
-    week_days_json = json.dumps([d.isoformat() for d in week_days])
+    summary_rows = ""
+    for d in range(7):
+        if not has_custom_schedule:
+            value = '<span class="text-muted">по часам салона</span>'
+        elif by_day[d]:
+            value = " · ".join(f"{s}–{e}" for s, e in by_day[d])
+        else:
+            value = '<span class="text-muted">выходной</span>'
+        summary_rows += (
+            f'<div class="mschedule-row"><span class="mschedule-day">{WEEKDAY_NAMES_RU[d]}</span>'
+            f'<span class="mschedule-val">{value}</span></div>'
+        )
 
-    # --- Мобильный блок ---
-    month_ru = ["января", "февраля", "марта", "апреля", "мая", "июня",
-                "июля", "августа", "сентября", "октября", "ноября", "декабря"]
-    date_label = f"{schedule_date.day} {month_ru[schedule_date.month-1]} {schedule_date.year}"
+    edit_btn = (
+        f'<button class="btn-primary" style="font-size:0.85rem;padding:0.5rem 1rem" '
+        f'onclick="openMasterScheduleModal()">{ICON_PLUS_SMALL} Изменить график</button>'
+    ) if can_edit_schedule else ''
 
-    js_data = f"""
-    <script>
-        window.scheduleMasterId = {selected_master.id};
-        window.scheduleSalonId = {salon.id};
-        window.currentDate = '{schedule_date.isoformat()}';
-        window.canManageSchedule = {str(can_manage_schedule).lower()};
-        window.weekData = {week_data_json};
-        window.weekStart = '{start_of_week.isoformat()}';
-        window.weekDays = {week_days_json};
-    </script>
-    """
-
-    mobile_block = f"""
-        <div class="schedule-mobile-container">
-            <div class="schedule-mobile-nav">
-                <button class="schedule-nav-btn" data-offset="-1" title="Предыдущий день">{ICON_ARROW_LEFT}</button>
-                <span class="schedule-nav-date" id="mobile-date-label">{date_label}</span>
-                <button class="schedule-nav-btn" data-offset="1" title="Следующий день">{ICON_ARROW_RIGHT}</button>
-                <button class="schedule-nav-btn schedule-today-btn" data-offset="0" title="Сегодня">Сегодня</button>
+    schedule_work_section = f"""
+        <div class="mschedule card">
+            <div class="mschedule-header">
+                <h3>{ICON_CALENDAR_SMALL} График работы — {master_names.get(selected_master.id, "—")}</h3>
+                {edit_btn}
             </div>
-            <div class="schedule-mobile-list" id="schedule-mobile-list">
-                <!-- Рендерится JS -->
-            </div>
-        </div>
-        {js_data}
-    """
+            <div class="mschedule-list">{summary_rows}</div>
+            <p class="text-muted" style="font-size:0.8rem;margin-top:0.75rem">
+                Если график не задан — мастер работает по часам салона. Заданный график
+                ограничивает время, доступное клиентам для записи (в пределах часов салона).
+            </p>
+        </div>"""
 
-    # --- Итоговый HTML ---
+    master_schedule_modal = ""
+    if can_edit_schedule:
+        day_blocks = ""
+        for d in range(7):
+            intervals = by_day[d] if has_custom_schedule else []
+            rows_html = "".join(
+                f'<div class="mschedule-edit-row">'
+                f'<input type="time" class="ms-start" value="{s}">'
+                f'<span class="mschedule-edit-dash">–</span>'
+                f'<input type="time" class="ms-end" value="{e}">'
+                f'<button type="button" class="mschedule-edit-del" '
+                f'onclick="this.closest(\'.mschedule-edit-row\').remove()">&times;</button>'
+                f'</div>'
+                for s, e in intervals
+            )
+            day_blocks += f"""
+                <div class="mschedule-edit-day" data-day="{d}">
+                    <div class="mschedule-edit-day-head">
+                        <strong>{WEEKDAY_NAMES_FULL_RU[d]}</strong>
+                        <button type="button" class="btn-outline" style="font-size:0.75rem;padding:0.2rem 0.55rem" onclick="msAddRow({d})">{ICON_PLUS_SMALL} интервал</button>
+                    </div>
+                    <div class="mschedule-edit-rows" id="msRows{d}">{rows_html}</div>
+                </div>"""
+
+        master_schedule_modal = f"""
+        <div class="schedule-modal-overlay" id="masterScheduleModal">
+            <div class="schedule-modal-box mschedule-edit-box">
+                <button class="schedule-modal-close" onclick="document.getElementById('masterScheduleModal').classList.remove('active')">&times;</button>
+                <h2 style="margin-bottom:0.5rem">График работы</h2>
+                <p class="text-muted" style="font-size:0.8rem;margin-bottom:1rem">
+                    Оставьте день пустым — это выходной. Несколько интервалов в дне —
+                    сплит-смена (например 09:00–13:00 и 16:00–20:00).
+                </p>
+                <input type="hidden" id="msMasterId" value="{selected_master.id}">
+                <div class="mschedule-edit-days">{day_blocks}</div>
+                <button type="button" class="btn-primary" style="width:100%;margin-top:1rem" onclick="saveMasterSchedule()">Сохранить график</button>
+            </div>
+        </div>"""
+
+    weeks_json = json.dumps([
+        {
+            'index': w['index'],
+            'month_name': w['month_name'],
+            'year': w['year'],
+            'first_day': w['days'][0].strftime('%Y-%m-%d'),
+        }
+        for w in weeks_data
+    ])
+
+    # Итоговый HTML
     return f"""
     <div id="tab-schedule" class="tab-content">
         {evening_deal_html}
-        <!-- Мобильная версия -->
-        {mobile_block}
+        <div class="schedule-desktop-block">
+            <div class="schedule-calendar">
+                <div class="schedule-nav-wrapper">
+                    {nav_desktop_html}
+                    {master_select_html}
+                </div>
+                <div class="schedule-weeks-container" id="scheduleWeeksContainer">
+                    {weeks_panels_html}
+                </div>
+            </div>
+        </div>
 
-        <!-- Десктопная версия -->
-        <div class="schedule-desktop-container">
-            {calendar_html}
+        {mobile_block_html}
+
+        <div class="schedule-legend-wrapper">
             <div class="schedule-legend">
                 <span><span class="dot confirmed"></span> Подтверждено</span>
                 <span><span class="dot pending"></span> Ожидает</span>
                 <span><span class="dot closed"></span> Вне графика/закрыто</span>
-                <span><span class="dot past"></span> Прошедшие дни</span>
             </div>
-            {closures_section}
         </div>
 
+        {schedule_work_section}
+        {closures_section}
+    </div>
 
-        <!-- Модалка завершения -->
-        <div class="schedule-modal-overlay" id="completeBookingModal">
-            <div class="schedule-modal-box">
-                <button class="schedule-modal-close" onclick="document.getElementById('completeBookingModal').classList.remove('active')">&times;</button>
-                <h2>Завершить запись</h2>
-                <div id="completeModalBody">Загрузка…</div>
-                <button type="button" class="btn-primary" onclick="submitCompleteWithDiscount()">Подтвердить</button>
-            </div>
+    {master_schedule_modal}
+
+    <div class="schedule-modal-overlay" id="completeBookingModal">
+        <div class="schedule-modal-box">
+            <button class="schedule-modal-close" onclick="document.getElementById('completeBookingModal').classList.remove('active')">&times;</button>
+            <h2 style="margin-bottom:1rem">Завершить запись</h2>
+            <div id="completeModalBody" style="font-size:0.9rem">Загрузка…</div>
+            <button type="button" class="btn-primary" style="width:100%;margin-top:1rem" onclick="submitCompleteWithDiscount()">Подтвердить</button>
         </div>
     </div>
+
+    <script>
+        window.weekData = {weeks_json};
+        window.activeWeekIndex = {active_index};
+        window.mobileAllDates = {all_dates_json};
+        window.mobileBookingsByDate = {mobile_bookings_json};
+        window.mobileToday = "{today.isoformat()}";
+    </script>
     """
-
-
-def _status_label(status: BookingStatus):
-    labels = {
-        BookingStatus.PENDING: ("Ожидает", "pending"),
-        BookingStatus.CONFIRMED: ("Подтверждена", "confirmed"),
-        BookingStatus.COMPLETED: ("Завершена", "completed"),
-        BookingStatus.CANCELLED: ("Отменена", "cancelled"),
-        BookingStatus.NO_SHOW: ("Неявка", "no_show"),
-    }
-    return labels.get(status, (status.value, "cancelled"))

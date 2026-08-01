@@ -1,6 +1,6 @@
 // static/src/js/salon-detail.js
 
-(function() {
+(function () {
     const container = document.getElementById('booking-flow-container');
     if (!container) return;
 
@@ -40,14 +40,14 @@
     // ---- Шаг 1: Мастера ----
     function renderMasters() {
         document.querySelectorAll('.master-card .master-book-btn').forEach(btn => {
-            btn.addEventListener('click', function(e) {
+            btn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 const id = parseInt(this.dataset.masterId);
                 selectMaster(id);
             });
         });
         document.querySelectorAll('.master-card').forEach(card => {
-            card.addEventListener('click', function() {
+            card.addEventListener('click', function () {
                 const id = parseInt(this.dataset.masterId);
                 selectMaster(id);
             });
@@ -113,7 +113,7 @@
         document.getElementById('selected-service-price').textContent = `${service.price.toLocaleString()} ₽`;
 
         const today = new Date();
-        today.setHours(0,0,0,0);
+        today.setHours(0, 0, 0, 0);
         const dates = [];
         for (let i = 0; i < window.maxBookingDays; i++) {
             const d = new Date(today);
@@ -128,9 +128,9 @@
             const btn = document.createElement('button');
             btn.className = 'date-btn';
             const isToday = d.toDateString() === todayStr;
-            const dayLabel = isToday ? 'Сегодня' : ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'][d.getDay()];
+            const dayLabel = isToday ? 'Сегодня' : ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][d.getDay()];
             const dayNumber = d.getDate();
-            const month = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'][d.getMonth()];
+            const month = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][d.getMonth()];
             btn.innerHTML = `
                 <span class="day-label">${dayLabel}</span>
                 <span class="day-number">${dayNumber}</span>
@@ -184,7 +184,7 @@
                         const btn = document.createElement('button');
                         btn.className = 'time-btn';
                         const dt = new Date(slot);
-                        const timeStr = dt.toTimeString().slice(0,5);
+                        const timeStr = dt.toTimeString().slice(0, 5);
                         btn.textContent = timeStr;
                         btn.dataset.time = slot;
                         btn.addEventListener('click', () => selectTime(slot));
@@ -216,7 +216,7 @@
         const dateObj = new Date(date + 'T00:00:00');
         const dateStr = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
         const timeObj = new Date(time);
-        const timeStr = timeObj.toTimeString().slice(0,5);
+        const timeStr = timeObj.toTimeString().slice(0, 5);
         document.getElementById('breadcrumb-master-4').textContent = master.name;
         document.getElementById('breadcrumb-service-3').textContent = service.name;
         document.getElementById('breadcrumb-date-2').textContent = dateStr;
@@ -235,18 +235,18 @@
         document.querySelectorAll('.reminder-option').forEach(btn => {
             btn.classList.toggle('active', parseInt(btn.dataset.minutes) === state.reminder);
         });
-        toggle.onclick = function() {
+        toggle.onclick = function () {
             state.reminderEnabled = !state.reminderEnabled;
             this.classList.toggle('active');
         };
         document.querySelectorAll('.reminder-option').forEach(btn => {
-            btn.onclick = function() {
+            btn.onclick = function () {
                 document.querySelectorAll('.reminder-option').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 state.reminder = parseInt(this.dataset.minutes);
             };
         });
-        document.getElementById('reminder-next').onclick = function() {
+        document.getElementById('reminder-next').onclick = function () {
             goToStep('confirm');
             renderConfirm();
         };
@@ -261,9 +261,9 @@
         const dateObj = new Date(date + 'T00:00:00');
         const dateStr = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' });
         const timeObj = new Date(time);
-        const timeStr = timeObj.toTimeString().slice(0,5);
+        const timeStr = timeObj.toTimeString().slice(0, 5);
         const datetimeStr = `${dateStr} — ${timeStr}`;
-        const reminderLabel = state.reminderEnabled ? `За ${state.reminder >= 1440 ? 'день' : state.reminder >= 60 ? state.reminder/60 + ' часа' : state.reminder + ' мин'}` : 'Не напоминать';
+        const reminderLabel = state.reminderEnabled ? `За ${state.reminder >= 1440 ? 'день' : state.reminder >= 60 ? state.reminder / 60 + ' часа' : state.reminder + ' мин'}` : 'Не напоминать';
 
         document.getElementById('confirm-master').textContent = master.name;
         document.getElementById('confirm-master-spec').textContent = master.specialization;
@@ -280,7 +280,7 @@
             userBlock.style.display = 'none';
             const submitBtn = document.getElementById('confirm-submit');
             submitBtn.textContent = 'Войти или зарегистрироваться';
-            submitBtn.onclick = function() {
+            submitBtn.onclick = function () {
                 const stateData = {
                     masterId: master.id,
                     serviceId: service.id,
@@ -297,7 +297,7 @@
             document.getElementById('confirm-user-phone').textContent = userData.phone || '';
             const submitBtn = document.getElementById('confirm-submit');
             submitBtn.textContent = 'Записаться';
-            submitBtn.onclick = function() {
+            submitBtn.onclick = function () {
                 const data = {
                     master_id: master.id,
                     service_id: service.id,
@@ -308,24 +308,24 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
                 })
-                .then(r => r.json())
-                .then(result => {
-                    if (result.id) {
-                        alert('Запись успешно создана!');
-                        window.location.href = '/bookings';
-                    } else {
-                        alert(result.detail || 'Ошибка при создании записи');
-                    }
-                })
-                .catch(err => {
-                    alert('Сетевая ошибка, попробуйте позже.');
-                });
+                    .then(r => r.json())
+                    .then(result => {
+                        if (result.id) {
+                            alert('Запись успешно создана!');
+                            window.location.href = '/bookings';
+                        } else {
+                            alert(result.detail || 'Ошибка при создании записи');
+                        }
+                    })
+                    .catch(err => {
+                        alert('Сетевая ошибка, попробуйте позже.');
+                    });
             };
         }
     }
 
     // ---- Восстановление состояния после входа/регистрации с прокруткой ----
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const saved = localStorage.getItem('bookingState');
         if (saved && userData) {
             try {
@@ -353,7 +353,7 @@
                         }
                     }, 300);
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
     });
 
@@ -368,7 +368,7 @@
 
     // ---- Навигация по хлебным крошкам и кнопкам "назад" ----
     document.querySelectorAll('.breadcrumb-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const step = this.dataset.step;
             if (step === 'masters') {
                 state.master = null;
@@ -388,7 +388,7 @@
     });
 
     document.querySelectorAll('.back-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const step = this.dataset.step;
             goToStep(step);
             if (step === 'masters') {
@@ -427,12 +427,12 @@
                     }
                 });
             }
-        } catch (e) {}
+        } catch (e) { }
     }
     loadFavorites();
 
     document.querySelectorAll('.salon-top-fav, .master-fav-btn').forEach(btn => {
-        btn.addEventListener('click', async function(e) {
+        btn.addEventListener('click', async function (e) {
             e.preventDefault();
             e.stopPropagation();
             const type = this.dataset.type;
@@ -443,9 +443,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                 });
-                if (response.redirected) {
-                    // fetch сам сходил по редиректу на /login (не авторизован) —
-                    // response.ok при этом true, проверяем раньше него.
+                // Если редирект привел на страницу логина – перенаправляем пользователя
+                if (response.redirected && response.url.includes('/login')) {
                     window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
                 } else if (response.ok) {
                     if (isLiked) {
