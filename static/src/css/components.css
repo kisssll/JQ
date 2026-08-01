@@ -73,7 +73,7 @@
 
 #header-nav {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     max-width: 1440px;
     margin: 0 auto;
@@ -83,12 +83,19 @@
     pointer-events: none;
 }
 
+/* Плашка с лого сидит в самом левом верхнем углу ЭКРАНА, а не угле
+   #header-nav — та центрируется по max-width:1440px, и на широких экранах
+   margin:auto двигал её (и лого вместе с ней) вглубь, оставляя пустую
+   полосу фона слева. position:fixed убирает лого из этого центрируемого
+   потока совсем, поэтому зазора не будет на любой ширине экрана. */
 #header-logo-wrapper {
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
     display: flex;
     align-items: center;
-    height: 100%;
-    padding: 0 2.5rem 0 0; 
+    height: 60px;
+    padding: 0 2.5rem 0 1.5rem;
     z-index: 1;
     pointer-events: auto;
 }
@@ -96,14 +103,12 @@
 #header-logo-wrapper::before {
     content: '';
     position: absolute;
-    top: -5px;
+    top: -2px;
     bottom: -10px;
-    left: -3000px;
+    left: -2px;
     right: 0;
     background: var(--color-surface);
     z-index: -1;
-    transform-origin: top right;
-    transform: skewX(15deg);
     border-bottom-right-radius: 1.5rem;
     box-shadow: 6px 8px 24px rgba(0, 0, 0, 0.15);
 }
@@ -439,6 +444,22 @@
 
 .sidebar-user:hover {
     color: var(--color-heading);
+}
+
+/* Кнопка «Войти» (неавторизованный пользователь) — фиолетовая заливка,
+   белый жирный текст, а не наоборот, как раньше (белый фон, сиреневый текст). */
+.sidebar-user-login {
+    background: var(--color-primary);
+    color: #ffffff;
+    font-weight: 700;
+    justify-content: center;
+}
+.sidebar-user-login:hover,
+.sidebar-user-login:hover::before,
+.sidebar-user-login:hover::after {
+    background: var(--color-primary);
+    color: #ffffff;
+    opacity: 0.92;
 }
 
 .sidebar-user .sidebar-avatar {

@@ -32,7 +32,7 @@ def render_sidebar(current_page: str = "home", user=None) -> str:
         """
     else:
         user_block = f"""
-        <a class="sidebar-user" href="/login" style="font-weight: 600; color: var(--color-primary);">
+        <a class="sidebar-user sidebar-user-login" href="/login">
             {ICON_USER} Войти
         </a>
         """
