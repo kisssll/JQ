@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from app.models.models import Booking, BookingStatus, Service as ServiceModel, User as UserModel
 from app.services.schedule_utils import MAX_BOOKING_DAYS_AHEAD
+from app.services.booking_service import can_mark_completed_now
 from app.web.components.icons import (
     ICON_CALENDAR_DAYS,
     ICON_USER_CHECK,
@@ -12,6 +13,14 @@ from app.web.components.icons import (
     ICON_CHEVRON_DOWN,
     ICON_CHEVRON_UP,
 )
+
+
+# «Пришёл» доступна не раньше чем за час до начала записи; пока рано — кнопка
+# видна, но заблокирована с подсказкой (сервер тоже не даст, см. bookings.py).
+def _came_button(b, salon, too_early_title="Доступно за час до начала записи") -> str:
+    if can_mark_completed_now(b, salon.timezone):
+        return f'<button class="btn-action btn-action-success" onclick="recordMarkBooking({b.id}, \'complete\', this)">Пришёл</button>'
+    return f'<button class="btn-action btn-action-success" disabled title="{too_early_title}">Пришёл</button>'
 
 STATUS_LABELS = {
     BookingStatus.PENDING: ("Ожидает", "pending"),
@@ -89,7 +98,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
             """
         elif can_manage_schedule and b.status == BookingStatus.CONFIRMED:
             actions = f"""
-            <button class="btn-action btn-action-success" onclick="recordMarkBooking({b.id}, 'complete', this)">Пришёл</button>
+            {_came_button(b, salon)}
             <button class="btn-action btn-action-danger" onclick="recordMarkBooking({b.id}, 'no-show', this)">Не пришёл</button>
             """
         rows_html += f"""
@@ -121,7 +130,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
             """
         elif can_manage_schedule and b.status == BookingStatus.CONFIRMED:
             actions = f"""
-            <button class="btn-action btn-action-success" onclick="recordMarkBooking({b.id}, 'complete', this)">Пришёл</button>
+            {_came_button(b, salon)}
             <button class="btn-action btn-action-danger" onclick="recordMarkBooking({b.id}, 'no-show', this)">Не пришёл</button>
             """
         cards_html += f"""

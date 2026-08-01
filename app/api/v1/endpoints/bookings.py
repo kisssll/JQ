@@ -33,7 +33,7 @@ async def _salon_bookable(db, master_id: int) -> bool:
 from app.schemas.booking import BookingCreate, BookingResponse, BookingCancel
 from app.api.deps import get_current_user, get_salon_membership
 from app.services.notifications import notify_booking_cancelled, notify_booking_created, send_guest_booking_email
-from app.services.booking_service import BookingService
+from app.services.booking_service import BookingService, can_mark_completed_now
 from app.services.loyalty_service import LoyaltyService, LoyaltyError
 from app.services.schedule_utils import get_effective_work_intervals, is_within_booking_window, MAX_BOOKING_DAYS_AHEAD
 from app.utils.timezone import get_salon_time
@@ -394,6 +394,15 @@ async def complete_booking(
         raise HTTPException(status_code=404, detail="Запись не найдена")
     if not await _can_mark_booking(db, current_user, booking):
         raise HTTPException(status_code=403, detail="Нет прав отмечать эту запись")
+
+    # «Пришёл» нельзя отметить раньше, чем за час до начала записи.
+    master = (await db.execute(select(Master).where(Master.id == booking.master_id))).scalar_one_or_none()
+    salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none() if master else None
+    if not can_mark_completed_now(booking, salon.timezone if salon else None):
+        raise HTTPException(
+            status_code=409,
+            detail="«Пришёл» можно отметить не раньше чем за час до начала записи",
+        )
 
     wants_discount = body is not None and (body.discount_choice != "none" or body.bonus_points_redeemed)
     if wants_discount:

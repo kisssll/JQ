@@ -7,6 +7,7 @@ from sqlalchemy import select
 from app.models.models import Booking, Master, Service, User as UserModel, BookingStatus, ScheduleClosure, Schedule
 from app.services.schedule_utils import get_salon_work_hours, MAX_BOOKING_DAYS_AHEAD
 from app.services.schedule_service import ScheduleService
+from app.services.booking_service import can_mark_completed_now
 from app.web.components.hint import hint as _hint
 from app.web.components.icons import (
     ICON_CHECK_SMALL,
@@ -159,9 +160,19 @@ async def render_schedule_tab(
                         title="Отклонить запись" class="no-show-btn">{ICON_X} Отклонить</button>
             """
         elif can_manage_schedule and b.status == BookingStatus.CONFIRMED:
+            # «Пришёл» доступна не раньше чем за час до начала записи.
+            if can_mark_completed_now(b, salon.timezone):
+                came_btn = (
+                    f'<button onclick="event.stopPropagation();openCompleteModal({b.id}, {b.client_id})" '
+                    f'title="Клиент пришёл" class="complete-btn">{ICON_CHECK_SMALL} Пришёл</button>'
+                )
+            else:
+                came_btn = (
+                    f'<button disabled title="Доступно за час до начала записи" '
+                    f'class="complete-btn">{ICON_CHECK_SMALL} Пришёл</button>'
+                )
             actions = f"""
-                <button onclick="event.stopPropagation();openCompleteModal({b.id}, {b.client_id})"
-                        title="Клиент пришёл" class="complete-btn">{ICON_CHECK_SMALL} Пришёл</button>
+                {came_btn}
                 <button onclick="event.stopPropagation();markBooking({b.id}, 'no-show')"
                         title="Клиент не пришёл" class="no-show-btn">{ICON_X} Не пришёл</button>
             """
