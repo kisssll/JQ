@@ -23,6 +23,36 @@
         alert(`${dayName}\nВыручка: ${revenue.toLocaleString()} ₽\nПрошлая неделя: ${prevRevenue.toLocaleString()} ₽\n${trend} ${Math.abs(diff).toLocaleString()} ₽`);
     };
 
+    // Публикация салона после модерации: кнопка в шапке (баннер «прошёл
+    // модерацию»). Разовый шлюз — на успехе перезагружаем панель, чтобы баннер
+    // исчез и салон появился в каталоге. См. POST /api/v1/business/my-salon/publish.
+    function bindPublishBtn() {
+        const btn = document.getElementById('salonPublishBtn');
+        if (!btn) return;
+        btn.addEventListener('click', async function() {
+            if (!confirm('Опубликовать салон? Он появится в каталоге и поиске, откроется запись клиентов.')) return;
+            this.disabled = true;
+            try {
+                const res = await fetch(`/api/v1/business/my-salon/publish?salon_id=${this.dataset.salonId}`, { method: 'POST' });
+                if (res.ok) {
+                    window.location.reload();
+                } else {
+                    const d = await res.json().catch(() => ({}));
+                    alert(d.detail || 'Не удалось опубликовать салон');
+                    this.disabled = false;
+                }
+            } catch (e) {
+                alert('Ошибка сети, попробуйте ещё раз');
+                this.disabled = false;
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindPublishBtn);
+    } else {
+        bindPublishBtn();
+    }
+
     // Автоматическая активация вкладки при загрузке (по классу active уже проставлен)
     // Если нужно, можно добавить дополнительную инициализацию
     console.log('Business dashboard JS loaded');

@@ -58,6 +58,23 @@ from alembic.config import Config as AlembicConfig  # noqa: E402
 from app.core.config import settings  # noqa: E402  (уже с тестовым окружением)
 
 
+# ── Grandfather published_at в тестах ────────────────────────────────────────
+# Салон, СОЗДАННЫЙ сразу как approved (в обход боевого флоу «заявка → одобрение
+# → публикация»), считается уже опубликованным — ровно как боевой бэкфилл в
+# миграции a1b2c3d4e5f6. Одобрение через админ-эндпоинт делает UPDATE, а не
+# INSERT, поэтому листенер его НЕ трогает: published_at остаётся NULL до явной
+# публикации владельцем (это и проверяют тесты фичи публикации).
+from datetime import datetime as _dt, timezone as _tz  # noqa: E402
+from sqlalchemy import event as _sa_event  # noqa: E402
+from app.models.models import Salon as _Salon, SalonModerationStatus as _SMS  # noqa: E402
+
+
+@_sa_event.listens_for(_Salon, "before_insert")
+def _grandfather_published_at(_mapper, _connection, target):
+    if getattr(target, "published_at", None) is None and target.moderation_status == _SMS.APPROVED:
+        target.published_at = _dt.now(_tz.utc)
+
+
 # ── Сессионная подготовка: тестовая БД + миграции ────────────────────────────
 def _pg_dsn(db: str) -> str:
     return (

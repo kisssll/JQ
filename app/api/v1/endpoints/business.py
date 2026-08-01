@@ -308,6 +308,32 @@ async def toggle_salon_visibility(
     return {"is_hidden": salon.is_hidden}
 
 
+@router.post("/my-salon/publish")
+async def publish_salon(
+    salon_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Опубликовать салон после прохождения модерации (owner/manage_salon).
+
+    Одобрение админом больше не выводит салон в каталог само по себе — владелец
+    делает это вручную. Разовый шлюз: проставляет published_at один раз, дальше
+    видимостью рулит тумблер «скрыть/показать» (is_hidden). Идемпотентно —
+    повторный вызов ничего не ломает.
+    """
+    from datetime import datetime, timezone as _tz
+    await check_salon_permission(db, current_user, salon_id, "manage_salon")
+    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
+    if salon is None:
+        raise HTTPException(status_code=404, detail="Салон не найден")
+    if salon.moderation_status != SalonModerationStatus.APPROVED:
+        raise HTTPException(status_code=409, detail="Салон ещё не прошёл модерацию")
+    if salon.published_at is None:
+        salon.published_at = datetime.now(_tz.utc)
+        await db.commit()
+    return {"published": True, "published_at": salon.published_at.isoformat()}
+
+
 @router.get("/my-salon", response_model=SalonResponse)
 async def get_my_salon(
     salon: Salon = Depends(get_current_salon)

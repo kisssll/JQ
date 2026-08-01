@@ -59,6 +59,7 @@ async def search_salons(
             Salon.is_active == True,  # noqa: E712
             Salon.is_hidden == False,  # noqa: E712
             Salon.moderation_status == SalonModerationStatus.APPROVED,
+            Salon.published_at.isnot(None),
         ).order_by(Salon.name).limit(10)
     )).scalars().all()
     return [{"id": s.id, "name": s.name, "address": s.address} for s in rows]

@@ -353,6 +353,13 @@ class Salon(Base):
     rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Факт и время принятия оферты при подаче заявки.
     offer_accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Публикация после модерации: одобрение админом (moderation_status=approved)
+    # больше НЕ выбрасывает салон в каталог автоматически. Владелец сам жмёт
+    # «Опубликовать» в шапке панели → проставляется published_at. NULL = прошёл
+    # модерацию, но ещё ни разу не публиковался (полностью непубличен: нет в
+    # ленте/поиске, карточка/запись/гостевая запись закрыты). Разовый шлюз —
+    # назад не сбрасывается; дальнейшей видимостью рулит is_hidden.
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 class SalonPhoto(Base):
     __tablename__ = "salon_photos"

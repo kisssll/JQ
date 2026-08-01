@@ -297,6 +297,27 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
             f'<b>Заявка отклонена.</b>{reason} Свяжитесь с поддержкой.</div>'
         )
+    elif salon.published_at is None:
+        # Одобрен, но ещё не опубликован владельцем — поздравляем и даём кнопку.
+        # Пока не опубликован, салон полностью непубличен (нет в каталоге, запись
+        # закрыта). Кнопка шлёт AJAX → на успехе перезагружает панель (см.
+        # dashboard.js, #salonPublishBtn). Показываем только тем, кто вправе
+        # управлять салоном; остальным — просто поздравление.
+        can_publish = perms.get("manage_salon") if isinstance(perms, dict) else False
+        publish_btn = (
+            f'<button type="button" id="salonPublishBtn" data-salon-id="{salon.id}" '
+            'style="margin-top:0.75rem;background:#16a34a;color:#fff;border:none;'
+            'padding:0.6rem 1.2rem;border-radius:0.6rem;font-size:0.9rem;font-weight:600;cursor:pointer">'
+            f'{ICON_SPARKLES} Опубликовать салон</button>'
+        ) if can_publish else ''
+        moderation_banner = (
+            '<div style="background:#dcfce7;border:1px solid #16a34a;color:#166534;'
+            'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
+            '<b>Ваш салон прошёл модерацию!</b> Осталось опубликовать его — после '
+            'этого он появится в каталоге, поиске и откроется запись клиентов. '
+            'До публикации салон виден только вам.'
+            f'{publish_btn}</div>'
+        )
 
     header_html = f"""
     <div class="dashboard-header">
