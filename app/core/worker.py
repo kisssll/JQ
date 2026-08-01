@@ -13,11 +13,14 @@
 """
 from __future__ import annotations
 
-from arq import create_pool
+from arq import create_pool, cron
 from arq.connections import ArqRedis, RedisSettings
 
 from app.core.config import settings
-from app.tasks import process_payment_webhook, send_booking_reminder, send_email, send_sms, send_tg_message
+from app.tasks import (
+    process_payment_webhook, send_booking_reminder, send_email,
+    send_evening_deals_blast, send_sms, send_tg_message,
+)
 
 REDIS_SETTINGS = RedisSettings.from_dsn(settings.REDIS_URL)
 
@@ -54,7 +57,16 @@ async def _on_startup(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [send_sms, send_tg_message, send_booking_reminder, send_email, process_payment_webhook]
+    functions = [
+        send_sms, send_tg_message, send_booking_reminder, send_email,
+        process_payment_webhook, send_evening_deals_blast,
+    ]
+    # Ежедневная рассылка «вечерних окон со скидкой» в 18:00 по Томску (UTC+7).
+    # arq считает cron по локальному времени процесса; контейнер воркера в UTC,
+    # поэтому 11:00 UTC = 18:00 Томск. (Если TZ контейнера сменят — поправить.)
+    cron_jobs = [
+        cron(send_evening_deals_blast, hour={11}, minute={0}, run_at_startup=False),
+    ]
     redis_settings = REDIS_SETTINGS
     on_startup = _on_startup
     max_tries = 5            # потолок для Retry из задач (см. app/tasks.py)

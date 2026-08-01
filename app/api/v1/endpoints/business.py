@@ -14,7 +14,7 @@ from app.db.session import get_db
 from app.models.models import (
     User, Salon, SalonPhoto, Master, Service, Promotion,
     SalonMember, SalonRole, OWNER_DEFAULT_PERMISSIONS, AdminAudit, ClientNote,
-    SalonModel, UserRole, SalonModerationStatus,
+    SalonModel, UserRole, SalonModerationStatus, SalonEveningDeal,
 )
 from app.schemas.business import (
     SalonUpdateRequest,
@@ -332,6 +332,87 @@ async def publish_salon(
         salon.published_at = datetime.now(_tz.utc)
         await db.commit()
     return {"published": True, "published_at": salon.published_at.isoformat()}
+
+
+# ── Вечерние окна со скидкой ─────────────────────────────────────────────────
+from app.services.evening_deals_service import deal_to_dict as _deal_dict
+
+
+class EveningDealBody(BaseModel):
+    enabled: bool = False
+    discount_percent: int = 0
+    evening_from: str = "17:00"
+    evening_to: str = "21:00"
+    weekdays: List[int] = []
+    service_ids: List[int] = []
+
+
+@router.get("/my-salon/evening-deal")
+async def get_evening_deal(
+    salon_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Текущая настройка «вечерних окон со скидкой» салона (owner/manage_salon)."""
+    await check_salon_permission(db, current_user, salon_id, "manage_salon")
+    deal = (await db.execute(
+        select(SalonEveningDeal).where(SalonEveningDeal.salon_id == salon_id)
+    )).scalar_one_or_none()
+    return _deal_dict(deal)
+
+
+@router.post("/my-salon/evening-deal")
+async def set_evening_deal(
+    salon_id: int,
+    body: EveningDealBody,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Включить/настроить «вечерние окна со скидкой» (owner/manage_salon).
+
+    Upsert настройки салона. Валидация: скидка 1..99 при включении, диапазон
+    вечера корректный, дни 0..6, услуги — из этого салона.
+    """
+    from datetime import time as _time
+    await check_salon_permission(db, current_user, salon_id, "manage_salon")
+
+    def _parse_hm(v: str) -> _time:
+        try:
+            hh, mm = v.split(":")
+            return _time(int(hh), int(mm))
+        except Exception:
+            raise HTTPException(status_code=422, detail="Некорректное время (нужно ЧЧ:ММ)")
+
+    ev_from = _parse_hm(body.evening_from)
+    ev_to = _parse_hm(body.evening_to)
+    if body.enabled:
+        if not (1 <= body.discount_percent <= 99):
+            raise HTTPException(status_code=422, detail="Скидка должна быть от 1 до 99%")
+        if ev_from >= ev_to:
+            raise HTTPException(status_code=422, detail="Начало вечера должно быть раньше конца")
+    weekdays = sorted({d for d in body.weekdays if 0 <= d <= 6})
+    # Услуги — только активные услуги мастеров этого салона.
+    valid_ids = set((await db.execute(
+        select(Service.id).join(Master, Master.id == Service.master_id)
+        .where(Master.salon_id == salon_id)
+    )).scalars().all())
+    service_ids = sorted({s for s in body.service_ids if s in valid_ids})
+
+    deal = (await db.execute(
+        select(SalonEveningDeal).where(SalonEveningDeal.salon_id == salon_id)
+    )).scalar_one_or_none()
+    if deal is None:
+        deal = SalonEveningDeal(salon_id=salon_id)
+        db.add(deal)
+    deal.enabled = body.enabled
+    deal.discount_percent = body.discount_percent
+    deal.evening_from = ev_from
+    deal.evening_to = ev_to
+    deal.weekdays = weekdays
+    deal.service_ids = service_ids
+    await db.commit()
+    await db.refresh(deal)
+    return _deal_dict(deal)
 
 
 @router.get("/my-salon", response_model=SalonResponse)

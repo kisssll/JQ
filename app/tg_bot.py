@@ -125,12 +125,14 @@ async def _available_topics(db, user) -> list[str]:
     from app.services.notifications import (
         TOPIC_BOOKINGS,
         TOPIC_REMINDERS,
+        TOPIC_EVENING_DEALS,
         TOPIC_REPORTS,
         TOPIC_REVIEWS,
         TOPIC_WAREHOUSE,
     )
 
-    topics = [TOPIC_BOOKINGS, TOPIC_REMINDERS]  # клиентские — всем привязанным
+    # Клиентские — всем привязанным (вечерние скидки — opt-out, default вкл).
+    topics = [TOPIC_BOOKINGS, TOPIC_REMINDERS, TOPIC_EVENING_DEALS]
 
     is_master = (
         await db.execute(select(Master.id).where(Master.user_id == user.id, Master.is_active == True))  # noqa: E712

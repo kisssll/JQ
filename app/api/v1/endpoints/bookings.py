@@ -76,7 +76,21 @@ async def create_booking(
     final_price = await BookingService.calculate_price(current_user, service)
     start_time = booking_data.start_time.replace(tzinfo=None)
     end_time = start_time + timedelta(minutes=service.duration_minutes)
-    
+
+    # «Вечернее окно со скидкой»: если слот реально попадает в валидное вечернее
+    # окно салона (ре-валидация на сервере — клиенту не доверяем), применяем
+    # скидку к цене брони.
+    from app.services.evening_deals_service import evening_deal_discount, discounted_price
+    salon = (await db.execute(
+        select(Salon).join(Master, Master.salon_id == Salon.id).where(Master.id == booking_data.master_id)
+    )).scalar_one_or_none()
+    discount_percent = 0
+    if salon is not None:
+        ev = await evening_deal_discount(db, salon, start_time, service.id)
+        if ev > 0:
+            discount_percent = ev
+            final_price = discounted_price(final_price, ev)
+
     booking = Booking(
         client_id=current_user.id,
         master_id=booking_data.master_id,
@@ -84,6 +98,7 @@ async def create_booking(
         start_time=start_time.replace(tzinfo=None),
         end_time=end_time.replace(tzinfo=None),
         status=BookingStatus.PENDING,
+        discount_percent=discount_percent,
         final_price=final_price
     )
     

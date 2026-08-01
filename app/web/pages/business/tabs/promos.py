@@ -12,6 +12,7 @@ def render_promos_tab(
     salon_id: int = None,
     loyalty_settings=None,
     loyalty_offers=None,
+    evening_deal_html: str = "",
 ) -> str:
     """
     Вкладка Акции.
@@ -252,6 +253,7 @@ def render_promos_tab(
     return f'''
     <div id="tab-promos" class="tab-content promos-tab">
         {header}
+        {evening_deal_html}
         {table}
         {add_modal_html}
         {edit_modal_html}

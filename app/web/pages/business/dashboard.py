@@ -65,6 +65,22 @@ def _int_or_none(raw):
     return int(raw) if raw and str(raw).isdigit() else None
 
 
+async def _evening_deal_html(db: AsyncSession, salon: Salon, perms: dict) -> str:
+    """Секция «Вечерние окна со скидкой» — только тем, кто управляет салоном.
+    Дублируется во вкладках «Расписание» и «Акции» (см. компонент)."""
+    if not perms.get("manage_salon"):
+        return ""
+    from app.services.evening_deals_service import get_deal, deal_to_dict
+    from app.web.components.evening_deal import render_evening_deal_section
+    deal = await get_deal(db, salon.id)
+    services = (await db.execute(
+        select(Service).join(Master, Master.id == Service.master_id).where(
+            Master.salon_id == salon.id, Service.is_active == True,  # noqa: E712
+        ).order_by(Service.name)
+    )).scalars().all()
+    return render_evening_deal_section(salon, services, deal_to_dict(deal))
+
+
 async def render_dashboard_tab(
     db: AsyncSession, user, salon: Salon, membership: SalonMember,
     perms: dict, masters, master_ids, tab_name: str, query_params: dict,
@@ -93,6 +109,7 @@ async def render_dashboard_tab(
         return await render_schedule_tab(
             db, salon, masters, perms["manage_schedule"],
             _int_or_none(qp.get("schedule_master_id")),
+            evening_deal_html=await _evening_deal_html(db, salon, perms),
         )
 
     if tab_name == "employees":
@@ -145,6 +162,7 @@ async def render_dashboard_tab(
             salon_id=salon.id,
             loyalty_settings=loyalty_settings,
             loyalty_offers=loyalty_offers,
+            evening_deal_html=await _evening_deal_html(db, salon, perms),
         )
 
     if tab_name == "reviews":

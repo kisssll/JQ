@@ -17,6 +17,7 @@ class BookingResponse(BaseModel):
     start_time: datetime
     end_time: datetime
     status: BookingStatus
+    discount_percent: int = 0
     final_price: Optional[int] = None
     created_at: datetime
     

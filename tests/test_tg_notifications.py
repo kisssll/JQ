@@ -389,10 +389,10 @@ async def test_available_topics_follow_roles(db_session):
         inv_admin = (await db.execute(select(User).where(User.tg_chat_id == 1003))).scalar_one()
         creator = (await db.execute(select(User).where(User.tg_chat_id == 1001))).scalar_one()
 
-        assert await _available_topics(db, client) == ["bookings", "reminders"]
-        assert set(await _available_topics(db, master)) == {"bookings", "reminders", "warehouse", "reviews"}
-        assert set(await _available_topics(db, inv_admin)) == {"bookings", "reminders", "warehouse", "reviews", "reports"}
-        assert set(await _available_topics(db, creator)) == {"bookings", "reminders", "warehouse", "reviews", "reports"}
+        assert await _available_topics(db, client) == ["bookings", "reminders", "evening_deals"]
+        assert set(await _available_topics(db, master)) == {"bookings", "reminders", "evening_deals", "warehouse", "reviews"}
+        assert set(await _available_topics(db, inv_admin)) == {"bookings", "reminders", "evening_deals", "warehouse", "reviews", "reports"}
+        assert set(await _available_topics(db, creator)) == {"bookings", "reminders", "evening_deals", "warehouse", "reviews", "reports"}
 
 
 async def test_warehouse_respects_both_personal_filters(db_session, fake_pool):

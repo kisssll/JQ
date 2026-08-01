@@ -40,6 +40,15 @@ async def salons_page(request: Request, db: AsyncSession = Depends(get_db)):
     return HTMLResponse(content=html)
 
 
+@router.get("/evening-deals", response_class=HTMLResponse)
+async def evening_deals_page(request: Request, city: str = None, db: AsyncSession = Depends(get_db)):
+    """Публичная подборка «вечерние окна со скидкой» (ссылка из ТГ-рассылки)."""
+    user = await get_current_user_from_cookie(request, db)
+    from app.web.pages.evening_deals import render_evening_deals_page
+    html = await render_evening_deals_page(db, city, user)
+    return HTMLResponse(content=html)
+
+
 @router.get("/salons/{salon_id}", response_class=HTMLResponse)
 async def salon_detail_page(salon_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     """Страница конкретного салона."""
