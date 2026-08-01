@@ -1,6 +1,6 @@
 // static/src/js/salons.js
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Проверяем, что мы на странице салонов
     if (!document.getElementById('searchInput')) {
         return;
@@ -71,11 +71,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         navigator.geolocation.getCurrentPosition(
-            function(pos) {
+            function (pos) {
                 userCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
                 applySort();
             },
-            function() {
+            function () {
                 alert('Не удалось определить местоположение — разрешите доступ к геолокации в браузере.');
                 if (sortSelect) sortSelect.value = 'rating';
                 filterState.sort = 'rating';
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (searchInput) {
-        searchInput.addEventListener('input', function() {
+        searchInput.addEventListener('input', function () {
             filterState.query = this.value.toLowerCase().trim();
             applyFilters();
         });
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     document.querySelectorAll('#ratingFilterGroup .filter-chip').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             document.querySelectorAll('#ratingFilterGroup .filter-chip').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             filterState.minRating = parseFloat(this.dataset.minRating) || 0;
@@ -149,14 +149,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const promoToggle = document.getElementById('promoOnlyToggle');
     if (promoToggle) {
-        promoToggle.addEventListener('change', function() {
+        promoToggle.addEventListener('change', function () {
             filterState.promoOnly = this.checked;
             applyFilters();
         });
     }
 
     if (sortSelect) {
-        sortSelect.addEventListener('change', function() {
+        sortSelect.addEventListener('change', function () {
             filterState.sort = this.value;
             if (filterState.sort === 'distance' && !userCoords) {
                 requestGeolocationAndSort();
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const favButtons = document.querySelectorAll('.favorite-btn');
 
     favButtons.forEach(btn => {
-        btn.addEventListener('click', async function(e) {
+        btn.addEventListener('click', async function (e) {
             e.preventDefault();
             const type = this.dataset.type;
             const id = this.dataset.id;
@@ -184,11 +184,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     headers: { 'Content-Type': 'application/json' },
                 });
 
-                if (response.redirected) {
-                    // fetch сам сходил по редиректу на /login (не авторизован) —
-                    // response.ok при этом true (страница логина отдаёт 200),
-                    // поэтому проверяем ДО response.ok, иначе выглядело бы
-                    // как успешное добавление в избранное.
+                if (response.redirected && response.url.includes('/login')) {
                     window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
                 } else if (response.ok) {
                     if (isLiked) {

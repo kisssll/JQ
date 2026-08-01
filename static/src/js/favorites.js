@@ -1,6 +1,6 @@
 // static/src/js/favorites.js
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Проверяем, что мы на странице избранного
     if (!document.querySelector('.favorites-main')) {
         return;
@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const removeButtons = document.querySelectorAll('.fav-remove-btn');
 
     removeButtons.forEach(btn => {
-        btn.addEventListener('click', async function(e) {
+        btn.addEventListener('click', async function (e) {
             e.preventDefault();
             const type = this.dataset.type;
             const id = this.dataset.id;
@@ -25,17 +25,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     headers: { 'Content-Type': 'application/json' },
                 });
 
-                if (response.redirected) {
-                    // Сессия истекла прямо на странице избранного — fetch сам
-                    // сходил на /login, response.ok при этом true, поэтому
-                    // проверяем раньше него.
+                if (response.redirected && response.url.includes('/login')) {
                     window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
                 } else if (response.ok) {
-                    // Без хрупких прогулок по DOM: убрали карточку; была
-                    // последней — сервер сам нарисует «пусто» при reload.
-                    // (Раньше: card.remove() отсоединял узел, closest() по
-                    // отсоединённому возвращал null → TypeError улетал в catch
-                    // и показывал «Ошибка соединения» при успешном удалении.)
                     if (card) card.remove();
                     if (!document.querySelector('.fav-card')) location.reload();
                 } else {
