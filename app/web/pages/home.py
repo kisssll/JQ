@@ -127,44 +127,26 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                 </div>
 
                 <!-- Блок с 4 шагами -->
-                <div class="steps-block">
-                    <div class="steps-grid">
-                        <!-- 01 -->
-                        <div class="step-item">
-                            <div class="step-number">
-                                <span class="step-num">01</span>
-                                <span class="step-dot" style="color:var(--color-primary);">.</span>
-                            </div>
-                            <h3 class="step-headline">Салон</h3>
-                            <p class="step-desc">Выберите подходящий салон с нужным мастером.</p>
-                        </div>
-                        <!-- 02 -->
-                        <div class="step-item">
-                            <div class="step-number">
-                                <span class="step-num">02</span>
-                                <span class="step-dot" style="color:var(--color-primary);">.</span>
-                            </div>
-                            <h3 class="step-headline">Услуга</h3>
-                            <p class="step-desc">Выберите что нужно сделать.</p>
-                        </div>
-                        <!-- 03 -->
-                        <div class="step-item">
-                            <div class="step-number">
-                                <span class="step-num">03</span>
-                                <span class="step-dot" style="color:var(--color-primary);">.</span>
-                            </div>
-                            <h3 class="step-headline">Время</h3>
-                            <p class="step-desc">Возьмите свободное окно.</p>
-                        </div>
-                        <!-- 04 -->
-                        <div class="step-item">
-                            <div class="step-number">
-                                <span class="step-num">04</span>
-                                <span class="step-dot" style="color:var(--color-primary);">.</span>
-                            </div>
-                            <h3 class="step-headline">Готово</h3>
-                            <p class="step-desc">Приходите. Напоминание придёт само.</p>
-                        </div>
+                <div class="steps-grid">
+                    <div class="step-item">
+                        <span class="step-num">1</span>
+                        <h3 class="step-headline">Салон</h3>
+                        <p class="step-desc">Выберите подходящий салон с нужным мастером.</p>
+                    </div>
+                    <div class="step-item">
+                        <span class="step-num">2</span>
+                        <h3 class="step-headline">Услуга</h3>
+                        <p class="step-desc">Выберите что нужно сделать.</p>
+                    </div>
+                    <div class="step-item">
+                        <span class="step-num">3</span>
+                        <h3 class="step-headline">Время</h3>
+                        <p class="step-desc">Возьмите свободное окно.</p>
+                    </div>
+                    <div class="step-item">
+                        <span class="step-num">4</span>
+                        <h3 class="step-headline">Готово</h3>
+                        <p class="step-desc">Приходите. Напоминание придёт само.</p>
                     </div>
                 </div>
             </div>
