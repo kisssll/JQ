@@ -17,6 +17,7 @@ from app.services.loyalty_service import LoyaltyService
 from app.services.schedule_utils import MAX_BOOKING_DAYS_AHEAD, format_working_hours_summary
 from app.web.components.icons import (
     ICON_ARROW_LEFT,
+    ICON_ARROW_RIGHT,
     ICON_HEART,
     ICON_HEART_FILLED,
     ICON_MAP_PIN,
@@ -165,30 +166,44 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
 
     masters_list_html = ""
     for m in masters_data:
-        avatar_html = f'<img src="{m["avatar"]}" alt="{m["name"]}">' if m["avatar"] else f'<div class="master-avatar-placeholder">{m["name"][0].upper()}</div>'
+        # Аватар или заглушка
+        if m["avatar"]:
+            avatar_html = f'<img src="{m["avatar"]}" alt="{m["name"]}">'
+        else:
+            avatar_html = f'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));color:#fff;font-size:3rem;font-weight:700">{m["name"][0].upper()}</div>'
+
         masters_list_html += f"""
         <div class="master-card" data-master-id="{m["id"]}">
-            <div class="master-image-box">
-                {avatar_html}
-                <button class="favorite-btn master-fav-btn"
-                        data-type="master"
-                        data-id="{m["id"]}"
-                        data-icon-heart="{heart_svg}"
-                        data-icon-heart-filled="{heart_filled_svg}"
-                        title="В избранное">
-                    <span class="heart-icon">{ICON_HEART}</span>
-                </button>
-            </div>
-            <div class="master-info-box">
-                <div>
-                    <div class="master-name">{m["name"]}</div>
-                    <div class="master-spec">{m["specialization"]}</div>
+            <div class="master-card-inner">
+                <div class="master-image-box">
+                    {avatar_html}
+                    <button class="favorite-btn master-fav-btn" 
+                            data-type="master" 
+                            data-id="{m["id"]}" 
+                            data-icon-heart="{heart_svg}"
+                            data-icon-heart-filled="{heart_filled_svg}"
+                            title="В избранное">
+                        <span class="heart-icon">{ICON_HEART}</span>
+                    </button>
                 </div>
-                <div class="master-stats">
-                    <span>опыт: {m["experience"]} лет</span>
-                    <span>⭐ {m["rating"]:.1f}</span>
+                <div class="master-info-box">
+                    <div>
+                        <h3 class="master-name">{m["name"]}</h3>
+                        <p class="master-spec">
+                            {ICON_MAP_PIN}
+                            {m["specialization"] or 'Специализация не указана'}
+                        </p>
+                    </div>
+                    <p class="master-desc" style="min-height:0;"></p>
+                    <div class="master-stats-chips">
+                        <span class="chip">⭐ {m["rating"]:.1f}</span>
+                        <span class="chip">опыт {m["experience"]} лет</span>
+                    </div>
+                    <button class="master-book-btn" data-master-id="{m["id"]}">
+                        Выбрать
+                        {ICON_ARROW_RIGHT}
+                    </button>
                 </div>
-                <button class="btn-primary master-book-btn" data-master-id="{m["id"]}">Выбрать</button>
             </div>
         </div>
         """
