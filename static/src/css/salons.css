@@ -100,17 +100,103 @@
     gap: 0.5rem;
 }
 
-.filter-label {
+/* Категории — кнопка, открывающая чек-лист с неограниченным числом
+   вариантов (список будет расти, ряд из чипов на всех бы не поместился). */
+.category-dropdown {
+    position: relative;
+}
+
+.category-dropdown-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-heading);
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.category-dropdown-btn svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+.category-dropdown-btn:hover {
+    border-color: var(--color-accent);
+}
+.category-dropdown.open .category-dropdown-btn {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+.category-dropdown.open .category-dropdown-btn svg:last-child {
+    transform: rotate(180deg);
+}
+.category-dropdown-btn svg:last-child {
+    transition: transform 0.15s;
+}
+
+.category-dropdown-panel {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    min-width: 15rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    padding: 0.5rem;
+    display: none;
+    flex-direction: column;
+    max-height: 20rem;
+    overflow-y: auto;
+}
+
+/* [hidden] и .category-dropdown-panel — одинаковая специфичность (0,1,0),
+   значит без явного :not([hidden]) авторский display:flex молча побеждал
+   бы UA-правило [hidden]{display:none}, и панель была бы открыта по
+   умолчанию. Показываем только когда родитель .open — JS снимает [hidden]. */
+.category-dropdown.open .category-dropdown-panel:not([hidden]) {
+    display: flex;
+}
+
+.category-option {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--color-heading);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.category-option:hover {
+    background: var(--color-surface-alt);
+}
+.category-option input {
+    accent-color: var(--color-accent);
+}
+
+.category-clear-btn {
+    margin-top: 0.35rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--color-border);
+    background: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
     font-size: 0.8rem;
     color: var(--color-muted);
-    margin-right: 0.25rem;
+    cursor: pointer;
+    text-align: left;
 }
-.filter-label svg {
-    width: 0.9rem;
-    height: 0.9rem;
+.category-clear-btn:hover {
+    color: var(--color-accent);
 }
 
 .filter-chip {
@@ -136,8 +222,18 @@
 
 .filter-controls {
     justify-content: space-between;
+    align-items: center;
     border-top: 1px solid var(--color-border);
     padding-top: 0.75rem;
+    gap: 1rem;
+}
+
+/* Фильтры (рейтинг + акции) — своя группа слева, чтобы не сливаться с сортировкой. */
+.filter-controls-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
 }
 
 .filter-group {
@@ -159,6 +255,7 @@
     accent-color: var(--color-accent);
 }
 
+/* Сортировка — отдельная зона справа, отбита вертикальной чертой от фильтров. */
 .sort-group {
     display: flex;
     align-items: center;
@@ -166,6 +263,9 @@
     font-size: 0.8rem;
     color: var(--color-muted);
     margin-left: auto;
+    padding-left: 1rem;
+    border-left: 1px solid var(--color-border);
+    white-space: nowrap;
 }
 
 .sort-select {
@@ -185,6 +285,10 @@
     }
     .sort-group {
         margin-left: 0;
+        padding-left: 0;
+        border-left: none;
+        border-top: 1px solid var(--color-border);
+        padding-top: 0.75rem;
         justify-content: space-between;
     }
 }
@@ -289,20 +393,21 @@
     fill: #ef4444;
 }
 
+/* Бейдж рейтинга — верхний правый угол инфо-части карточки (не на фото,
+   не в блоке акций). Плоский светлый чип, а не тёмная плашка поверх фото —
+   она была уместна только оверлеем на картинке. */
 .salon-rating-badge {
-    position: absolute;
-    left: 0.75rem;
-    bottom: 0.75rem;
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(4px);
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.5rem;
-    color: white;
-    font-size: 0.75rem;
+    flex-shrink: 0;
+    background: var(--color-accent-light);
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    color: var(--color-heading);
+    font-size: 0.8rem;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .salon-rating-badge svg {
@@ -314,8 +419,8 @@
 
 .salon-rating-badge .rating-count {
     font-weight: 400;
-    opacity: 0.7;
-    font-size: 0.65rem;
+    color: var(--color-muted);
+    font-size: 0.7rem;
 }
 
 .salon-info {
@@ -325,6 +430,13 @@
     justify-content: center;
     gap: 0.75rem;
     padding: 1.25rem;
+}
+
+.salon-info-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
 }
 
 .salon-name {

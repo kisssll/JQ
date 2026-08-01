@@ -13,7 +13,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const emptyState = document.getElementById('salonsEmptyState');
     const sortSelect = document.getElementById('sortSelect');
 
-    const filterState = { query: '', category: '', minRating: 0, promoOnly: false, sort: 'rating' };
+    // categories — Set: пусто = без фильтра по категории, иначе матч по
+    // «хотя бы одна из выбранных» (OR), а не «все сразу».
+    const filterState = { query: '', categories: new Set(), minRating: 0, promoOnly: false, sort: 'rating' };
     let userCoords = null; // {lat, lon} — заполняется после согласия на геолокацию
 
     function applyFilters() {
@@ -26,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const matches = (
                 (!filterState.query || haystack.includes(filterState.query)) &&
-                (!filterState.category || categories.includes(filterState.category)) &&
+                (filterState.categories.size === 0 || categories.some(c => filterState.categories.has(c))) &&
                 (rating >= filterState.minRating) &&
                 (!filterState.promoOnly || hasPromo)
             );
@@ -88,14 +90,53 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    document.querySelectorAll('.filter-categories .filter-chip[data-category]').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.filter-categories .filter-chip').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            filterState.category = this.dataset.category;
-            applyFilters();
+    // === Категории: кнопка-дропдаун с чек-листом (без ограничения по числу) ===
+    const categoryDropdown = document.getElementById('categoryDropdown');
+    const categoryDropdownBtn = document.getElementById('categoryDropdownBtn');
+    const categoryDropdownPanel = document.getElementById('categoryDropdownPanel');
+    const categoryDropdownLabel = document.getElementById('categoryDropdownLabel');
+    const categoryClearBtn = document.getElementById('categoryClearBtn');
+
+    function updateCategoryLabel() {
+        if (!categoryDropdownLabel) return;
+        const n = filterState.categories.size;
+        categoryDropdownLabel.textContent = n === 0 ? 'Категории' : `Категории (${n})`;
+    }
+
+    if (categoryDropdown && categoryDropdownBtn && categoryDropdownPanel) {
+        categoryDropdownBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isOpen = categoryDropdown.classList.toggle('open');
+            categoryDropdownPanel.hidden = !isOpen;
         });
-    });
+
+        // Клик вне дропдауна — закрыть.
+        document.addEventListener('click', function(e) {
+            if (!categoryDropdown.contains(e.target)) {
+                categoryDropdown.classList.remove('open');
+                categoryDropdownPanel.hidden = true;
+            }
+        });
+
+        categoryDropdownPanel.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                if (this.checked) filterState.categories.add(this.value);
+                else filterState.categories.delete(this.value);
+                updateCategoryLabel();
+                applyFilters();
+            });
+        });
+
+        if (categoryClearBtn) {
+            categoryClearBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                filterState.categories.clear();
+                categoryDropdownPanel.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+                updateCategoryLabel();
+                applyFilters();
+            });
+        }
+    }
 
     document.querySelectorAll('#ratingFilterGroup .filter-chip').forEach(btn => {
         btn.addEventListener('click', function() {

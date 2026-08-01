@@ -15,6 +15,7 @@ from app.web.components.icons import (
     ICON_HEART_FILLED,
     ICON_ARROW_RIGHT,
     ICON_FILTER,
+    ICON_CHEVRON_DOWN,
 )
 
 # Категории услуг для чипов на карточках и фильтра — единый источник, чтобы
@@ -146,28 +147,30 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
             <div class="salon-card-inner">
                 <div class="salon-image">
                     {image_html}
-                    <button class="favorite-btn" 
-                            data-type="salon" 
-                            data-id="{s.id}" 
+                    <button class="favorite-btn"
+                            data-type="salon"
+                            data-id="{s.id}"
                             data-icon-heart="{heart_svg}"
                             data-icon-heart-filled="{heart_filled_svg}"
                             title="В избранное">
                         <span class="heart-icon">{ICON_HEART}</span>
                     </button>
-                    <div class="salon-rating-badge">
-                        {ICON_STAR_FILLED}
-                        <span class="rating-value">{rating:.1f}</span>
-                        <span class="rating-count">({reviews})</span>
-                    </div>
                 </div>
 
                 <div class="salon-info">
-                    <div>
-                        <h3 class="salon-name">{s.name}</h3>
-                        <p class="salon-address">
-                            {ICON_MAP_PIN}
-                            {s.address or 'Адрес не указан'}
-                        </p>
+                    <div class="salon-info-header">
+                        <div>
+                            <h3 class="salon-name">{s.name}</h3>
+                            <p class="salon-address">
+                                {ICON_MAP_PIN}
+                                {s.address or 'Адрес не указан'}
+                            </p>
+                        </div>
+                        <div class="salon-rating-badge">
+                            {ICON_STAR_FILLED}
+                            <span class="rating-value">{rating:.1f}</span>
+                            <span class="rating-count">({reviews})</span>
+                        </div>
                     </div>
                     <p class="salon-desc">{s.description or ''}</p>
                     <div class="services-chips">
@@ -193,31 +196,41 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
         </div>
         """
 
-    category_chips = "".join(
-        f'<button type="button" class="filter-chip" data-category="{cat}">{cat.capitalize()}</button>'
+    category_options = "".join(
+        f'<label class="category-option"><input type="checkbox" value="{cat}"> {cat.capitalize()}</label>'
         for cat in SERVICE_CATEGORIES
     )
 
     filter_bar = f"""
     <div class="salons-filter-bar">
         <div class="filter-row filter-categories">
-            <span class="filter-label">{ICON_FILTER} Категория:</span>
-            <button type="button" class="filter-chip active" data-category="">Все</button>
-            {category_chips}
+            <div class="category-dropdown" id="categoryDropdown">
+                <button type="button" class="category-dropdown-btn" id="categoryDropdownBtn">
+                    {ICON_FILTER}
+                    <span id="categoryDropdownLabel">Категории</span>
+                    {ICON_CHEVRON_DOWN}
+                </button>
+                <div class="category-dropdown-panel" id="categoryDropdownPanel" hidden>
+                    {category_options}
+                    <button type="button" class="category-clear-btn" id="categoryClearBtn">Сбросить</button>
+                </div>
+            </div>
         </div>
         <div class="filter-row filter-controls">
-            <div class="filter-group" id="ratingFilterGroup">
-                <button type="button" class="filter-chip active" data-min-rating="0">Любой рейтинг</button>
-                <button type="button" class="filter-chip" data-min-rating="4.5">от 4.5</button>
-                <button type="button" class="filter-chip" data-min-rating="4">от 4.0</button>
-                <button type="button" class="filter-chip" data-min-rating="3.5">от 3.5</button>
+            <div class="filter-controls-left">
+                <div class="filter-group" id="ratingFilterGroup">
+                    <button type="button" class="filter-chip active" data-min-rating="0">Любой рейтинг</button>
+                    <button type="button" class="filter-chip" data-min-rating="4.5">от 4.5</button>
+                    <button type="button" class="filter-chip" data-min-rating="4">от 4.0</button>
+                    <button type="button" class="filter-chip" data-min-rating="3.5">от 3.5</button>
+                </div>
+                <label class="promo-toggle">
+                    <input type="checkbox" id="promoOnlyToggle">
+                    Только с акциями
+                </label>
             </div>
-            <label class="promo-toggle">
-                <input type="checkbox" id="promoOnlyToggle">
-                Только с акциями
-            </label>
             <div class="sort-group">
-                <label for="sortSelect">Сортировка:</label>
+                <label for="sortSelect">Сортировка</label>
                 <select id="sortSelect" class="sort-select">
                     <option value="rating">По рейтингу</option>
                     <option value="reviews">По отзывам</option>
