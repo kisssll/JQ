@@ -80,6 +80,7 @@ async def create_or_update_salon(
     name: str = Form(...),
     description: str = Form(""),
     address: str = Form(...),
+    city: str = Form(""),
     phone: str = Form(...),
     email: str = Form(""),
     method_override: str = Form(""),
@@ -112,6 +113,8 @@ async def create_or_update_salon(
         salon.name = name
         salon.description = description
         salon.address = address
+        if city.strip():
+            salon.city = city.strip()
         salon.phone = phone
         salon.email = email.strip() or None
         await db.commit()
@@ -125,6 +128,14 @@ async def create_or_update_salon(
         from app.web.pages.register_salon import render_register_salon_page
         return HTMLResponse(
             content=render_register_salon_page(user, error="Нужно принять условия оферты."),
+            status_code=400,
+        )
+
+    from app.web.cities import RUSSIAN_CITIES
+    if city not in RUSSIAN_CITIES:
+        from app.web.pages.register_salon import render_register_salon_page
+        return HTMLResponse(
+            content=render_register_salon_page(user, error="Выберите город из списка."),
             status_code=400,
         )
 
@@ -152,6 +163,7 @@ async def create_or_update_salon(
         name=name,
         description=description,
         address=address,
+        city=city,
         phone=phone,
         email=email.strip() or None,
         latitude=salon_latitude,
@@ -450,6 +462,11 @@ async def update_my_salon(
                     detail="Выберите адрес из подсказок, чтобы определить точные координаты",
                 )
         salon.address = update_data.address
+    if update_data.city is not None:
+        from app.web.cities import RUSSIAN_CITIES
+        if update_data.city not in RUSSIAN_CITIES:
+            raise HTTPException(status_code=400, detail="Выберите город из списка")
+        salon.city = update_data.city
     if _validate_coords(update_data.latitude, update_data.longitude):
         salon.latitude = update_data.latitude
         salon.longitude = update_data.longitude

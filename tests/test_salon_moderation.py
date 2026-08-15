@@ -99,7 +99,7 @@ async def test_registration_requires_offer(client, db_session):
     assert r.status_code == 400
     # с офертой — создаётся ЗАЯВКА (pending), фиксируется offer_accepted_at
     r = await client.post("/api/v1/business/my-salon", data={
-        "name": "С офертой", "address": "Томск", "phone": "+79991112233",
+        "name": "С офертой", "address": "Томск", "city": "Томск", "phone": "+79991112233",
         "offer_accepted": "1",
     })
     assert r.status_code in (302, 303)

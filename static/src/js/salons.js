@@ -15,7 +15,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // categories — Set: пусто = без фильтра по категории, иначе матч по
     // «хотя бы одна из выбранных» (OR), а не «все сразу».
-    const filterState = { query: '', categories: new Set(), minRating: 0, promoOnly: false, sort: 'rating' };
+    // city — пусто = «Все города», иначе точное совпадение с data-city карточки.
+    const filterState = { query: '', categories: new Set(), minRating: 0, promoOnly: false, sort: 'rating', city: '' };
     let userCoords = null; // {lat, lon} — заполняется после согласия на геолокацию
 
     function applyFilters() {
@@ -25,12 +26,14 @@ document.addEventListener('DOMContentLoaded', function () {
             const categories = (card.dataset.categories || '').split(' ');
             const rating = parseFloat(card.dataset.rating) || 0;
             const hasPromo = card.dataset.hasPromo === '1';
+            const city = card.dataset.city || '';
 
             const matches = (
                 (!filterState.query || haystack.includes(filterState.query)) &&
                 (filterState.categories.size === 0 || categories.some(c => filterState.categories.has(c))) &&
                 (rating >= filterState.minRating) &&
-                (!filterState.promoOnly || hasPromo)
+                (!filterState.promoOnly || hasPromo) &&
+                (!filterState.city || city === filterState.city)
             );
             card.style.display = matches ? '' : 'none';
             if (matches) anyVisible = true;
@@ -96,11 +99,44 @@ document.addEventListener('DOMContentLoaded', function () {
     const categoryDropdownPanel = document.getElementById('categoryDropdownPanel');
     const categoryDropdownLabel = document.getElementById('categoryDropdownLabel');
     const categoryClearBtn = document.getElementById('categoryClearBtn');
+    const categoryOptions = Array.from(document.querySelectorAll('.category-option'));
+    const categoryEmptyHint = document.getElementById('categoryEmptyHint');
 
     function updateCategoryLabel() {
         if (!categoryDropdownLabel) return;
         const n = filterState.categories.size;
         categoryDropdownLabel.textContent = n === 0 ? 'Категории' : `Категории (${n})`;
+    }
+
+    // «Умный» список категорий: в выбранном городе показываем только те,
+    // которые реально предлагает хотя бы один салон (по услугам мастеров,
+    // см. match_category_slugs на бэкенде) — остальные скрываем из списка,
+    // а не просто делаем неактивными.
+    function updateAvailableCategories() {
+        const available = new Set();
+        cards.forEach(card => {
+            const city = card.dataset.city || '';
+            if (filterState.city && city !== filterState.city) return;
+            (card.dataset.categories || '').split(' ').forEach(slug => { if (slug) available.add(slug); });
+        });
+
+        let visibleCount = 0;
+        categoryOptions.forEach(label => {
+            const slug = label.dataset.slug;
+            const isAvailable = available.has(slug);
+            label.hidden = !isAvailable;
+            if (isAvailable) {
+                visibleCount++;
+            } else {
+                const checkbox = label.querySelector('input[type="checkbox"]');
+                if (checkbox && checkbox.checked) {
+                    checkbox.checked = false;
+                    filterState.categories.delete(checkbox.value);
+                }
+            }
+        });
+        if (categoryEmptyHint) categoryEmptyHint.hidden = visibleCount > 0;
+        updateCategoryLabel();
     }
 
     if (categoryDropdown && categoryDropdownBtn && categoryDropdownPanel) {
@@ -137,6 +173,34 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     }
+
+    // === Город: свой выбор запоминаем в localStorage (переживает визиты),
+    // при первом визите — город из профиля, если у него там есть салоны. ===
+    const CITY_STORAGE_KEY = 'rumi_city';
+    const citySelect = document.getElementById('citySelect');
+    if (citySelect) {
+        const knownCities = Array.from(citySelect.options).map(o => o.value);
+        let initialCity = '';
+        try {
+            const saved = localStorage.getItem(CITY_STORAGE_KEY);
+            if (saved && knownCities.includes(saved)) initialCity = saved;
+        } catch (e) { /* localStorage недоступен (приватный режим и т.п.) — просто без сохранения */ }
+        if (!initialCity && window.userCity && knownCities.includes(window.userCity)) {
+            initialCity = window.userCity;
+        }
+
+        citySelect.value = initialCity;
+        filterState.city = initialCity;
+
+        citySelect.addEventListener('change', function () {
+            filterState.city = this.value;
+            try { localStorage.setItem(CITY_STORAGE_KEY, this.value); } catch (e) { /* см. выше */ }
+            updateAvailableCategories();
+            applyFilters();
+        });
+    }
+    updateAvailableCategories();
+    if (filterState.city) applyFilters();
 
     document.querySelectorAll('#ratingFilterGroup .filter-chip').forEach(btn => {
         btn.addEventListener('click', function () {

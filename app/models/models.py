@@ -302,6 +302,11 @@ class Salon(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     address: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Город из фиксированного списка (app/web/cities.py) — отдельно от address,
+    # чтобы фильтр на /salons мог группировать салоны по городу без парсинга
+    # свободной строки адреса. Пусто, пока владелец не дозаполнил (например,
+    # сразу после /apply, где адрес ещё не запрашивается).
+    city: Mapped[str] = mapped_column(String(100), nullable=False, server_default="", default="")
 
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)

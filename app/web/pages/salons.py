@@ -1,5 +1,6 @@
 # app/web/pages/salons.py
 import html
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Salon, Promotion, Master, Service, SalonModerationStatus
@@ -17,10 +18,7 @@ from app.web.components.icons import (
     ICON_FILTER,
     ICON_CHEVRON_DOWN,
 )
-
-# Категории услуг для чипов на карточках и фильтра — единый источник, чтобы
-# теги на карточке и кнопки фильтра всегда совпадали.
-SERVICE_CATEGORIES = ["стрижка", "борода", "маникюр", "педикюр", "окрашивание", "укладка", "брови"]
+from app.web.service_categories import SERVICE_CATEGORY_GROUPS, match_category_slugs, slug_to_label
 
 
 async def render_salons_page(db: AsyncSession, user=None) -> str:
@@ -67,16 +65,24 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
             services_by_salon.setdefault(salon_id, []).append(service_name)
 
     salon_cards = ""
+    available_cities: set[str] = set()
     for s in salons:
         service_names = services_by_salon.get(s.id, [])
-        # Общий "стог сена" для поиска/категорий: описание салона + реальные
-        # названия услуг мастеров — салон найдётся по слову "стрижка", даже
-        # если он не упомянул её в описании, но она есть у мастера.
+        # "Стог сена" для текстового поиска — описание салона + реальные
+        # названия услуг мастеров, чтобы находилось по слову из услуги, даже
+        # если его нет в описании.
         haystack = ((s.description or "") + " " + " ".join(service_names)).lower()
-        matched_categories = [kw for kw in SERVICE_CATEGORIES if kw in haystack]
+        # А вот категории (теги на карточке + пункты в фильтре) матчим строго
+        # по названиям услуг мастеров, а не по свободному тексту описания —
+        # категория должна означать «это реально можно забронировать», а не
+        # «владелец упомянул слово в описании».
+        matched_categories = match_category_slugs(" ".join(service_names))
+
+        if s.city:
+            available_cities.add(s.city)
 
         service_chips = "".join(
-            f'<span class="service-chip">{kw.capitalize()}</span>' for kw in matched_categories[:3]
+            f'<span class="service-chip">{slug_to_label(slug)}</span>' for slug in matched_categories[:3]
         ) or '<span class="service-chip">Услуги</span>'
 
         rating = s.rating or 0.0
@@ -134,12 +140,14 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
             """
 
         search_haystack = html.escape(f"{s.name} {haystack}", quote=True)
+        city_attr = html.escape(s.city or "", quote=True)
 
         salon_cards += f"""
         <div class="salon-card"
              data-salon-id="{s.id}"
              data-search="{search_haystack}"
              data-categories="{' '.join(matched_categories)}"
+             data-city="{city_attr}"
              data-rating="{rating}"
              data-reviews="{reviews}"
              data-lat="{s.latitude}"
@@ -198,13 +206,26 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
         """
 
     category_options = "".join(
-        f'<label class="category-option"><input type="checkbox" value="{cat}"> {cat.capitalize()}</label>'
-        for cat in SERVICE_CATEGORIES
+        f'<label class="category-option" data-slug="{slug}"><input type="checkbox" value="{slug}"> {label}</label>'
+        for slug, label, _keywords in SERVICE_CATEGORY_GROUPS
+    )
+
+    # Список городов — только те, где реально есть салоны (плюс «Все города»).
+    # Список категорий в фильтре потом подрезается JS-ом под выбранный город:
+    # категория, которую в этом городе никто не предлагает, из списка убирается.
+    city_options = '<option value="">Все города</option>' + "".join(
+        f'<option value="{html.escape(c, quote=True)}">{c}</option>' for c in sorted(available_cities)
     )
 
     filter_bar = f"""
     <div class="salons-filter-bar">
         <div class="filter-row filter-categories">
+            <div class="city-select-wrapper">
+                {ICON_MAP_PIN}
+                <select id="citySelect" class="city-select">
+                    {city_options}
+                </select>
+            </div>
             <div class="category-dropdown" id="categoryDropdown">
                 <button type="button" class="category-dropdown-btn" id="categoryDropdownBtn">
                     {ICON_FILTER}
@@ -213,6 +234,7 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
                 </button>
                 <div class="category-dropdown-panel" id="categoryDropdownPanel" hidden>
                     {category_options}
+                    <p id="categoryEmptyHint" class="category-empty-hint" hidden>В этом городе пока нет салонов с такими услугами.</p>
                     <button type="button" class="category-clear-btn" id="categoryClearBtn">Сбросить</button>
                 </div>
             </div>
@@ -241,6 +263,13 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
         </div>
     </div>
     """
+
+    # Город из профиля — если он есть среди городов с салонами, JS выберет
+    # его по умолчанию при первом визите (пока пользователь сам не переключил
+    # город — тогда в приоритете его явный выбор, сохранённый в localStorage).
+    user_city = getattr(user, "city", None) or ""
+    if user_city not in available_cities:
+        user_city = ""
 
     page_html = f"""<!DOCTYPE html>
 <html lang="ru">
@@ -281,6 +310,9 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
 
         {render_footer(user)}
     </main>
+    <script>
+        window.userCity = {json.dumps(user_city)};
+    </script>
 </body>
 </html>"""
 

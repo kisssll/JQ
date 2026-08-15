@@ -19,7 +19,7 @@ async def test_create_without_key_uses_default_coords(client, db_session):
     """Без ключа (обычный тестовый режим) — старое поведение, координаты не обязательны."""
     await _create_salon_owner(client, "+79997770001")
     r = await client.post("/api/v1/business/my-salon", data={
-        "name": "Без геокодера", "address": "Новосибирск, ул. Ленина, 1",
+        "name": "Без геокодера", "address": "Новосибирск, ул. Ленина, 1", "city": "Новосибирск",
         "phone": "+79991110001", "offer_accepted": "1",
     })
     assert r.status_code in (302, 303)
@@ -32,7 +32,7 @@ async def test_create_with_key_requires_coords(client, db_session, monkeypatch):
     monkeypatch.setattr(settings, "YANDEX_MAPS_API_KEY", "test-key")
     await _create_salon_owner(client, "+79997770002")
     r = await client.post("/api/v1/business/my-salon", data={
-        "name": "Без координат", "address": "Новосибирск, ул. Мира, 2",
+        "name": "Без координат", "address": "Новосибирск, ул. Мира, 2", "city": "Новосибирск",
         "phone": "+79991110002", "offer_accepted": "1",
     })
     assert r.status_code == 400
@@ -46,7 +46,7 @@ async def test_create_with_key_and_coords_succeeds(client, db_session, monkeypat
     monkeypatch.setattr(settings, "YANDEX_MAPS_API_KEY", "test-key")
     await _create_salon_owner(client, "+79997770003")
     r = await client.post("/api/v1/business/my-salon", data={
-        "name": "С координатами", "address": "Новосибирск, ул. Кирова, 3",
+        "name": "С координатами", "address": "Новосибирск, ул. Кирова, 3", "city": "Новосибирск",
         "phone": "+79991110003", "offer_accepted": "1",
         "latitude": "55.0084", "longitude": "82.9357",
     })
@@ -61,7 +61,7 @@ async def test_create_with_key_rejects_out_of_range_coords(client, db_session, m
     monkeypatch.setattr(settings, "YANDEX_MAPS_API_KEY", "test-key")
     await _create_salon_owner(client, "+79997770004")
     r = await client.post("/api/v1/business/my-salon", data={
-        "name": "Кривые координаты", "address": "Новосибирск, ул. Гоголя, 4",
+        "name": "Кривые координаты", "address": "Новосибирск, ул. Гоголя, 4", "city": "Новосибирск",
         "phone": "+79991110004", "offer_accepted": "1",
         "latitude": "999", "longitude": "82.9357",
     })
@@ -71,7 +71,7 @@ async def test_create_with_key_rejects_out_of_range_coords(client, db_session, m
 async def test_update_address_change_requires_coords(client, db_session, monkeypatch):
     await _create_salon_owner(client, "+79997770005")
     r = await client.post("/api/v1/business/my-salon", data={
-        "name": "Салон для правки", "address": "Новосибирск, ул. Первая, 5",
+        "name": "Салон для правки", "address": "Новосибирск, ул. Первая, 5", "city": "Новосибирск",
         "phone": "+79991110005", "offer_accepted": "1",
     })
     assert r.status_code in (302, 303)
@@ -88,7 +88,7 @@ async def test_update_address_change_requires_coords(client, db_session, monkeyp
 async def test_update_address_change_with_coords_succeeds(client, db_session, monkeypatch):
     await _create_salon_owner(client, "+79997770006")
     r = await client.post("/api/v1/business/my-salon", data={
-        "name": "Салон для правки 2", "address": "Новосибирск, ул. Третья, 7",
+        "name": "Салон для правки 2", "address": "Новосибирск, ул. Третья, 7", "city": "Новосибирск",
         "phone": "+79991110006", "offer_accepted": "1",
     })
     assert r.status_code in (302, 303)
@@ -111,7 +111,7 @@ async def test_update_address_change_with_coords_succeeds(client, db_session, mo
 async def test_update_other_fields_without_address_change_no_coords_needed(client, db_session, monkeypatch):
     await _create_salon_owner(client, "+79997770007")
     r = await client.post("/api/v1/business/my-salon", data={
-        "name": "Салон для правки 3", "address": "Новосибирск, ул. Пятая, 9",
+        "name": "Салон для правки 3", "address": "Новосибирск, ул. Пятая, 9", "city": "Новосибирск",
         "phone": "+79991110007", "offer_accepted": "1",
     })
     assert r.status_code in (302, 303)

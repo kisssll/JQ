@@ -9,6 +9,7 @@ class SalonUpdateRequest(BaseModel):
     description: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    city: Optional[str] = None
     # Координаты нового адреса — обязательны вместе с address, когда на
     # сервере включены подсказки Яндекса (см. business.py::update_my_salon).
     latitude: Optional[float] = None
@@ -30,6 +31,7 @@ class SalonResponse(BaseModel):
     name: str
     description: Optional[str] = None
     address: str
+    city: str
     phone: str
     logo_url: Optional[str] = None
     rating: float

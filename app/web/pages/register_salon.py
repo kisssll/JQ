@@ -4,6 +4,7 @@ from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.yandex_maps import render_yandex_maps_script, yandex_maps_enabled
+from app.web.cities import RUSSIAN_CITIES, DEFAULT_CITY
 
 
 def render_register_salon_page(user=None, error: str = "") -> str:
@@ -40,6 +41,10 @@ def render_register_salon_page(user=None, error: str = "") -> str:
         if geocoding else ""
     )
 
+    city_options = "".join(
+        f'<option value="{c}"{" selected" if c == DEFAULT_CITY else ""}>{c}</option>' for c in RUSSIAN_CITIES
+    )
+
     html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -66,8 +71,13 @@ def render_register_salon_page(user=None, error: str = "") -> str:
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Описание</label>
                     <textarea name="description" rows="3" placeholder="Опишите ваш салон, услуги, особенности..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem; resize: vertical;"></textarea>
                     
+                    <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Город *</label>
+                    <select name="city" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem;">
+                        {city_options}
+                    </select>
+
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Адрес *</label>
-                    <input type="text" name="address" required placeholder="Город, улица, дом" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 0.5rem;"{address_geo_attrs}>
+                    <input type="text" name="address" required placeholder="Улица, дом" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 0.5rem;"{address_geo_attrs}>
                     {address_hint}
                     {address_map_block}
                     {address_hidden_coords}

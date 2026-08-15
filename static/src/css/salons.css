@@ -100,6 +100,36 @@
     gap: 0.5rem;
 }
 
+/* Город — влияет на то, какие салоны видны и какие категории вообще
+   имеет смысл показывать в фильтре (см. .category-empty-hint ниже). */
+.city-select-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    padding: 0.4rem 1rem;
+}
+.city-select-wrapper svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    color: var(--color-muted);
+}
+.city-select {
+    border: none;
+    background: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-heading);
+    cursor: pointer;
+    padding: 0;
+}
+.city-select:focus {
+    outline: none;
+}
+
 /* Категории — кнопка, открывающая чек-лист с неограниченным числом
    вариантов (список будет расти, ряд из чипов на всех бы не поместился). */
 .category-dropdown {
@@ -197,6 +227,14 @@
 }
 .category-clear-btn:hover {
     color: var(--color-accent);
+}
+
+.category-empty-hint {
+    margin: 0.35rem 0 0;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.8rem;
+    color: var(--color-muted);
 }
 
 .filter-chip {

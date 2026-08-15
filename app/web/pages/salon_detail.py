@@ -30,6 +30,7 @@ from app.web.components.icons import (
     ICON_SCISSORS,
     ICON_STAR_FILLED,
 )
+from app.web.service_categories import match_category_slugs, slug_to_label
 
 async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str:
     # Публично видны только одобренные активные салоны (модерация регистрации).
@@ -633,8 +634,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
 def _get_service_tags(salon: Salon) -> str:
     if not salon.description:
         return ''
-    keywords = ["стрижка", "борода", "маникюр", "педикюр", "окрашивание", "укладка", "брови"]
-    found = [kw.capitalize() for kw in keywords if kw in salon.description.lower()]
-    if not found:
+    slugs = match_category_slugs(salon.description)
+    if not slugs:
         return ''
-    return ''.join(f'<span class="badge-tag">{kw}</span>' for kw in found[:3])
+    return ''.join(f'<span class="badge-tag">{slug_to_label(s)}</span>' for s in slugs[:3])

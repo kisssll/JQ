@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const inputName = document.getElementById('salonEditNameInput');
     const inputAddress = document.getElementById('salonEditAddressInput');
+    const inputCity = document.getElementById('salonEditCityInput');
     const inputPhone = document.getElementById('salonEditPhoneInput');
     const inputDesc = document.getElementById('salonEditDescInput');
     // Есть только если задан YANDEX_MAPS_API_KEY (см. yandex_maps.py) — иначе
@@ -61,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
             logo: currentLogo,
             lat: inputLat ? inputLat.value : '',
             lon: inputLon ? inputLon.value : '',
+            city: inputCity ? inputCity.value : '',
         };
     }
 
@@ -73,6 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
         inputAddress.value = originalValues.address;
         inputPhone.value = originalValues.phone;
         inputDesc.value = originalValues.desc;
+        if (inputCity) inputCity.value = originalValues.city;
         if (inputLat) inputLat.value = originalValues.lat || '';
         if (inputLon) inputLon.value = originalValues.lon || '';
         // Адрес откатили к исходному — координаты снова соответствуют тексту.
@@ -344,10 +347,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const inputEmail = document.getElementById('salonEditEmailInput');
+        const inputCity = document.getElementById('salonEditCityInput');
         const data = {
             name: inputName.value,
             phone: inputPhone.value,
             address: inputAddress.value,
+            city: inputCity ? inputCity.value : undefined,
             email: inputEmail ? inputEmail.value : undefined,
             description: inputDesc.value,
             photos: currentPhotos.map(p => p.url),
