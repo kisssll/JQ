@@ -22,7 +22,7 @@ asyncpg==0.30.0
 
 # Аутентификация
 PyJWT==2.13.0                 # вместо python-jose (algorithm confusion / заброшенность)
-cryptography==49.0.0          # RS256: подпись/проверка JWT и генерация ключей
+cryptography==50.0.0          # RS256: подпись/проверка JWT и генерация ключей; SCA: CVE-2026-69247 закрыт
 passlib[bcrypt]==1.7.4
 argon2-cffi==23.1.0           # Argon2id как основная схема хеширования
 
