@@ -138,8 +138,11 @@ class Settings(BaseSettings):
     # phone отдаёт ПРОВЕРЕННЫЙ VK номер — вход = ещё один канал подтверждения
     # телефона (наша телефон-центричная модель). redirect_uri в кабинете VK:
     # https://rrumi.ru/api/v1/auth/vk/callback (+ staging-URI).
-    VK_OAUTH_ENABLED: bool = False
-    VK_CLIENT_ID: str = ""
+    # Включено дефолтом для теста на стейдже (client_id VK-приложения — публичный,
+    # не секрет; секрета нет — PKCE). На проде при желании придержать: задать
+    # VK_OAUTH_ENABLED=false в прод-.env до одобрения доступа к номеру телефона.
+    VK_OAUTH_ENABLED: bool = True
+    VK_CLIENT_ID: str = "54721847"
 
     # --- Яндекс Карты (подсказки адреса + геокодирование) ---
     # Один ключ типа «JavaScript API и HTTP Геокодер» из developer.tech.yandex.ru

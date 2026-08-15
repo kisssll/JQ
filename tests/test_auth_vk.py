@@ -43,7 +43,8 @@ async def _start_and_get_state(client: httpx.AsyncClient) -> str:
     return q["state"][0]
 
 
-async def test_disabled_redirects_to_login(client):
+async def test_disabled_redirects_to_login(client, monkeypatch):
+    monkeypatch.setattr(settings, "VK_OAUTH_ENABLED", False)
     r = await client.get("/api/v1/auth/vk/start")
     assert r.status_code == 302 and r.headers["location"] == "/login"
 
