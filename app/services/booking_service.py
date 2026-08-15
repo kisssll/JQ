@@ -1,10 +1,26 @@
 # app/services/booking_service.py
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 
 from app.models.models import Booking, Master, Service, Salon, BookingStatus
 from app.services.schedule_utils import get_effective_work_intervals
+from app.utils.timezone import get_salon_time
+
+# «Пришёл» (COMPLETED) нельзя отметить раньше, чем за час до начала записи —
+# защита от преждевременного закрытия визита. start_time хранится наивным в
+# зоне салона (см. слот-генератор в bookings.py), поэтому сравниваем с наивным
+# «сейчас» в той же зоне. На «Не пришёл» ограничение НЕ распространяется.
+COMPLETE_MIN_LEAD = timedelta(hours=1)
+
+
+def can_mark_completed_now(booking: Booking, salon_timezone: Optional[str]) -> bool:
+    """Наступило ли окно, когда запись можно отметить «Пришёл» (за час до начала
+    и позже). Используется и серверным гейтом, и рендером кнопки в панели."""
+    now_local = get_salon_time(salon_timezone).replace(tzinfo=None)
+    return now_local >= booking.start_time - COMPLETE_MIN_LEAD
+
 
 class BookingService:
     

@@ -25,7 +25,8 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
     try:
         result = await db.execute(
             select(Salon).where(
-                Salon.is_active == True, Salon.moderation_status == SalonModerationStatus.APPROVED, Salon.is_hidden == False,
+                Salon.is_active == True, Salon.moderation_status == SalonModerationStatus.APPROVED,
+                Salon.published_at.isnot(None), Salon.is_hidden == False,
             ).order_by(Salon.rating.desc()).limit(3)
         )
         salons = result.scalars().all()

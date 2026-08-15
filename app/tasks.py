@@ -172,6 +172,55 @@ async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
     return "sent"
 
 
+async def send_evening_deals_blast(ctx: dict[str, Any]) -> str:
+    """Ежедневная рассылка «вечерних окон со скидкой» (cron 18:00 по Томску =
+    11:00 UTC, см. worker.WorkerSettings.cron_jobs).
+
+    Шлём только если сегодня есть хоть одно свободное вечернее окно со скидкой.
+    Аудитория — все привязавшие Telegram (не гости), не отключившие топик
+    «Вечерние скидки» (opt-out, default вкл). Каждому — отдельный send_tg_message
+    через очередь (ретраи/дедуп — на его стороне)."""
+    from sqlalchemy import select
+
+    from app.core.config import settings
+    from app.core.worker import get_arq_pool
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import User
+    from app.services.evening_deals_service import any_windows_today
+    from app.services.notifications import TOPIC_EVENING_DEALS, wants
+
+    try:
+        async with AsyncSessionLocal() as db:
+            if not await any_windows_today(db):
+                return "skipped:no-windows"
+            recipients = (await db.execute(
+                select(User).where(
+                    User.tg_chat_id.isnot(None),
+                    User.is_guest == False,  # noqa: E712
+                )
+            )).scalars().all()
+    except Exception as exc:  # БД недоступна — повторим
+        logger.warning("send_evening_deals_blast: сбой выборки (попытка %d): %s", ctx["job_try"], exc)
+        raise _retry(ctx, exc) from exc
+
+    link = f"{settings.PUBLIC_BASE_URL.rstrip('/')}/evening-deals"
+    text = (
+        "🌙 Подборка вечерних окон на сегодня со скидкой.\n"
+        "Свободные вечерние слоты в салонах — успейте записаться дешевле:\n"
+        f"{link}"
+    )
+
+    pool = await get_arq_pool()
+    sent = 0
+    for u in recipients:
+        if not wants(u, TOPIC_EVENING_DEALS):
+            continue
+        await pool.enqueue_job("send_tg_message", u.tg_chat_id, text)
+        sent += 1
+    logger.info("send_evening_deals_blast: поставлено %d сообщений", sent)
+    return f"queued:{sent}"
+
+
 # ── Email (noreply@rrumi.ru через SMTP Timeweb) ──────────────────
 
 

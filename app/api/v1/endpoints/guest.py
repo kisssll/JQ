@@ -59,6 +59,7 @@ async def create_guest_booking(
         not salon
         or not salon.is_active
         or salon.moderation_status != SalonModerationStatus.APPROVED
+        or salon.published_at is None
     ):
         raise HTTPException(status_code=404, detail="Салон недоступен")
     if not salon.guest_booking_enabled:

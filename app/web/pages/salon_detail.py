@@ -37,6 +37,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
         Salon.id == salon_id,
         Salon.is_active == True,
         Salon.moderation_status == SalonModerationStatus.APPROVED,
+        Salon.published_at.isnot(None),
         Salon.is_hidden == False,
     ))
     salon = result.scalar_one_or_none()
@@ -54,6 +55,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
             Salon.id != salon.id,
             Salon.is_active == True,
             Salon.moderation_status == SalonModerationStatus.APPROVED,
+            Salon.published_at.isnot(None),
             Salon.is_hidden == False,
         ).order_by(Salon.name))).scalars().all()
         if chain and siblings:

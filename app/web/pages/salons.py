@@ -30,7 +30,8 @@ async def render_salons_page(db: AsyncSession, user=None) -> str:
 
     result = await db.execute(
         select(Salon).where(
-            Salon.is_active == True, Salon.moderation_status == SalonModerationStatus.APPROVED, Salon.is_hidden == False,
+            Salon.is_active == True, Salon.moderation_status == SalonModerationStatus.APPROVED,
+            Salon.published_at.isnot(None), Salon.is_hidden == False,
         ).order_by(Salon.rating.desc())
     )
     salons = result.scalars().all()

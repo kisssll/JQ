@@ -110,6 +110,7 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
         not salon
         or not salon.is_active
         or salon.moderation_status != SalonModerationStatus.APPROVED
+        or salon.published_at is None
         or not salon.guest_booking_enabled
     ):
         return _notice("Запись недоступна", "Этот салон сейчас не принимает записи без регистрации.")

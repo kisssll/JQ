@@ -40,6 +40,15 @@ async def salons_page(request: Request, db: AsyncSession = Depends(get_db)):
     return HTMLResponse(content=html)
 
 
+@router.get("/evening-deals", response_class=HTMLResponse)
+async def evening_deals_page(request: Request, city: str = None, db: AsyncSession = Depends(get_db)):
+    """Публичная подборка «вечерние окна со скидкой» (ссылка из ТГ-рассылки)."""
+    user = await get_current_user_from_cookie(request, db)
+    from app.web.pages.evening_deals import render_evening_deals_page
+    html = await render_evening_deals_page(db, city, user)
+    return HTMLResponse(content=html)
+
+
 @router.get("/salons/{salon_id}", response_class=HTMLResponse)
 async def salon_detail_page(salon_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     """Страница конкретного салона."""
@@ -540,7 +549,15 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     static_pages = ["", "salons", "business", "model", "login", "register"]
     urls = [f"https://rrumi.ru/{p}" for p in static_pages]
 
-    salons = (await db.execute(select(Salon.id).where(Salon.is_active == True, Salon.is_hidden == False))).scalars().all()
+    # В карту сайта — только реально публичные салоны: одобрены, опубликованы
+    # владельцем и не скрыты (иначе ссылки вели бы на 404 карточки).
+    from app.models.models import SalonModerationStatus
+    salons = (await db.execute(select(Salon.id).where(
+        Salon.is_active == True,  # noqa: E712
+        Salon.moderation_status == SalonModerationStatus.APPROVED,
+        Salon.published_at.isnot(None),
+        Salon.is_hidden == False,  # noqa: E712
+    ))).scalars().all()
     urls += [f"https://rrumi.ru/salons/{sid}" for sid in salons]
 
     body = "".join(f"<url><loc>{u}</loc></url>" for u in urls)

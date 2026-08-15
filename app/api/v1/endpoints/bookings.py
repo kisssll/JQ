@@ -19,17 +19,21 @@ async def _salon_bookable(db, master_id: int) -> bool:
     (модерация регистрации бизнеса).
     """
     row = (await db.execute(
-        select(Salon.is_active, Salon.moderation_status, Salon.is_hidden, Master.is_active)
+        select(Salon.is_active, Salon.moderation_status, Salon.is_hidden, Master.is_active, Salon.published_at)
         .join(Master, Master.salon_id == Salon.id)
         .where(Master.id == master_id)
     )).first()
-    # Салон одобрен, активен и не скрыт владельцем И сам мастер активен
-    # (мягко удалённый — is_active=False — записи не принимает).
-    return bool(row) and row[0] and row[1] == SalonModerationStatus.APPROVED and not row[2] and row[3]
+    # Салон одобрен, опубликован владельцем (published_at не NULL), активен и не
+    # скрыт владельцем И сам мастер активен (мягко удалённый — is_active=False —
+    # записи не принимает).
+    return (
+        bool(row) and row[0] and row[1] == SalonModerationStatus.APPROVED
+        and not row[2] and row[3] and row[4] is not None
+    )
 from app.schemas.booking import BookingCreate, BookingResponse, BookingCancel
 from app.api.deps import get_current_user, get_salon_membership
 from app.services.notifications import notify_booking_cancelled, notify_booking_created, send_guest_booking_email
-from app.services.booking_service import BookingService
+from app.services.booking_service import BookingService, can_mark_completed_now
 from app.services.loyalty_service import LoyaltyService, LoyaltyError
 from app.services.schedule_utils import get_effective_work_intervals, is_within_booking_window, MAX_BOOKING_DAYS_AHEAD
 from app.utils.timezone import get_salon_time
@@ -56,23 +60,40 @@ async def create_booking(
     if not await _salon_bookable(db, booking_data.master_id):
         raise HTTPException(status_code=403, detail="Салон ещё не подтверждён — запись недоступна.")
 
-    now = datetime.now()
-    if booking_data.start_time.replace(tzinfo=None) < now:
+    # Салон нужен для таймзоны и «вечерних окон со скидкой». start_time хранится
+    # наивным в зоне салона, поэтому «прошедшее время» проверяем салонно-локальным
+    # «сейчас» — так же, как слот-генератор скрывает прошедшие слоты (иначе для
+    # салонов не в UTC проверка расходится с показанными слотами).
+    salon = (await db.execute(
+        select(Salon).join(Master, Master.salon_id == Salon.id).where(Master.id == booking_data.master_id)
+    )).scalar_one_or_none()
+
+    start_time = booking_data.start_time.replace(tzinfo=None)
+    salon_now = get_salon_time(salon.timezone).replace(tzinfo=None) if salon else datetime.now()
+    if start_time < salon_now:
         raise HTTPException(status_code=400, detail="Нельзя записаться на прошедшее время.")
-    
+
     is_available = await BookingService.is_slot_available(
-        db, booking_data.master_id,
-        booking_data.start_time.replace(tzinfo=None),
-        service.duration_minutes
+        db, booking_data.master_id, start_time, service.duration_minutes
     )
-    
+
     if not is_available:
         raise HTTPException(status_code=409, detail="Это время уже занято")
-    
+
     final_price = await BookingService.calculate_price(current_user, service)
-    start_time = booking_data.start_time.replace(tzinfo=None)
     end_time = start_time + timedelta(minutes=service.duration_minutes)
-    
+
+    # «Вечернее окно со скидкой»: если слот реально попадает в валидное вечернее
+    # окно салона (ре-валидация на сервере — клиенту не доверяем), применяем
+    # скидку к цене брони.
+    from app.services.evening_deals_service import evening_deal_discount, discounted_price
+    discount_percent = 0
+    if salon is not None:
+        ev = await evening_deal_discount(db, salon, start_time, service.id)
+        if ev > 0:
+            discount_percent = ev
+            final_price = discounted_price(final_price, ev)
+
     booking = Booking(
         client_id=current_user.id,
         master_id=booking_data.master_id,
@@ -80,6 +101,7 @@ async def create_booking(
         start_time=start_time.replace(tzinfo=None),
         end_time=end_time.replace(tzinfo=None),
         status=BookingStatus.PENDING,
+        discount_percent=discount_percent,
         final_price=final_price
     )
     
@@ -390,6 +412,15 @@ async def complete_booking(
         raise HTTPException(status_code=404, detail="Запись не найдена")
     if not await _can_mark_booking(db, current_user, booking):
         raise HTTPException(status_code=403, detail="Нет прав отмечать эту запись")
+
+    # «Пришёл» нельзя отметить раньше, чем за час до начала записи.
+    master = (await db.execute(select(Master).where(Master.id == booking.master_id))).scalar_one_or_none()
+    salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none() if master else None
+    if not can_mark_completed_now(booking, salon.timezone if salon else None):
+        raise HTTPException(
+            status_code=409,
+            detail="«Пришёл» можно отметить не раньше чем за час до начала записи",
+        )
 
     wants_discount = body is not None and (body.discount_choice != "none" or body.bonus_points_redeemed)
     if wants_discount:

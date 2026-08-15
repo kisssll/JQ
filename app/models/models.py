@@ -5,7 +5,7 @@ from typing import Optional, List, Dict
 
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, ForeignKey, BigInteger,
-    Text, DateTime, Date, Enum, CheckConstraint, Index, UniqueConstraint, JSON, text
+    Text, DateTime, Date, Time, Enum, CheckConstraint, Index, UniqueConstraint, JSON, text
 )
 from sqlalchemy.orm import relationship, declarative_base, Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -353,6 +353,13 @@ class Salon(Base):
     rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Факт и время принятия оферты при подаче заявки.
     offer_accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Публикация после модерации: одобрение админом (moderation_status=approved)
+    # больше НЕ выбрасывает салон в каталог автоматически. Владелец сам жмёт
+    # «Опубликовать» в шапке панели → проставляется published_at. NULL = прошёл
+    # модерацию, но ещё ни разу не публиковался (полностью непубличен: нет в
+    # ленте/поиске, карточка/запись/гостевая запись закрыты). Разовый шлюз —
+    # назад не сбрасывается; дальнейшей видимостью рулит is_hidden.
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 class SalonPhoto(Base):
     __tablename__ = "salon_photos"
@@ -360,6 +367,37 @@ class SalonPhoto(Base):
     salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"))
     url: Mapped[str] = mapped_column(String(500))
     salon: Mapped["Salon"] = relationship(back_populates="photos")
+
+
+class SalonEveningDeal(Base):
+    """«Вечерние окна со скидкой» салона (1:1 к салону).
+
+    Владелец включает участие и задаёт скидку + что считать «вечером». Пустые
+    вечерние слоты салона на сегодня авто-попадают в публичную подборку
+    /evening-deals со скидкой; ежедневная ТГ-рассылка в 18:00 по Томску зовёт
+    клиентов их занять. Слоты берутся из реального расписания (слот-генератор),
+    отдельно нигде не хранятся. Скидка применяется к брони на сервере при записи
+    (ре-валидация окна), клиенту не доверяем.
+    """
+    __tablename__ = "salon_evening_deals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    salon_id: Mapped[int] = mapped_column(
+        ForeignKey("salons.id", ondelete="CASCADE"), unique=True, nullable=False, index=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    discount_percent: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    # Диапазон «вечера» в салонно-локальном времени: пустой слот, начинающийся
+    # в [evening_from, evening_to), считается вечерним окном.
+    evening_from: Mapped[time] = mapped_column(Time, default=time(17, 0), nullable=False)
+    evening_to: Mapped[time] = mapped_column(Time, default=time(21, 0), nullable=False)
+    # Дни недели активности (0=Пн … 6=Вс). NULL/пусто = все дни.
+    weekdays: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    # Фильтр услуг (id). NULL/пусто = все услуги салона.
+    service_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 class SalonMember(Base):
     """Членство пользователя в бизнес-панели салона (owner/admin) с гибкими правами."""

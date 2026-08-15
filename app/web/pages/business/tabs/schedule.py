@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.models.models import Booking, Master, Service, User as UserModel, BookingStatus, ScheduleClosure, Schedule
 from app.services.schedule_utils import get_salon_work_hours, MAX_BOOKING_DAYS_AHEAD
 from app.services.schedule_service import ScheduleService
+from app.services.booking_service import can_mark_completed_now
 from app.web.components.hint import hint as _hint
 from app.web.components.icons import (
     ICON_CHECK_SMALL,
@@ -30,6 +31,7 @@ async def render_schedule_tab(
     db: AsyncSession, salon, masters, can_manage_schedule: bool = False,
     schedule_master_id: int = None, can_close_dates: bool = None,
     viewer_master_id: int = None,
+    evening_deal_html: str = "",
 ) -> str:
     """Вкладка «Расписание»: выбор мастера → неделя → сетка.
     На десктопе навигация по неделям через стрелки, на мобилке — по дням с карточками.
@@ -155,9 +157,19 @@ async def render_schedule_tab(
                         title="Отклонить запись" class="no-show-btn">{ICON_X} Отклонить</button>
             """
         elif can_manage_schedule and b.status == BookingStatus.CONFIRMED:
+            # «Пришёл» доступна не раньше чем за час до начала записи.
+            if can_mark_completed_now(b, salon.timezone):
+                came_btn = (
+                    f'<button onclick="event.stopPropagation();openCompleteModal({b.id}, {b.client_id})" '
+                    f'title="Клиент пришёл" class="complete-btn">{ICON_CHECK_SMALL} Пришёл</button>'
+                )
+            else:
+                came_btn = (
+                    f'<button disabled title="Доступно за час до начала записи" '
+                    f'class="complete-btn">{ICON_CHECK_SMALL} Пришёл</button>'
+                )
             actions = f"""
-                <button onclick="event.stopPropagation();openCompleteModal({b.id}, {b.client_id})"
-                        title="Клиент пришёл" class="complete-btn">{ICON_CHECK_SMALL} Пришёл</button>
+                {came_btn}
                 <button onclick="event.stopPropagation();recordMarkBooking({b.id}, 'no-show', this)"
                         title="Клиент не пришёл" class="no-show-btn">{ICON_X} Не пришёл</button>
             """
@@ -521,6 +533,7 @@ async def render_schedule_tab(
     # Итоговый HTML
     return f"""
     <div id="tab-schedule" class="tab-content">
+        {evening_deal_html}
         <div class="schedule-desktop-block">
             <div class="schedule-calendar">
                 <div class="schedule-nav-wrapper">
