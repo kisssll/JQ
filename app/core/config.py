@@ -106,10 +106,23 @@ class Settings(BaseSettings):
     # бота + ARQ). Требует TG_BOT_TOKEN; получают только привязавшие Telegram.
     TG_NOTIFY_ENABLED: bool = False
 
-    # Каталог загруженных изображений (аватары, фото салонов). В docker —
-    # volume, переживает деплой. ВРЕМЕННО локально: переезд на S3 Timeweb,
-    # когда возьмут креды из панели (см. app/services/uploads.py).
+    # Каталог загруженных изображений — локальное хранилище (fallback, когда
+    # S3 не задан: тесты/локалка). В docker — volume. При заданном S3-бакете
+    # фото уходят в S3 (см. ниже + app/services/uploads.py).
     UPLOADS_DIR: str = "uploads"
+
+    # --- S3 (Timeweb Object Storage, эндпоинт s3.twcstorage.ru) ---
+    # Ключи/эндпоинт общие для приватного бакета бэкапов (backup_to_s3.sh
+    # читает S3_* из .env сам) и публичного бакета фото (нужны приложению как
+    # settings — заливка фото в uploads.py).
+    S3_ENDPOINT: str = ""
+    S3_ACCESS_KEY: str = ""
+    S3_SECRET_KEY: str = ""
+    # Публичный бакет фото. Задан S3_MEDIA_BUCKET → загрузки идут в S3 (в БД
+    # публичный URL); пусто → локальный UPLOADS_DIR (тесты/локалка).
+    S3_MEDIA_BUCKET: str = ""
+    S3_MEDIA_PREFIX: str = ""       # prod / staging — изоляция окружений в одном бакете
+    S3_PUBLIC_URL_BASE: str = ""    # база публичного URL, напр. https://<bucket>.s3.twcstorage.ru
 
     # --- Почта @rrumi.ru (SMTP Beget — домен куплен там, ящики бесплатные) ---
     # EMAIL_MODE=mock — письма в лог (dev/до кредов), live — реальная отправка.

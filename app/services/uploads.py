@@ -29,6 +29,10 @@ JPEG_QUALITY = 85
 # Максимальная сторона после ресайза по назначению
 MAX_SIDE = {"avatars": 512, "salons": 1600, "masters": 1600, "reviews": 1600, "models": 1200}
 
+# Ленивый boto3-клиент S3-режима (создаётся при первой заливке; в локальном
+# режиме — тесты/локалка — boto3 не импортируется вовсе).
+_s3_client = None
+
 
 class UploadError(ValueError):
     """Файл не подходит: не изображение, повреждён или слишком большой."""
@@ -54,9 +58,49 @@ def process_image(data: bytes, kind: str) -> bytes:
     return out.getvalue()
 
 
+def _s3_enabled() -> bool:
+    """S3-режим включён, когда задан публичный бакет фото."""
+    return bool(settings.S3_MEDIA_BUCKET)
+
+
+def _s3():
+    """Ленивый boto3-клиент (импорт тоже ленивый — локальному режиму не нужен)."""
+    global _s3_client
+    if _s3_client is None:
+        import boto3
+        _s3_client = boto3.client(
+            "s3",
+            endpoint_url=settings.S3_ENDPOINT,
+            aws_access_key_id=settings.S3_ACCESS_KEY,
+            aws_secret_access_key=settings.S3_SECRET_KEY,
+        )
+    return _s3_client
+
+
+def _media_key(kind: str, name: str) -> str:
+    """Ключ объекта в бакете: <prefix>/<kind>/<name> (prefix — окружение)."""
+    prefix = settings.S3_MEDIA_PREFIX.strip("/")
+    return "/".join(p for p in (prefix, kind, name) if p)
+
+
+def _public_url(key: str) -> str:
+    return f"{settings.S3_PUBLIC_URL_BASE.rstrip('/')}/{key}"
+
+
 def _store(content: bytes, kind: str) -> str:
-    """Кладёт готовый JPEG в хранилище, возвращает публичный URL-путь."""
+    """Кладёт готовый JPEG в хранилище, возвращает публичный URL.
+
+    S3-режим (задан S3_MEDIA_BUCKET): грузим в публичный бакет, в БД — полный
+    S3-URL. Иначе — локальный volume (fallback: тесты/локалка).
+    """
     name = f"{uuid.uuid4()}.jpg"
+    if _s3_enabled():
+        key = _media_key(kind, name)
+        _s3().put_object(
+            Bucket=settings.S3_MEDIA_BUCKET, Key=key, Body=content,
+            ContentType="image/jpeg",
+        )
+        return _public_url(key)
     directory = Path(settings.UPLOADS_DIR) / kind
     directory.mkdir(parents=True, exist_ok=True)
     (directory / name).write_bytes(content)
@@ -72,9 +116,20 @@ async def save_image(file: UploadFile, kind: str) -> str:
 def delete_stored(url: str) -> None:
     """Удаляет файл по нашему URL (best-effort: файла может уже не быть).
 
-    Путь собирается только из валидированного хвоста /uploads/<kind>/<uuid>.jpg —
-    произвольные пути сюда не пролезают.
+    Понимает оба вида: полный S3-URL (публичный бакет) и локальный
+    /uploads/<kind>/<uuid>.jpg — так работает и в переходный период. Путь/ключ
+    берётся только из валидированного хвоста, произвольные пути не пролезают.
     """
+    if not url:
+        return
+    base = settings.S3_PUBLIC_URL_BASE.rstrip("/")
+    if _s3_enabled() and base and url.startswith(base + "/"):
+        key = url[len(base) + 1:]
+        try:
+            _s3().delete_object(Bucket=settings.S3_MEDIA_BUCKET, Key=key)
+        except Exception:
+            pass
+        return
     try:
         parts = Path(url).parts  # ('/', 'uploads', kind, name)
         if len(parts) == 4 and parts[1] == "uploads":
