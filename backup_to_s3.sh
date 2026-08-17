@@ -22,6 +22,10 @@ S3_BUCKET="$(grep -E '^S3_BUCKET=' .env | cut -d= -f2-)"
 export AWS_ACCESS_KEY_ID="$(grep -E '^S3_ACCESS_KEY=' .env | cut -d= -f2-)"
 export AWS_SECRET_ACCESS_KEY="$(grep -E '^S3_SECRET_KEY=' .env | cut -d= -f2-)"
 
+# Ретеншн: сколько дней хранить дампы (старше — удаляем). Из .env, дефолт 30.
+RETENTION_DAYS="$(grep -E '^S3_RETENTION_DAYS=' .env | cut -d= -f2-)"
+RETENTION_DAYS="${RETENTION_DAYS:-30}"
+
 STAMP="$(date +%Y%m%d_%H%M%S)"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
@@ -35,6 +39,24 @@ dump_and_upload() {
   aws --endpoint-url "$S3_ENDPOINT" s3 cp "$file" "s3://$S3_BUCKET/$dbname/$(basename "$file")"
 }
 
+# Чистка старых дампов в префиксе БД: удаляем то, чья дата в имени
+# (${dbname}_YYYYMMDD_HHMMSS.sql.gz) старше RETENTION_DAYS. Ошибка удаления
+# не валит бэкап (|| true) — сам дамп уже залит.
+prune_old() {
+  local dbname="$1"
+  local cutoff; cutoff="$(date -d "-${RETENTION_DAYS} days" +%Y%m%d)"
+  echo "[backup] ретеншн $dbname: удаляю дампы старше ${RETENTION_DAYS} дн (дата < ${cutoff})"
+  aws --endpoint-url "$S3_ENDPOINT" s3 ls "s3://$S3_BUCKET/$dbname/" | awk '{print $NF}' | while read -r fname; do
+    [ -n "$fname" ] || continue
+    fdate="$(printf '%s\n' "$fname" | grep -oE '[0-9]{8}_[0-9]{6}' | head -1 | cut -d_ -f1)"
+    if [ -n "$fdate" ] && [ "$fdate" -lt "$cutoff" ]; then
+      echo "[backup]   rm $fname"
+      aws --endpoint-url "$S3_ENDPOINT" s3 rm "s3://$S3_BUCKET/$dbname/$fname" || true
+    fi
+  done
+}
+
 dump_and_upload "$PGDB"
+prune_old "$PGDB"
 
 echo "[backup] готово: $STAMP"
