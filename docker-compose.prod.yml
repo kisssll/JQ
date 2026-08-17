@@ -110,6 +110,27 @@ services:
       disable: true
     restart: unless-stopped
 
+  # MAX-бот подтверждения номера. Как и tg-bot: POSTGRES_HOST НЕ переопределяем
+  # (наследуется из .env = managed Timeweb, иначе бот идёт в localhost и падает
+  # на каждом хендлере с БД). Спит, пока в .env пуст MAX_BOT_TOKEN.
+  max-bot:
+    image: rumi-app:prod
+    container_name: rumi-prod-max-bot
+    env_file: .env
+    command: ["python", "-m", "app.max_bot"]
+    environment:
+      ENVIRONMENT: production
+      TZ: Asia/Novosibirsk
+      REDIS_URL: redis://redis:6379/0
+      LOG_FORMAT: json
+    logging: *default-logging
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
 networks:
   edge:
     external: true
