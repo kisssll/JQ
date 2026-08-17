@@ -70,10 +70,14 @@ def _do_run_migrations(connection) -> None:
 
 async def run_migrations_online() -> None:
     """Run migrations in 'online' mode через async-движок (asyncpg)."""
+    # TLS к БД для миграций (тот же флаг, что у приложения): на проде managed-БД
+    # по публичному интернету — шифруем и накатку схемы.
+    _connect_args = {"ssl": settings.POSTGRES_SSLMODE} if settings.POSTGRES_SSLMODE else {}
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=_connect_args,
     )
 
     async with connectable.connect() as connection:

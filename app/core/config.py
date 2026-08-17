@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: str = "5432"
     POSTGRES_DB: str = "beauty_platform"
+    # TLS для коннекта к БД. Пусто = как раньше (без SSL: локальные контейнеры,
+    # тесты). На проде managed-БД в другом ДЦ (трафик по публичному интернету) —
+    # ставим "require" (шифрование, без проверки сертификата, как libpq). Другие
+    # значения asyncpg: disable/allow/prefer/require/verify-ca/verify-full.
+    POSTGRES_SSLMODE: str = ""
 
     # SQL-эхо в логи. В проде ДОЛЖНО быть False (иначе параметры запросов утекают).
     SQL_ECHO: bool = False
