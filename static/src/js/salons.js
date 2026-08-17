@@ -12,6 +12,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const searchInput = document.getElementById('searchInput');
     if (!form || !grid) return;
 
+    // Инлайновые onchange у контролов делают this.form.submit() — это путь для
+    // работы без JS. Программный submit() НЕ поднимает событие 'submit', поэтому
+    // перехватчик ниже его не видел: город, рейтинг, «только с акциями» и
+    // сортировка уходили в полную перезагрузку мимо всего AJAX-слоя. Поднимаем
+    // флаг — инлайновые обработчики видят его и уступают место обработке ниже.
+    form.dataset.ajax = '1';
+
     const DATA = window.salonFilters || { pageSize: 20, categoriesByCity: {} };
     const citySelect = document.getElementById('citySelect');
     const sortSelect = document.getElementById('sortSelect');
@@ -109,6 +116,16 @@ document.addEventListener('DOMContentLoaded', function () {
         updateCategoryLabel();
     }
 
+    // Класс .active проставляет сервер, а при AJAX форма не перерисовывается —
+    // подсветка застревала на старом чипе, и «выбранными» выглядели сразу два.
+    // (CSS-правило :has(input:checked) закрывает это лишь в браузерах с :has.)
+    function syncRatingChips() {
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            const input = chip.querySelector('input');
+            chip.classList.toggle('active', !!input && input.checked);
+        });
+    }
+
     function updateCategoryLabel() {
         if (!categoryLabel) return;
         const n = form.querySelectorAll('input[name="category"]:checked').length;
@@ -146,6 +163,7 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('change', function (e) {
         const el = e.target;
         if (el.name === 'category') { updateCategoryLabel(); return; }  // ждём «Применить»
+        if (el.name === 'min_rating') syncRatingChips();
         if (el.name === 'city') applyCityCategoryFilter();
         if (el.name === 'sort' && el.value === 'distance') { requestGeoThenApply(); return; }
         applyFilters();
@@ -171,6 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     applyCityCategoryFilter();  // подрезаем категории под текущий город при загрузке
+    syncRatingChips();
 
     // === Дропдаун категорий: открыть/закрыть ===
     const categoryDropdown = document.getElementById('categoryDropdown');

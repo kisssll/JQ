@@ -37,7 +37,7 @@
 }
 
 .salons-hero-content {
-    padding-bottom: 5rem;
+    padding-bottom: 4rem;
     max-width: 42rem;
     margin: 0 auto;
     text-align: center;
@@ -45,12 +45,34 @@
 
 .salons-title {
     font-size: 2.5rem;
+    line-height: 1.15;
     margin-bottom: 0.5rem;
 }
 
 .salons-subtitle {
     color: var(--color-muted);
     margin-bottom: 2rem;
+    text-wrap: balance;   /* подзаголовок не рвётся «хвостом» в одно слово */
+}
+
+/* Список идёт сразу за поиском — стандартных 80px сверху здесь много,
+   между поисковой строкой и фильтрами зияла пустая полоса. */
+.salons-list-section {
+    padding-top: 2.5rem;
+}
+
+@media (max-width: 640px) {
+    /* padding-top у .salons-hero не трогаем: заголовок центрирован и при
+       меньшем отступе заезжает под плашку логотипа в шапке. */
+    .salons-hero-content {
+        padding-bottom: 2.75rem;
+    }
+    .salons-subtitle {
+        margin-bottom: 1.5rem;
+    }
+    .salons-list-section {
+        padding-top: 1.75rem;
+    }
 }
 
 .search-box {
@@ -61,28 +83,37 @@
 
 .search-box svg {
     position: absolute;
-    left: 1rem;
+    left: 1.15rem;
     top: 50%;
     transform: translateY(-50%);
     color: var(--color-muted);
     width: 1.25rem;
     height: 1.25rem;
+    pointer-events: none;   /* иконка не должна перехватывать клик по полю */
 }
 
-.search-input {
+/* Селектор из двух классов намеренно: в custom-forms.css есть общее правило
+   input[type="text"] (специфичность 0,1,1) и оно импортируется позже — одного
+   .search-input не хватало, поле теряло ширину, паддинг под иконку и пилюлю. */
+.search-box .search-input {
     width: 100%;
-    padding: 0.875rem 1rem 0.875rem 3rem;
+    padding: 0.875rem 1.25rem 0.875rem 3.1rem;
     border: 1px solid var(--color-border);
     border-radius: 9999px;
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     background: var(--color-surface);
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
     color: var(--color-heading);
 }
 
-.search-input:focus {
+.search-box .search-input::placeholder {
+    color: var(--color-muted);
+}
+
+.search-box .search-input:focus {
     border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-muted);
 }
 
 /* ===== Панель фильтров и сортировки ===== */
@@ -175,6 +206,7 @@
     top: calc(100% + 0.5rem);
     left: 0;
     min-width: 15rem;
+    max-width: calc(100vw - 2rem);
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 0.75rem;
@@ -192,6 +224,15 @@
    умолчанию. Показываем только когда родитель .open — JS снимает [hidden]. */
 .category-dropdown.open .category-dropdown-panel:not([hidden]) {
     display: flex;
+}
+
+/* На узком экране кнопка стоит справа — панель от её левого края вылезала
+   за вьюпорт. Прижимаем к правому краю дропдауна. */
+@media (max-width: 640px) {
+    .category-dropdown-panel {
+        left: auto;
+        right: 0;
+    }
 }
 
 .category-option {
@@ -238,6 +279,7 @@
 }
 
 .filter-chip {
+    position: relative;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 9999px;
@@ -258,20 +300,40 @@
     color: #fff;
 }
 
+/* Радио внутри чипа: скрыто визуально, но остаётся в потоке фокуса —
+   раньше стоял display:none и рейтинг нельзя было выбрать с клавиатуры. */
+.filter-chip-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+.filter-chip:has(.filter-chip-input:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
 .filter-controls {
     justify-content: space-between;
     align-items: center;
+    flex-wrap: nowrap;
     border-top: 1px solid var(--color-border);
     padding-top: 0.75rem;
     gap: 1rem;
 }
 
-/* Фильтры (рейтинг + акции) — своя группа слева, чтобы не сливаться с сортировкой. */
+/* Фильтры (рейтинг + акции) — своя группа слева, чтобы не сливаться с сортировкой.
+   Переносится внутри себя: иначе при узкой колонке (сайдбар съедает 16rem)
+   на отдельную строку уезжала «Сортировка» и висела там сиротой. */
 .filter-controls-left {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 0.75rem;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .filter-group {
@@ -329,6 +391,19 @@
         padding-top: 0.75rem;
         justify-content: space-between;
     }
+    /* Чипы рейтинга — лента с горизонтальной прокруткой: перенос оставлял
+       «от 3.5» одиноко на второй строке. Отрицательные поля дают подрезку
+       у края контейнера — видно, что ленту можно листать. */
+    .filter-group {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        margin-inline: -1rem;
+        padding-inline: 1rem;
+    }
+    .filter-group::-webkit-scrollbar {
+        display: none;
+    }
 }
 
 .salons-grid {
@@ -342,12 +417,14 @@
     border: 1px solid var(--color-border);
     border-radius: 1rem;
     overflow: hidden;
-    transition: box-shadow 0.2s;
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .salon-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 8px 20px rgba(26, 26, 31, 0.07);
+    border-color: var(--color-accent-light);
+    transform: translateY(-2px);
 }
 
 .salon-card-inner {
@@ -358,6 +435,21 @@
 @media (min-width: 640px) {
     .salon-card-inner {
         flex-direction: row;
+        /* Общий нижний предел высоты (равен min-height фото): без него короткие
+           карточки — без описания и акций — проваливались, и лента шла
+           рваной лесенкой. */
+        min-height: 12rem;
+    }
+}
+
+/* С порога, где появляется колонка акций, раскладка карточки — сетка с тремя
+   дорожками. Третья резервируется всегда, даже когда акций нет: на флексе
+   такая карточка растягивала инфо-часть на всю ширину, и бейдж рейтинга
+   вставал не там, где у соседей — лента выглядела рваной по правому краю. */
+@media (min-width: 1280px) {
+    .salon-card-inner {
+        display: grid;
+        grid-template-columns: 12rem minmax(0, 1fr) clamp(17rem, 30%, 22rem);
     }
 }
 
@@ -367,6 +459,7 @@
     height: 10rem;
     flex-shrink: 0;
     overflow: hidden;
+    background: var(--color-surface-alt);
 }
 
 @media (min-width: 640px) {
@@ -381,6 +474,22 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
+}
+
+/* Логотипа нет — буквенная заглушка (раньше собиралась инлайн-стилями). */
+.salon-image-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
+    color: #fff;
+    font-family: var(--font-heading);
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1;
 }
 
 /* --- Кнопка избранного --- */
@@ -461,11 +570,20 @@
     font-size: 0.7rem;
 }
 
+/* Отзывов ещё нет: «0.0 (0)» читалось как низкая оценка. */
+.salon-rating-badge.is-empty {
+    background: var(--color-surface-alt);
+    color: var(--color-muted);
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
 .salon-info {
     flex: 1;
+    min-width: 0;              /* иначе длинное название распирает флекс-колонку */
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    align-items: flex-start;
     gap: 0.75rem;
     padding: 1.25rem;
 }
@@ -475,19 +593,26 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
+    width: 100%;
+}
+
+.salon-info-title {
+    min-width: 0;
 }
 
 .salon-name {
     font-size: 1.25rem;
     font-weight: 600;
+    line-height: 1.3;
     color: var(--color-heading);
     margin: 0;
+    overflow-wrap: anywhere;
 }
 
 .salon-address {
     display: flex;
-    align-items: center;
-    gap: 0.25rem;
+    align-items: flex-start;   /* адрес в две строки — пин держим у первой */
+    gap: 0.3rem;
     color: var(--color-muted);
     font-size: 0.875rem;
     margin-top: 0.25rem;
@@ -497,12 +622,24 @@
     color: var(--color-primary);
     width: 0.875rem;
     height: 0.875rem;
+    flex-shrink: 0;
+    margin-top: 0.3em;
 }
 
+/* --color-body в токенах не объявлен, поэтому тут явный фолбэк: без него
+   описание наследовало цвет заголовка и спорило с названием салона. */
 .salon-desc {
-    color: var(--color-body);
+    color: var(--color-body, #55505c);
     font-size: 0.875rem;
+    line-height: 1.55;
     margin: 0;
+    /* Клампим: разнобой в длине описаний растягивал карточки от 8 до 22rem. */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 62ch;
 }
 
 .services-chips {
@@ -518,6 +655,13 @@
     font-size: 0.75rem;
     font-weight: 500;
     color: var(--color-heading);
+    white-space: nowrap;
+}
+
+/* «+2» — счётчик категорий сверх трёх показанных */
+.service-chip-more {
+    background: var(--color-surface-alt);
+    color: var(--color-muted);
 }
 
 .salon-btn {
@@ -531,12 +675,27 @@
     font-size: 0.875rem;
     font-weight: 500;
     text-decoration: none;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s, transform 0.2s;
     width: fit-content;
+    /* Прижимаем к низу: кнопки соседних карточек встают на одну линию,
+       даже если у одной нет описания, а у другой — три строки. */
+    margin-top: auto;
 }
 
 .salon-btn:hover {
     opacity: 0.9;
+}
+
+.salon-btn:active {
+    transform: scale(0.98);
+}
+
+.salon-btn svg {
+    transition: transform 0.2s;
+}
+
+.salon-card:hover .salon-btn svg {
+    transform: translateX(2px);
 }
 
 @media (max-width: 640px) {
@@ -551,19 +710,22 @@
     }
 }
 
-/* Десктопный блок справа */
+/* Десктопный блок справа.
+   Порог 1280, а не 1024: сайдбар забирает 16rem начиная ровно с 1024px, и на
+   1024–1280 колонка акций в 320px ужимала инфо-часть до ~150px — название
+   ломалось на три строки, кнопка съезжала. Ниже порога акции показываем
+   лентой под карточкой (.salon-promo-mobile). Ширина плавающая. */
 .salon-promo-desktop {
     display: none;
-    flex-shrink: 0;
-    width: 320px;
+    flex: 0 0 clamp(17rem, 30%, 22rem);
     padding: 1.25rem;
     background: var(--color-surface-alt);
     flex-direction: column;
     gap: 0.5rem;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
     .salon-promo-desktop {
         display: flex;
     }
@@ -581,10 +743,10 @@
 .promo-item {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.6rem;
     background: rgba(255, 255, 255, 0.8);
     border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
+    padding: 0.7rem 0.85rem;
     transition: transform 0.2s;
     cursor: default;
 }
@@ -596,10 +758,13 @@
 .promo-tag {
     flex-shrink: 0;
     border-radius: 0.5rem;
-    padding: 0.2rem 0.6rem;
+    padding: 0.25rem 0.6rem;
     font-size: 0.65rem;
     font-weight: 700;
-    color: white;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: #fff;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
 }
 
 .promo-info {
@@ -611,16 +776,22 @@
     display: block;
     font-size: 0.85rem;
     font-weight: 600;
+    line-height: 1.35;
     color: var(--color-heading);
 }
 
+/* Было nowrap + многоточие — почти любое описание обрывалось на первом слове.
+   Даём две строки. */
 .promo-desc {
-    display: block;
-    font-size: 0.7rem;
-    color: var(--color-muted);
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: var(--color-muted);
 }
 
 /* Мобильный блок под карточкой */
@@ -631,7 +802,7 @@
     border-top: 1px solid var(--color-border);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
     .salon-promo-mobile {
         display: none;
     }
@@ -646,13 +817,20 @@
     margin-bottom: 0;
 }
 /* --- Бэкенд-этап фильтров: действия дропдауна категорий + «Показать ещё» --- */
+/* Список длиннее панели и прокручивается — «Применить» уезжало за нижнюю
+   кромку, и кнопку приходилось искать скроллом. Липнем ко дну панели
+   (bottom компенсирует её padding). */
 .category-dropdown-actions {
+    position: sticky;
+    bottom: -0.5rem;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    margin-top: 0.35rem;
-    padding-top: 0.6rem;
+    margin: 0.35rem -0.5rem -0.5rem;
+    padding: 0.6rem 0.5rem 0.5rem;
+    background: var(--color-surface);
     border-top: 1px solid var(--color-border);
 }
 /* clear стал ссылкой внутри actions — гасим его собственную верхнюю границу */
@@ -680,7 +858,59 @@
     justify-content: center;
     margin-top: 1.5rem;
 }
-.salons-more-btn { text-decoration: none; }
+.salons-more-btn {
+    text-decoration: none;
+    background: var(--color-surface);
+    border-color: var(--color-accent-light);
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.salons-more-btn:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+/* --- Пустая выдача --- */
+.salons-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.35rem;
+    padding: 3.5rem 1.5rem;
+    background: var(--color-surface);
+    border: 1px dashed var(--color-border);
+    border-radius: 1rem;
+}
+.salons-empty-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    margin-bottom: 0.75rem;
+    border-radius: 50%;
+    background: var(--color-accent-light);
+}
+.salons-empty-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--color-primary);
+}
+.salons-empty-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin: 0;
+}
+.salons-empty-text {
+    font-size: 0.875rem;
+    color: var(--color-muted);
+    margin: 0;
+    max-width: 28rem;
+}
+.salons-empty-reset {
+    margin-top: 1.25rem;
+}
 
 /* --- Фронт-этап: активный чип рейтинга следует за :checked (форма при AJAX
    не перерисовывается, серверный .active не двигается) + плавность сетки --- */
@@ -690,3 +920,33 @@
     color: #fff;
 }
 #salons-list { transition: opacity 0.15s ease; }
+
+/* --- Видимый фокус для клавиатуры (кастомные контролы его теряли) --- */
+.category-dropdown-btn:focus-visible,
+.category-apply-btn:focus-visible,
+.category-clear-btn:focus-visible,
+.favorite-btn:focus-visible,
+.salon-btn:focus-visible,
+.salons-more-btn:focus-visible,
+.city-select:focus-visible,
+.sort-select:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .salon-card,
+    .salon-btn,
+    .salon-btn svg,
+    .favorite-btn,
+    .promo-item,
+    #salons-list {
+        transition: none;
+    }
+    .salon-card:hover {
+        transform: none;
+    }
+    .salon-card:hover .salon-btn svg {
+        transform: none;
+    }
+}

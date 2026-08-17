@@ -282,33 +282,52 @@ def _render_card(s, promos, categories) -> str:
     rating = s["rating"] or 0.0
     reviews = s["reviews_count"] or 0
 
-    service_chips = "".join(
-        f'<span class="service-chip">{slug_to_label(slug)}</span>' for slug in categories[:3]
-    ) or '<span class="service-chip">Услуги</span>'
+    # Категорий может не быть (мастера ещё не завели услуги) — тогда блок чипов
+    # не рендерим вовсе, чтобы не показывать бессмысленный плейсхолдер «Услуги».
+    chips_html = ""
+    if categories:
+        chips = "".join(
+            f'<span class="service-chip">{slug_to_label(slug)}</span>' for slug in categories[:3]
+        )
+        extra = len(categories) - 3
+        if extra > 0:
+            chips += f'<span class="service-chip service-chip-more">+{extra}</span>'
+        chips_html = f'<div class="services-chips">{chips}</div>'
+
+    # Рейтинга нет, пока нет отзывов — «0.0 (0)» читается как плохая оценка.
+    if reviews > 0:
+        rating_html = (
+            f'<div class="salon-rating-badge">{ICON_STAR_FILLED}'
+            f'<span class="rating-value">{rating:.1f}</span>'
+            f'<span class="rating-count">({reviews})</span></div>'
+        )
+    else:
+        rating_html = '<div class="salon-rating-badge is-empty">Нет оценок</div>'
+
+    desc = (s["description"] or "").strip()
+    desc_html = f'<p class="salon-desc">{html.escape(desc)}</p>' if desc else ""
 
     heart_svg = ICON_HEART.replace('"', '&quot;')
     heart_filled_svg = ICON_HEART_FILLED.replace('"', '&quot;')
 
     if s["logo_url"]:
-        image_html = f'<img src="{s["logo_url"]}" alt="{html.escape(s["name"] or "", quote=True)}">'
+        image_html = (
+            f'<img src="{s["logo_url"]}" alt="{html.escape(s["name"] or "", quote=True)}" '
+            f'loading="lazy" decoding="async">'
+        )
     else:
         letter = (s["name"] or "?")[0].upper()
-        image_html = (
-            f'<div style="width:100%;height:100%;display:flex;align-items:center;'
-            f'justify-content:center;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));'
-            f'color:#fff;font-size:3rem;font-weight:700">{letter}</div>'
-        )
+        image_html = f'<div class="salon-image-fallback" aria-hidden="true">{letter}</div>'
 
     promo_items = ""
     for promo in promos[:3]:
+        promo_desc = (promo.description or "").strip()
         promo_items += f"""
         <div class="promo-item">
-            <span class="promo-tag" style="background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));">
-                {promo.tag}
-            </span>
+            <span class="promo-tag">{html.escape(promo.tag or '')}</span>
             <div class="promo-info">
-                <span class="promo-title">{promo.title}</span>
-                <span class="promo-desc">{promo.description or ''}</span>
+                <span class="promo-title">{html.escape(promo.title or '')}</span>
+                {f'<span class="promo-desc">{html.escape(promo_desc)}</span>' if promo_desc else ''}
             </div>
         </div>
         """
@@ -328,18 +347,14 @@ def _render_card(s, promos, categories) -> str:
             </div>
             <div class="salon-info">
                 <div class="salon-info-header">
-                    <div>
-                        <h3 class="salon-name">{s['name']}</h3>
-                        <p class="salon-address">{ICON_MAP_PIN}{s['address'] or 'Адрес не указан'}</p>
+                    <div class="salon-info-title">
+                        <h3 class="salon-name">{html.escape(s['name'] or '')}</h3>
+                        <p class="salon-address">{ICON_MAP_PIN}<span>{html.escape(s['address'] or 'Адрес не указан')}</span></p>
                     </div>
-                    <div class="salon-rating-badge">
-                        {ICON_STAR_FILLED}
-                        <span class="rating-value">{rating:.1f}</span>
-                        <span class="rating-count">({reviews})</span>
-                    </div>
+                    {rating_html}
                 </div>
-                <p class="salon-desc">{s['description'] or ''}</p>
-                <div class="services-chips">{service_chips}</div>
+                {desc_html}
+                {chips_html}
                 <a href="/salons/{s['id']}" class="btn-primary salon-btn">Смотреть мастеров {ICON_ARROW_RIGHT}</a>
             </div>
             {desktop_promo_block}
@@ -391,10 +406,12 @@ def _render_filter_bar(p: SalonQuery, cities: list[str]) -> str:
     rating_chips = ""
     for val, lbl in rating_levels:
         checked = " checked" if abs(p.min_rating - float(val)) < 1e-9 else ""
+        # Радио не прячем через display:none — так чип нельзя выбрать с
+        # клавиатуры. Визуально скрываем классом, фокус ловим на самом чипе.
         rating_chips += (
             f'<label class="filter-chip{" active" if checked else ""}">'
-            f'<input type="radio" name="min_rating" value="{val}" form="salonsFilterForm" '
-            f'onchange="this.form.submit()"{checked} style="display:none">{lbl}</label>'
+            f'<input type="radio" class="filter-chip-input" name="min_rating" value="{val}" '
+            f'form="salonsFilterForm" onchange="if(!this.form.dataset.ajax)this.form.submit()"{checked}>{lbl}</label>'
         )
 
     sort_opts = [("", "По релевантности" if p.q else "По рейтингу"), ("rating", "По рейтингу"),
@@ -412,7 +429,7 @@ def _render_filter_bar(p: SalonQuery, cities: list[str]) -> str:
         <div class="filter-row filter-categories">
             <div class="city-select-wrapper">
                 {ICON_MAP_PIN}
-                <select id="citySelect" name="city" class="city-select" onchange="this.form.submit()">
+                <select id="citySelect" name="city" class="city-select" onchange="if(!this.form.dataset.ajax)this.form.submit()">
                     {city_options}
                 </select>
             </div>
@@ -438,13 +455,13 @@ def _render_filter_bar(p: SalonQuery, cities: list[str]) -> str:
                 </div>
                 <label class="promo-toggle">
                     <input type="checkbox" name="promo" value="1" id="promoOnlyToggle" form="salonsFilterForm"
-                           onchange="this.form.submit()"{" checked" if p.promo_only else ""}>
+                           onchange="if(!this.form.dataset.ajax)this.form.submit()"{" checked" if p.promo_only else ""}>
                     Только с акциями
                 </label>
             </div>
             <div class="sort-group">
                 <label for="sortSelect">Сортировка</label>
-                <select id="sortSelect" name="sort" class="sort-select" onchange="this.form.submit()">
+                <select id="sortSelect" name="sort" class="sort-select" onchange="if(!this.form.dataset.ajax)this.form.submit()">
                     {sort_options}
                 </select>
             </div>
@@ -465,10 +482,14 @@ async def render_salons_grid(db: AsyncSession, p: SalonQuery) -> str:
         for r in rows
     )
     if not cards and p.offset == 0:
-        return (
-            '<p id="salonsEmptyState" class="text-muted" style="text-align:center;padding:2rem">'
-            'Ничего не найдено — попробуйте изменить фильтры.</p>'
-        )
+        return f"""
+        <div id="salonsEmptyState" class="salons-empty">
+            <div class="salons-empty-icon">{ICON_SEARCH}</div>
+            <p class="salons-empty-title">Ничего не найдено</p>
+            <p class="salons-empty-text">Попробуйте изменить запрос или снять часть фильтров.</p>
+            <a href="/salons" class="btn-outline salons-empty-reset">Сбросить фильтры</a>
+        </div>
+        """
 
     more = ""
     if has_more:
@@ -526,7 +547,7 @@ async def render_salons_page(db: AsyncSession, user=None, p: Optional[SalonQuery
                     <div class="search-box">
                         {ICON_SEARCH}
                         <input type="text" name="q" id="searchInput" form="salonsFilterForm"
-                               value="{search_value}" placeholder="Поиск салона по названию или услуге..."
+                               value="{search_value}" placeholder="Название салона или услуга"
                                class="search-input">
                     </div>
                 </div>
