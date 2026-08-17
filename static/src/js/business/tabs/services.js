@@ -51,7 +51,7 @@
     });
 
     // Глобальная функция для редактирования
-    window.openEditModal = function(id, name, price, duration, desc, masterId) {
+    window.openEditModal = function(id, name, price, duration, desc, masterId, category) {
         if (!modal) return;
         modalTitle.textContent = 'Редактировать услугу';
         document.getElementById('serviceId').value = id;
@@ -60,6 +60,8 @@
         document.getElementById('serviceDuration').value = duration;
         document.getElementById('serviceDescription').value = desc;
         document.getElementById('serviceMaster').value = masterId;
+        const catSel = document.getElementById('serviceCategory');
+        if (catSel) catSel.value = category || '';
         form.action = '/api/v1/services/' + id + '/update';
         modal.classList.add('active');
     };

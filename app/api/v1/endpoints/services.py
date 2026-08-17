@@ -9,8 +9,18 @@ from sqlalchemy import select
 from app.db.session import get_db
 from app.models.models import Service, Master
 from app.api.deps import check_salon_permission
+from app.web.service_categories import suggest_category, VALID_CATEGORY_SLUGS
 
 router = APIRouter()
+
+
+def _resolve_category(chosen: str, name: str) -> str | None:
+    """Гибрид: если владелец явно выбрал валидную категорию — берём её; иначе
+    подсказываем матчером по названию (первый матч, может быть None)."""
+    chosen = (chosen or "").strip()
+    if chosen in VALID_CATEGORY_SLUGS:
+        return chosen
+    return suggest_category(name)
 
 
 @router.post("/services/create")
@@ -21,6 +31,7 @@ async def create_service_web(
     price: int = Form(...),
     duration_minutes: int = Form(...),
     description: str = Form(""),
+    category: str = Form(""),
     is_model_practice: bool = Form(False),
     model_quota: str = Form(""),
     model_desired_date: str = Form(""),
@@ -61,6 +72,7 @@ async def create_service_web(
         price=price,
         duration_minutes=duration_minutes,
         description=description,
+        category=_resolve_category(category, name),
         is_model_practice=is_model_practice,
         model_quota=parsed_quota,
         model_desired_date=parsed_desired_date,
@@ -80,6 +92,7 @@ async def update_service_web(
     price: int = Form(...),
     duration_minutes: int = Form(...),
     description: str = Form(""),
+    category: str = Form(""),
     db: AsyncSession = Depends(get_db)
 ):
     """Обновление услуги."""
@@ -113,6 +126,7 @@ async def update_service_web(
     service.price = price
     service.duration_minutes = duration_minutes
     service.description = description
+    service.category = _resolve_category(category, name)
     await db.commit()
 
     return RedirectResponse(url="/business/dashboard?tab=services&updated=1", status_code=302)

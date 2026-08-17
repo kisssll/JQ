@@ -473,6 +473,12 @@ class Service(Base):
     price: Mapped[int] = mapped_column(Integer, nullable=False)
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Категория услуги (слаг из service_categories.SERVICE_CATEGORY_GROUPS).
+    # Гибрид: при создании матчер по названию подсказывает, владелец может
+    # переопределить; хранимое значение — источник для тегов на карточке салона
+    # и серверного фильтра по категории (а не угадывание из названия). NULL —
+    # без категории (в фильтр/теги не попадает).
+    category: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     # Мягкое удаление: удалённая услуга скрыта из выбора/записи, но брони с ней
     # (история) остаются валидными — Booking.service_id не рвётся.
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)

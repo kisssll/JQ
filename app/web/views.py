@@ -33,11 +33,14 @@ async def home_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 @router.get("/salons", response_class=HTMLResponse)
 async def salons_page(request: Request, db: AsyncSession = Depends(get_db)):
-    """Страница со списком салонов."""
+    """Страница со списком салонов (серверные фильтры/поиск/сортировка).
+    ?partial=1 → только сетка карточек (для AJAX-подмены на фронт-этапе)."""
     user = await get_current_user_from_cookie(request, db)
-    from app.web.pages.salons import render_salons_page
-    html = await render_salons_page(db, user)
-    return HTMLResponse(content=html)
+    from app.web.pages.salons import render_salons_page, parse_salon_query
+    params = parse_salon_query(request)
+    partial = request.query_params.get("partial") == "1"
+    page_html = await render_salons_page(db, user, params, partial)
+    return HTMLResponse(content=page_html)
 
 
 @router.get("/evening-deals", response_class=HTMLResponse)

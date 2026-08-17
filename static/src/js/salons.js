@@ -1,238 +1,37 @@
 // static/src/js/salons.js
+//
+// Бэкенд-этап: фильтрация/поиск/сортировка теперь на сервере (GET-форма
+// #salonsFilterForm, полная перезагрузка). Клиентского фильтра больше нет.
+// Здесь осталось только то, без чего форма не живёт: раскрытие дропдауна
+// категорий + избранное. Фронт-этап заменит перезагрузку на AJAX-подмену
+// сетки (#salons-list) с pushState и «Показать ещё» без релоада.
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Проверяем, что мы на странице салонов
-    if (!document.getElementById('searchInput')) {
-        return;
-    }
+    if (!document.getElementById('searchInput')) return;
 
-    // === Поиск + фильтры + сортировка ===
-    const searchInput = document.getElementById('searchInput');
-    const grid = document.getElementById('salons-list');
-    const cards = Array.from(document.querySelectorAll('.salon-card'));
-    const emptyState = document.getElementById('salonsEmptyState');
-    const sortSelect = document.getElementById('sortSelect');
-
-    // categories — Set: пусто = без фильтра по категории, иначе матч по
-    // «хотя бы одна из выбранных» (OR), а не «все сразу».
-    // city — пусто = «Все города», иначе точное совпадение с data-city карточки.
-    const filterState = { query: '', categories: new Set(), minRating: 0, promoOnly: false, sort: 'rating', city: '' };
-    let userCoords = null; // {lat, lon} — заполняется после согласия на геолокацию
-
-    function applyFilters() {
-        let anyVisible = false;
-        cards.forEach(card => {
-            const haystack = card.dataset.search || '';
-            const categories = (card.dataset.categories || '').split(' ');
-            const rating = parseFloat(card.dataset.rating) || 0;
-            const hasPromo = card.dataset.hasPromo === '1';
-            const city = card.dataset.city || '';
-
-            const matches = (
-                (!filterState.query || haystack.includes(filterState.query)) &&
-                (filterState.categories.size === 0 || categories.some(c => filterState.categories.has(c))) &&
-                (rating >= filterState.minRating) &&
-                (!filterState.promoOnly || hasPromo) &&
-                (!filterState.city || city === filterState.city)
-            );
-            card.style.display = matches ? '' : 'none';
-            if (matches) anyVisible = true;
-        });
-        if (emptyState) emptyState.style.display = anyVisible ? 'none' : '';
-    }
-
-    function haversineKm(lat1, lon1, lat2, lon2) {
-        const R = 6371;
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-
-    function applySort() {
-        if (!grid) return;
-        const sorted = [...cards].sort((a, b) => {
-            if (filterState.sort === 'reviews') {
-                return (parseInt(b.dataset.reviews) || 0) - (parseInt(a.dataset.reviews) || 0);
-            }
-            if (filterState.sort === 'distance' && userCoords) {
-                const da = haversineKm(userCoords.lat, userCoords.lon, parseFloat(a.dataset.lat), parseFloat(a.dataset.lon));
-                const db = haversineKm(userCoords.lat, userCoords.lon, parseFloat(b.dataset.lat), parseFloat(b.dataset.lon));
-                return da - db;
-            }
-            return (parseFloat(b.dataset.rating) || 0) - (parseFloat(a.dataset.rating) || 0);
-        });
-        sorted.forEach(card => grid.appendChild(card));
-    }
-
-    function requestGeolocationAndSort() {
-        if (!navigator.geolocation) {
-            alert('Ваш браузер не поддерживает геолокацию.');
-            if (sortSelect) sortSelect.value = 'rating';
-            filterState.sort = 'rating';
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            function (pos) {
-                userCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-                applySort();
-            },
-            function () {
-                alert('Не удалось определить местоположение — разрешите доступ к геолокации в браузере.');
-                if (sortSelect) sortSelect.value = 'rating';
-                filterState.sort = 'rating';
-            }
-        );
-    }
-
-    if (searchInput) {
-        searchInput.addEventListener('input', function () {
-            filterState.query = this.value.toLowerCase().trim();
-            applyFilters();
-        });
-    }
-
-    // === Категории: кнопка-дропдаун с чек-листом (без ограничения по числу) ===
+    // === Дропдаун категорий: открыть/закрыть (сабмит — по кнопке «Применить») ===
     const categoryDropdown = document.getElementById('categoryDropdown');
     const categoryDropdownBtn = document.getElementById('categoryDropdownBtn');
     const categoryDropdownPanel = document.getElementById('categoryDropdownPanel');
-    const categoryDropdownLabel = document.getElementById('categoryDropdownLabel');
-    const categoryClearBtn = document.getElementById('categoryClearBtn');
-    const categoryOptions = Array.from(document.querySelectorAll('.category-option'));
-    const categoryEmptyHint = document.getElementById('categoryEmptyHint');
-
-    function updateCategoryLabel() {
-        if (!categoryDropdownLabel) return;
-        const n = filterState.categories.size;
-        categoryDropdownLabel.textContent = n === 0 ? 'Категории' : `Категории (${n})`;
-    }
-
-    // «Умный» список категорий: в выбранном городе показываем только те,
-    // которые реально предлагает хотя бы один салон (по услугам мастеров,
-    // см. match_category_slugs на бэкенде) — остальные скрываем из списка,
-    // а не просто делаем неактивными.
-    function updateAvailableCategories() {
-        const available = new Set();
-        cards.forEach(card => {
-            const city = card.dataset.city || '';
-            if (filterState.city && city !== filterState.city) return;
-            (card.dataset.categories || '').split(' ').forEach(slug => { if (slug) available.add(slug); });
-        });
-
-        let visibleCount = 0;
-        categoryOptions.forEach(label => {
-            const slug = label.dataset.slug;
-            const isAvailable = available.has(slug);
-            label.hidden = !isAvailable;
-            if (isAvailable) {
-                visibleCount++;
-            } else {
-                const checkbox = label.querySelector('input[type="checkbox"]');
-                if (checkbox && checkbox.checked) {
-                    checkbox.checked = false;
-                    filterState.categories.delete(checkbox.value);
-                }
-            }
-        });
-        if (categoryEmptyHint) categoryEmptyHint.hidden = visibleCount > 0;
-        updateCategoryLabel();
-    }
 
     if (categoryDropdown && categoryDropdownBtn && categoryDropdownPanel) {
-        categoryDropdownBtn.addEventListener('click', function(e) {
+        categoryDropdownBtn.addEventListener('click', function (e) {
             e.stopPropagation();
             const isOpen = categoryDropdown.classList.toggle('open');
             categoryDropdownPanel.hidden = !isOpen;
         });
-
-        // Клик вне дропдауна — закрыть.
-        document.addEventListener('click', function(e) {
+        // Клик вне дропдауна — закрыть (клики внутри панели не закрывают,
+        // чтобы можно было отметить несколько категорий).
+        document.addEventListener('click', function (e) {
             if (!categoryDropdown.contains(e.target)) {
                 categoryDropdown.classList.remove('open');
                 categoryDropdownPanel.hidden = true;
-            }
-        });
-
-        categoryDropdownPanel.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                if (this.checked) filterState.categories.add(this.value);
-                else filterState.categories.delete(this.value);
-                updateCategoryLabel();
-                applyFilters();
-            });
-        });
-
-        if (categoryClearBtn) {
-            categoryClearBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                filterState.categories.clear();
-                categoryDropdownPanel.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
-                updateCategoryLabel();
-                applyFilters();
-            });
-        }
-    }
-
-    // === Город: свой выбор запоминаем в localStorage (переживает визиты),
-    // при первом визите — город из профиля, если у него там есть салоны. ===
-    const CITY_STORAGE_KEY = 'rumi_city';
-    const citySelect = document.getElementById('citySelect');
-    if (citySelect) {
-        const knownCities = Array.from(citySelect.options).map(o => o.value);
-        let initialCity = '';
-        try {
-            const saved = localStorage.getItem(CITY_STORAGE_KEY);
-            if (saved && knownCities.includes(saved)) initialCity = saved;
-        } catch (e) { /* localStorage недоступен (приватный режим и т.п.) — просто без сохранения */ }
-        if (!initialCity && window.userCity && knownCities.includes(window.userCity)) {
-            initialCity = window.userCity;
-        }
-
-        citySelect.value = initialCity;
-        filterState.city = initialCity;
-
-        citySelect.addEventListener('change', function () {
-            filterState.city = this.value;
-            try { localStorage.setItem(CITY_STORAGE_KEY, this.value); } catch (e) { /* см. выше */ }
-            updateAvailableCategories();
-            applyFilters();
-        });
-    }
-    updateAvailableCategories();
-    if (filterState.city) applyFilters();
-
-    document.querySelectorAll('#ratingFilterGroup .filter-chip').forEach(btn => {
-        btn.addEventListener('click', function () {
-            document.querySelectorAll('#ratingFilterGroup .filter-chip').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            filterState.minRating = parseFloat(this.dataset.minRating) || 0;
-            applyFilters();
-        });
-    });
-
-    const promoToggle = document.getElementById('promoOnlyToggle');
-    if (promoToggle) {
-        promoToggle.addEventListener('change', function () {
-            filterState.promoOnly = this.checked;
-            applyFilters();
-        });
-    }
-
-    if (sortSelect) {
-        sortSelect.addEventListener('change', function () {
-            filterState.sort = this.value;
-            if (filterState.sort === 'distance' && !userCoords) {
-                requestGeolocationAndSort();
-            } else {
-                applySort();
             }
         });
     }
 
     // === Избранное ===
     const favButtons = document.querySelectorAll('.favorite-btn');
-
     favButtons.forEach(btn => {
         btn.addEventListener('click', async function (e) {
             e.preventDefault();
@@ -241,13 +40,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const isLiked = this.classList.contains('liked');
             const heartIcon = this.dataset.iconHeart;
             const heartFilledIcon = this.dataset.iconHeartFilled;
-
             try {
                 const response = await fetch(`/api/v1/favorites/toggle-${type}/${id}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                 });
-
                 if (response.redirected && response.url.includes('/login')) {
                     window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
                 } else if (response.ok) {
@@ -268,7 +65,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Инициализация состояния избранного
     async function loadFavorites() {
         try {
             const response = await fetch('/api/v1/favorites/my');
@@ -286,9 +82,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             }
         } catch (e) {
-            // пользователь не авторизован – ничего не делаем
+            // не авторизован — ничего не делаем
         }
     }
-
     loadFavorites();
 });

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.models import Service, Master, User as UserModel
 from app.web.components.icons import ICON_EDIT, ICON_TRASH, ICON_CHEVRON_DOWN, ICON_CHEVRON_UP, ICON_FILTER
+from app.web.service_categories import SERVICE_CATEGORY_GROUPS
 
 
 async def render_services_tab(
@@ -52,7 +53,7 @@ async def render_services_tab(
             desc_js = service.description.replace("'", "\\'") if service.description else ''
             actions_cell = f"""
             <td class="services-actions-cell">
-                <button class="services-edit-btn" onclick="openEditModal({service.id}, '{name_js}', {service.price}, {service.duration_minutes}, '{desc_js}', {service.master_id})" title="Редактировать">
+                <button class="services-edit-btn" onclick="openEditModal({service.id}, '{name_js}', {service.price}, {service.duration_minutes}, '{desc_js}', {service.master_id}, '{service.category or ''}')" title="Редактировать">
                     {ICON_EDIT}
                 </button>
                 <form method="post" action="/api/v1/services/{service.id}/delete" style="display:inline-block; margin:0;">
@@ -88,7 +89,7 @@ async def render_services_tab(
             name_js = service.name.replace("'", "\\'")
             desc_js = service.description.replace("'", "\\'") if service.description else ''
             actions = f"""
-            <button class="services-edit-btn" onclick="openEditModal({service.id}, '{name_js}', {service.price}, {service.duration_minutes}, '{desc_js}', {service.master_id})" title="Редактировать">
+            <button class="services-edit-btn" onclick="openEditModal({service.id}, '{name_js}', {service.price}, {service.duration_minutes}, '{desc_js}', {service.master_id}, '{service.category or ''}')" title="Редактировать">
                 {ICON_EDIT}
             </button>
             <form method="post" action="/api/v1/services/{service.id}/delete" style="display:inline-block; margin:0;">
@@ -207,6 +208,12 @@ async def render_services_tab(
     """
 
     # Модальное окно
+    # Опции категории: пустая = «определить автоматически» (бэкенд подскажет
+    # матчером по названию), либо владелец выбирает явно.
+    category_options = '<option value="">— определить автоматически —</option>' + "".join(
+        f'<option value="{slug}">{label}</option>' for slug, label, _kw in SERVICE_CATEGORY_GROUPS
+    )
+
     modal_html = ""
     if can_manage:
         modal_html = f"""
@@ -236,6 +243,12 @@ async def render_services_tab(
                             <label for="serviceDuration">Длительность (мин) *</label>
                             <input type="number" name="duration_minutes" id="serviceDuration" required placeholder="30">
                         </div>
+                    </div>
+                    <div class="services-form-group">
+                        <label for="serviceCategory">Категория</label>
+                        <select name="category" id="serviceCategory" class="custom-select">
+                            {category_options}
+                        </select>
                     </div>
                     <div class="services-form-group">
                         <label for="serviceDescription">Описание</label>

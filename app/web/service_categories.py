@@ -28,6 +28,9 @@ SERVICE_CATEGORY_GROUPS = [
 _LABEL_BY_SLUG = {slug: label for slug, label, _keywords in SERVICE_CATEGORY_GROUPS}
 
 
+VALID_CATEGORY_SLUGS = {slug for slug, _label, _kw in SERVICE_CATEGORY_GROUPS}
+
+
 def match_category_slugs(text: str) -> list[str]:
     """Слаги категорий, чьи ключевые слова встречаются в тексте (регистр не важен)."""
     haystack = text.lower()
@@ -35,6 +38,14 @@ def match_category_slugs(text: str) -> list[str]:
         slug for slug, _label, keywords in SERVICE_CATEGORY_GROUPS
         if any(kw in haystack for kw in keywords)
     ]
+
+
+def suggest_category(text: str) -> str | None:
+    """Первая подходящая категория по тексту услуги — для авто-подсказки в форме
+    и разового бэкфилла Service.category. None, если ничего не совпало (тогда у
+    услуги категории нет — в фильтре/тегах она просто не участвует)."""
+    matches = match_category_slugs(text)
+    return matches[0] if matches else None
 
 
 def slug_to_label(slug: str) -> str:
