@@ -461,3 +461,100 @@
     color: #dc2626;
     border-color: #dc2626;
 }
+
+/* Фото салона и дропзона загрузки. Правила случайно снесены при переносе
+   лояльности/промокодов в «акции» (0eb1b5f) — HTML (my_salon.py) и JS их
+   по-прежнему используют, из-за чего окно загрузки рисовалось голым. Возвращены. */
+.my-salon-photos {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.my-salon-photo-item {
+    position: relative;
+}
+
+.my-salon-photo-item img {
+    width: 140px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 0.5rem;
+}
+
+.my-salon-photo-item .cover-badge {
+    position: absolute;
+    bottom: 0.25rem;
+    left: 0.25rem;
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 1rem;
+}
+
+.my-salon-photo-item .cover-btn {
+    position: absolute;
+    bottom: 0.25rem;
+    left: 0.25rem;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    border: none;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 1rem;
+    cursor: pointer;
+}
+
+.my-salon-photo-item .delete-btn {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.my-salon-photo-item .cover-border {
+    border: 2px solid var(--color-primary);
+}
+
+.my-salon-photo-item .default-border {
+    border: 1px solid var(--color-border);
+}
+
+.my-salon-dropzone {
+    border: 2px dashed var(--color-border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 1rem;
+}
+
+.my-salon-dropzone:hover {
+    border-color: var(--color-primary);
+    background: var(--color-surface-alt);
+}
+
+.my-salon-dropzone p {
+    margin: 0;
+    font-weight: 500;
+}
+
+.my-salon-dropzone .hint {
+    margin: 0.25rem 0 0;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
