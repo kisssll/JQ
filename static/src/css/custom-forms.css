@@ -29,59 +29,75 @@
     border-color: var(--color-primary);
 }
 
+/* Открытый селект остаётся пилюлей и подсвечивается акцентом — раньше он
+   «раскрывался» в состыкованную коробку с прямыми углами и это читалось как
+   системный контрол. Эталон вида — дропдаун категорий на /salons. */
 .choices.is-open .choices__inner {
-    border-radius: 25px 25px 0 0;
-    border-bottom: none;
+    border-color: var(--color-accent);
+    color: var(--color-accent);
 }
 
-/* Выпадающий список – стыкуется */
-.choices__list--dropdown {
+/* Панель отрывается от кнопки, как у .category-dropdown-panel */
+.choices__list--dropdown,
+.choices__list[aria-expanded] {
     border: 1px solid var(--color-border);
-    border-top: none;
-    border-radius: 0 0 0px 0px;
+    border-radius: 0.75rem;
     background: var(--color-surface);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    margin-top: -1px;
-    padding: 0;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    margin-top: 0.5rem;
+    padding: 0.5rem;
     overflow: hidden;
-    transition: border-color 0.2s;
-}
-
-.choices.is-focused .choices__list--dropdown {
-    border-color: var(--color-primary);
-
+    z-index: 30;
 }
 
 /* Сам список внутри */
 .choices__list--dropdown .choices__list {
-    border-radius: 0 0 0px 0px;
-    overflow: hidden;
-    padding-left: 0.9rem;
+    padding-left: 0;
+    max-height: 18rem;
 }
 
-/* Элементы списка */
+/* Элементы списка — как .category-option */
 .choices__list--dropdown .choices__item {
-    padding: 0.5rem 1.2rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 0.5rem;
     color: var(--color-heading);
-    font-size: 0.875rem;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
+    font-size: 0.85rem;
+    background: transparent;
     text-align: left;
 }
 
-.choices__list--dropdown .choices__item:last-child {
-    border-bottom: none;
-    border-radius: 0 0 0px 0px;
-}
-
 .choices__list--dropdown .choices__item.is-highlighted {
-    background: var(--color-accent-light);
-    color: var(--color-primary);
+    background: var(--color-surface-alt);
+    color: var(--color-heading);
 }
 
-/* Скрываем выбранный элемент в выпадающем списке */
+/* Шеврон вместо системной стрелки: тот же жест, что у кнопки категорий —
+   поворот на 180° при открытии. Рисуем углом рамки, чтобы не тянуть SVG. */
+.choices[data-type*="select-one"]::after {
+    content: '';
+    border: none;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin-top: -0.3rem;
+    right: 1.1rem;
+    border-right: 1.5px solid var(--color-muted);
+    border-bottom: 1.5px solid var(--color-muted);
+    transform: rotate(45deg);
+    transition: transform 0.15s, border-color 0.15s;
+    pointer-events: none;
+}
+
+.choices[data-type*="select-one"].is-open::after {
+    margin-top: -0.15rem;
+    transform: rotate(225deg);
+    border-color: var(--color-accent);
+}
+
+/* Выбранный пункт раньше просто пропадал из списка — открыв дропдаун, нельзя
+   было понять, что выбрано сейчас. Показываем и помечаем акцентом. */
 .choices__list--dropdown .choices__item.is-selected {
-    display: none !important;
+    color: var(--color-accent);
+    font-weight: 600;
 }
 
 /* Скрываем пустой элемент-заглушку плейсхолдера */

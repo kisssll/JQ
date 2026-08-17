@@ -28,6 +28,13 @@ document.addEventListener('DOMContentLoaded', function () {
     let userCoords = null;   // {lat, lon} после согласия на геолокацию
     let loading = false;
 
+    // Селекты обёрнуты в Choices — присвоения .value видимую часть не двигают.
+    function setSelectValue(el, value) {
+        if (!el) return;
+        el.value = value;
+        if (el._choices) el._choices.setChoiceByValue(value);
+    }
+
     // --- Параметры из формы (без partial/offset/координат) ---
     function paramsFromForm() {
         const sp = new URLSearchParams();
@@ -137,7 +144,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (userCoords) { applyFilters(); return; }
         if (!navigator.geolocation) {
             alert('Ваш браузер не поддерживает геолокацию.');
-            if (sortSelect) sortSelect.value = '';
+            setSelectValue(sortSelect, '');
             return;
         }
         navigator.geolocation.getCurrentPosition(
@@ -148,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             function () {
                 alert('Не удалось определить местоположение — разрешите доступ к геолокации.');
-                if (sortSelect) sortSelect.value = '';
+                setSelectValue(sortSelect, '');
                 applyFilters();
             }
         );

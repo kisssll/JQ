@@ -429,7 +429,7 @@ def _render_filter_bar(p: SalonQuery, cities: list[str]) -> str:
         <div class="filter-row filter-categories">
             <div class="city-select-wrapper">
                 {ICON_MAP_PIN}
-                <select id="citySelect" name="city" class="city-select" onchange="if(!this.form.dataset.ajax)this.form.submit()">
+                <select id="citySelect" name="city" class="city-select custom-select" onchange="if(!this.form.dataset.ajax)this.form.submit()">
                     {city_options}
                 </select>
             </div>
@@ -461,7 +461,7 @@ def _render_filter_bar(p: SalonQuery, cities: list[str]) -> str:
             </div>
             <div class="sort-group">
                 <label for="sortSelect">Сортировка</label>
-                <select id="sortSelect" name="sort" class="sort-select" onchange="if(!this.form.dataset.ajax)this.form.submit()">
+                <select id="sortSelect" name="sort" class="sort-select custom-select" onchange="if(!this.form.dataset.ajax)this.form.submit()">
                     {sort_options}
                 </select>
             </div>

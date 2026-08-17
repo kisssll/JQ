@@ -6,13 +6,20 @@ import 'flatpickr/dist/l10n/ru.js';
 
 // Инициализация всех select'ов с классом .custom-select
 document.querySelectorAll('select.custom-select').forEach(el => {
-    new Choices(el, {
+    // Кладём инстанс на элемент: при программной смене значения (например,
+    // сброс сортировки на /salons) нужно обновить и видимую часть — сам по
+    // себе скрытый <select> её не двигает.
+    el._choices = new Choices(el, {
         searchEnabled: false,
         itemSelectText: '',
         shouldSort: false,
         position: 'auto',
-        placeholder: true,
-        placeholderValue: el.getAttribute('placeholder') || 'Выберите...',
+        // Раньше стояло placeholder:true с дефолтом «Выберите...» — Choices
+        // подменял этим текстом первую опцию с пустым value, и осмысленные
+        // подписи вроде «Все города» пропадали. Плейсхолдер включаем только
+        // там, где его явно попросили атрибутом.
+        placeholder: el.hasAttribute('placeholder'),
+        placeholderValue: el.getAttribute('placeholder') || undefined,
         renderSelectedChoices: 'auto',
         removeItemButton: false,
         allowHTML: false,

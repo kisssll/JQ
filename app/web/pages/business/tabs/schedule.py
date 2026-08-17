@@ -424,7 +424,7 @@ async def render_schedule_tab(
                 </div>
                 <div style="margin-bottom:1rem">
                     <label style="display:block;font-weight:500;margin-bottom:0.5rem">Кто закрывается</label>
-                    <select id="closeDateMaster" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                    <select id="closeDateMaster" class="custom-select">
                         <option value="">Весь салон</option>
                         {closure_master_options}
                     </select>

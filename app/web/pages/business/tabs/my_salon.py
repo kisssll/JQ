@@ -117,7 +117,7 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
                 </div>
                 <div class="salon-edit-field">
                     <label>Город</label>
-                    <select id="salonEditCityInput" class="salon-edit-input">
+                    <select id="salonEditCityInput" class="salon-edit-input custom-select">
                         {"".join(f'<option value="{c}"{" selected" if c == salon.city else ""}>{c}</option>' for c in RUSSIAN_CITIES)}
                     </select>
                 </div>

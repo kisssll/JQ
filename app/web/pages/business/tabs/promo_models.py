@@ -77,7 +77,7 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
                             <span>✕ <span id="modelsPassCount">0</span></span>
                         </div>
                     </div>
-                    {f'<select id="modelsServiceSelect" onchange="window.modelsLoadCandidates()" style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:1rem">{service_options_swipe}</select>' if service_options_swipe else '<p class="text-muted">Опубликуйте поиск во вкладке «Опубликовать поиск», чтобы смотреть анкеты</p>'}
+                    {f'<select id="modelsServiceSelect" class="custom-select" onchange="window.modelsLoadCandidates()" style="margin-bottom:1rem">{service_options_swipe}</select>' if service_options_swipe else '<p class="text-muted">Опубликуйте поиск во вкладке «Опубликовать поиск», чтобы смотреть анкеты</p>'}
                     <div class="models-card-stack" id="modelsCardStack">
                         <p class="text-muted" style="text-align:center;padding:2rem 0">Загрузка…</p>
                     </div>
@@ -102,7 +102,7 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
                 <form action="/api/v1/services/create" method="post" style="max-width:32rem;display:flex;flex-direction:column;gap:0.75rem">
                     <div>
                         <label class="text-muted" style="font-size:0.8rem;display:block;margin-bottom:0.3rem">Мастер</label>
-                        <select name="master_id" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                        <select name="master_id" class="custom-select" required>
                             <option value="">Выберите мастера</option>
                             {master_options_publish}
                         </select>

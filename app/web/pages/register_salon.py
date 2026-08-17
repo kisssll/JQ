@@ -72,7 +72,7 @@ def render_register_salon_page(user=None, error: str = "") -> str:
                     <textarea name="description" rows="3" placeholder="Опишите ваш салон, услуги, особенности..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem; resize: vertical;"></textarea>
                     
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Город *</label>
-                    <select name="city" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem;">
+                    <select name="city" class="custom-select" required style="margin-bottom: 1.5rem;">
                         {city_options}
                     </select>
 

@@ -133,32 +133,40 @@
 
 /* Город — влияет на то, какие салоны видны и какие категории вообще
    имеет смысл показывать в фильтре (см. .category-empty-hint ниже). */
+/* Пилюлю рисует сам Choices (.choices__inner) — обёртка держит только
+   позицию пина, иначе получалась бы пилюля внутри пилюли. */
 .city-select-wrapper {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 9999px;
-    padding: 0.4rem 1rem;
 }
-.city-select-wrapper svg {
+.city-select-wrapper > svg {
+    position: absolute;
+    left: 1rem;
+    z-index: 1;
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;
     color: var(--color-muted);
+    pointer-events: none;
 }
+.city-select-wrapper .choices__inner {
+    padding-left: 2.4rem !important;
+}
+/* Фолбэк без JS: Choices не поднялся — оформляем сам <select> так же. */
 .city-select {
-    border: none;
-    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    background: var(--color-surface);
     font-size: 0.85rem;
     font-weight: 500;
     color: var(--color-heading);
     cursor: pointer;
-    padding: 0;
+    padding: 0.4rem 1rem 0.4rem 2.4rem;
 }
 .city-select:focus {
     outline: none;
+    border-color: var(--color-accent);
 }
 
 /* Категории — кнопка, открывающая чек-лист с неограниченным числом

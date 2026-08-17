@@ -360,14 +360,14 @@ async def book_service_page(salon_id: int, request: Request, db: AsyncSession = 
             <input type="hidden" name="salon_id" value="{salon_id}">
             <div style="margin-bottom:1rem">
                 <label style="display:block;font-weight:500;margin-bottom:0.5rem">Мастер</label>
-                <select name="master_id" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem" required>
+                <select name="master_id" class="custom-select" required>
                     <option value="">Выберите мастера</option>
                     {masters_options}
                 </select>
             </div>
             <div style="margin-bottom:1rem">
                 <label style="display:block;font-weight:500;margin-bottom:0.5rem">Услуга</label>
-                <select name="service_id" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem" required onchange="updatePriceAndTime(this)">
+                <select name="service_id" class="custom-select" required onchange="updatePriceAndTime(this)">
                     <option value="">Сначала выберите мастера</option>
                 </select>
             </div>
