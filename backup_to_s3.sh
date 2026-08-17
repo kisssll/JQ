@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# backup_to_s3.sh — дамп БД beauty_platform в S3 (VK Cloud).
+# backup_to_s3.sh — дамп основной БД проекта в S3 (Timeweb S3, s3.twcstorage.ru).
 # (БД otp_service больше нет — OTP свёрнут внутрь приложения, коммит c482669)
 # Требует на хосте: pg_dump (postgresql-client) и aws-cli.
+# Имя БД берётся из .env (POSTGRES_DB) — прод=default_db (managed Timeweb),
+# staging=beauty_platform; хардкод убран, чтобы бэкапился реальный инстанс.
 # Настройка cron (ежедневно в 03:00):
-#   0 3 * * * cd /opt/beauty_platform && ./backup_to_s3.sh >> /var/log/db_backup.log 2>&1
+#   0 3 * * * cd /opt/rumi/be && ./backup_to_s3.sh >> /opt/rumi/db_backup.log 2>&1
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -11,6 +13,7 @@ cd "$(dirname "$0")"
 PGHOST="$(grep -E '^POSTGRES_HOST=' .env | cut -d= -f2-)"
 PGPORT="$(grep -E '^POSTGRES_PORT=' .env | cut -d= -f2-)"
 PGUSER="$(grep -E '^POSTGRES_USER=' .env | cut -d= -f2-)"
+PGDB="$(grep -E '^POSTGRES_DB=' .env | cut -d= -f2-)"
 export PGPASSWORD="$(grep -E '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)"
 
 # S3 (VK Cloud через панель Timeweb) — из .env этого репозитория
@@ -32,6 +35,6 @@ dump_and_upload() {
   aws --endpoint-url "$S3_ENDPOINT" s3 cp "$file" "s3://$S3_BUCKET/$dbname/$(basename "$file")"
 }
 
-dump_and_upload "beauty_platform"
+dump_and_upload "$PGDB"
 
 echo "[backup] готово: $STAMP"
