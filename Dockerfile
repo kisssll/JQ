@@ -67,6 +67,14 @@ RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools* \
            /usr/local/lib/python3.11/site-packages/jaraco* \
            /usr/local/bin/pip /usr/local/bin/pip3 /usr/local/bin/pip3.11 /usr/local/bin/wheel
 
+# CVE-2026-53615 (HIGH) в util-linux базового python:3.11-slim — фикс 2.41-5.
+# Таргетный апгрейд ОС-пакетов, чтобы держать образ без HIGH/CRITICAL (в том же
+# духе, что чистка pip/wheel выше). Trivy в DevSecOps-пайплайне падал на этом.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade \
+       util-linux libuuid1 libblkid1 libmount1 libsmartcols1 mount login \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /opt/venv /opt/venv
 COPY . .
 COPY --from=frontend-builder /app/static/dist ./static/dist
