@@ -10,16 +10,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/KISLAARR/be.git"
+    "url": "git+https://github.com/kisssll/JQ.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/KISLAARR/be/issues"
+    "url": "https://github.com/kisssll/JQ/issues"
   },
-  "homepage": "https://github.com/KISLAARR/be#readme",
+  "homepage": "https://github.com/kisssll/JQ#readme",
   "devDependencies": {
     "vite": "^8.1.3"
   },
