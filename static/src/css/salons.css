@@ -681,3 +681,12 @@
     margin-top: 1.5rem;
 }
 .salons-more-btn { text-decoration: none; }
+
+/* --- Фронт-этап: активный чип рейтинга следует за :checked (форма при AJAX
+   не перерисовывается, серверный .active не двигается) + плавность сетки --- */
+.filter-chip:has(input:checked) {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #fff;
+}
+#salons-list { transition: opacity 0.15s ease; }

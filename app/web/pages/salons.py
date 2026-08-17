@@ -1,5 +1,6 @@
 # app/web/pages/salons.py
 import html
+import json
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -220,6 +221,31 @@ async def _available_cities(db: AsyncSession) -> list[str]:
         "AND city IS NOT NULL AND city <> '' ORDER BY city"
     ))
     return [r[0] for r in rows.all()]
+
+
+async def _categories_by_city(db: AsyncSession) -> dict[str, list[str]]:
+    """Карта {город: [слаги категорий, реально предлагаемых в городе]} — чтобы
+    фронт-этап прятал из фильтра категории, которых в выбранном городе нет.
+    Ключ "" — все категории (когда город не выбран)."""
+    rows = await db.execute(text(
+        "SELECT DISTINCT s.city, sv.category "
+        "FROM salons s "
+        "JOIN masters m ON m.salon_id = s.id "
+        "JOIN services sv ON sv.master_id = m.id "
+        "WHERE s.is_active = true AND s.moderation_status = 'APPROVED' "
+        "AND s.published_at IS NOT NULL AND s.is_hidden = false "
+        "AND s.city IS NOT NULL AND s.city <> '' "
+        "AND m.is_active = true AND sv.is_active = true "
+        "AND sv.is_model_practice = false AND sv.category IS NOT NULL"
+    ))
+    by_city: dict[str, set[str]] = {}
+    all_cats: set[str] = set()
+    for city, cat in rows.all():
+        by_city.setdefault(city, set()).add(cat)
+        all_cats.add(cat)
+    result = {city: sorted(cats) for city, cats in by_city.items()}
+    result[""] = sorted(all_cats)
+    return result
 
 
 async def _promotions_and_categories(db: AsyncSession, salon_ids: list[int]):
@@ -466,9 +492,17 @@ async def render_salons_page(db: AsyncSession, user=None, p: Optional[SalonQuery
         return await render_salons_grid(db, p)
 
     cities = await _available_cities(db)
+    cats_by_city = await _categories_by_city(db)
     grid = await render_salons_grid(db, p)
     filter_bar = _render_filter_bar(p, cities)
     search_value = html.escape(p.q, quote=True)
+    # Данные для фронт-этапа (AJAX): размер страницы + категории по городам
+    # (умный список). Инлайним JSON — CSP запрещает внешние скрипты, но inline
+    # разрешён; json.dumps безопасно экранирует.
+    filters_data = json.dumps({
+        "pageSize": PAGE_SIZE,
+        "categoriesByCity": cats_by_city,
+    }, ensure_ascii=False)
 
     return f"""<!DOCTYPE html>
 <html lang="ru">
@@ -510,5 +544,6 @@ async def render_salons_page(db: AsyncSession, user=None, p: Optional[SalonQuery
 
         {render_footer(user)}
     </main>
+    <script>window.salonFilters = {filters_data};</script>
 </body>
 </html>"""
