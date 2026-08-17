@@ -122,12 +122,20 @@
     text-align: left;
 }
 
-/* ---- Стили для всех текстовых полей и инпутов ---- */
-input[type="text"],
-input[type="search"],
-input[type="date"],
-input[type="month"],
-input[type="time"],
+/* ---- Стили для всех текстовых полей и инпутов ----
+   Селекторы по типу завёрнуты в :where() — он не добавляет специфичности.
+   Раньше input[type="text"] (0,1,1) перебивал классы страниц (0,1,0), причём
+   только для перечисленных типов: в одной форме поля text превращались в
+   узкие пилюли, а соседние tel/email оставались полноширинными (видно было
+   на /business/checkout, в редакторе салона и на поиске /salons). Теперь это
+   база по умолчанию, а любой класс поля её спокойно переопределяет. */
+:where(
+    input[type="text"],
+    input[type="search"],
+    input[type="date"],
+    input[type="month"],
+    input[type="time"]
+),
 .custom-date,
 .custom-select .choices__inner {
     background-color: var(--color-surface);
@@ -142,11 +150,13 @@ input[type="time"],
     box-sizing: border-box;
 }
 
-input[type="text"]:focus,
-input[type="search"]:focus,
-input[type="date"]:focus,
-input[type="month"]:focus,
-input[type="time"]:focus,
+:where(
+    input[type="text"]:focus,
+    input[type="search"]:focus,
+    input[type="date"]:focus,
+    input[type="month"]:focus,
+    input[type="time"]:focus
+),
 .custom-date:focus {
     outline: none;
     border-color: var(--color-primary);

@@ -294,13 +294,20 @@ def _render_card(s, promos, categories) -> str:
             chips += f'<span class="service-chip service-chip-more">+{extra}</span>'
         chips_html = f'<div class="services-chips">{chips}</div>'
 
-    # Рейтинга нет, пока нет отзывов — «0.0 (0)» читается как плохая оценка.
-    if reviews > 0:
+    # Оценку показываем только когда она есть. «0.0» — это не «плохо», а «нет
+    # данных»: на части салонов reviews_count заполнен, а rating нулевой, и
+    # бейдж «0.0 (312)» читался как единица с тремя сотнями подтверждений.
+    if rating > 0:
         rating_html = (
             f'<div class="salon-rating-badge">{ICON_STAR_FILLED}'
             f'<span class="rating-value">{rating:.1f}</span>'
             f'<span class="rating-count">({reviews})</span></div>'
         )
+    elif reviews > 0:
+        word = "отзыв" if reviews % 10 == 1 and reviews % 100 != 11 else (
+            "отзыва" if reviews % 10 in (2, 3, 4) and reviews % 100 not in (12, 13, 14) else "отзывов"
+        )
+        rating_html = f'<div class="salon-rating-badge is-empty">{reviews} {word}</div>'
     else:
         rating_html = '<div class="salon-rating-badge is-empty">Нет оценок</div>'
 
