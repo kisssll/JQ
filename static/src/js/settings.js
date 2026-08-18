@@ -64,27 +64,15 @@ document.addEventListener('DOMContentLoaded', function() {
     accordionForms.forEach(form => {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            const type = this.dataset.type;
-            const formData = new FormData(this);
-            const data = Object.fromEntries(formData);
-
-            console.log(`Смена данных (${type}):`, data);
-            alert(`Данные для "${type}" успешно изменены (имитация).`);
+            // Заглушка: настоящая смена телефона и почты живёт в profile.js и
+            // ходит на /me/phone-form и /me/email/send-code → /me/email-form.
+            // Данные формы в консоль не пишем — там есть confirm_password.
+            toastError('Смена данных со страницы настроек пока не подключена.');
         });
     });
 
-    // === Удаление аккаунта ===
-    const deleteBtn = document.getElementById('delete-account-btn');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', function() {
-            if (confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо!')) {
-                const password = prompt('Введите ваш пароль для подтверждения:');
-                if (password) {
-                    // Пароль в консоль не пишем: это была утечка в devtools.
-                    // Сам поток — заглушка, настоящее удаление живёт в profile.js.
-                    alert('Аккаунт удалён (имитация).');
-                }
-            }
-        });
-    }
+    // Удаление аккаунта здесь больше не обрабатывается: это была заглушка с
+    // prompt() и «Аккаунт удалён (имитация)». Теперь на странице настоящая
+    // форма на /api/v1/users/me/delete-form, а подтверждение берёт на себя
+    // общий обработчик data-confirm из ui-feedback.js.
 });

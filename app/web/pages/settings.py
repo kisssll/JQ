@@ -175,13 +175,26 @@ def render_settings_page(user=None) -> str:
                 </div>
             </div>
             
-            <!-- Кнопка удаления аккаунта -->
+            <!-- Удаление аккаунта.
+                 Было: кнопка без формы, JS спрашивал пароль через prompt() и
+                 показывал «Аккаунт удалён (имитация)», ничего не удаляя.
+                 Теперь та же форма и тот же эндпоинт, что в профиле, и текст
+                 описывает то, что происходит на самом деле: эндпоинт снимает
+                 is_active, данные остаются. Подтверждение — общий диалог по
+                 data-confirm, отдельный JS больше не нужен. -->
             <div class="settings-delete-section">
-                <p class="settings-delete-warning">После удаления аккаунта восстановить его невозможно. Все данные будут безвозвратно удалены.</p>
-                <button class="btn-outline settings-delete-btn" id="delete-account-btn">
-                    <span class="settings-icon-sm">{ICON_TRASH}</span>
-                    Удалить аккаунт
-                </button>
+                <p class="settings-delete-warning">Аккаунт будет деактивирован: вы выйдете из системы и не сможете войти. Данные сохраняются — для восстановления или полного удаления обратитесь в поддержку.</p>
+                <form action="/api/v1/users/me/delete-form" method="post" class="settings-delete-form"
+                      data-confirm="Деактивировать аккаунт?" data-confirm-label="Деактивировать">
+                    <div class="settings-form-group">
+                        <label for="settings-delete-password">Подтвердите паролем</label>
+                        <input type="password" id="settings-delete-password" name="password" placeholder="Ваш пароль" required>
+                    </div>
+                    <button type="submit" class="btn-outline settings-delete-btn" id="delete-account-btn">
+                        <span class="settings-icon-sm">{ICON_TRASH}</span>
+                        Деактивировать аккаунт
+                    </button>
+                </form>
             </div>
             
         </div>
