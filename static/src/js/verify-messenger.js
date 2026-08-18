@@ -1,6 +1,8 @@
 // verify-messenger.js — подтверждение телефона через бота Telegram ИЛИ MAX.
 // Одна механика на оба канала: кнопка → POST <data-start-url> → deep link →
 // поллинг /tg-status до confirmed → ✓ (вторая кнопка гаснет — канал не важен).
+import { toastNetworkError } from './ui-feedback.js';
+
 (function () {
   var buttons = Array.from(document.querySelectorAll('.msgr-verify-btn'));
   if (!buttons.length) return;
@@ -85,7 +87,7 @@
         stopPolling();
         pollTimer = setInterval(poll, 2500);
       } catch (e) {
-        alert('Сеть недоступна, попробуйте ещё раз');
+        toastNetworkError();
         resetButtons();
       }
     });

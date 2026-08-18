@@ -70,7 +70,7 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
         )
         reject = (
             f'<form method="post" action="/api/v1/admin/salons/{s.id}/reject" style="display:inline-flex;gap:0.25rem" '
-            f'onsubmit="return confirm(\'Отклонить заявку «{_esc(s.name)}»?\')">'
+            f'data-confirm="Отклонить заявку «{_esc(s.name)}»?" data-confirm-label="Подтвердить">'
             f'<input name="reason" placeholder="причина" '
             f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:0.4rem;width:140px">'
             f'<button class="btn-mini btn-danger">✕ Отклонить</button></form>'
@@ -127,7 +127,7 @@ def _model_applications_tab(pending_models):
         )
         reject = (
             f'<form method="post" action="/api/v1/admin/models/{u.id}/reject" style="display:inline-flex;gap:0.25rem" '
-            f'onsubmit="return confirm(\'Отклонить анкету «{_esc(u.full_name or u.phone)}»?\')">'
+            f'data-confirm="Отклонить анкету «{_esc(u.full_name or u.phone)}»?" data-confirm-label="Подтвердить">'
             f'<input name="reason" placeholder="причина" '
             f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:0.4rem;width:140px">'
             f'<button class="btn-mini btn-danger">✕ Отклонить</button></form>'
@@ -230,7 +230,7 @@ def _users_tab(users, me_id):
         )
         delete = (
             f'<form method="post" action="/api/v1/admin/users/{u.id}/delete" style="display:inline" '
-            f'onsubmit="return confirm(\'Удалить {_esc(u.phone)}?\')">'
+            f'data-confirm="Удалить {_esc(u.phone)}?" data-confirm-label="Подтвердить">'
             f'<button class="btn-mini btn-danger" {"disabled" if is_self else ""}>Удалить</button></form>'
         )
         senior_toggle = ""
@@ -280,7 +280,7 @@ def _salons_tab(salons, owner_phone_by_id):
         )
         delete = (
             f'<form method="post" action="/api/v1/admin/salons/{s.id}/delete" style="display:inline" '
-            f'onsubmit="return confirm(\'Удалить салон «{_esc(s.name)}»?\')">'
+            f'data-confirm="Удалить салон «{_esc(s.name)}»?" data-confirm-label="Подтвердить">'
             f'<button class="btn-mini btn-danger">Удалить</button></form>'
         )
         rows += f"""<tr>
@@ -310,7 +310,7 @@ def _reports_tab(reports):
                  f'style="width:64px;height:64px;object-fit:cover;border-radius:0.5rem"></a>') if r["url"] else "—"
         resolve = (
             f'<form method="post" action="/api/v1/admin/reports/{r["id"]}/resolve" style="display:inline" '
-            f'onsubmit="return confirm(\'Удалить фото и закрыть жалобу?\')">'
+            f'data-confirm="Удалить фото и закрыть жалобу?" data-confirm-label="Подтвердить">'
             f'<button class="btn-mini btn-danger">🗑 Удалить фото</button></form>'
         )
         dismiss = (
@@ -345,7 +345,7 @@ def _reviews_tab(reviews, client_by_id, master_name_by_id, salon_name_by_id):
         stars = "⭐" * int(r.rating or 0)
         delete = (
             f'<form method="post" action="/api/v1/admin/reviews/{r.id}/delete" style="display:inline" '
-            f'onsubmit="return confirm(\'Удалить отзыв #{r.id}?\')">'
+            f'data-confirm="Удалить отзыв #{r.id}?" data-confirm-label="Подтвердить">'
             f'<button class="btn-mini btn-danger">Удалить</button></form>'
         )
         rows += f"""<tr>

@@ -81,8 +81,8 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
         return f'''
         <div class="my-salon-photo-item">
             <img src="{p.url}" alt="" class="{border_class}" loading="lazy">
-            <form method="post" action="/api/v1/upload/salon/{salon.id}/photo/{p.id}/delete" style="margin:0;position:absolute;top:0.25rem;right:0.25rem">
-                <button type="submit" title="Удалить фото" onclick="return confirm('Удалить фото?')" class="delete-btn">&times;</button>
+            <form method="post" action="/api/v1/upload/salon/{salon.id}/photo/{p.id}/delete" data-confirm="Удалить фото?" data-confirm-label="Удалить" style="margin:0;position:absolute;top:0.25rem;right:0.25rem">
+                <button type="submit" title="Удалить фото" class="delete-btn">&times;</button>
             </form>
             {cover_badge}
         </div>'''

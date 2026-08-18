@@ -1,0 +1,193 @@
+/* static/src/css/ui-feedback.css
+   Тосты и диалог подтверждения (см. static/src/js/ui-feedback.js).
+   Оформление продолжает .profile-alert, но на токенах, а не на хардкоде. */
+
+/* ===== Тосты ===== */
+.rumi-toasts {
+    position: fixed;
+    z-index: 1000;
+    right: 1rem;
+    bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: min(24rem, calc(100vw - 2rem));
+    pointer-events: none;   /* мимо тостов страница остаётся кликабельной */
+}
+
+.rumi-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0.85rem 0.75rem 1rem;
+    border-radius: 0.65rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-heading);
+    font-size: 0.875rem;
+    line-height: 1.45;
+    box-shadow: 0 8px 24px rgba(26, 26, 31, 0.12);
+    pointer-events: auto;
+    animation: rumi-toast-in 0.18s ease-out;
+}
+
+.rumi-toast.is-leaving {
+    animation: rumi-toast-out 0.18s ease-in forwards;
+}
+
+.rumi-toast-error {
+    background: var(--color-danger-light);
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+}
+
+.rumi-toast-success {
+    background: var(--color-success-light);
+    border-color: var(--color-success);
+    color: var(--color-success);
+}
+
+.rumi-toast-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.rumi-toast-close {
+    flex-shrink: 0;
+    width: 1.35rem;
+    height: 1.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: inherit;
+    opacity: 0.6;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.rumi-toast-close:hover {
+    opacity: 1;
+}
+
+@keyframes rumi-toast-in {
+    from { opacity: 0; transform: translateY(0.5rem); }
+    to   { opacity: 1; transform: none; }
+}
+
+@keyframes rumi-toast-out {
+    from { opacity: 1; transform: none; }
+    to   { opacity: 0; transform: translateY(0.35rem); }
+}
+
+/* На узком экране тосты во всю ширину — иначе текст рвётся на 3–4 строки. */
+@media (max-width: 640px) {
+    .rumi-toasts {
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: 0.75rem;
+        max-width: none;
+    }
+}
+
+/* ===== Диалог подтверждения ===== */
+.rumi-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1010;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(26, 26, 31, 0.45);
+    animation: rumi-fade-in 0.15s ease-out;
+}
+
+body.rumi-dialog-open {
+    overflow: hidden;   /* фон не прокручивается под открытым диалогом */
+}
+
+.rumi-dialog {
+    width: 100%;
+    max-width: 25rem;
+    background: var(--color-surface);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 20px 50px rgba(26, 26, 31, 0.25);
+    animation: rumi-dialog-in 0.18s ease-out;
+}
+
+.rumi-dialog-title {
+    margin: 0 0 0.5rem;
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-heading);
+}
+
+.rumi-dialog-message {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-body);
+}
+
+.rumi-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 1.5rem;
+}
+
+.rumi-dialog-cancel {
+    padding: 0.5rem 1.1rem;
+    font-size: 0.875rem;
+    background: none;
+    cursor: pointer;
+}
+
+.rumi-dialog-confirm {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--color-accent);
+    border-radius: 9999px;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+
+.rumi-dialog-confirm:hover {
+    filter: brightness(0.95);
+}
+
+/* Разрушающее действие — красная кнопка, чтобы «Удалить» не выглядело как «ОК» */
+.rumi-dialog-confirm.is-danger {
+    background: var(--color-danger);
+    border-color: var(--color-danger);
+}
+
+@keyframes rumi-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes rumi-dialog-in {
+    from { opacity: 0; transform: translateY(0.75rem) scale(0.98); }
+    to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rumi-toast,
+    .rumi-toast.is-leaving,
+    .rumi-dialog-overlay,
+    .rumi-dialog {
+        animation: none;
+    }
+}

@@ -1,4 +1,5 @@
 // static/src/js/salon-detail.js
+import { toastNetworkError } from './ui-feedback.js';
 
 (function () {
     const container = document.getElementById('booking-flow-container');
@@ -318,7 +319,7 @@
                         }
                     })
                     .catch(err => {
-                        alert('Сетевая ошибка, попробуйте позже.');
+                        toastNetworkError();
                     });
             };
         }
@@ -457,7 +458,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                alert('Ошибка соединения.');
+                toastNetworkError();
             }
         });
     });

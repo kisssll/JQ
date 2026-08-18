@@ -1,4 +1,5 @@
 // static/src/js/profile.js
+import { confirmDialog, toastNetworkError } from './ui-feedback.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     // === РЕДАКТИРОВАНИЕ ПРОФИЛЯ ===
@@ -80,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } catch (err) {
                     const img = container.querySelector('img');
                     if (img) img.remove();
-                    alert('Сеть недоступна, попробуйте ещё раз');
+                    toastNetworkError();
                 } finally {
                     avatarEditBtn.disabled = false;
                     avatarInput.value = '';
@@ -219,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 stopPoll();
                 pollTimer = setInterval(poll, 2500);
             } catch (e) {
-                alert('Сеть недоступна, попробуйте ещё раз');
+                toastNetworkError();
                 resetVerify();
             }
         });
@@ -271,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 setHint('Код отправлен на ' + email + '. Введите его и сохраните.');
                 if (codeInput) codeInput.focus();
             } catch (e) {
-                alert('Сеть недоступна, попробуйте ещё раз');
+                toastNetworkError();
                 sendBtn.disabled = false;
                 sendBtn.textContent = 'Отправить код';
             }
@@ -289,10 +290,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // Удаление аккаунта — нативная форма с паролем, подтверждаем намерение
     const deleteForm = document.getElementById('delete-account-form');
     if (deleteForm) {
-        deleteForm.addEventListener('submit', function (e) {
-            if (!confirm('Деактивировать аккаунт? Вы выйдете из системы. Восстановление — через поддержку.')) {
-                e.preventDefault();
-            }
+        // Диалог асинхронный, поэтому сабмит гасим всегда и отправляем форму
+        // сами после подтверждения.
+        deleteForm.addEventListener('submit', async function (e) {
+            if (deleteForm.dataset.confirmed === '1') return;
+            e.preventDefault();
+            const ok = await confirmDialog({
+                title: 'Деактивировать аккаунт?',
+                message: 'Вы выйдете из системы. Восстановление — через поддержку.',
+                confirmText: 'Деактивировать',
+                danger: true,
+            });
+            if (!ok) return;
+            deleteForm.dataset.confirmed = '1';
+            deleteForm.submit();
         });
     }
 });

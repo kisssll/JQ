@@ -5,6 +5,7 @@
 // (/salons?...&partial=1), подменяем сетку #salons-list, правим URL через
 // pushState. Без JS форма продолжает работать на полной перезагрузке
 // (прогрессивное улучшение — этот слой лишь ускоряет UX).
+import { toastNetworkError } from './ui-feedback.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('salonsFilterForm');
@@ -235,7 +236,7 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 alert('Не удалось изменить избранное. Попробуйте позже.');
             }
-        } catch (err) { console.error(err); alert('Ошибка соединения.'); }
+        } catch (err) { console.error(err); toastNetworkError(); }
     });
 
     async function markFavorites() {

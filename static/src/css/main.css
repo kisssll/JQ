@@ -9,6 +9,9 @@
 /* Компоненты (footer, header, sidebar) */
 @import './components.css';
 
+/* Тосты и диалог подтверждения */
+@import './ui-feedback.css';
+
 /* Стили страниц */
 @import './about.css';
 @import './home.css';

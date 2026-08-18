@@ -1,6 +1,8 @@
 // static/src/js/model/dashboard.js — саб-табы (Приглашения/Кастинги/История),
 // колода свайпов с drag и запись на реальный свободный слот расписания
 // мастера после мэтча (цена/услуга уже зафиксированы мэтчем — оффера нет).
+import { toastNetworkError } from '../ui-feedback.js';
+
 (function () {
   var root = document.getElementById('modelInvitationsList') || document.getElementById('modelDeckStack');
   if (!root) return;
@@ -248,7 +250,7 @@
         window.modelDashLoadSlots(matchId);
       }
     } catch (e) {
-      alert('Ошибка соединения с сервером');
+      toastNetworkError();
     }
   };
 

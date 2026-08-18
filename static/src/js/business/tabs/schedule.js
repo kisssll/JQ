@@ -1,5 +1,6 @@
 // static/src/js/business/tabs/schedule.js
 // Управление навигацией по неделям (десктоп) и по дням (мобилка), общие функции
+import { confirmDialog } from '../../ui-feedback.js';
 
 (function () {
     'use strict';
@@ -164,9 +165,9 @@
     };
 
     // ========== ОБЩИЕ ФУНКЦИИ (для кнопок в карточках) ==========
-    window.recordMarkBooking = function (bookingId, action, btn) {
+    window.recordMarkBooking = async function (bookingId, action, btn) {
         const label = action === 'complete' ? 'что клиент пришёл' : 'неявку клиента';
-        if (!confirm(`Отметить ${label}?`)) return;
+        if (!await confirmDialog({ title: `Отметить ${label}?`, confirmText: 'Отметить' })) return;
         fetch(`/api/v1/bookings/${bookingId}/${action}`, { method: 'POST' })
             .then(r => {
                 if (r.ok) location.reload();
@@ -174,8 +175,8 @@
             });
     };
 
-    window.acceptBooking = function (bookingId) {
-        if (!confirm('Подтвердить запись?')) return;
+    window.acceptBooking = async function (bookingId) {
+        if (!await confirmDialog({ title: 'Подтвердить запись?', confirmText: 'Подтвердить' })) return;
         fetch(`/api/v1/bookings/${bookingId}/accept`, { method: 'POST' })
             .then(r => {
                 if (r.ok) location.reload();
@@ -183,8 +184,8 @@
             });
     };
 
-    window.rejectBooking = function (bookingId) {
-        if (!confirm('Отклонить запись? Клиент получит уведомление.')) return;
+    window.rejectBooking = async function (bookingId) {
+        if (!await confirmDialog({ title: 'Отклонить запись?', message: 'Клиент получит уведомление.', confirmText: 'Отклонить', danger: true })) return;
         fetch(`/api/v1/bookings/${bookingId}/reject`, { method: 'POST' })
             .then(r => {
                 if (r.ok) location.reload();
@@ -277,8 +278,8 @@
         else { const d = await res.json(); alert(d.detail || 'Ошибка'); }
     };
 
-    window.reopenClosure = function (closureId) {
-        if (!confirm('Открыть эту дату снова для записи?')) return;
+    window.reopenClosure = async function (closureId) {
+        if (!await confirmDialog({ title: 'Открыть эту дату снова для записи?', confirmText: 'Открыть' })) return;
         fetch(`/api/v1/schedule/salon/${window.salonId}/closures/${closureId}`, { method: 'DELETE' })
             .then(async r => { if (r.ok) location.reload(); else { const d = await r.json(); alert(d.detail || 'Ошибка'); } });
     };

@@ -1,4 +1,5 @@
 // static/src/js/bookings.js
+import { confirmDialog, toastNetworkError } from './ui-feedback.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     // Проверяем, что мы на странице записей
@@ -33,8 +34,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // === Отмена записи ===
-    window.cancelBooking = function(bookingId) {
-        if (confirm('Вы уверены, что хотите отменить запись?')) {
+    window.cancelBooking = async function(bookingId) {
+        if (await confirmDialog({ title: 'Отменить запись?', message: 'Время освободится, и его сможет занять другой клиент.', confirmText: 'Отменить запись', cancelText: 'Оставить', danger: true })) {
             fetch('/api/v1/bookings/' + bookingId + '/cancel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -185,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert(data.detail || 'Ошибка при сохранении отзыва');
             }
         } catch (err) {
-            alert('Ошибка соединения');
+            toastNetworkError();
         }
     });
 

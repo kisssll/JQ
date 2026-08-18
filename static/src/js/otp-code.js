@@ -1,5 +1,7 @@
 // otp-code.js — подтверждение телефона кодом на странице регистрации.
 // Подключается только при включённом OTP (см. app/web/pages/register.py).
+import { toastNetworkError } from './ui-feedback.js';
+
 (function () {
   var btn = document.getElementById('sendCodeBtn');
   if (!btn) return;
@@ -53,7 +55,7 @@
         btn.textContent = 'Получить код';
       }
     } catch (e) {
-      alert('Сеть недоступна, попробуйте ещё раз');
+      toastNetworkError();
       btn.disabled = false;
       btn.textContent = 'Получить код';
     }

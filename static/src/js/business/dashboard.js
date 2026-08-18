@@ -1,4 +1,5 @@
 // static/src/js/business/dashboard.js
+import { confirmDialog, toastNetworkError } from '../ui-feedback.js';
 
 (function() {
     // Переключение вкладок
@@ -30,7 +31,7 @@
         const btn = document.getElementById('salonPublishBtn');
         if (!btn) return;
         btn.addEventListener('click', async function() {
-            if (!confirm('Опубликовать салон? Он появится в каталоге и поиске, откроется запись клиентов.')) return;
+            if (!await confirmDialog({ title: 'Опубликовать салон?', message: 'Он появится в каталоге и поиске, откроется запись клиентов.', confirmText: 'Опубликовать' })) return;
             this.disabled = true;
             try {
                 const res = await fetch(`/api/v1/business/my-salon/publish?salon_id=${this.dataset.salonId}`, { method: 'POST' });
@@ -42,7 +43,7 @@
                     this.disabled = false;
                 }
             } catch (e) {
-                alert('Ошибка сети, попробуйте ещё раз');
+                toastNetworkError();
                 this.disabled = false;
             }
         });

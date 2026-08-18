@@ -1,4 +1,5 @@
 // static/src/js/business/tabs/promos.js
+import { confirmDialog, toastError, toastNetworkError } from '../../ui-feedback.js';
 
 (function() {
     'use strict';
@@ -72,14 +73,14 @@
     }
 
     // Удаление акции
-    window.deletePromo = function(id, title) {
-        if (confirm('Удалить акцию "' + title + '"? Это действие нельзя отменить.')) {
+    window.deletePromo = async function(id, title) {
+        if (await confirmDialog({ title: 'Удалить акцию «' + title + '»?', message: 'Это действие нельзя отменить.', confirmText: 'Удалить', danger: true })) {
             fetch('/api/v1/business/my-salon/promotions/' + id + '/delete', { method: 'POST' })
                 .then(r => {
                     if (r.ok) location.reload();
-                    else alert('Ошибка при удалении');
+                    else toastError('Ошибка при удалении');
                 })
-                .catch(() => alert('Ошибка сети'));
+                .catch(() => toastNetworkError());
         }
     };
 
@@ -116,7 +117,7 @@
                 alert(d.detail || 'Ошибка');
             }
         } catch (e) {
-            alert('Ошибка сети');
+            toastNetworkError();
         }
     };
 
@@ -142,13 +143,13 @@
                 alert(d.detail || 'Ошибка');
             }
         } catch (e) {
-            alert('Ошибка сети');
+            toastNetworkError();
         }
     };
 
     // Удаление именной скидки
-    window.deleteLoyaltyOffer = function(id, title) {
-        if (!confirm(`Удалить скидку «${title}»?`)) return;
+    window.deleteLoyaltyOffer = async function(id, title) {
+        if (!await confirmDialog({ title: `Удалить скидку «${title}»?`, confirmText: 'Удалить', danger: true })) return;
         const salonId = window.salonId; // теперь определён
         if (!salonId) {
             alert('Не удалось определить салон');

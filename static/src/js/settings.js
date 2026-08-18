@@ -80,7 +80,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо!')) {
                 const password = prompt('Введите ваш пароль для подтверждения:');
                 if (password) {
-                    console.log('Удаление аккаунта с паролем:', password);
+                    // Пароль в консоль не пишем: это была утечка в devtools.
+                    // Сам поток — заглушка, настоящее удаление живёт в profile.js.
                     alert('Аккаунт удалён (имитация).');
                 }
             }

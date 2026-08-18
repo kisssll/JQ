@@ -1,6 +1,8 @@
 // static/src/js/business/tabs/employee-credentials.js
 // Реквизиты нового сотрудника/мастера: AJAX-добавление (пароль не в URL) →
 // попап с логином/паролем, копирование, отправка на почту салона, сброс пароля.
+import { confirmDialog } from '../../ui-feedback.js';
+
 (function () {
     let current = null; // {name, login, password}
 
@@ -59,7 +61,7 @@
     });
 
     async function resetPassword(url, confirmMsg) {
-        if (!confirm(confirmMsg)) return;
+        if (!await confirmDialog({ title: confirmMsg, confirmText: 'Сбросить' })) return;
         const data = await postForm(url, new FormData());
         if (data && data.credentials) showCredentials(data.credentials);
     }

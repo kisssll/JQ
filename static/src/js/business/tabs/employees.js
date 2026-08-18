@@ -1,4 +1,5 @@
 // static/src/js/business/tabs/employees.js
+import { confirmDialog, toastError } from '../../ui-feedback.js';
 
 (function() {
     // Переменные для модального окна
@@ -20,23 +21,23 @@
     };
 
     // Включение/отключение мастера
-    window.toggleEmployee = function(id, name, isActive) {
+    window.toggleEmployee = async function(id, name, isActive) {
         const action = isActive ? 'отключить' : 'включить';
-        if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} мастера "${name}"?`)) return;
+        if (!await confirmDialog({ title: `${action.charAt(0).toUpperCase() + action.slice(1)} мастера «${name}»?`, confirmText: action.charAt(0).toUpperCase() + action.slice(1) })) return;
         fetch(`/api/v1/master/${id}/toggle`, { method: 'POST' })
             .then(r => {
                 if (r.ok) location.reload();
-                else alert('Ошибка при изменении статуса');
+                else toastError('Ошибка при изменении статуса');
             });
     };
 
     // Удаление мастера
-    window.deleteEmployee = function(id, name) {
-        if (!confirm(`Удалить мастера "${name}"? Это действие нельзя отменить.`)) return;
+    window.deleteEmployee = async function(id, name) {
+        if (!await confirmDialog({ title: `Удалить мастера «${name}»?`, message: 'Это действие нельзя отменить.', confirmText: 'Удалить', danger: true })) return;
         fetch(`/api/v1/master/${id}/delete`, { method: 'POST' })
             .then(r => {
                 if (r.ok) location.reload();
-                else alert('Ошибка при удалении');
+                else toastError('Ошибка при удалении');
             });
     };
 
@@ -77,8 +78,8 @@
     };
 
     // Снятие участника
-    window.removeMember = function(memberId, name) {
-        if (!confirm(`Снять «${name}» с бизнес-панели салона?`)) return;
+    window.removeMember = async function(memberId, name) {
+        if (!await confirmDialog({ title: `Снять «${name}» с бизнес-панели салона?`, confirmText: 'Снять доступ', danger: true })) return;
         fetch(`/api/v1/business/staff/${memberId}`, { method: 'DELETE' })
             .then(async r => {
                 if (r.ok) location.reload();

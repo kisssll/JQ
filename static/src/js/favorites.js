@@ -1,4 +1,5 @@
 // static/src/js/favorites.js
+import { confirmDialog, toastNetworkError } from './ui-feedback.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     // Проверяем, что мы на странице избранного
@@ -15,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const id = this.dataset.id;
             const card = this.closest('.fav-card');
 
-            if (!confirm(`Убрать ${type === 'salon' ? 'салон' : 'мастера'} из избранного?`)) {
+            if (!await confirmDialog({ title: `Убрать ${type === 'salon' ? 'салон' : 'мастера'} из избранного?`, confirmText: 'Убрать', danger: true })) {
                 return;
             }
 
@@ -35,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             } catch (err) {
                 console.error(err);
-                alert('Ошибка соединения.');
+                toastNetworkError();
             }
         });
     });

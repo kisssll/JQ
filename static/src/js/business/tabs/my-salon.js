@@ -1,4 +1,5 @@
 // static/src/js/pages/my-salon.js
+import { confirmDialog, toastError, toastNetworkError } from '../../ui-feedback.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     // Глобальное предотвращение поведения по умолчанию для drag-and-drop
@@ -259,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ===== Обработчики для галереи (делегирование) =====
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', async function(e) {
         const target = e.target;
         if (target.classList.contains('cover-btn')) {
             e.preventDefault();
@@ -268,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (target.classList.contains('delete-btn')) {
             e.preventDefault();
-            if (!confirm('Удалить фото?')) return;
+            if (!await confirmDialog({ title: 'Удалить фото?', confirmText: 'Удалить', danger: true })) return;
             const url = target.dataset.url;
             if (url) localDeletePhoto(url);
         }
@@ -414,7 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert(d.detail || 'Ошибка при сохранении');
             }
         } catch (err) {
-            alert('Ошибка сети');
+            toastNetworkError();
         }
     }
 
@@ -453,7 +454,7 @@ document.addEventListener('DOMContentLoaded', function() {
             card.parentNode.insertBefore(msg, card.nextSibling);
             setTimeout(() => { msg.remove(); }, 3000);
         } catch (err) {
-            alert('Ошибка сети при загрузке фото');
+            toastError('Ошибка сети при загрузке фото');
         }
     }
 
@@ -544,10 +545,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ===== Существующие функции =====
-    window.deletePromo = function(id, title) {
-        if (confirm('Удалить акцию "' + title + '"? Это действие нельзя отменить.')) {
+    window.deletePromo = async function(id, title) {
+        if (await confirmDialog({ title: 'Удалить акцию «' + title + '»?', message: 'Это действие нельзя отменить.', confirmText: 'Удалить', danger: true })) {
             fetch('/api/v1/business/my-salon/promotions/' + id + '/delete', { method: 'POST' })
-                .then(r => { if (r.ok) location.reload(); else alert('Ошибка при удалении'); });
+                .then(r => { if (r.ok) location.reload(); else toastError('Ошибка при удалении'); });
         }
     };
 
@@ -591,7 +592,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (res.ok) { alert('Часы работы сохранены'); location.reload(); }
             else { const d = await res.json(); alert(d.detail || 'Ошибка'); }
-        } catch (e) { alert('Ошибка сети'); }
+        } catch (e) { toastNetworkError(); }
     };
 
     window.saveLoyaltySettings = async function(salonId) {
@@ -609,7 +610,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (res.ok) { alert('Настройки лояльности сохранены'); }
             else { const d = await res.json(); alert(d.detail || 'Ошибка'); }
-        } catch (e) { alert('Ошибка сети'); }
+        } catch (e) { toastNetworkError(); }
     };
 
     window.addLoyaltyOffer = async function(salonId) {
@@ -625,11 +626,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (res.ok) { location.reload(); }
             else { const d = await res.json(); alert(d.detail || 'Ошибка'); }
-        } catch (e) { alert('Ошибка сети'); }
+        } catch (e) { toastNetworkError(); }
     };
 
-    window.deleteLoyaltyOffer = function(id, title) {
-        if (!confirm(`Удалить скидку «${title}»?`)) return;
+    window.deleteLoyaltyOffer = async function(id, title) {
+        if (!await confirmDialog({ title: `Удалить скидку «${title}»?`, confirmText: 'Удалить', danger: true })) return;
         const salonId = window.salonId;
         fetch(`/api/v1/loyalty/salon/${salonId}/offers/${id}`, { method: 'DELETE' })
             .then(r => { if (r.ok) location.reload(); else r.json().then(d => alert(d.detail || 'Ошибка')); });
@@ -681,7 +682,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 this.dataset.hidden = data.is_hidden ? '1' : '0';
             } catch (e) {
-                alert('Ошибка сети, попробуйте ещё раз');
+                toastNetworkError();
             }
             this.disabled = false;
         });
@@ -690,7 +691,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteBtn = document.getElementById('salonDeleteBtn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', async function() {
-            if (!confirm('Удалить салон? Он пропадёт из каталога и записи. Брони, отзывы и мастера сохранятся в истории, но самостоятельно восстановить салон будет нельзя.')) return;
+            if (!await confirmDialog({ title: 'Удалить салон?', message: 'Он пропадёт из каталога и записи. Брони, отзывы и мастера сохранятся в истории, но самостоятельно восстановить салон будет нельзя.', confirmText: 'Удалить салон', danger: true })) return;
             this.disabled = true;
             try {
                 const res = await fetch(`/api/v1/business/my-salon?salon_id=${this.dataset.salonId}`, { method: 'DELETE' });
@@ -703,7 +704,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     this.disabled = false;
                 }
             } catch (e) {
-                alert('Ошибка сети, попробуйте ещё раз');
+                toastNetworkError();
                 this.disabled = false;
             }
         });
@@ -768,7 +769,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         this.disabled = false;
                     }
                 } catch (e) {
-                    alert('Ошибка сети, попробуйте ещё раз');
+                    toastNetworkError();
                     this.disabled = false;
                 }
             });
@@ -777,7 +778,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.querySelectorAll('.chain-cancel-btn').forEach(btn => {
         btn.addEventListener('click', async function() {
-            if (!confirm('Отменить запрос на объединение?')) return;
+            if (!await confirmDialog({ title: 'Отменить запрос на объединение?', confirmText: 'Отменить запрос' })) return;
             this.disabled = true;
             try {
                 const res = await fetch(`/api/v1/business/chain/request/${this.dataset.requestId}/cancel`, { method: 'POST' });
@@ -785,14 +786,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const d = await res.json().catch(() => ({}));
                 alert(d.detail || 'Ошибка');
                 this.disabled = false;
-            } catch (e) { alert('Ошибка сети'); this.disabled = false; }
+            } catch (e) { toastNetworkError(); this.disabled = false; }
         });
     });
 
     document.querySelectorAll('.chain-vote-btn').forEach(btn => {
         btn.addEventListener('click', async function() {
             const approve = this.dataset.approve === '1';
-            if (!confirm(approve ? 'Согласиться на объединение в сеть?' : 'Отклонить запрос на объединение?')) return;
+            if (!await confirmDialog({ title: approve ? 'Согласиться на объединение в сеть?' : 'Отклонить запрос на объединение?', confirmText: approve ? 'Согласиться' : 'Отклонить', danger: !approve })) return;
             this.disabled = true;
             try {
                 const res = await fetch(`/api/v1/business/chain/request/${this.dataset.requestId}/vote`, {
@@ -809,14 +810,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert(d.detail || 'Ошибка');
                     this.disabled = false;
                 }
-            } catch (e) { alert('Ошибка сети'); this.disabled = false; }
+            } catch (e) { toastNetworkError(); this.disabled = false; }
         });
     });
 
     const chainLeaveBtn = document.getElementById('chainLeaveBtn');
     if (chainLeaveBtn) {
         chainLeaveBtn.addEventListener('click', async function() {
-            if (!confirm('Покинуть сеть? Салон перестанет показываться как «другой адрес» для партнёров.')) return;
+            if (!await confirmDialog({ title: 'Покинуть сеть?', message: 'Салон перестанет показываться как «другой адрес» для партнёров.', confirmText: 'Покинуть', danger: true })) return;
             this.disabled = true;
             try {
                 const res = await fetch('/api/v1/business/chain/leave', {
@@ -828,7 +829,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const d = await res.json().catch(() => ({}));
                 alert(d.detail || 'Ошибка');
                 this.disabled = false;
-            } catch (e) { alert('Ошибка сети'); this.disabled = false; }
+            } catch (e) { toastNetworkError(); this.disabled = false; }
         });
     }
 

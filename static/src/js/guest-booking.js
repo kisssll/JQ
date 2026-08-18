@@ -1,5 +1,7 @@
 // static/src/js/guest-booking.js — запись без регистрации (страница /book/{salon})
 // и управление бронью по токену (/guest-booking/{token}).
+import { confirmDialog } from './ui-feedback.js';
+
 (function () {
     // ---- Тумблер «запись без регистрации» в панели салона ----
     const guestToggle = document.getElementById('guestToggle');
@@ -33,7 +35,7 @@
     const cancelBtn = document.getElementById('gb-cancel');
     if (cancelBtn) {
         cancelBtn.addEventListener('click', async function () {
-            if (!confirm('Отменить запись?')) return;
+            if (!await confirmDialog({ title: 'Отменить запись?', message: 'Запись будет отменена, время освободится.', confirmText: 'Отменить запись', cancelText: 'Оставить', danger: true })) return;
             cancelBtn.disabled = true;
             const msg = document.getElementById('gb-cancel-msg');
             try {
