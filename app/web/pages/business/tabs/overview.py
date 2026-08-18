@@ -105,16 +105,16 @@ async def render_overview_tab(
     revenue_trend_pct = trend_badge(*pct_trend(total_revenue, sum(prev_revenue_data.values())))
 
     current_rating = salon.rating or 0.0
-    if rating_prev is None:
-        rating_trend = trend_badge("—", "flat")
-    else:
+    # Чип рисуем только когда оценка реально сдвинулась. Раньше здесь стояли «—»
+    # (сравнивать не с чем) и «0.0» (не менялась) — рядом со значением «5.0»
+    # такой чип читается как вторая оценка, а не как отсутствие изменений.
+    rating_trend = ""
+    if rating_prev is not None:
         rating_diff = current_rating - rating_prev
         if rating_diff > 0.05:
             rating_trend = trend_badge(f"+{rating_diff:.1f}", "up")
         elif rating_diff < -0.05:
             rating_trend = trend_badge(f"{rating_diff:.1f}", "down")
-        else:
-            rating_trend = trend_badge("0.0", "flat")
 
     # --- Данные для JS (аккордеон) ---
     week_ops_serialized = []
