@@ -120,15 +120,21 @@ echo "[deploy:${ENV_NAME}] запуск стека..."
 # сих пор это лечилось руками; делаем то же автоматически — снести остатки и
 # повторить один раз. Если и вторая попытка падает, выходим с ошибкой.
 if ! "${COMPOSE[@]}" up -d; then
-    echo "[deploy:${ENV_NAME}] up -d не удался, чищу остатки и повторяю..." >&2
+    # Точечная чистка между попытками не помогает: она обнуляет кэш compose, и
+    # повторный up -d ссылается на уже удалённый контейнер («No such container:
+    # rumi-staging-app»). Поэтому в ветке восстановления опускаем стек целиком и
+    # поднимаем с чистого листа — на пару секунд дольше, зато детерминированно.
+    # Данные в томах, БД это не задевает.
+    echo "[deploy:${ENV_NAME}] up -d не удался, поднимаю стек с чистого листа..." >&2
+    "${COMPOSE[@]}" down --remove-orphans || true
     LEFT=$(docker ps -a --filter "label=com.docker.compose.project=${PROJECT}" \
                         --format '{{.ID}} {{.Names}}' \
              | awk '$2 ~ /^[0-9a-f]{12}_/ {print $1}')
     if [ -n "${LEFT}" ]; then
         # shellcheck disable=SC2086
         docker rm -f ${LEFT} >/dev/null || true
-        sleep 2
     fi
+    sleep 2
     "${COMPOSE[@]}" up -d
 fi
 
