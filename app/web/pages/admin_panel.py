@@ -537,8 +537,13 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
            страницы уезжал под плашку логотипа. */
         .admin-main {{ max-width:1280px; margin:0 auto; padding:5.5rem 1.5rem 2rem }}
         .tab-nav {{ display:flex; gap:0.25rem; border-bottom:1px solid var(--color-border); margin:1rem 0 1.5rem; flex-wrap:wrap }}
-        .tab-btn {{ padding:0.75rem 1.25rem; border:none; background:transparent; cursor:pointer; font-size:0.9rem; font-weight:500; color:var(--color-muted); border-bottom:2px solid transparent }}
-        .tab-btn.active {{ color:var(--color-primary); border-bottom-color:var(--color-primary) }}
+        /* Свои правила для .tab-btn убраны: общий вид вкладок задаёт бандл
+           (.tab-btn/.tab-btn.active — пилюля с градиентом и белой подписью).
+           Инлайновый <style> идёт после ссылки на бандл и при равной
+           специфичности перебивал только color — активная вкладка получалась
+           розовым текстом на розовом градиенте, контраст ~1,1:1. */
+        .tab-btn svg {{ width:1.05rem; height:1.05rem; flex-shrink:0 }}
+        .tab-btn {{ display:inline-flex; align-items:center; gap:0.4rem }}
         .tab-content {{ display:none }}
         .tab-content.active {{ display:block }}
         /* Флекс, а не grid c auto-fit: при восьми плитках и семи колонках
