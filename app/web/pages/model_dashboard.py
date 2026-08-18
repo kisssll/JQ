@@ -32,7 +32,7 @@ async def render_model_dashboard(db: AsyncSession, user) -> str:
     if not is_model:
         body = """
         <div class="card" style="padding:2rem;text-align:center">
-            <h2 style="margin-bottom:0.75rem">Вы ещё не модель</h2>
+            <h2 style="margin-bottom:0.75rem">Анкета не заполнена</h2>
             <p class="text-muted" style="margin-bottom:1.5rem">Заведите анкету, чтобы увидеть мастеров, которые ищут моделей для отработки техники.</p>
             <a href="/model/join" class="btn-primary">Стать моделью</a>
         </div>
@@ -132,7 +132,7 @@ def _render_page(user, body: str, approved: bool = False) -> str:
 <html lang="ru">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Дашборд модели — руми</title>
+    <title>Кабинет модели — руми</title>
     {get_base_styles()}
     <style>
         .invite-card {{
@@ -169,9 +169,9 @@ def _render_page(user, body: str, approved: bool = False) -> str:
     {render_header("model")}
     {render_sidebar("model_dashboard", user)}
 
-    <main style="margin-right: 16rem; padding-top: 2rem;">
+    <main style="margin-right: 16rem; padding-top: 5.5rem;">
         <div class="section-container">
-            <h1 class="text-display" style="font-size:2rem;margin-bottom:1.5rem">Мой дашборд</h1>
+            <h1 class="text-display" style="font-size:2rem;margin-bottom:1.5rem">Кабинет модели</h1>
             {body}
         </div>
         {render_footer(user)}

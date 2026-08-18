@@ -262,9 +262,13 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         if not visible:
             continue
         active_class = " active" if slug == active_tab else ""
+        # Ссылка, а не <button onclick=window.location>: вкладка и так грузится
+        # полной навигацией, но кнопкой её нельзя было открыть в новой вкладке,
+        # средним кликом или без JS, и скринридер не читал её как переход.
+        aria_current = ' aria-current="page"' if active_class else ""
         nav_buttons_html += (
-            f'<button class="tab-btn{active_class}" '
-            f'onclick="window.location.href=\'{_tab_href(slug)}\'">{icon} {label}</button>'
+            f'<a class="tab-btn{active_class}" href="{_tab_href(slug)}"{aria_current}>'
+            f'{icon} {label}</a>'
         )
 
     # Рендерим ТОЛЬКО активную вкладку

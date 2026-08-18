@@ -298,6 +298,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    text-decoration: none;   /* вкладки теперь <a> */
     padding: 0.6rem 1.2rem;
     border: none;
     border-radius: 2rem;

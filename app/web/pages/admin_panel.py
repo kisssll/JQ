@@ -196,7 +196,7 @@ async def _overview(db, users):
             {card(bookings_total, "Записей всего")}
             {card(b_today, "Записей сегодня")}
             {card(b_month, "Записей за месяц")}
-            {card(f"{revenue:,}".replace(",", " ") + " ₽", "Выручка (COMPLETED)")}
+            {card(f"{revenue:,}".replace(",", " ") + " ₽", "Выручка по завершённым")}
             {card(reviews_total, "Отзывов")}
         </div>
         <h3 style="margin:1.5rem 0 0.75rem">Пользователи по ролям</h3>
@@ -513,13 +513,19 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     <title>Панель модератора — руми</title>
     {get_base_styles()}
     <style>
-        .admin-main {{ max-width:1280px; margin:0 auto; padding:2rem 1.5rem }}
+        /* Шапка position:fixed и занимает 60px — при padding-top:2rem заголовок
+           страницы уезжал под плашку логотипа. */
+        .admin-main {{ max-width:1280px; margin:0 auto; padding:5.5rem 1.5rem 2rem }}
         .tab-nav {{ display:flex; gap:0.25rem; border-bottom:1px solid var(--color-border); margin:1rem 0 1.5rem; flex-wrap:wrap }}
         .tab-btn {{ padding:0.75rem 1.25rem; border:none; background:transparent; cursor:pointer; font-size:0.9rem; font-weight:500; color:var(--color-muted); border-bottom:2px solid transparent }}
         .tab-btn.active {{ color:var(--color-primary); border-bottom-color:var(--color-primary) }}
         .tab-content {{ display:none }}
         .tab-content.active {{ display:block }}
-        .stat-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem }}
+        /* Флекс, а не grid c auto-fit: при восьми плитках и семи колонках
+           последняя висела одна узкой сиротой во втором ряду. Здесь остаток
+           растягивается по ширине и ряд выглядит законченным. */
+        .stat-grid {{ display:flex; flex-wrap:wrap; gap:1rem }}
+        .stat-grid > * {{ flex:1 1 150px }}
         .stat-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:1rem; padding:1.25rem; text-align:center }}
         .stat-value {{ font-size:1.6rem; font-weight:700; color:var(--color-primary) }}
         .stat-label {{ font-size:0.8rem; color:var(--color-muted); margin-top:0.25rem }}
