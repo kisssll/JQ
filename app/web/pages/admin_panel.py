@@ -525,7 +525,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
            последняя висела одна узкой сиротой во втором ряду. Здесь остаток
            растягивается по ширине и ряд выглядит законченным. */
         .stat-grid {{ display:flex; flex-wrap:wrap; gap:1rem }}
-        .stat-grid > * {{ flex:1 1 150px }}
+        .stat-grid > * {{ flex:1 1 calc(25% - 0.75rem); min-width:150px }}
         .stat-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:1rem; padding:1.25rem; text-align:center }}
         .stat-value {{ font-size:1.6rem; font-weight:700; color:var(--color-primary) }}
         .stat-label {{ font-size:0.8rem; color:var(--color-muted); margin-top:0.25rem }}
