@@ -18,6 +18,15 @@ from app.web.components.footer import render_footer
 from app.web.components.styles import get_base_styles
 from app.web.components.sidebar import render_sidebar
 from app.web.auth import get_current_user_from_cookie
+from app.web.components.icons import (
+    ICON_BUILDING2,
+    ICON_CALENDAR_DAYS,
+    ICON_CAMERA,
+    ICON_CLOCK,
+    ICON_HOUSE,
+    ICON_MONEY,
+    ICON_SCISSORS,
+)
 
 
 router = APIRouter()
@@ -506,12 +515,12 @@ async def book_page(request: Request, db: AsyncSession = Depends(get_db)):
     <h2 style="margin-bottom:1.5rem">Подтверждение записи</h2>
     
     <div style="margin-bottom:1rem;padding:1rem;background:var(--color-surface-alt);border-radius:0.75rem">
-        <p><strong>🏢 Салон:</strong> {salon_name}</p>
-        <p><strong>💇 Мастер:</strong> {master_name}</p>
-        <p><strong>✂️ Услуга:</strong> {service.name}</p>
-        <p><strong>⏱ Длительность:</strong> {service.duration_minutes} мин</p>
-        <p><strong>📅 Время:</strong> {time_str.replace('T', ' ')}</p>
-        <p><strong>💰 Цена:</strong> <span style="font-size:1.25rem;font-weight:700;color:var(--color-primary)">{service.price} ₽</span></p>
+        <p><strong>{ICON_BUILDING2} Салон:</strong> {salon_name}</p>
+        <p><strong>{ICON_SCISSORS} Мастер:</strong> {master_name}</p>
+        <p><strong>{ICON_SCISSORS} Услуга:</strong> {service.name}</p>
+        <p><strong>{ICON_CLOCK} Длительность:</strong> {service.duration_minutes} мин</p>
+        <p><strong>{ICON_CALENDAR_DAYS} Время:</strong> {time_str.replace('T', ' ')}</p>
+        <p><strong>{ICON_MONEY} Цена:</strong> <span style="font-size:1.25rem;font-weight:700;color:var(--color-primary)">{service.price} ₽</span></p>
     </div>
     
     <form action="/api/v1/bookings/confirm" method="post">
@@ -650,9 +659,9 @@ async def not_found_page(request: Request, path: str):
         <p>Такой страницы не существует. Возможно, она была удалена или вы набрали неправильный адрес.</p>
         <div class="path">/{path}</div>
         <div class="quick-links">
-            <a href="/" class="btn-primary">🏠 На главную</a>
-            <a href="/salons" class="btn-outline">💇 Найти салон</a>
-            <a href="/model" class="btn-outline">📸 Стать моделью</a>
+            <a href="/" class="btn-primary">{ICON_HOUSE} На главную</a>
+            <a href="/salons" class="btn-outline">{ICON_SCISSORS} Найти салон</a>
+            <a href="/model" class="btn-outline">{ICON_CAMERA} Стать моделью</a>
         </div>
     </div>
 </body>

@@ -5,6 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import SalonMember, SalonRole, AdminAudit, User as UserModel, SALON_PERMISSION_KEYS
 from app.web.components.hint import hint as _hint
+from app.web.components.icons import (
+    ICON_FILE_TEXT,
+    ICON_SETTINGS,
+    ICON_TRASH,
+)
 
 _ERROR_MESSAGES = {
     "bad_phone": "Не удалось распознать телефон. Формат: +7 999 123-45-67 или 8 999 123-45-67.",
@@ -89,9 +94,9 @@ async def render_staff_tab(db: AsyncSession, salon, user, membership: SalonMembe
         if can_edit_this:
             actions = f"""
             <button onclick='openPermissionsModal({member.id}, "{member_name}", {perms_json})'
-                style="background:none;border:none;color:var(--color-primary);cursor:pointer;font-size:1.1rem" title="Права">⚙️</button>
+                style="background:none;border:none;color:var(--color-primary);cursor:pointer;font-size:1.1rem" title="Права">{ICON_SETTINGS}</button>
             <button onclick="removeMember({member.id}, '{member_name}')"
-                style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;margin-left:0.5rem" title="Снять">🗑️</button>"""
+                style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;margin-left:0.5rem" title="Снять">{ICON_TRASH}</button>"""
 
         rows += f"""
         <tr>
@@ -164,7 +169,7 @@ async def render_staff_tab(db: AsyncSession, salon, user, membership: SalonMembe
                 <td>{a.detail or '—'}</td>
             </tr>"""
         audit_html = f"""
-        <h3 style="margin:2rem 0 1rem">📋 Лог действий</h3>
+        <h3 style="margin:2rem 0 1rem">{ICON_FILE_TEXT} Лог действий</h3>
         <div class="card" style="overflow-x:auto">
             <table>
                 <thead><tr><th>Когда</th><th>Действие</th><th>Детали</th></tr></thead>

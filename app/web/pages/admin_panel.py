@@ -14,6 +14,26 @@ from app.models.models import (
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.styles import get_base_styles
+from app.web.components.icons import (
+    ICON_ALERT_TRIANGLE,
+    ICON_BUILDING2,
+    ICON_CHART_COLUMN,
+    ICON_CHECK,
+    ICON_CIRCLE_CHECK,
+    ICON_EYE,
+    ICON_FILE_TEXT,
+    ICON_FLAG,
+    ICON_LOCK,
+    ICON_MAP_PIN,
+    ICON_MESSAGE_CIRCLE,
+    ICON_MODEL,
+    ICON_PHONE,
+    ICON_SHIELD_CHECK,
+    ICON_STAR_FILLED,
+    ICON_TRASH,
+    ICON_USERS,
+    ICON_X,
+)
 
 ROLE_RU = {
     "client": "Клиент", "model": "Модель", "master": "Мастер",
@@ -56,7 +76,7 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
             f'<img src="{_esc(extra["photo"])}" loading="lazy" style="width:88px;height:88px;object-fit:cover;border-radius:0.75rem;flex-shrink:0">'
             if extra["photo"] else
             '<div style="width:88px;height:88px;border-radius:0.75rem;background:var(--color-border);'
-            'display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.5rem;flex-shrink:0">🏢</div>'
+            f'display:flex;align-items:center;justify-content:center;flex-shrink:0">{ICON_BUILDING2}</div>'
         )
         services = extra["services"]
         services_preview = ", ".join(f"{_esc(name)} ({price}₽)" for name, price in services[:3])
@@ -66,14 +86,14 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
 
         approve = (
             f'<form method="post" action="/api/v1/admin/salons/{s.id}/approve" style="display:inline">'
-            f'<button class="btn-mini" style="border-color:#16a34a;color:#16a34a">✓ Одобрить</button></form>'
+            f'<button class="btn-mini" style="border-color:#16a34a;color:#16a34a">{ICON_CHECK} Одобрить</button></form>'
         )
         reject = (
             f'<form method="post" action="/api/v1/admin/salons/{s.id}/reject" style="display:inline-flex;gap:0.25rem" '
             f'data-confirm="Отклонить заявку «{_esc(s.name)}»?" data-confirm-label="Подтвердить">'
             f'<input name="reason" placeholder="причина" '
             f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:0.4rem;width:140px">'
-            f'<button class="btn-mini btn-danger">✕ Отклонить</button></form>'
+            f'<button class="btn-mini btn-danger">{ICON_X} Отклонить</button></form>'
         )
 
         cards += f"""
@@ -85,11 +105,11 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
                     <span class="text-muted" style="font-size:0.8rem">подана {submitted}</span>
                 </div>
                 <p class="text-muted" style="font-size:0.85rem;margin:0.25rem 0">
-                    📍 {_esc(s.address)} · ☎ {_esc(s.phone)} · владелец {_esc(owner)}
+                    {ICON_MAP_PIN} {_esc(s.address)} · {ICON_PHONE} {_esc(s.phone)} · владелец {_esc(owner)}
                 </p>
                 <p style="font-size:0.85rem;margin:0.25rem 0">{services_line}</p>
                 <details style="margin:0.5rem 0">
-                    <summary style="cursor:pointer;color:var(--color-primary);font-size:0.85rem">👁 Посмотреть подробнее</summary>
+                    <summary style="cursor:pointer;color:var(--color-primary);font-size:0.85rem">{ICON_EYE} Посмотреть подробнее</summary>
                     <div style="margin-top:0.5rem;font-size:0.85rem">
                         <p>{_esc(s.description) or '<span class="text-muted">Без описания</span>'}</p>
                         <p style="margin-top:0.4rem"><strong>Все услуги:</strong> {", ".join(f"{_esc(n)} ({p}₽)" for n, p in services) or "—"}</p>
@@ -119,18 +139,18 @@ def _model_applications_tab(pending_models):
             f'<img src="{_esc(u.model_photo_url)}" loading="lazy" style="width:88px;height:88px;object-fit:cover;border-radius:0.75rem;flex-shrink:0">'
             if u.model_photo_url else
             '<div style="width:88px;height:88px;border-radius:0.75rem;background:var(--color-border);'
-            'display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.5rem">💃</div>'
+            f'display:flex;align-items:center;justify-content:center;flex-shrink:0">{ICON_MODEL}</div>'
         )
         approve = (
             f'<form method="post" action="/api/v1/admin/models/{u.id}/approve" style="display:inline">'
-            f'<button class="btn-mini" style="border-color:#16a34a;color:#16a34a">✓ Одобрить</button></form>'
+            f'<button class="btn-mini" style="border-color:#16a34a;color:#16a34a">{ICON_CHECK} Одобрить</button></form>'
         )
         reject = (
             f'<form method="post" action="/api/v1/admin/models/{u.id}/reject" style="display:inline-flex;gap:0.25rem" '
             f'data-confirm="Отклонить анкету «{_esc(u.full_name or u.phone)}»?" data-confirm-label="Подтвердить">'
             f'<input name="reason" placeholder="причина" '
             f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:0.4rem;width:140px">'
-            f'<button class="btn-mini btn-danger">✕ Отклонить</button></form>'
+            f'<button class="btn-mini btn-danger">{ICON_X} Отклонить</button></form>'
         )
         cards += f"""
         <div class="card" style="display:flex;gap:1rem;padding:1rem;margin-bottom:0.75rem">
@@ -140,7 +160,7 @@ def _model_applications_tab(pending_models):
                     <strong>{_esc(u.full_name) or _esc(u.phone)}</strong>
                     <span class="text-muted" style="font-size:0.8rem">подана {submitted}</span>
                 </div>
-                <p class="text-muted" style="font-size:0.85rem;margin:0.25rem 0">☎ {_esc(u.phone)}</p>
+                <p class="text-muted" style="font-size:0.85rem;margin:0.25rem 0">{ICON_PHONE} {_esc(u.phone)}</p>
                 <p style="font-size:0.85rem;margin:0.25rem 0">{_esc(u.model_bio) or '<span class="text-muted">Без описания</span>'}</p>
                 {f'<p style="font-size:0.8rem;margin:0.25rem 0" class="text-muted">Ищет: {_esc(u.model_looking_for)}</p>' if u.model_looking_for else ''}
                 <div style="margin-top:0.5rem">{approve} {reject}</div>
@@ -287,7 +307,7 @@ def _salons_tab(salons, owner_phone_by_id):
             <td>{s.id}</td>
             <td>{_esc(s.name)}</td>
             <td>{_esc(owner)}</td>
-            <td>⭐ {s.rating} ({s.reviews_count})</td>
+            <td>{ICON_STAR_FILLED} {s.rating} ({s.reviews_count})</td>
             <td>{_active_badge(s.is_active)} {_moderation_badge(s.moderation_status)}</td>
             <td style="white-space:nowrap">{owner_form} {toggle} {delete}</td>
         </tr>"""
@@ -311,7 +331,7 @@ def _reports_tab(reports):
         resolve = (
             f'<form method="post" action="/api/v1/admin/reports/{r["id"]}/resolve" style="display:inline" '
             f'data-confirm="Удалить фото и закрыть жалобу?" data-confirm-label="Подтвердить">'
-            f'<button class="btn-mini btn-danger">🗑 Удалить фото</button></form>'
+            f'<button class="btn-mini btn-danger">{ICON_TRASH} Удалить фото</button></form>'
         )
         dismiss = (
             f'<form method="post" action="/api/v1/admin/reports/{r["id"]}/dismiss" style="display:inline">'
@@ -342,7 +362,7 @@ def _reports_tab(reports):
 def _reviews_tab(reviews, client_by_id, master_name_by_id, salon_name_by_id):
     rows = ""
     for r in reviews:
-        stars = "⭐" * int(r.rating or 0)
+        stars = ICON_STAR_FILLED * int(r.rating or 0)
         delete = (
             f'<form method="post" action="/api/v1/admin/reviews/{r.id}/delete" style="display:inline" '
             f'data-confirm="Удалить отзыв #{r.id}?" data-confirm-label="Подтвердить">'
@@ -397,11 +417,11 @@ def _banner(q):
     temp_pw = q.get("temp_pw"); temp_for = q.get("temp_for")
     out = ""
     if err:
-        out += f'<div class="alert alert-err">⚠️ {_esc(err)}</div>'
+        out += f'<div class="alert alert-err">{ICON_ALERT_TRIANGLE} {_esc(err)}</div>'
     if ok:
-        out += f'<div class="alert alert-ok">✅ {_esc(ok)}</div>'
+        out += f'<div class="alert alert-ok">{ICON_CIRCLE_CHECK} {_esc(ok)}</div>'
     if temp_pw:
-        out += (f'<div class="alert alert-ok">🔑 Временный пароль для {_esc(temp_for)}: '
+        out += (f'<div class="alert alert-ok">{ICON_LOCK} Временный пароль для {_esc(temp_for)}: '
                 f'<code style="font-weight:700">{_esc(temp_pw)}</code> — передайте пользователю, он виден один раз.</div>')
     return out
 
@@ -494,15 +514,15 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
 
     tab_nav = ""
     if is_senior:
-        tab_nav += '<button class="tab-btn" data-tab="overview" onclick="switchTab(\'overview\')">📊 Обзор</button>'
-        tab_nav += '<button class="tab-btn" data-tab="users" onclick="switchTab(\'users\')">👥 Пользователи</button>'
-    tab_nav += f'<button class="tab-btn" data-tab="applications" onclick="switchTab(\'applications\')">📋 Заявки{pending_badge}</button>'
-    tab_nav += f'<button class="tab-btn" data-tab="models" onclick="switchTab(\'models\')">💃 Модели{models_badge}</button>'
-    tab_nav += f'<button class="tab-btn" data-tab="reports" onclick="switchTab(\'reports\')">🚩 Жалобы{reports_badge}</button>'
+        tab_nav += f'<button class="tab-btn" data-tab="overview" onclick="switchTab(\'overview\')">{ICON_CHART_COLUMN} Обзор</button>'
+        tab_nav += f'<button class="tab-btn" data-tab="users" onclick="switchTab(\'users\')">{ICON_USERS} Пользователи</button>'
+    tab_nav += f'<button class="tab-btn" data-tab="applications" onclick="switchTab(\'applications\')">{ICON_FILE_TEXT} Заявки{pending_badge}</button>'
+    tab_nav += f'<button class="tab-btn" data-tab="models" onclick="switchTab(\'models\')">{ICON_MODEL} Модели{models_badge}</button>'
+    tab_nav += f'<button class="tab-btn" data-tab="reports" onclick="switchTab(\'reports\')">{ICON_FLAG} Жалобы{reports_badge}</button>'
     if is_senior:
-        tab_nav += '<button class="tab-btn" data-tab="salons" onclick="switchTab(\'salons\')">🏢 Салоны</button>'
-        tab_nav += '<button class="tab-btn" data-tab="reviews" onclick="switchTab(\'reviews\')">💬 Отзывы</button>'
-        tab_nav += '<button class="tab-btn" data-tab="audit" onclick="switchTab(\'audit\')">📝 Аудит</button>'
+        tab_nav += f'<button class="tab-btn" data-tab="salons" onclick="switchTab(\'salons\')">{ICON_BUILDING2} Салоны</button>'
+        tab_nav += f'<button class="tab-btn" data-tab="reviews" onclick="switchTab(\'reviews\')">{ICON_MESSAGE_CIRCLE} Отзывы</button>'
+        tab_nav += f'<button class="tab-btn" data-tab="audit" onclick="switchTab(\'audit\')">{ICON_FILE_TEXT} Аудит</button>'
 
     role_label = "Старший модератор" if is_senior else "Модератор"
 
@@ -545,7 +565,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
 <body>
     {render_header("admin")}
     <main class="admin-main">
-        <h1 class="text-display" style="font-size:1.75rem">🛡️ Панель модератора</h1>
+        <h1 class="text-display" style="font-size:1.75rem">{ICON_SHIELD_CHECK} Панель модератора</h1>
         <p class="text-muted">{_esc(user.full_name or user.phone)} · {role_label}</p>
         {_banner(q)}
         <div class="tab-nav">

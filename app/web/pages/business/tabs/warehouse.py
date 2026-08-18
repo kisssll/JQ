@@ -8,6 +8,9 @@ from app.models.models import (
 )
 from app.services.inventory_service import InventoryService
 from app.web.components.hint import hint as _hint
+from app.web.components.icons import (
+    ICON_PACKAGE,
+)
 
 
 async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, warehouse_filters: dict, membership=None) -> str:
@@ -87,10 +90,10 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
     for req in pending_requests:
         author = (await db.execute(select(UserModel).where(UserModel.id == req.created_by_id))).scalar_one_or_none()
         if req.type == WarehouseRequestType.CONSUMABLE_LOW:
-            type_label = "🧴 Расходник заканчивается"
+            type_label = f"{ICON_PACKAGE} Расходник заканчивается"
             target_name = req.item.name if req.item else "(позиция удалена)"
         else:
-            type_label = "🧰 Техника сломалась"
+            type_label = f"{ICON_PACKAGE} Техника сломалась"
             target_name = req.equipment.name if req.equipment else "(позиция удалена)"
         request_rows += f"""
         <div class="card" style="display:flex;gap:1rem;align-items:center;padding:1rem;margin-bottom:0.75rem">

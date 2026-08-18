@@ -233,7 +233,7 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                 }}
                 const data = await res.json().catch(() => ({{}}));
                 if (res.ok) {{
-                    btn.textContent = '✅ Заявка отправлена';
+                    btn.textContent = '{ICON_CIRCLE_CHECK} Заявка отправлена';
                     btn.style.cursor = 'default';
                     document.getElementById('submit-note').textContent = 'Заявка принята — открываем кабинет...';
                     window.location = data.redirect || '/business/dashboard';

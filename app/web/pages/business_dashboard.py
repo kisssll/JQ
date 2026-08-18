@@ -7,6 +7,19 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.components.icons import (
+    ICON_CALENDAR_DAYS,
+    ICON_CHART_COLUMN,
+    ICON_EDIT_PENCIL,
+    ICON_MESSAGE_CIRCLE,
+    ICON_MONEY,
+    ICON_SPARKLES,
+    ICON_STAR_EMPTY,
+    ICON_STAR_FILLED,
+    ICON_TRENDING_UP,
+    ICON_TROPHY,
+    ICON_USERS,
+)
 
 
 async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str:
@@ -167,7 +180,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
             <td>{m.specialization}</td>
             <td>{m.experience_years} лет</td>
             <td>{svc_count}</td>
-            <td>⭐ {m.rating}</td>
+            <td>{ICON_STAR_FILLED} {m.rating}</td>
         </tr>
         """
     
@@ -197,7 +210,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
             mu = master_user.scalar_one_or_none()
             master_name = mu.full_name if mu else "Мастер"
         
-        stars = "⭐" * r.rating + "☆" * (5 - r.rating)
+        stars = f"{ICON_STAR_FILLED}" * r.rating + f"{ICON_STAR_EMPTY}" * (5 - r.rating)
         date_str = r.created_at.strftime("%d.%m.%Y") if r.created_at else ""
         
         reviews_rows += f"""
@@ -256,19 +269,19 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
                 <div>
                     <h1 class="text-display" style="font-size:2rem">{salon.name}</h1>
-                    <p class="text-muted">Панель управления · ⭐ {salon.rating} ({salon.reviews_count} отзывов)</p>
+                    <p class="text-muted">Панель управления · {ICON_STAR_FILLED} {salon.rating} ({salon.reviews_count} отзывов)</p>
                 </div>
-                <a href="/business/my-salon" class="btn-outline">✏️ Редактировать салон</a>
+                <a href="/business/my-salon" class="btn-outline">{ICON_EDIT_PENCIL} Редактировать салон</a>
             </div>
             
             <!-- Вкладки -->
             <div class="tab-nav">
-                <button class="tab-btn active" onclick="switchTab('overview')">📊 Обзор</button>
-                <button class="tab-btn" onclick="switchTab('analytics')">📈 Аналитика</button>
-                <button class="tab-btn" onclick="switchTab('schedule')">📅 Расписание</button>
-                <button class="tab-btn" onclick="switchTab('masters')">👥 Мастера ({len(masters)})</button>
-                <button class="tab-btn" onclick="switchTab('promos')">🎉 Акции ({len(promotions)})</button>
-                <button class="tab-btn" onclick="switchTab('reviews')">💬 Отзывы ({len(reviews)})</button>
+                <button class="tab-btn active" onclick="switchTab('overview')">{ICON_CHART_COLUMN} Обзор</button>
+                <button class="tab-btn" onclick="switchTab('analytics')">{ICON_TRENDING_UP} Аналитика</button>
+                <button class="tab-btn" onclick="switchTab('schedule')">{ICON_CALENDAR_DAYS} Расписание</button>
+                <button class="tab-btn" onclick="switchTab('masters')">{ICON_USERS} Мастера ({len(masters)})</button>
+                <button class="tab-btn" onclick="switchTab('promos')">{ICON_SPARKLES} Акции ({len(promotions)})</button>
+                <button class="tab-btn" onclick="switchTab('reviews')">{ICON_MESSAGE_CIRCLE} Отзывы ({len(reviews)})</button>
             </div>
             
             <!-- Обзор -->
@@ -283,7 +296,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
                 </div>
                 
                 <div class="card" style="margin-bottom:2rem">
-                    <h3 style="margin-bottom:1rem">📊 Записи за неделю</h3>
+                    <h3 style="margin-bottom:1rem">{ICON_CHART_COLUMN} Записи за неделю</h3>
                     <div class="chart-bar">{chart_bars}</div>
                 </div>
             </div>
@@ -311,7 +324,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
                 
                 <!-- График выручки -->
                 <div class="card" style="margin-bottom:1.5rem">
-                    <h3 style="margin-bottom:0.5rem">💰 Выручка по дням</h3>
+                    <h3 style="margin-bottom:0.5rem">{ICON_MONEY} Выручка по дням</h3>
                     <div class="legend">
                         <span><span class="legend-dot" style="background:linear-gradient(to top,var(--color-primary),var(--color-accent))"></span> Эта неделя</span>
                         <span><span class="legend-dot" style="background:var(--color-border)"></span> Прошлая неделя</span>
@@ -322,7 +335,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
                 
                 <!-- Топ услуг -->
                 <div class="card">
-                    <h3 style="margin-bottom:1rem">🏆 Топ услуг по выручке</h3>
+                    <h3 style="margin-bottom:1rem">{ICON_TROPHY} Топ услуг по выручке</h3>
                     <table>
                         <thead>
                             <tr><th>Услуга</th><th>Записей</th><th>Выручка</th></tr>
@@ -337,7 +350,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
             <!-- Расписание -->
             <div id="tab-schedule" class="tab-content">
                 <div class="card" style="text-align:center;padding:3rem">
-                    <h3>📅 Управление расписанием</h3>
+                    <h3>{ICON_CALENDAR_DAYS} Управление расписанием</h3>
                     <p class="text-muted">Здесь будет календарь с записями по дням и мастерам</p>
                     <p class="text-muted" style="font-size:0.8rem">Функционал в разработке</p>
                 </div>
@@ -377,7 +390,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
                     <div class="rating-summary">
                         <div>
                             <div class="rating-big">{salon.rating}</div>
-                            <div class="rating-stars">{"⭐" * int(salon.rating)}{"☆" * (5 - int(salon.rating))}</div>
+                            <div class="rating-stars">{"{ICON_STAR_FILLED}" * int(salon.rating)}{"{ICON_STAR_EMPTY}" * (5 - int(salon.rating))}</div>
                             <div style="font-size:0.85rem;color:var(--color-muted)">{salon.reviews_count} отзывов</div>
                         </div>
                     </div>

@@ -29,6 +29,14 @@ from app.web.components.icons import (
     ICON_USER,
     ICON_SCISSORS,
     ICON_STAR_FILLED,
+    ICON_BRIEFCASE,
+    ICON_CIRCLE_CHECK,
+    ICON_FLAG,
+    ICON_GIFT,
+    ICON_HOUSE,
+    ICON_STAR_EMPTY,
+    ICON_TROPHY,
+    ICON_X,
 )
 from app.web.service_categories import match_category_slugs, slug_to_label
 
@@ -108,11 +116,11 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
         loyalty = await LoyaltyService.get_client_status(db, salon.id, user.id)
         chips = []
         if loyalty["is_regular_client"] and loyalty["regular_client_discount_percent"] > 0:
-            chips.append(f'🏅 Постоянный клиент −{loyalty["regular_client_discount_percent"]}%')
+            chips.append(f'{ICON_TROPHY} Постоянный клиент −{loyalty["regular_client_discount_percent"]}%')
         if loyalty["personal_discount_percent"]:
-            chips.append(f'🎁 Ваша скидка −{loyalty["personal_discount_percent"]}%')
+            chips.append(f'{ICON_GIFT} Ваша скидка −{loyalty["personal_discount_percent"]}%')
         if loyalty["bonus_points"] > 0:
-            chips.append(f'⭐ {loyalty["bonus_points"]} баллов')
+            chips.append(f'{ICON_STAR_FILLED} {loyalty["bonus_points"]} баллов')
         if chips:
             loyalty_html = (
                 '<div class="salon-loyalty">'
@@ -199,7 +207,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                     </div>
                     <p class="master-desc" style="min-height:0;"></p>
                     <div class="master-stats-chips">
-                        <span class="chip">⭐ {m["rating"]:.1f}</span>
+                        <span class="chip">{ICON_STAR_FILLED} {m["rating"]:.1f}</span>
                         <span class="chip">опыт {m["experience"]} лет</span>
                     </div>
                     <button class="master-book-btn" data-master-id="{m["id"]}">
@@ -480,9 +488,9 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
 
     # ----- Отзывы -----
     TARGET_LABELS = {
-        ReviewTargetType.MASTER: "👤 Мастер",
-        ReviewTargetType.SALON: "🏠 Салон",
-        ReviewTargetType.STAFF: "🧑‍💼 Сотрудник",
+        ReviewTargetType.MASTER: f"{ICON_USER} Мастер",
+        ReviewTargetType.SALON: f"{ICON_HOUSE} Салон",
+        ReviewTargetType.STAFF: f"{ICON_BRIEFCASE} Сотрудник",
     }
     reviews_html = ""
     if reviews:
@@ -490,7 +498,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
             client_result = await db.execute(select(User).where(User.id == r.client_id))
             client_user = client_result.scalar_one_or_none()
             client_name = client_user.full_name if client_user else "Клиент"
-            stars = "★" * r.rating + "☆" * (5 - r.rating)
+            stars = f"{ICON_STAR_FILLED}" * r.rating + f"{ICON_STAR_EMPTY}" * (5 - r.rating)
             date_str = r.created_at.strftime("%d.%m.%Y") if r.created_at else ""
 
             target_label = TARGET_LABELS[r.target_type]
@@ -509,7 +517,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
 
             verified_badge = (
                 '<span class="badge-tag" style="background:#dcfce7;color:#166534" '
-                'title="Клиент реально был на завершённой записи">✅ Подтверждено записью</span>'
+                f'title="Клиент реально был на завершённой записи">{ICON_CIRCLE_CHECK} Подтверждено записью</span>'
                 if r.is_verified else
                 '<span class="badge-tag" style="background:#f3f4f6;color:var(--color-muted)">Без подтверждения</span>'
             )
@@ -522,11 +530,11 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                 for p in review_photos:
                     delete_btn = (
                         f'<button class="review-photo-delete" data-review-id="{r.id}" data-photo-id="{p.id}" '
-                        f'title="Удалить фото">✕</button>'
+                        f'title="Удалить фото">{ICON_X}</button>'
                         if user and user.id == r.client_id else ""
                     )
                     report_btn = (
-                        f'<button class="review-photo-report" data-photo-id="{p.id}" title="Пожаловаться">⚑</button>'
+                        f'<button class="review-photo-report" data-photo-id="{p.id}" title="Пожаловаться">{ICON_FLAG}</button>'
                         if user else ""
                     )
                     items += (

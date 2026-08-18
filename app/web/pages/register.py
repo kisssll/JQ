@@ -3,6 +3,9 @@ import html
 from fastapi import Request
 from app.core.config import settings
 from app.web.components.styles import get_base_styles
+from app.web.components.icons import (
+    ICON_X,
+)
 
 
 def _alert(msg: str) -> str:
@@ -128,10 +131,10 @@ def render_register_page(request: Request) -> str:
                 <label for="password">Пароль</label>
                 <input type="password" id="pw" name="password" required minlength="8">
                 <ul class="password-rules">
-                    <li data-rule="len"><span class="mark">✗</span> Минимум 8 символов</li>
-                    <li data-rule="lower"><span class="mark">✗</span> Строчная буква</li>
-                    <li data-rule="upper"><span class="mark">✗</span> Заглавная буква</li>
-                    <li data-rule="digit"><span class="mark">✗</span> Цифра</li>
+                    <li data-rule="len"><span class="mark">{ICON_X}</span> Минимум 8 символов</li>
+                    <li data-rule="lower"><span class="mark">{ICON_X}</span> Строчная буква</li>
+                    <li data-rule="upper"><span class="mark">{ICON_X}</span> Заглавная буква</li>
+                    <li data-rule="digit"><span class="mark">{ICON_X}</span> Цифра</li>
                 </ul>
             </div>
             <button type="submit" id="submitBtn" class="btn-primary auth-btn" disabled>Зарегистрироваться</button>

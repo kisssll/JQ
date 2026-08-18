@@ -2,6 +2,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Master, User as UserModel, Review, ReviewPhoto, ReviewTargetType
+from app.web.components.icons import (
+    ICON_CIRCLE_CHECK,
+    ICON_STAR_EMPTY,
+    ICON_STAR_FILLED,
+)
 
 TARGET_LABELS = {
     ReviewTargetType.MASTER: "Мастер",
@@ -35,10 +40,10 @@ async def render_reviews_tab(db: AsyncSession, reviews, salon) -> str:
         else:
             target_name = "Салон в целом"
 
-        stars = "⭐" * r.rating + "☆" * (5 - r.rating)
+        stars = f"{ICON_STAR_FILLED}" * r.rating + f"{ICON_STAR_EMPTY}" * (5 - r.rating)
         date_str = r.created_at.strftime("%d.%m.%Y") if r.created_at else ""
         verified_html = (
-            '<span class="badge-tag" style="background:#dcfce7;color:#166534">✅ Подтверждено</span>'
+            f'<span class="badge-tag" style="background:#dcfce7;color:#166534">{ICON_CIRCLE_CHECK} Подтверждено</span>'
             if r.is_verified else
             '<span class="badge-tag" style="background:#f3f4f6;color:var(--color-muted)">Без подтверждения</span>'
         )
@@ -67,7 +72,7 @@ async def render_reviews_tab(db: AsyncSession, reviews, salon) -> str:
             <div class="rating-summary">
                 <div>
                     <div class="rating-big">{salon.rating}</div>
-                    <div class="rating-stars">{"⭐" * int(salon.rating)}{"☆" * (5 - int(salon.rating))}</div>
+                    <div class="rating-stars">{"{ICON_STAR_FILLED}" * int(salon.rating)}{"{ICON_STAR_EMPTY}" * (5 - int(salon.rating))}</div>
                     <div style="font-size:0.85rem;color:var(--color-muted)">{salon.reviews_count} отзывов</div>
                 </div>
             </div>

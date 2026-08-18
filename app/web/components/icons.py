@@ -8,15 +8,6 @@ ICON_SEARCH = (
     '<path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>'
 )
 
-ICON_SCISSORS = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-    'class="lucide lucide-scissors w-4 h-4" aria-hidden="true">'
-    '<circle cx="6" cy="6" r="3"></circle><path d="M8.12 8.12 12 12"></path>'
-    '<path d="M20 4 8.12 15.88"></path><circle cx="6" cy="18" r="3"></circle>'
-    '<path d="M14.8 14.8 20 20"></path></svg>'
-)
-
 ICON_SPARKLES = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" '
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
@@ -135,15 +126,6 @@ ICON_FILE_TEXT = (
     '</svg>'
 )
 
-ICON_USER = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-    'class="lucide lucide-user" aria-hidden="true">'
-    '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>'
-    '<circle cx="12" cy="7" r="4"></circle>'
-    '</svg>'
-)
-
 ICON_MODEL = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" '
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
@@ -202,18 +184,6 @@ ICON_MENU = (
 )
 
 # Иконки для страницы "Для бизнеса"
-ICON_CALENDAR_DAYS = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-    'class="lucide lucide-calendar-days h-6 w-6" aria-hidden="true">'
-    '<path d="M8 2v4"></path><path d="M16 2v4"></path>'
-    '<rect width="18" height="18" x="3" y="4" rx="2"></rect>'
-    '<path d="M3 10h18"></path>'
-    '<path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path>'
-    '<path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path>'
-    '</svg>'
-)
-
 ICON_CHART_COLUMN = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" '
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
@@ -240,15 +210,6 @@ ICON_SHIELD_CHECK = (
     'class="lucide lucide-shield-check h-6 w-6" aria-hidden="true">'
     '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path>'
     '<path d="m9 12 2 2 4-4"></path>'
-    '</svg>'
-)
-
-ICON_TRENDING_UP = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-    'class="lucide lucide-trending-up h-6 w-6" aria-hidden="true">'
-    '<path d="M16 7h6v6"></path>'
-    '<path d="m22 7-8.5 8.5-5-5L2 17"></path>'
     '</svg>'
 )
 
@@ -325,17 +286,6 @@ ICON_CAMERA = (
     '</svg>'
 )
 
-ICON_USER_PLUS = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-    'class="lucide lucide-user-plus" aria-hidden="true">'
-    '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>'
-    '<circle cx="9" cy="7" r="4"></circle>'
-    '<line x1="19" x2="19" y1="8" y2="14"></line>'
-    '<line x1="22" x2="16" y1="11" y2="11"></line>'
-    '</svg>'
-)
-
 ICON_CALENDAR_CHECK = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" '
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
@@ -394,16 +344,6 @@ ICON_MAIL = (
     '</svg>'
 )
 
-ICON_CALENDAR_SMALL = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-    'class="profile-icon" aria-hidden="true">'
-    '<path d="M8 2v4"/><path d="M16 2v4"/>'
-    '<rect width="18" height="18" x="3" y="4" rx="2"/>'
-    '<path d="M3 10h18"/>'
-    '</svg>'
-)
-
 ICON_STAR_SMALL = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" '
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
@@ -425,14 +365,6 @@ ICON_DIAMOND = (
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
     'class="profile-icon" aria-hidden="true">'
     '<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>'
-    '</svg>'
-)
-
-ICON_EDIT = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-    'aria-hidden="true">'
-    '<path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/>'
     '</svg>'
 )
 
@@ -469,15 +401,6 @@ ICON_PALETTE = (
     '<circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>'
     '<circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>'
     '<path d="M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10a2.5 2.5 0 0 0 2.5-2.5c0-.61-.23-1.2-.64-1.67a.53.53 0 0 1 .04-.68c.2-.2.51-.33.83-.38.28-.04.58-.13.8-.35.37-.37.47-.91.47-1.42 0-1.38-1.12-2.5-2.5-2.5H12c-2.76 0-5-2.24-5-5s2.24-5 5-5z"/>'
-    '</svg>'
-)
-
-ICON_BELL = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-    'class="settings-icon" aria-hidden="true">'
-    '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>'
-    '<path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'
     '</svg>'
 )
 
@@ -525,15 +448,6 @@ ICON_LOCK_FILLED = (
     '</svg>'
 )
 
-ICON_TRASH = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-    'class="settings-icon-sm" aria-hidden="true">'
-    '<path d="M3 6h18"/>'
-    '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
-    '</svg>'
-)
-
 ICON_CHEVRON_DOWN = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" '
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
@@ -556,15 +470,6 @@ ICON_SETTINGS_GEAR = (
     'class="settings-title-icon" aria-hidden="true">'
     '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>'
     '<circle cx="12" cy="12" r="3"/>'
-    '</svg>'
-)
-
-ICON_MAP_PIN_SMALL = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-    'class="profile-icon" aria-hidden="true">'
-    '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>'
-    '<circle cx="12" cy="10" r="3"/>'
     '</svg>'
 )
 
@@ -661,13 +566,6 @@ ICON_MESSAGE_CIRCLE = (
     '</svg>'
 )
 
-ICON_USER_CHECK = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-    '<path d="m16 11 2 2 4-4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
-    '</svg>'
-)
-
 ICON_ARROW_UP_RIGHT = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" '
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
@@ -724,26 +622,11 @@ ICON_CALENDAR_DAYS_SMALL = (
     '</svg>'
 )
 
-ICON_GIFT_SMALL = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-    '<path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/>'
-    '<path d="M12 7h7.5a2.5 2.5 0 0 0 0-5h-5A2.5 2.5 0 0 0 12 4a2.5 2.5 0 0 0-2.5-2.5h-5a2.5 2.5 0 0 0 0 5H12z"/>'
-    '</svg>'
-)
-
 ICON_SETTINGS_GEAR_SMALL = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" '
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>'
     '<circle cx="12" cy="12" r="3"/>'
-    '</svg>'
-)
-
-ICON_USER_CHECK = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" '
-    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-    '<path d="m16 11 2 2 4-4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
     '</svg>'
 )
 
@@ -1002,5 +885,50 @@ ICON_EYE = (
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>'
     '<circle cx="12" cy="12" r="3"/>'
+    '</svg>'
+)
+
+# ── Иконки, добавленные при замене эмодзи на SVG ─────────────────────────────
+# Раньше на этих местах стояли ⚠ 🚩 🏆 ☀ 🌙 — они рендерятся по-разному на
+# разных ОС и выбиваются из остального набора (lucide, stroke-width 2).
+
+ICON_ALERT_TRIANGLE = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>'
+    '<path d="M12 9v4"/><path d="M12 17h.01"/>'
+    '</svg>'
+)
+
+ICON_FLAG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>'
+    '</svg>'
+)
+
+ICON_TROPHY = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>'
+    '<path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>'
+    '<path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>'
+    '<path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>'
+    '</svg>'
+)
+
+ICON_SUN = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/>'
+    '<path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/>'
+    '<path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>'
+    '</svg>'
+)
+
+ICON_MOON = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'
     '</svg>'
 )

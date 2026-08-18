@@ -12,6 +12,12 @@ from app.web.components.styles import get_base_styles
 from app.web.pages.business.utils import get_masters_data, get_master_ids, get_overview_revenue_data
 from app.web.pages.business.tabs.overview import render_overview_tab
 from app.web.pages.business.tabs.schedule import render_schedule_tab
+from app.web.components.icons import (
+    ICON_ALERT_TRIANGLE,
+    ICON_CALENDAR_DAYS,
+    ICON_CHART_COLUMN,
+    ICON_FLAG,
+)
 
 
 async def _render_master_overview(db: AsyncSession, salon: Salon, master: Master) -> str:
@@ -76,7 +82,7 @@ async def _render_master_warehouse_card(db: AsyncSession, salon: Salon, master: 
         f'border-bottom:1px solid var(--color-border)">'
         f'<span>{i.name} <span class="text-muted" style="font-size:0.8rem">(остаток {i.quantity:g} {i.unit})</span></span>'
         f'<button class="btn-outline" style="font-size:0.75rem;padding:0.3rem 0.7rem" '
-        f'onclick="reportWarehouseIssue(\'consumable_low\', {i.id}, null)">🚩 Заканчивается</button>'
+        f'onclick="reportWarehouseIssue(\'consumable_low\', {i.id}, null)">{ICON_FLAG} Заканчивается</button>'
         f'</div>'
         for i in my_stock
     )
@@ -85,7 +91,7 @@ async def _render_master_warehouse_card(db: AsyncSession, salon: Salon, master: 
         f'border-bottom:1px solid var(--color-border)">'
         f'<span>{eq.name} <span class="text-muted" style="font-size:0.8rem">({eq.quantity} шт)</span></span>'
         f'<button class="btn-outline" style="font-size:0.75rem;padding:0.3rem 0.7rem" '
-        f'onclick="reportWarehouseIssue(\'equipment_broken\', null, {eq.id})">🚩 Сломалось</button>'
+        f'onclick="reportWarehouseIssue(\'equipment_broken\', null, {eq.id})">{ICON_FLAG} Сломалось</button>'
         f'</div>'
         for eq in equipment_list if eq.status == EquipmentStatus.WORKING
     )
@@ -146,7 +152,7 @@ async def _render_master_schedule(db: AsyncSession, salon: Salon, master: Master
         )
         unreported_card = f"""
         <div class="card" style="overflow-x:auto;margin-bottom:1.5rem;border:2px solid #f59e0b">
-            <h3 style="margin-bottom:1rem">⚠️ Требуют списания расходников</h3>
+            <h3 style="margin-bottom:1rem">{ICON_ALERT_TRIANGLE} Требуют списания расходников</h3>
             <table><thead><tr><th>Дата</th><th></th></tr></thead><tbody>{rows}</tbody></table>
         </div>"""
 
@@ -231,7 +237,7 @@ async def render_master_business_dashboard(db: AsyncSession, user, salon: Salon,
     overview_html = await _render_master_overview(db, salon, master)
     schedule_html = await _render_master_schedule(db, salon, master)
 
-    tab_buttons = [("overview", "📊 Обзор"), ("schedule", "📅 Расписание")]
+    tab_buttons = [("overview", f"{ICON_CHART_COLUMN} Обзор"), ("schedule", f"{ICON_CALENDAR_DAYS} Расписание")]
     nav_buttons_html = "".join(
         f'<button class="tab-btn{" active" if slug == active_tab else ""}" onclick="switchTab(\'{slug}\')">{label}</button>'
         for slug, label in tab_buttons

@@ -3,6 +3,13 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.components.icons import (
+    ICON_CALENDAR_DAYS,
+    ICON_CHECK,
+    ICON_GIFT,
+    ICON_MONEY,
+    ICON_STAR_FILLED,
+)
 
 
 def render_model_page(user=None) -> str:
@@ -103,7 +110,7 @@ def render_model_page(user=None) -> str:
             gap: 0.5rem;
         }}
         .plan-features li::before {{
-            content: "✓";
+            content: "{ICON_CHECK}";
             color: #22c55e;
             font-weight: 700;
             font-size: 1rem;
@@ -287,28 +294,28 @@ def render_model_page(user=None) -> str:
             <h2>Почему быть моделью выгодно?</h2>
             <div class="benefits-grid">
                 <div class="benefit-card">
-                    <div class="benefit-icon">💰</div>
+                    <div class="benefit-icon">{ICON_MONEY}</div>
                     <div>
                         <h3>Экономия до 70%</h3>
                         <p>Платишь только часть стоимости, остальное — за наш счёт</p>
                     </div>
                 </div>
                 <div class="benefit-card">
-                    <div class="benefit-icon">⭐</div>
+                    <div class="benefit-icon">{ICON_STAR_FILLED}</div>
                     <div>
                         <h3>Топ-мастера</h3>
                         <p>Проверенные салоны и мастера с высоким рейтингом</p>
                     </div>
                 </div>
                 <div class="benefit-card">
-                    <div class="benefit-icon">📅</div>
+                    <div class="benefit-icon">{ICON_CALENDAR_DAYS}</div>
                     <div>
                         <h3>Приоритетная запись</h3>
                         <p>Модели получают места в первую очередь</p>
                     </div>
                 </div>
                 <div class="benefit-card">
-                    <div class="benefit-icon">🎁</div>
+                    <div class="benefit-icon">{ICON_GIFT}</div>
                     <div>
                         <h3>Бонусы и подарки</h3>
                         <p>Косметика и уходовые средства от партнёров</p>

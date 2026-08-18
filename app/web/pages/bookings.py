@@ -21,6 +21,7 @@ from app.web.components.icons import (
     ICON_CHECK_SMALL,      # для сообщения об успехе
     ICON_CLOCK,
     ICON_TRASH,
+    ICON_STAR_FILLED,
 )
 
 async def render_bookings_page(db: AsyncSession, user) -> str:
@@ -113,7 +114,7 @@ async def render_bookings_page(db: AsyncSession, user) -> str:
             )).scalar_one_or_none()
             if review:
                 # Используем звёзды из иконок
-                stars = "⭐" * review.rating + "☆" * (5 - review.rating)
+                stars = f"{ICON_STAR_FILLED}" * review.rating + f"{ICON_STAR_EMPTY}" * (5 - review.rating)
                 review_html = f"""
                 <div class="booking-review">
                     <div class="booking-review-stars">{stars}</div>

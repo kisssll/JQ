@@ -14,6 +14,8 @@ from app.web.components.icons import (
     ICON_TRASH,
     ICON_CHEVRON_DOWN,
     ICON_SETTINGS_GEAR,
+    ICON_MOON,
+    ICON_SUN,
 )
 
 def render_settings_page(user=None) -> str:
@@ -48,8 +50,8 @@ def render_settings_page(user=None) -> str:
                     Тема
                 </h2>
                 <div class="settings-theme-toggle">
-                    <button class="theme-btn active" data-theme="light">☀️ Светлая</button>
-                    <button class="theme-btn" data-theme="dark">🌙 Тёмная</button>
+                    <button class="theme-btn active" data-theme="light">{ICON_SUN} Светлая</button>
+                    <button class="theme-btn" data-theme="dark">{ICON_MOON} Тёмная</button>
                 </div>
                 <p class="settings-card-hint">Выберите оформление интерфейса.</p>
             </div>

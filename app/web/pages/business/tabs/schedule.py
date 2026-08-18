@@ -17,6 +17,7 @@ from app.web.components.icons import (
     ICON_CHEVRON_LEFT,
     ICON_CHEVRON_RIGHT,
     ICON_CHEVRON_DOWN,
+    ICON_EYE,
 )
 
 MONTH_NAMES_RU = [
@@ -137,10 +138,10 @@ async def render_schedule_tab(
             if b.master_seen_at is None:
                 seen_html = (
                     f'<button onclick="event.stopPropagation();markSeen({b.id}, this)" '
-                    f'title="Отметить, что видели эту запись" class="seen-btn">👁 Видел</button>'
+                    f'title="Отметить, что видели эту запись" class="seen-btn">{ICON_EYE} Видел</button>'
                 )
             else:
-                seen_html = '<span class="seen-indicator" title="Вы отметили, что видели эту запись">👁 Видели</span>'
+                seen_html = f'<span class="seen-indicator" title="Вы отметили, что видели эту запись">{ICON_EYE} Видели</span>'
         elif viewer_master_id is None:
             seen_html = (
                 _hint(f"Мастер видел плановую запись: {b.master_seen_at.strftime('%d.%m.%Y %H:%M')}")

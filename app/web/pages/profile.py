@@ -21,6 +21,14 @@ from app.web.components.icons import (
     ICON_TRASH,
     ICON_CHEVRON_DOWN,
     ICON_SETTINGS_GEAR,
+    ICON_BRIEFCASE,
+    ICON_BUILDING2,
+    ICON_MAP_PIN,
+    ICON_MODEL,
+    ICON_MOON,
+    ICON_STAR_FILLED,
+    ICON_SUN,
+    ICON_USERS,
 )
 from app.core.config import settings
 
@@ -88,7 +96,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
         role_block = f"""
         <div class="profile-role-block profile-master-block">
             <div class="profile-role-header">
-                <h3>💼 Профессиональная информация</h3>
+                <h3>{ICON_BRIEFCASE} Профессиональная информация</h3>
             </div>
             <div class="profile-role-body">
                 <div class="profile-master-grid">
@@ -102,7 +110,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
                     </div>
                     <div>
                         <span class="profile-label">Рейтинг</span>
-                        <span class="profile-value">⭐ {rating}</span>
+                        <span class="profile-value">{ICON_STAR_FILLED} {rating}</span>
                     </div>
                 </div>
                 {f'<div class="profile-master-bio">{bio}</div>' if bio else ''}
@@ -121,17 +129,17 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
         role_block = f"""
         <div class="profile-role-block profile-business-block">
             <div class="profile-role-header">
-                <h3>🏢 Мой салон</h3>
+                <h3>{ICON_BUILDING2} Мой салон</h3>
             </div>
             <div class="profile-role-body">
                 <div class="profile-business-name">{salon_name}</div>
                 <div class="profile-business-meta">
-                    <span>📍 {salon_address}</span>
-                    <span>📞 {salon_phone}</span>
+                    <span>{ICON_MAP_PIN} {salon_address}</span>
+                    <span>{ICON_PHONE} {salon_phone}</span>
                 </div>
                 <div class="profile-business-stats">
-                    <span>⭐ {salon_rating} ({salon_reviews} отзывов)</span>
-                    <span>👥 {masters_count} мастеров</span>
+                    <span>{ICON_STAR_FILLED} {salon_rating} ({salon_reviews} отзывов)</span>
+                    <span>{ICON_USERS} {masters_count} мастеров</span>
                 </div>
                 <a href="/business/dashboard" class="profile-btn-secondary">Панель управления →</a>
             </div>
@@ -155,7 +163,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
         model_block = f"""
         <div class="profile-role-block profile-model-block">
             <div class="profile-role-header">
-                <h3>💃 Статус «Модель»</h3>
+                <h3>{ICON_MODEL} Статус «Модель»</h3>
             </div>
             <div class="profile-role-body">
                 {moderation_badges.get(moderation_value, "")}
@@ -171,7 +179,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
         model_block = f"""
         <div class="profile-role-block profile-model-block">
             <div class="profile-role-header">
-                <h3>💃 Стать моделью</h3>
+                <h3>{ICON_MODEL} Стать моделью</h3>
             </div>
             <div class="profile-role-body">
                 <p class="text-muted" style="margin-bottom:0.75rem">Позвольте мастерам отработать на вас технику за скидку или бесплатно — заведите анкету и смотрите, кто ищет модель.</p>
@@ -212,8 +220,8 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
                 Тема
             </h2>
             <div class="settings-theme-toggle">
-                <button class="theme-btn active" data-theme="light">☀️ Светлая</button>
-                <button class="theme-btn" data-theme="dark">🌙 Тёмная</button>
+                <button class="theme-btn active" data-theme="light">{ICON_SUN} Светлая</button>
+                <button class="theme-btn" data-theme="dark">{ICON_MOON} Тёмная</button>
             </div>
             <p class="settings-card-hint">Выберите оформление интерфейса.</p>
         </div>

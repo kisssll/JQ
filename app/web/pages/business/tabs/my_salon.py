@@ -72,7 +72,7 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
         is_cover = salon.logo_url == p.url
         border_class = "cover-border" if is_cover else "default-border"
         cover_badge = (
-            f'<span class="cover-badge">★ Обложка</span>'
+            f'<span class="cover-badge">{ICON_STAR_FILLED} Обложка</span>'
             if is_cover else
             f'''<form method="post" action="/api/v1/upload/salon/{salon.id}/photo/{p.id}/cover" style="margin:0;position:absolute;bottom:0.25rem;left:0.25rem">
                     <button type="submit" title="Показывать это фото на карточке салона в общем списке" class="cover-btn">Сделать обложкой</button>

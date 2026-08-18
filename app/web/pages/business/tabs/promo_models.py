@@ -11,6 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import ModelMatch, Service
 from app.services.model_matching_service import count_booked_for_service, is_service_open_for_models
+from app.web.components.icons import (
+    ICON_CALENDAR_DAYS,
+    ICON_CAMERA,
+    ICON_EYE,
+    ICON_HEART_FILLED,
+    ICON_MAIL,
+    ICON_X,
+)
 
 
 async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
@@ -47,7 +55,7 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
                     {status_badge}
                 </div>
                 <p class="text-muted" style="font-size:0.8rem;margin:0.35rem 0">Мастер: {m.specialization}</p>
-                {f'<p class="text-muted" style="font-size:0.8rem;margin:0.25rem 0">📅 {date_label}</p>' if date_label else ''}
+                {f'<p class="text-muted" style="font-size:0.8rem;margin:0.25rem 0">{ICON_CALENDAR_DAYS} {date_label}</p>' if date_label else ''}
                 <p style="font-size:0.85rem;margin:0.35rem 0">{s.description or ''}</p>
                 <p class="text-muted" style="font-size:0.8rem">{s.duration_minutes} мин · {s.price:,} ₽ · набрано {quota_label}</p>
                 <div style="margin-top:0.5rem;display:flex;gap:0.5rem">
@@ -63,7 +71,7 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
     return f"""
     <div id="tab-models" class="tab-content">
         <div class="models-subtab-nav">
-            <button type="button" class="models-subtab-btn active" data-subtab="swipe" onclick="window.modelsShowSubtab('swipe')">♥ Свайп моделей</button>
+            <button type="button" class="models-subtab-btn active" data-subtab="swipe" onclick="window.modelsShowSubtab('swipe')">{ICON_HEART_FILLED} Свайп моделей</button>
             <button type="button" class="models-subtab-btn" data-subtab="publish" onclick="window.modelsShowSubtab('publish')">+ Опубликовать поиск</button>
         </div>
 
@@ -73,8 +81,8 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem">
                         <h3 style="margin:0">Найти модель</h3>
                         <div style="display:flex;gap:0.75rem;font-size:0.8rem" class="text-muted">
-                            <span>♥ <span id="modelsLikeCount">0</span></span>
-                            <span>✕ <span id="modelsPassCount">0</span></span>
+                            <span>{ICON_HEART_FILLED} <span id="modelsLikeCount">0</span></span>
+                            <span>{ICON_X} <span id="modelsPassCount">0</span></span>
                         </div>
                     </div>
                     {f'<select id="modelsServiceSelect" class="custom-select" onchange="window.modelsLoadCandidates()" style="margin-bottom:1rem">{service_options_swipe}</select>' if service_options_swipe else '<p class="text-muted">Опубликуйте поиск во вкладке «Опубликовать поиск», чтобы смотреть анкеты</p>'}
@@ -82,14 +90,14 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
                         <p class="text-muted" style="text-align:center;padding:2rem 0">Загрузка…</p>
                     </div>
                     <div class="models-swipe-buttons">
-                        <button type="button" class="models-swipe-btn models-swipe-btn-pass" onclick="window.modelsButtonSwipe(false)">✕</button>
-                        <button type="button" class="models-swipe-btn models-swipe-btn-like" onclick="window.modelsButtonSwipe(true)">♥</button>
-                        <button type="button" class="models-swipe-btn models-swipe-btn-eye" onclick="window.modelsShowDetails()">👁</button>
+                        <button type="button" class="models-swipe-btn models-swipe-btn-pass" onclick="window.modelsButtonSwipe(false)">{ICON_X}</button>
+                        <button type="button" class="models-swipe-btn models-swipe-btn-like" onclick="window.modelsButtonSwipe(true)">{ICON_HEART_FILLED}</button>
+                        <button type="button" class="models-swipe-btn models-swipe-btn-eye" onclick="window.modelsShowDetails()">{ICON_EYE}</button>
                     </div>
                 </div>
 
                 <div class="card" style="padding:1.25rem">
-                    <h3 style="margin-bottom:1rem;font-size:1rem">💌 Мои мэтчи</h3>
+                    <h3 style="margin-bottom:1rem;font-size:1rem">{ICON_MAIL} Мои мэтчи</h3>
                     <div id="modelsMatchesList"><p class="text-muted">Загрузка…</p></div>
                 </div>
             </div>
@@ -216,7 +224,7 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
                 (sub ? '<p style="margin:0.2rem 0 0;font-size:0.8rem;opacity:0.9">' + sub + '</p>' : '') + '</div></div>' +
                 '<div class="models-swipe-card-body">' +
                 (c.bio ? '<p style="font-size:0.85rem;margin:0;line-height:1.4;max-height:3.6em;overflow:hidden">' + c.bio + '</p>' : '<p class="text-muted" style="font-size:0.85rem">Без описания</p>') +
-                (photoCount ? '<p class="text-muted" style="font-size:0.75rem;margin-top:0.5rem">📷 ' + photoCount + ' фото</p>' : '') +
+                (photoCount ? '<p class="text-muted" style="font-size:0.75rem;margin-top:0.5rem">{ICON_CAMERA} ' + photoCount + ' фото</p>' : '') +
                 '</div></div>';
         }}
 

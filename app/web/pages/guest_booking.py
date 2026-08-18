@@ -13,6 +13,11 @@ from app.models.models import (
     SalonModerationStatus, BookingStatus,
 )
 from app.web.components.styles import get_base_styles
+from app.web.components.icons import (
+    ICON_CALENDAR_DAYS,
+    ICON_CHECK,
+    ICON_CIRCLE_CHECK,
+)
 
 
 _STYLE = """
@@ -181,7 +186,7 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
 
             <div class="gb-panel gb-step" data-step="done" style="display:none">
                 <div class="gb-done">
-                    <div class="gb-done-check">✓</div>
+                    <div class="gb-done-check">{ICON_CHECK}</div>
                     <h2 class="gb-title" style="font-size:1.25rem">Заявка отправлена</h2>
                     <p class="gb-muted">Салон подтвердит запись. Сохраните ссылку — по ней можно посмотреть или отменить бронь:</p>
                     <a id="gb-manage-link" class="gb-manage-link" href="#"></a>
@@ -206,7 +211,7 @@ async def render_guest_manage_page(db, token: str) -> str:
 
     status_ru = {
         BookingStatus.PENDING: ("Ожидает подтверждения салона", "#e67e22"),
-        BookingStatus.CONFIRMED: ("Подтверждена ✅", "#27ae60"),
+        BookingStatus.CONFIRMED: (f"Подтверждена {ICON_CIRCLE_CHECK}", "#27ae60"),
         BookingStatus.COMPLETED: ("Выполнена", "#888"),
         BookingStatus.CANCELLED: ("Отменена", "#c0392b"),
         BookingStatus.NO_SHOW: ("Неявка", "#c0392b"),
@@ -231,7 +236,7 @@ async def render_guest_manage_page(db, token: str) -> str:
                     <small>{service.name if service else ""}</small>
                 </div>
             </div>
-            <p style="margin:1rem 0 0.25rem">🗓 <strong>{when}</strong></p>
+            <p style="margin:1rem 0 0.25rem">{ICON_CALENDAR_DAYS} <strong>{when}</strong></p>
             <p style="margin:0.5rem 0">Статус: <strong style="color:{status_ru[1]}">{status_ru[0]}</strong></p>
             {cancel_btn}
             <p id="gb-cancel-msg" class="gb-error" style="color:inherit"></p>

@@ -13,6 +13,7 @@ from app.web.components.icons import (
     ICON_CHEVRON_DOWN,
     ICON_FILE_TEXT,
     ICON_LOCK_MINI,
+    ICON_STAR_FILLED,
 )
 from app.web.components.hint import hint as _hint
 
@@ -132,7 +133,7 @@ def _render_master_card(master, user_data, can_manage_masters):
             </div>
             <div class="master-card-row">
                 <span class="master-card-label">Рейтинг</span>
-                <span class="master-card-value">⭐ {master.rating}</span>
+                <span class="master-card-value">{ICON_STAR_FILLED} {master.rating}</span>
             </div>
             <div class="master-card-actions">
                 {actions}
@@ -357,7 +358,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             </td>
             <td>{m.specialization}</td>
             <td>{m.experience_years} лет</td>
-            <td>⭐ {m.rating}</td>
+            <td>{ICON_STAR_FILLED} {m.rating}</td>
             <td>
                 <span class="status-badge {status_class}">
                     {ICON_POWER} {status_text}

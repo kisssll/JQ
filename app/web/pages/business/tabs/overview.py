@@ -17,6 +17,7 @@ from app.web.components.icons import (
     ICON_X,
     ICON_RUBLE_SIGN,
     ICON_CREDIT_CARD_SMALL,
+    ICON_CHECK,
 )
 
 
@@ -238,7 +239,7 @@ async def render_overview_tab(
     today_items = ""
     if today_bookings_list:
         for booking, service, client in today_bookings_list:
-            status_label = "✓ Оплачено" if booking.status == BookingStatus.COMPLETED else "○ Ожидание"
+            status_label = f"{ICON_CHECK} Оплачено" if booking.status == BookingStatus.COMPLETED else "○ Ожидание"
             status_class = "status-paid" if booking.status == BookingStatus.COMPLETED else "status-waiting"
             initials = "".join([part[0].upper() for part in client.full_name.split()]) if client.full_name else "К"
             price_str = f"{booking.final_price or service.price:,}".replace(",", " ")

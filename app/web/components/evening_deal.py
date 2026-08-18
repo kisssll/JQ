@@ -7,6 +7,9 @@
 инлайновый скрипт ходит в /api/v1/business/my-salon/evening-deal (GET/POST)."""
 import html
 import json
+from app.web.components.icons import (
+    ICON_MOON,
+)
 
 WEEKDAYS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
@@ -39,7 +42,7 @@ def render_evening_deal_section(salon, services, deal: dict) -> str:
 
     return f"""
     <div class="my-salon-card evening-deal-block" data-salon-id="{salon.id}" data-deal="{deal_json}">
-        <h2 class="my-salon-card-title">🌙 Вечерние окна со скидкой</h2>
+        <h2 class="my-salon-card-title">{ICON_MOON} Вечерние окна со скидкой</h2>
         <p class="my-salon-card-hint">
             Свободные вечерние слоты на сегодня попадут в публичную подборку со скидкой,
             а клиентам уйдёт напоминание в Telegram. Скидка применится автоматически при записи.

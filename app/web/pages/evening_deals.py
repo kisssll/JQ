@@ -13,7 +13,11 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
-from app.web.components.icons import ICON_MAP_PIN, ICON_ARROW_RIGHT
+from app.web.components.icons import (
+    ICON_ARROW_RIGHT,
+    ICON_MAP_PIN,
+    ICON_MOON,
+)
 
 
 def _fmt_price(v: int) -> str:
@@ -130,7 +134,7 @@ async def render_evening_deals_page(db: AsyncSession, city: str = None, user=Non
     <main class="main-content">
         <section class="section-py bg-surface-alt evening-hero">
             <div class="section-container">
-                <h1 class="text-display">🌙 Вечерние окна со скидкой</h1>
+                <h1 class="text-display">{ICON_MOON} Вечерние окна со скидкой</h1>
                 <p class="text-body-lg">Свободные вечерние слоты на сегодня — успейте записаться дешевле</p>
                 {city_selector}
             </div>

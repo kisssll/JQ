@@ -13,6 +13,7 @@ from app.web.components.icons import (
     ICON_STAR_FAV,
     ICON_TRASH_FAV,
     ICON_HEART_EMPTY,
+    ICON_BUILDING2,
 )
 
 
@@ -64,7 +65,7 @@ async def render_favorites_page(db: AsyncSession, user) -> str:
                         <span class="fav-rating">{ICON_STAR_FAV} {master.rating}</span>
                     </div>
                     <p style="color:var(--color-muted);font-size:0.9rem;margin-bottom:0.25rem">{master.specialization}</p>
-                    <p style="color:var(--color-muted);font-size:0.85rem;margin-bottom:0.5rem">🏢 {salon_name}</p>
+                    <p style="color:var(--color-muted);font-size:0.85rem;margin-bottom:0.5rem">{ICON_BUILDING2} {salon_name}</p>
                     <div style="display:flex;gap:0.5rem">
                         <a href="/masters/{master.id}" class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.8rem">Перейти</a>
                         <button class="btn-outline fav-remove-btn" 

@@ -6,6 +6,10 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.components.icons import (
+    ICON_STAR_FILLED,
+    ICON_X,
+)
 
 
 async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> str:
@@ -71,7 +75,7 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
         delete_btn = (
             f'<button class="portfolio-photo-delete" data-url="{delete_url}" '
             f'style="position:absolute;top:0.25rem;right:0.25rem;border:none;border-radius:50%;'
-            f'width:1.5rem;height:1.5rem;background:rgba(0,0,0,0.6);color:#fff;cursor:pointer">✕</button>'
+            f'width:1.5rem;height:1.5rem;background:rgba(0,0,0,0.6);color:#fff;cursor:pointer">{ICON_X}</button>'
             if delete_url else ""
         )
         return (
@@ -148,9 +152,9 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
                     <div>
                         <h1 class="text-display" style="font-size:2rem">{master_name}</h1>
                         <p style="font-size:1.1rem;color:var(--color-muted)">{master.specialization}</p>
-                        <p style="margin-top:0.5rem" title="{verified_count} из {total_reviews_count} отзывов подтверждены реальной записью">⭐ {master.rating} ({verified_count}/{total_reviews_count} подтверждено) · Опыт {master.experience_years} лет</p>
+                        <p style="margin-top:0.5rem" title="{verified_count} из {total_reviews_count} отзывов подтверждены реальной записью">{ICON_STAR_FILLED} {master.rating} ({verified_count}/{total_reviews_count} подтверждено) · Опыт {master.experience_years} лет</p>
                         <form action="/api/v1/favorites/toggle-master/{master.id}" method="post" style="display:inline;margin-top:0.5rem">
-                            <button type="submit" class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.8rem" title="Добавить мастера в избранное">⭐ В избранное</button>
+                            <button type="submit" class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.8rem" title="Добавить мастера в избранное">{ICON_STAR_FILLED} В избранное</button>
                         </form>
                     </div>
                 </div>

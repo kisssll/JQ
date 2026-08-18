@@ -9,6 +9,16 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.components.icons import (
+    ICON_ALERT_TRIANGLE,
+    ICON_BELL,
+    ICON_CALENDAR_DAYS,
+    ICON_CHECK,
+    ICON_CLOCK,
+    ICON_HEART_FILLED,
+    ICON_SEARCH,
+    ICON_X,
+)
 
 
 def _profile_checklist(user) -> str:
@@ -20,7 +30,7 @@ def _profile_checklist(user) -> str:
     ]
     rows = "".join(f"""
         <li style="display:flex;align-items:center;gap:0.6rem;font-size:0.85rem;padding:0.3rem 0">
-            <span style="display:flex;height:1.25rem;width:1.25rem;align-items:center;justify-content:center;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;{'background:#d1fae5;color:#065f46' if done else 'background:var(--color-surface-alt,#f3f4f6);color:var(--color-muted)'}">{'✓' if done else '·'}</span>
+            <span style="display:flex;height:1.25rem;width:1.25rem;align-items:center;justify-content:center;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;{'background:#d1fae5;color:#065f46' if done else 'background:var(--color-surface-alt,#f3f4f6);color:var(--color-muted)'}">{'{ICON_CHECK}' if done else '·'}</span>
             <span style="{'color:var(--color-muted);text-decoration:line-through' if done else ''}">{label}</span>
         </li>""" for label, done in items)
     return f'<ul style="list-style:none;padding:0;margin:0">{rows}</ul>'
@@ -45,12 +55,12 @@ async def render_model_dashboard(db: AsyncSession, user) -> str:
 
     status_banner = ""
     if moderation_value == "pending":
-        status_banner = '<div class="profile-alert" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:0.75rem 1rem;border-radius:0.5rem;margin-bottom:1.5rem">⏳ Анкета на модерации — лента и лайки станут доступны после одобрения.</div>'
+        status_banner = f'<div class="profile-alert" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:0.75rem 1rem;border-radius:0.5rem;margin-bottom:1.5rem">{ICON_CLOCK} Анкета на модерации — лента и лайки станут доступны после одобрения.</div>'
     elif moderation_value == "rejected":
         reason = getattr(user, "model_rejection_reason", "") or ""
         status_banner = (
             '<div class="profile-alert" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:0.75rem 1rem;border-radius:0.5rem;margin-bottom:1.5rem">'
-            '⚠️ Анкета отклонена' + (f' — {reason}' if reason else '') +
+            f'{ICON_ALERT_TRIANGLE} Анкета отклонена' + (f' — {reason}' if reason else '') +
             '. Обновите анкету в <a href="/model/join">редактировании</a> и она снова уйдёт на проверку.</div>'
         )
 
@@ -79,8 +89,8 @@ async def render_model_dashboard(db: AsyncSession, user) -> str:
             <p class="text-muted" style="text-align:center;padding:2rem 0">Загрузка…</p>
         </div>
         <div class="models-swipe-buttons">
-            <button type="button" class="models-swipe-btn models-swipe-btn-pass" onclick="window.modelDeckButtonSwipe(false)">✕</button>
-            <button type="button" class="models-swipe-btn models-swipe-btn-like" onclick="window.modelDeckButtonSwipe(true)">♥</button>
+            <button type="button" class="models-swipe-btn models-swipe-btn-pass" onclick="window.modelDeckButtonSwipe(false)">{ICON_X}</button>
+            <button type="button" class="models-swipe-btn models-swipe-btn-like" onclick="window.modelDeckButtonSwipe(true)">{ICON_HEART_FILLED}</button>
         </div>
         ''' if approved else ''}
     </div>
@@ -92,9 +102,9 @@ async def render_model_dashboard(db: AsyncSession, user) -> str:
     <div class="models-dash-grid">
         <div>
             <div class="models-subtab-nav">
-                <button type="button" class="models-subtab-btn active" data-subtab="invitations" onclick="window.modelDashShowSubtab('invitations')">🔔 Приглашения<span class="models-subtab-badge" id="modelInvitationsBadge"></span></button>
-                <button type="button" class="models-subtab-btn" data-subtab="casting" onclick="window.modelDashShowSubtab('casting')">🔍 Кастинги</button>
-                <button type="button" class="models-subtab-btn" data-subtab="history" onclick="window.modelDashShowSubtab('history')">📅 История</button>
+                <button type="button" class="models-subtab-btn active" data-subtab="invitations" onclick="window.modelDashShowSubtab('invitations')">{ICON_BELL} Приглашения<span class="models-subtab-badge" id="modelInvitationsBadge"></span></button>
+                <button type="button" class="models-subtab-btn" data-subtab="casting" onclick="window.modelDashShowSubtab('casting')">{ICON_SEARCH} Кастинги</button>
+                <button type="button" class="models-subtab-btn" data-subtab="history" onclick="window.modelDashShowSubtab('history')">{ICON_CALENDAR_DAYS} История</button>
             </div>
 
             <div id="models-subtab-invitations" class="models-dash-panel">

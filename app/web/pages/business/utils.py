@@ -3,6 +3,9 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.models import Master, Service, User as UserModel, Booking, BookingStatus, PAID_BOOKING_STATUSES
+from app.web.components.icons import (
+    ICON_STAR_FILLED,
+)
 
 
 async def get_masters_data(db: AsyncSession, salon_id: int):
@@ -25,7 +28,7 @@ async def get_masters_data(db: AsyncSession, salon_id: int):
             <td>{m.specialization}</td>
             <td>{m.experience_years} лет</td>
             <td>{svc_count}</td>
-            <td>⭐ {m.rating}</td>
+            <td>{ICON_STAR_FILLED} {m.rating}</td>
         </tr>
         """
     

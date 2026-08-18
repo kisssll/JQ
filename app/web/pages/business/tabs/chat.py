@@ -2,6 +2,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Master, User as UserModel
+from app.web.components.icons import (
+    ICON_FILE_TEXT,
+    ICON_MESSAGE_CIRCLE,
+)
 
 
 async def render_chat_tab(db: AsyncSession, salon, user) -> str:
@@ -91,7 +95,7 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
             <!-- Список чатов -->
             <div style="width:320px;border-right:1px solid var(--color-border);background:var(--color-surface-alt);overflow-y:auto">
                 <div style="padding:1rem;border-bottom:1px solid var(--color-border);background:white">
-                    <h3 style="margin:0;font-size:1rem">💬 Чат салона</h3>
+                    <h3 style="margin:0;font-size:1rem">{ICON_MESSAGE_CIRCLE} Чат салона</h3>
                     <p style="margin:0.25rem 0 0;font-size:0.75rem;color:var(--color-muted)">{len(other_members)} участников</p>
                 </div>
                 <div id="chatList">
@@ -103,7 +107,7 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
             <div style="flex:1;display:flex;flex-direction:column" id="chatWindow">
                 <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--color-muted);font-size:0.9rem">
                     <div style="text-align:center">
-                        <div style="font-size:3rem;margin-bottom:1rem">💬</div>
+                        <div style="font-size:3rem;margin-bottom:1rem">{ICON_MESSAGE_CIRCLE}</div>
                         <p>Выберите сотрудника, чтобы начать переписку</p>
                     </div>
                 </div>
@@ -197,7 +201,7 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
                         Начало переписки с ${{userName}}
                     </div>
                     <div style="text-align:center;color:var(--color-muted);font-size:0.8rem;margin-top:2rem">
-                        📝 Здесь будут ваши сообщения
+                        {ICON_FILE_TEXT} Здесь будут ваши сообщения
                     </div>
                 </div>
                 <div style="padding:0.75rem;border-top:1px solid var(--color-border);display:flex;gap:0.5rem;background:white">
