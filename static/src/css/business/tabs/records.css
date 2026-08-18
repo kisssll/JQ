@@ -135,11 +135,7 @@
     vertical-align: middle;
 }
 
-.records-empty {
-    text-align: center;
-    padding: 2rem;
-    color: var(--color-muted);
-}
+/* Пустое состояние переехало в empty-state.css */
 
 /* ===== Кнопки действий ===== */
 .records-actions {

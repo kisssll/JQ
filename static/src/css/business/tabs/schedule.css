@@ -845,13 +845,7 @@
     min-height: 300px;
 }
 
-.dashboard-page .schedule-mobile-empty {
-    text-align: center;
-    padding: 2rem 0;
-    color: var(--color-muted);
-    font-size: 0.9rem;
-    margin: auto 0;
-}
+/* Пустое состояние переехало в empty-state.css */
 
 /* ===== Адаптив для десктопной навигации на средних экранах (менее 1024px) ===== */
 @media (max-width: 1023px) {

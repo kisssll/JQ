@@ -11,6 +11,7 @@
 
 /* Тосты и диалог подтверждения */
 @import './ui-feedback.css';
+@import './empty-state.css';
 
 /* Стили страниц */
 @import './about.css';

@@ -12,6 +12,7 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.components.empty_state import render_empty_state
 from app.web.components.icons import (
     ICON_SEARCH,
     ICON_MAP_PIN,
@@ -489,14 +490,14 @@ async def render_salons_grid(db: AsyncSession, p: SalonQuery) -> str:
         for r in rows
     )
     if not cards and p.offset == 0:
-        return f"""
-        <div id="salonsEmptyState" class="salons-empty">
-            <div class="salons-empty-icon">{ICON_SEARCH}</div>
-            <p class="salons-empty-title">Ничего не найдено</p>
-            <p class="salons-empty-text">Попробуйте изменить запрос или снять часть фильтров.</p>
-            <a href="/salons" class="btn-outline salons-empty-reset">Сбросить фильтры</a>
-        </div>
-        """
+        return render_empty_state(
+            title="Ничего не найдено",
+            text="Попробуйте изменить запрос или снять часть фильтров.",
+            icon=ICON_SEARCH,
+            action_href="/salons",
+            action_label="Сбросить фильтры",
+            element_id="salonsEmptyState",
+        )
 
     more = ""
     if has_more:

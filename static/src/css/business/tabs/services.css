@@ -192,11 +192,7 @@
     font-size: 0.85rem;
 }
 
-.services-empty {
-    text-align: center;
-    padding: 2rem;
-    color: var(--color-muted);
-}
+/* Пустое состояние переехало в empty-state.css */
 
 /* Действия в таблице */
 .services-actions-header {

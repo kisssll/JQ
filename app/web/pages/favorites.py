@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.models.models import Favorite, Salon, Master, User as UserModel
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
+from app.web.components.empty_state import render_empty_state
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import (
@@ -98,13 +99,13 @@ async def render_favorites_page(db: AsyncSession, user) -> str:
             <h2 class="text-subtitle favorites-section-title" style="font-size:1.25rem;margin-bottom:1rem">
                 <span class="fav-icon">{ICON_BUILDING_FAV}</span> Салоны
             </h2>
-            {salon_cards or '<div class="empty-state"><p>Нет избранных салонов</p><a href="/salons" class="text-link">Найти салоны →</a></div>'}
+            {salon_cards or render_empty_state(title="Пока нет избранных салонов", text="Нажмите на сердечко в карточке салона, чтобы вернуться к нему позже.", icon=ICON_BUILDING_FAV, action_href="/salons", action_label="Найти салоны")}
             
             <!-- Мастера -->
             <h2 class="text-subtitle favorites-section-title" style="font-size:1.25rem;margin:2rem 0 1rem">
                 <span class="fav-icon">{ICON_USER_FAV}</span> Мастера
             </h2>
-            {master_cards or '<div class="empty-state"><p>Нет избранных мастеров</p><a href="/salons" class="text-link">Найти мастеров →</a></div>'}
+            {master_cards or render_empty_state(title="Пока нет избранных мастеров", text="Сохраняйте мастеров, к которым хотите вернуться.", icon=ICON_USER_FAV, action_href="/salons", action_label="Найти мастеров")}
         </div>
         {render_footer(user)}
     </main>

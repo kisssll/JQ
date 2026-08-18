@@ -114,16 +114,4 @@
 }
 
 /* ===== Пустое состояние ===== */
-.empty-state {
-    text-align: center;
-    padding: 3rem;
-    color: var(--color-muted);
-}
-.empty-state .text-link {
-    color: var(--color-primary);
-    text-decoration: none;
-    font-weight: 500;
-}
-.empty-state .text-link:hover {
-    text-decoration: underline;
-}
+/* Пустое состояние переехало в empty-state.css */
