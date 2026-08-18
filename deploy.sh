@@ -127,14 +127,21 @@ if ! "${COMPOSE[@]}" up -d; then
     # Данные в томах, БД это не задевает.
     echo "[deploy:${ENV_NAME}] up -d не удался, поднимаю стек с чистого листа..." >&2
     "${COMPOSE[@]}" down --remove-orphans || true
-    LEFT=$(docker ps -a --filter "label=com.docker.compose.project=${PROJECT}" \
-                        --format '{{.ID}} {{.Names}}' \
-             | awk '$2 ~ /^[0-9a-f]{12}_/ {print $1}')
-    if [ -n "${LEFT}" ]; then
+    # down возвращается раньше, чем демон снял все контейнеры, и следующий up -d
+    # падал на «container name /rumi-staging-redis is already in use». Ждём, пока
+    # от проекта не останется ни одного контейнера, и добиваем упрямые вручную.
+    for _ in $(seq 1 30); do
+        REST=$(docker ps -a --filter "label=com.docker.compose.project=${PROJECT}" \
+                            --format '{{.ID}}')
+        [ -z "${REST}" ] && break
+        sleep 1
+    done
+    REST=$(docker ps -a --filter "label=com.docker.compose.project=${PROJECT}" --format '{{.ID}}')
+    if [ -n "${REST}" ]; then
         # shellcheck disable=SC2086
-        docker rm -f ${LEFT} >/dev/null || true
+        docker rm -f ${REST} >/dev/null 2>&1 || true
+        sleep 2
     fi
-    sleep 2
     "${COMPOSE[@]}" up -d
 fi
 
