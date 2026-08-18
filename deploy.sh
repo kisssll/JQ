@@ -64,15 +64,6 @@ if [ "${NO_BUILD}" -eq 0 ]; then
     "${COMPOSE[@]}" build app
 fi
 
-echo "[deploy:${ENV_NAME}] миграции..."
-# На staging БД-контейнер должен подняться до миграций
-if [ "${ENV_NAME}" = "staging" ]; then
-    "${COMPOSE[@]}" up -d db redis
-fi
-# Первый запуск на живой БД, созданной через create_all: см. RUNBOOK.md
-# (разово `alembic stamp head` вместо upgrade)
-"${COMPOSE[@]}" run --rm app alembic upgrade head
-
 # Если предыдущий деплой оборвался, compose оставляет переименованные
 # контейнеры вида <хеш>_rumi-staging-arq в статусе created — они занимают имя
 # и следующий up -d падает с «container name is already in use». Это не
@@ -108,6 +99,15 @@ if [ -n "${STALE}" ]; then
         sleep 0.5
     done
 fi
+
+echo "[deploy:${ENV_NAME}] миграции..."
+# На staging БД-контейнер должен подняться до миграций
+if [ "${ENV_NAME}" = "staging" ]; then
+    "${COMPOSE[@]}" up -d db redis
+fi
+# Первый запуск на живой БД, созданной через create_all: см. RUNBOOK.md
+# (разово `alembic stamp head` вместо upgrade)
+"${COMPOSE[@]}" run --rm app alembic upgrade head
 
 echo "[deploy:${ENV_NAME}] запуск стека..."
 # Без --remove-orphans: он пересекался с чисткой выше на одном и том же
