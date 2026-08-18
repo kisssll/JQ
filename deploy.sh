@@ -93,11 +93,23 @@ STALE=$(
 if [ -n "${STALE}" ]; then
     echo "[deploy:${ENV_NAME}] убираю недозапущенные контейнеры прошлого деплоя..."
     # shellcheck disable=SC2086
-    docker rm -f ${STALE}
+    docker rm -f ${STALE} >/dev/null || true
+    # rm -f возвращается раньше, чем демон закончил удаление, и следующий шаг
+    # спотыкался об «removal of container is already in progress». Ждём.
+    for _ in $(seq 1 20); do
+        left=""
+        for id in ${STALE}; do
+            docker inspect "${id}" >/dev/null 2>&1 && left="${left} ${id}"
+        done
+        [ -z "${left}" ] && break
+        sleep 0.5
+    done
 fi
 
 echo "[deploy:${ENV_NAME}] запуск стека..."
-"${COMPOSE[@]}" up -d --remove-orphans
+# Без --remove-orphans: он пересекался с чисткой выше на одном и том же
+# контейнере и давал ту же ошибку про «removal already in progress».
+"${COMPOSE[@]}" up -d
 
 echo "[deploy:${ENV_NAME}] ожидание /health (до 60с)..."
 for i in $(seq 1 30); do
