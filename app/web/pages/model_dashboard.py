@@ -30,7 +30,7 @@ def _profile_checklist(user) -> str:
     ]
     rows = "".join(f"""
         <li style="display:flex;align-items:center;gap:0.6rem;font-size:0.85rem;padding:0.3rem 0">
-            <span style="display:flex;height:1.25rem;width:1.25rem;align-items:center;justify-content:center;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;{'background:#d1fae5;color:#065f46' if done else 'background:var(--color-surface-alt,#f3f4f6);color:var(--color-muted)'}">{'{ICON_CHECK}' if done else '·'}</span>
+            <span style="display:flex;height:1.25rem;width:1.25rem;align-items:center;justify-content:center;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;{'background:#d1fae5;color:#065f46' if done else 'background:var(--color-surface-alt,#f3f4f6);color:var(--color-muted)'}">{ICON_CHECK if done else '·'}</span>
             <span style="{'color:var(--color-muted);text-decoration:line-through' if done else ''}">{label}</span>
         </li>""" for label, done in items)
     return f'<ul style="list-style:none;padding:0;margin:0">{rows}</ul>'

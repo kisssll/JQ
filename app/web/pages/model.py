@@ -110,7 +110,7 @@ def render_model_page(user=None) -> str:
             gap: 0.5rem;
         }}
         .plan-features li::before {{
-            content: "{ICON_CHECK}";
+            content: "\2713";
             color: #22c55e;
             font-weight: 700;
             font-size: 1rem;

@@ -72,7 +72,7 @@ async def render_reviews_tab(db: AsyncSession, reviews, salon) -> str:
             <div class="rating-summary">
                 <div>
                     <div class="rating-big">{salon.rating}</div>
-                    <div class="rating-stars">{"{ICON_STAR_FILLED}" * int(salon.rating)}{"{ICON_STAR_EMPTY}" * (5 - int(salon.rating))}</div>
+                    <div class="rating-stars">{ICON_STAR_FILLED * int(salon.rating)}{ICON_STAR_EMPTY * (5 - int(salon.rating))}</div>
                     <div style="font-size:0.85rem;color:var(--color-muted)">{salon.reviews_count} отзывов</div>
                 </div>
             </div>
