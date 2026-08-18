@@ -105,8 +105,24 @@
     font-weight: 600;
     padding: 0.2rem 0.7rem;
     border-radius: 1rem;
+    white-space: nowrap;
     background: var(--color-accent-light);
     color: var(--color-primary);
+}
+
+/* Состояние читается цветом: подтверждено — акцент, завершено — зелёное,
+   отменено и пропущено — приглушённое, ожидание — янтарное. */
+.booking-status.is-completed {
+    background: var(--color-success-light);
+    color: var(--color-success);
+}
+.booking-status.is-cancelled {
+    background: var(--color-surface-alt);
+    color: var(--color-muted);
+}
+.booking-status.is-pending {
+    background: var(--color-warning-light);
+    color: var(--color-warning);
 }
 
 .booking-body p {

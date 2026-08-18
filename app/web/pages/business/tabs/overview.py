@@ -183,10 +183,17 @@ async def render_overview_tab(
     revenue_bars = ""
     for i in range(7):
         height = int(revenue_data[i] / max_revenue * chart_height) if max_revenue > 0 else 5
-        height = max(height, 8)
+        # Пустой день — тонкая нейтральная засечка, а не зелёный столбик на 8px:
+        # при нулевой неделе график рисовал семь зелёных полосок, и это читалось
+        # как «выручка есть», хотя над каждой стояло «0 ₽».
+        if revenue_data[i] > 0:
+            height = max(height, 8)
+            bar_bg = ("background: linear-gradient(to top, var(--color-success), "
+                      "color-mix(in srgb, var(--color-success) 80%, transparent));")
+        else:
+            height = 2
+            bar_bg = "background: var(--color-border);"
         rev_val = f"{revenue_data[i]}".replace(",", " ")
-        bar_color = "#34d399"
-        bar_bg = f"background: linear-gradient(to top, {bar_color}, {bar_color}cc);"
         revenue_bars += f"""
         <div class="chart-column" data-day-index="{i}" style="cursor:pointer">
             <div class="chart-value">{rev_val} ₽</div>

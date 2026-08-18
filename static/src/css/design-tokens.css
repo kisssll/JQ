@@ -15,6 +15,23 @@
     --color-accent-hover: #9e5f96;
     --color-accent-light: #f2e2ee;
     --color-accent-muted: #c081b84d;
+
+    /* Основной текст — на полтона светлее заголовка. Переменная использовалась
+       в 10 местах (.text-body в global.css, карточки записей, услуги, профиль,
+       страница салона), но объявлена не была: свойство становилось невалидным
+       и цвет молча наследовался от заголовка. */
+    --color-body: #4a4552;
+
+    /* Семантика состояний. Тоже использовались без объявления — держались на
+       инлайновых фолбэках, из-за чего значения разъехались: danger был и
+       #ef4444, и #e5484d; success — и #065f46, и #27ae60. */
+    --color-danger: #e5484d;
+    --color-danger-light: #fdecec;
+    --color-success: #2f8f5b;
+    --color-success-light: #e6f2ec;
+    --color-warning: #b5701c;
+    --color-warning-light: #fbeedd;
+
     --color-btn-text: #fff;
     --color-on-dark: #fff;
     --color-on-dark-muted: #fffc;

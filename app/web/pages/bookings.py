@@ -78,12 +78,24 @@ async def render_bookings_page(db: AsyncSession, user) -> str:
         if service:
             service_name = service.name
 
+        # NO_SHOW появился вместе с отметкой «Пришёл», но в эту карту его не
+        # добавили — такие записи показывали клиенту прочерк в плашке статуса.
         status_label = {
             BookingStatus.PENDING: "Ожидает",
             BookingStatus.CONFIRMED: "Подтверждено",
             BookingStatus.COMPLETED: "Завершено",
             BookingStatus.CANCELLED: "Отменено",
+            BookingStatus.NO_SHOW: "Пропущено",
         }.get(booking.status, "—")
+        # Статус читается цветом, а не только текстом: до этого все плашки были
+        # одинаково розовыми и «Завершено» не отличалось от «Отменено».
+        status_tone = {
+            BookingStatus.PENDING: "is-pending",
+            BookingStatus.CONFIRMED: "is-confirmed",
+            BookingStatus.COMPLETED: "is-completed",
+            BookingStatus.CANCELLED: "is-cancelled",
+            BookingStatus.NO_SHOW: "is-cancelled",
+        }.get(booking.status, "")
         
         cancel_btn = ""
         if booking in upcoming and booking.status != BookingStatus.CANCELLED:
@@ -124,7 +136,7 @@ async def render_bookings_page(db: AsyncSession, user) -> str:
         <div class="booking-card" data-booking-id="{booking.id}">
             <div class="booking-header">
                 <span class="service-name">{service_name}</span>
-                <span class="booking-status">{status_label}</span>
+                <span class="booking-status {status_tone}">{status_label}</span>
             </div>
             <div class="booking-body">
                 <p>

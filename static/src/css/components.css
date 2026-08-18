@@ -17,7 +17,11 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+    /* Правый край градиента был --color-secondary (#f2e2ee) — почти белый, и
+       белая подпись на нём давала контраст ~1.2:1, то есть половина кнопки не
+       читалась. Уводим во --color-accent-hover: тот же бренд-градиент, что у
+       промо-плашек, но подпись видна. */
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
     color: white;
     padding: 10px 24px;
     border-radius: 9999px;
