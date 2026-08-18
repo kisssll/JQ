@@ -77,17 +77,20 @@ fi
 # контейнеры вида <хеш>_rumi-staging-arq в статусе created — они занимают имя
 # и следующий up -d падает с «container name is already in use». Это не
 # «осиротевшие» в смысле --remove-orphans (они принадлежат сервисам проекта),
-# поэтому чистим сами. Статус created = ни разу не запускался, живое не трогаем.
+# поэтому чистим сами.
 # Ловим два признака: (1) статус created — контейнер создан и не запущен;
-# (2) имя вида <12 hex>_<сервис> — так compose переименовывает старый контейнер
-# перед пересозданием, и именно этот остаток занимает имя. Запущенные не трогаем.
+# (2) имя вида <12 hex>_<сервис> — так compose переименовывает старый
+# контейнер перед пересозданием. Второй признак снимаем в любом состоянии,
+# включая running: под таким именем compose ничего не оставляет намеренно, а
+# «работающий переименованный» — как раз тот случай, когда каноническое имя
+# свободно и следующий up -d падает с «No such container: rumi-staging-app».
 STALE=$(
     {
         docker ps -a --filter "label=com.docker.compose.project=${PROJECT}" \
                      --filter "status=created" --format '{{.ID}}'
         docker ps -a --filter "label=com.docker.compose.project=${PROJECT}" \
-                     --format '{{.ID}} {{.Names}} {{.State}}' \
-            | awk '$2 ~ /^[0-9a-f]{12}_/ && $3 != "running" {print $1}'
+                     --format '{{.ID}} {{.Names}}' \
+            | awk '$2 ~ /^[0-9a-f]{12}_/ {print $1}'
     } | sort -u
 )
 if [ -n "${STALE}" ]; then
@@ -119,8 +122,8 @@ echo "[deploy:${ENV_NAME}] запуск стека..."
 if ! "${COMPOSE[@]}" up -d; then
     echo "[deploy:${ENV_NAME}] up -d не удался, чищу остатки и повторяю..." >&2
     LEFT=$(docker ps -a --filter "label=com.docker.compose.project=${PROJECT}" \
-                        --format '{{.ID}} {{.Names}} {{.State}}' \
-             | awk '$2 ~ /^[0-9a-f]{12}_/ && $3 != "running" {print $1}')
+                        --format '{{.ID}} {{.Names}}' \
+             | awk '$2 ~ /^[0-9a-f]{12}_/ {print $1}')
     if [ -n "${LEFT}" ]; then
         # shellcheck disable=SC2086
         docker rm -f ${LEFT} >/dev/null || true
