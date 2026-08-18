@@ -533,7 +533,15 @@
     border: 1px solid var(--color-border);
 }
 
+/* Стал <button>, а не <div>: раньше до загрузки фото нельзя было добраться с
+   клавиатуры — на дропзоне висел только слушатель click, без tabindex и role.
+   Отсюда сбросы кнопочных дефолтов (шрифт, фон, ширина). */
 .my-salon-dropzone {
+    display: block;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    background: none;
     border: 2px dashed var(--color-border);
     border-radius: 0.75rem;
     padding: 1.5rem;

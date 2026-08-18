@@ -78,8 +78,10 @@ async def render_overview_tab(
 
     def pct_trend(current: float, previous: float) -> tuple[str, str]:
         """Текст и css-класс (up/down/flat) для процентного изменения current относительно previous."""
+        # Базы для процента нет: и «0%», и «+100%» тут вымышленные. Пустой текст
+        # — чип не рисуется вовсе, вместо шума на всех плитках нового салона.
         if previous <= 0:
-            return ("0%", "flat") if current <= 0 else ("+100%", "up")
+            return "", "flat"
         pct = (current - previous) / previous * 100
         if pct > 0.05:
             return f"+{pct:.0f}%", "up"
@@ -88,6 +90,8 @@ async def render_overview_tab(
         return "0%", "flat"
 
     def trend_badge(text: str, css_class: str) -> str:
+        if not text:
+            return ""
         if css_class == "up":
             icon = ICON_ARROW_UP_RIGHT
         elif css_class == "down":

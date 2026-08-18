@@ -23,7 +23,7 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
 
     gallery_cards = "".join(
         f'<div class="model-gallery-item" data-photo-id="{p["id"]}">'
-        f'<img src="{p["url"]}" alt="">'
+        f'<img src="{p["url"]}" alt="" loading="lazy">'
         f'<button type="button" onclick="window.modelGalleryDelete({p["id"]}, this)">&times;</button>'
         f'</div>'
         for p in (photos or [])

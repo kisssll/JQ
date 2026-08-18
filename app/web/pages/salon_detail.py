@@ -171,7 +171,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
     for m in masters_data:
         # Аватар или заглушка
         if m["avatar"]:
-            avatar_html = f'<img src="{m["avatar"]}" alt="{m["name"]}">'
+            avatar_html = f'<img src="{m["avatar"]}" alt="{m["name"]}" loading="lazy">'
         else:
             avatar_html = f'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));color:#fff;font-size:3rem;font-weight:700">{m["name"][0].upper()}</div>'
 

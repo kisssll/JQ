@@ -41,7 +41,7 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
     reviews = salon.reviews_count or 0
 
     if salon.logo_url:
-        photo_html = f'<img src="{salon.logo_url}" alt="{salon.name}" class="salon-edit-photo">'
+        photo_html = f'<img src="{salon.logo_url}" alt="{salon.name}" class="salon-edit-photo" loading="lazy">'
     else:
         photo_html = f'<div class="salon-edit-photo-placeholder">{salon.name[0].upper()}</div>'
 
@@ -80,7 +80,7 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
         )
         return f'''
         <div class="my-salon-photo-item">
-            <img src="{p.url}" alt="" class="{border_class}">
+            <img src="{p.url}" alt="" class="{border_class}" loading="lazy">
             <form method="post" action="/api/v1/upload/salon/{salon.id}/photo/{p.id}/delete" style="margin:0;position:absolute;top:0.25rem;right:0.25rem">
                 <button type="submit" title="Удалить фото" onclick="return confirm('Удалить фото?')" class="delete-btn">&times;</button>
             </form>
@@ -94,10 +94,10 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
             <!-- Блок фото салона -->
             <div class="salon-edit-photos-block">
                 <div class="salon-edit-photos-label">Фото салона</div>
-                <div id="photoDropZone" data-upload-url="/api/v1/upload/salon/{salon.id}/photo" class="my-salon-dropzone">
+                <button type="button" id="photoDropZone" data-upload-url="/api/v1/upload/salon/{salon.id}/photo" class="my-salon-dropzone">
                     <p>Перетащите фото сюда или нажмите, чтобы выбрать</p>
                     <p class="hint">Можно несколько сразу · JPG/PNG до 5 МБ · появятся на странице салона</p>
-                </div>
+                </button>
                 <input type="file" id="photoFileInputMySalon" accept="image/*" multiple style="display:none">
                 <div id="photoUploadStatus"></div>
                 <div class="my-salon-photos">
@@ -416,7 +416,7 @@ async def render_my_salon_tab(
                     <span id="guestCopyMsg" style="color:var(--color-success,#27ae60)"></span>
                 </p>
                 <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-                    <img src="/book/{salon.id}/qr" alt="QR-код записи" style="width:150px;height:150px;border:1px solid var(--color-border,#eee);border-radius:8px">
+                    <img src="/book/{salon.id}/qr" alt="QR-код записи" loading="lazy" style="width:150px;height:150px;border:1px solid var(--color-border,#eee);border-radius:8px">
                     <a href="/book/{salon.id}/qr" download="rumi-qr-{salon.id}.png" class="my-salon-btn-outline">Скачать QR</a>
                 </div>
             </div>

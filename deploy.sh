@@ -25,12 +25,14 @@ done
 case "${ENV_NAME}" in
     prod)
         COMPOSE=(docker compose -p rumi-prod -f docker-compose.prod.yml)
+        PROJECT="rumi-prod"
         APP_CONTAINER="rumi-prod-app"
         IMAGE="rumi-app:prod"
         BRANCH="main"
         ;;
     staging)
         COMPOSE=(docker compose -p rumi-staging -f docker-compose.staging.yml --env-file .env.staging)
+        PROJECT="rumi-staging"
         APP_CONTAINER="rumi-staging-app"
         IMAGE="rumi-app:staging"
         BRANCH="staging"
@@ -71,8 +73,21 @@ fi
 # (разово `alembic stamp head` вместо upgrade)
 "${COMPOSE[@]}" run --rm app alembic upgrade head
 
+# Если предыдущий деплой оборвался, compose оставляет переименованные
+# контейнеры вида <хеш>_rumi-staging-arq в статусе created — они занимают имя
+# и следующий up -d падает с «container name is already in use». Это не
+# «осиротевшие» в смысле --remove-orphans (они принадлежат сервисам проекта),
+# поэтому чистим сами. Статус created = ни разу не запускался, живое не трогаем.
+STALE=$(docker ps -a --filter "label=com.docker.compose.project=${PROJECT}" \
+                     --filter "status=created" --format '{{.ID}}')
+if [ -n "${STALE}" ]; then
+    echo "[deploy:${ENV_NAME}] убираю недозапущенные контейнеры прошлого деплоя..."
+    # shellcheck disable=SC2086
+    docker rm -f ${STALE}
+fi
+
 echo "[deploy:${ENV_NAME}] запуск стека..."
-"${COMPOSE[@]}" up -d
+"${COMPOSE[@]}" up -d --remove-orphans
 
 echo "[deploy:${ENV_NAME}] ожидание /health (до 60с)..."
 for i in $(seq 1 30); do

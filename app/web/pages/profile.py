@@ -160,7 +160,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
             <div class="profile-role-body">
                 {moderation_badges.get(moderation_value, "")}
                 {f'<p class="text-muted" style="font-size:0.85rem;margin-bottom:0.5rem">Причина: {rejection_reason}</p>' if moderation_value == "rejected" and rejection_reason else ''}
-                {f'<img src="{model_photo}" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:0.5rem">' if model_photo else ''}
+                {f'<img src="{model_photo}" alt="" loading="lazy" style="width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:0.5rem">' if model_photo else ''}
                 {f'<p style="margin-bottom:0.5rem">{model_bio}</p>' if model_bio else ''}
                 <a href="/model/dashboard" class="profile-btn-secondary">Лента и мои мэтчи →</a>
                 <a href="/model/join" class="profile-btn-secondary">Редактировать анкету →</a>

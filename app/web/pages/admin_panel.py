@@ -53,7 +53,7 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
         extra = extra_by_id.get(s.id, {"photo": None, "services": []})
 
         photo_html = (
-            f'<img src="{_esc(extra["photo"])}" style="width:88px;height:88px;object-fit:cover;border-radius:0.75rem;flex-shrink:0">'
+            f'<img src="{_esc(extra["photo"])}" loading="lazy" style="width:88px;height:88px;object-fit:cover;border-radius:0.75rem;flex-shrink:0">'
             if extra["photo"] else
             '<div style="width:88px;height:88px;border-radius:0.75rem;background:var(--color-border);'
             'display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.5rem;flex-shrink:0">🏢</div>'
@@ -116,7 +116,7 @@ def _model_applications_tab(pending_models):
     for u in pending_models:
         submitted = u.updated_at.strftime("%d.%m.%Y") if u.updated_at else "—"
         photo_html = (
-            f'<img src="{_esc(u.model_photo_url)}" style="width:88px;height:88px;object-fit:cover;border-radius:0.75rem;flex-shrink:0">'
+            f'<img src="{_esc(u.model_photo_url)}" loading="lazy" style="width:88px;height:88px;object-fit:cover;border-radius:0.75rem;flex-shrink:0">'
             if u.model_photo_url else
             '<div style="width:88px;height:88px;border-radius:0.75rem;background:var(--color-border);'
             'display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.5rem">💃</div>'
@@ -306,7 +306,7 @@ def _salons_tab(salons, owner_phone_by_id):
 def _reports_tab(reports):
     rows = ""
     for r in reports:
-        thumb = (f'<a href="{_esc(r["url"])}" target="_blank"><img src="{_esc(r["url"])}" '
+        thumb = (f'<a href="{_esc(r["url"])}" target="_blank"><img src="{_esc(r["url"])}" loading="lazy" '
                  f'style="width:64px;height:64px;object-fit:cover;border-radius:0.5rem"></a>') if r["url"] else "—"
         resolve = (
             f'<form method="post" action="/api/v1/admin/reports/{r["id"]}/resolve" style="display:inline" '

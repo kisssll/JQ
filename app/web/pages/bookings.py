@@ -207,7 +207,7 @@ async def render_bookings_page(db: AsyncSession, user) -> str:
             </div>
 
             <div class="bookings-tabs" id="bookingsTabs">
-                <button class="tab-btn" data-tab="upcoming">Предстоящие</button>
+                <button class="tab-btn" data-tab="upcoming">Предстоящие <span class="badge">{upcoming_count}</span></button>
                 <button class="tab-btn" data-tab="completed">Завершённые <span class="badge">{completed_count}</span></button>
                 <button class="tab-btn" data-tab="cancelled">Отменённые <span class="badge">{cancelled_count}</span></button>
             </div>

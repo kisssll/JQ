@@ -39,7 +39,7 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
     for s in salons:
         logo_html = ""
         if s.logo_url:
-            logo_html = f'<img src="{s.logo_url}" alt="{s.name}" class="popular-salon-avatar-img">'
+            logo_html = f'<img src="{s.logo_url}" alt="{s.name}" class="popular-salon-avatar-img" loading="lazy">'
         else:
             logo_html = f'<span class="popular-salon-avatar-letter">{s.name[0].upper()}</span>'
 

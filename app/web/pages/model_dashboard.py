@@ -112,7 +112,7 @@ async def render_model_dashboard(db: AsyncSession, user) -> str:
         <div>
             <div class="card" style="padding:1.25rem;margin-bottom:1rem">
                 <div style="display:flex;align-items:center;gap:0.75rem">
-                    {f'<img src="{user.model_photo_url}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover">' if getattr(user, "model_photo_url", None) else '<div style="width:56px;height:56px;border-radius:50%;background:var(--color-surface-alt,#f3f4f6);display:flex;align-items:center;justify-content:center;color:var(--color-muted)">?</div>'}
+                    {f'<img src="{user.model_photo_url}" alt="" loading="lazy" style="width:56px;height:56px;border-radius:50%;object-fit:cover">' if getattr(user, "model_photo_url", None) else '<div style="width:56px;height:56px;border-radius:50%;background:var(--color-surface-alt,#f3f4f6);display:flex;align-items:center;justify-content:center;color:var(--color-muted)">?</div>'}
                     <strong>{user.full_name or "Ваше имя"}</strong>
                 </div>
                 <a href="/model/join" class="btn-outline" style="display:block;text-align:center;margin-top:1rem;font-size:0.85rem">Редактировать профиль</a>
