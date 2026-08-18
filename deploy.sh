@@ -109,7 +109,25 @@ fi
 echo "[deploy:${ENV_NAME}] запуск стека..."
 # Без --remove-orphans: он пересекался с чисткой выше на одном и том же
 # контейнере и давал ту же ошибку про «removal already in progress».
-"${COMPOSE[@]}" up -d
+#
+# Пересоздание отдельного сервиса (чаще всего max-bot) периодически падает с
+# «No such container» / «container name is already in use»: compose переименует
+# старый контейнер, а дальше теряет его. Остаток вида <хеш>_<сервис> в статусе
+# created появляется уже ВНУТРИ up -d, поэтому чистка выше его не застаёт. До
+# сих пор это лечилось руками; делаем то же автоматически — снести остатки и
+# повторить один раз. Если и вторая попытка падает, выходим с ошибкой.
+if ! "${COMPOSE[@]}" up -d; then
+    echo "[deploy:${ENV_NAME}] up -d не удался, чищу остатки и повторяю..." >&2
+    LEFT=$(docker ps -a --filter "label=com.docker.compose.project=${PROJECT}" \
+                        --format '{{.ID}} {{.Names}} {{.State}}' \
+             | awk '$2 ~ /^[0-9a-f]{12}_/ && $3 != "running" {print $1}')
+    if [ -n "${LEFT}" ]; then
+        # shellcheck disable=SC2086
+        docker rm -f ${LEFT} >/dev/null || true
+        sleep 2
+    fi
+    "${COMPOSE[@]}" up -d
+fi
 
 echo "[deploy:${ENV_NAME}] ожидание /health (до 60с)..."
 for i in $(seq 1 30); do
