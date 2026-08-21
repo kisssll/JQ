@@ -592,9 +592,38 @@
     background-color: rgba(255, 255, 255, 0.1); 
 }
 
+/* Колонок стало пять (добавились «Документы»), поэтому фиксированная сетка
+   2fr 1fr 1fr 1fr заменена на auto-fit — иначе пятая уезжала на второй ряд. */
+/* Контакты оператора в подвале (ст. 10 149-ФЗ) */
+.footer-contacts {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    font-style: normal;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--color-on-dark-muted);
+    max-width: 42rem;
+}
+
+.footer-contacts p {
+    margin: 0 0 0.2rem;
+}
+
+.footer-contacts-title {
+    font-weight: 600;
+    color: var(--color-on-dark);
+}
+
+@media (max-width: 1023px) {
+    .footer-links-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 .footer-links-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr;
+    grid-template-columns: 2fr repeat(4, minmax(8rem, 1fr));
     gap: 2rem;
     margin-bottom: 3rem;
 }

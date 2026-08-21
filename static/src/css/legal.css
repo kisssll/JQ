@@ -1,0 +1,174 @@
+/* static/src/css/legal.css
+   Нормативные документы (/terms, /privacy, /consent).
+   Задача страницы одна: длинный юридический текст должен читаться и
+   копироваться. Отсюда узкая колонка, крупный интерлиньяж и никакого декора. */
+
+.legal-main {
+    padding-top: 5.5rem;   /* шапка position:fixed, 60px */
+    padding-bottom: 0;
+    background: var(--color-background);
+}
+
+.legal-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+    padding-bottom: 4rem;
+}
+
+@media (min-width: 1024px) {
+    .legal-container {
+        grid-template-columns: minmax(0, 1fr) 17rem;
+        align-items: start;
+    }
+}
+
+.legal-doc {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.legal-eyebrow {
+    margin: 0 0 .5rem;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--color-accent-hover);
+}
+
+.legal-title {
+    margin: 0 0 .4rem;
+    font-family: var(--font-heading);
+    font-size: clamp(1.6rem, 4vw, 2.1rem);
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--color-heading);
+    text-wrap: balance;
+}
+
+.legal-version {
+    margin: 0 0 2rem;
+    font-size: .85rem;
+    color: var(--color-muted);
+}
+
+/* ===== Тело документа ===== */
+.legal-body {
+    /* ~72 символа в строке: длинный текст на всю ширину не читается */
+    max-width: 46rem;
+    font-size: .95rem;
+    line-height: 1.7;
+    color: var(--color-body);
+}
+
+.legal-body h2 {
+    margin: 2rem 0 .75rem;
+    font-size: 1.05rem;
+    font-weight: 650;
+    line-height: 1.35;
+    color: var(--color-heading);
+}
+
+.legal-body h2:first-child {
+    margin-top: 0;
+}
+
+.legal-body p {
+    margin: 0 0 .85rem;
+}
+
+.legal-body ul {
+    margin: 0 0 .85rem;
+    padding-left: 1.1rem;
+}
+
+.legal-body li {
+    margin-bottom: .35rem;
+}
+
+.legal-body li::marker {
+    color: var(--color-accent);
+}
+
+.legal-body a {
+    color: var(--color-accent-hover);
+}
+
+/* ===== Боковая колонка ===== */
+.legal-aside {
+    background: var(--color-surface-alt);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    font-size: .85rem;
+    color: var(--color-muted);
+}
+
+@media (min-width: 1024px) {
+    .legal-aside {
+        position: sticky;
+        top: 5.5rem;
+    }
+}
+
+.legal-aside-title,
+.legal-operator-title {
+    margin: 0 0 .6rem;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--color-heading);
+}
+
+.legal-nav-list {
+    list-style: none;
+    margin: 0 0 1.5rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.legal-nav-link {
+    color: var(--color-accent-hover);
+    text-decoration: none;
+}
+
+.legal-nav-link:hover {
+    text-decoration: underline;
+}
+
+.legal-operator {
+    border-top: 1px solid var(--color-border);
+    padding-top: 1.25rem;
+}
+
+.legal-operator p {
+    margin: 0 0 .35rem;
+    line-height: 1.5;
+}
+
+/* Печать: только текст документа, без шапки, сайдбара и подвала. */
+@media print {
+    .comp-header,
+    .sidebar-container,
+    .sidebar-overlay,
+    .comp-footer,
+    .legal-aside {
+        display: none !important;
+    }
+    .legal-main {
+        padding-top: 0;
+    }
+    .legal-doc {
+        border: none;
+        padding: 0;
+    }
+    .legal-body {
+        max-width: none;
+        color: #000;
+    }
+}

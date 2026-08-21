@@ -12,6 +12,7 @@
 /* Тосты и диалог подтверждения */
 @import './ui-feedback.css';
 @import './empty-state.css';
+@import './legal.css';
 
 /* Стили страниц */
 @import './about.css';

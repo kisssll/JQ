@@ -12,6 +12,7 @@ from app.web.pages.register import render_register_page
 from app.web.pages.model_landing import render_model_landing_page
 from app.web.pages.model_join import render_model_join_page
 from app.web.pages.about import render_about_page
+from app.web.pages.legal import render_legal_page
 from app.web.pages.business_landing import render_business_landing_page
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
@@ -454,6 +455,29 @@ async def logout_page():
 async def about_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     return HTMLResponse(content=render_about_page(user))
+
+
+# ── Нормативные документы ────────────────────────────────────────────────────
+# Отдельные страницы, а не файлы: ч.2 ст.18.1 152-ФЗ требует свободного доступа
+# к Политике, а на практике — текстом, доступным для копирования и поиска.
+# Адреса /terms и /privacy выбраны не случайно: на них уже ссылалась страница
+# подключения салона, и обе ссылки вели на 404.
+@router.get("/terms", response_class=HTMLResponse)
+async def terms_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_legal_page("terms", user))
+
+
+@router.get("/privacy", response_class=HTMLResponse)
+async def privacy_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_legal_page("privacy", user))
+
+
+@router.get("/consent", response_class=HTMLResponse)
+async def consent_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_legal_page("consent", user))
 
 
 @router.get("/model", response_class=HTMLResponse)

@@ -72,7 +72,25 @@ def render_footer(user=None) -> str:
                         {about_items}
                     </ul>
                 </div>
+                <div>
+                    <h4 class="footer-col-title">Документы</h4>
+                    <ul class="footer-nav-list">
+                        <li><a class="footer-link" href="/terms">Пользовательское соглашение</a></li>
+                        <li><a class="footer-link" href="/privacy">Политика обработки ПДн</a></li>
+                        <li><a class="footer-link" href="/consent">Согласие на обработку ПДн</a></li>
+                    </ul>
+                </div>
             </div>
+
+            <!-- Контакты оператора. Статья 10 149-ФЗ обязывает владельца сайта
+                 разместить наименование, место нахождения с адресом и адрес
+                 электронной почты; ОГРН и ИНН добавлены для полноты реквизитов. -->
+            <address class="footer-contacts">
+                <p class="footer-contacts-title">ООО «РУМИ»</p>
+                <p>634021, Россия, Томская обл., г. Томск, ул. Шевченко, д. 21, кв. 20</p>
+                <p>ОГРН 1267000004370 · ИНН 7000036144</p>
+                <p><a class="footer-link" href="mailto:hello@rrumi.ru">hello@rrumi.ru</a></p>
+            </address>
             <div class="footer-meta footer-meta-flex">
                 <span>© 2026 руми. Все права защищены.</span>
                 <span>4 клика · 30 секунд · 0 звонков</span>
