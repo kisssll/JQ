@@ -63,6 +63,7 @@ from app.api.v1.endpoints import auth_vk
 from app.api.v1.endpoints import schedule as schedule_endpoints
 from app.api.v1.endpoints import reports
 from app.api.v1.endpoints import model_matching
+from app.api.v1.endpoints import payments
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -127,6 +128,7 @@ app.include_router(schedule_endpoints.router, prefix="/api/v1/schedule", tags=["
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
 app.include_router(guest.router, prefix="/api/v1/guest", tags=["guest"])
 app.include_router(model_matching.router, prefix="/api/v1/model-matching", tags=["model-matching"])
+app.include_router(payments.router, prefix="/api/v1/payments", tags=["payments"])
 
 # Healthcheck — регистрируем ДО веб-роутера, иначе его перехватывает
 # catch-all страниц (`/{path:path}`) и /health отдаёт 404.

@@ -322,3 +322,229 @@ async def process_payment_webhook(ctx: dict[str, Any], payload: dict[str, Any]) 
         raise _retry(ctx, exc) from exc
     logger.info("process_payment_webhook OrderId=%s: обработан", payload["OrderId"])
     return "processed"
+
+
+# ── Оплата подписок (Т-Касса) ──────────────────────────────────────
+#
+# Отдельно от Т-Кассы-заглушки выше (process_payment_webhook/_apply_payment_update
+# — задел под другой, ещё не выбранный сценарий, не трогаем). Вебхук
+# /tkassa/notify (app/api/v1/endpoints/payments.py) сразу отвечает "OK" и
+# синхронно проставляет статус платежа/подписки в БД — это быстро (одна
+# транзакция). В очередь уходит только медленная часть после успешной
+# ВЕРИФИКАЦИОННОЙ оплаты (1₽): возврат этого рубля — внешний HTTP-вызов к
+# Т-Кассе, который не должен блокировать ответ на вебхук.
+
+
+async def finalize_tkassa_verification(
+    ctx: dict[str, Any],
+    payment_id: int,
+    kind: str,
+    target_id: int,
+    rebill_id: str,
+    target_amount: float,
+    provider_payment_id: str,
+) -> str:
+    """После успешного верификационного платежа (1₽, см. PaymentKind.VERIFICATION):
+    вернуть эту сумму клиенту и сохранить RebillId + сумму месячного платежа
+    на плательщике (салон при kind='business', пользователь-модель при
+    kind='model') — у Т-Кассы нет объекта «подписка», регулярные списания
+    дальше планирует и вызывает сама платформа (см. charge_due_subscriptions).
+
+    Возврат 1₽ — best-effort: если он не удался, не блокируем сохранение
+    RebillId (сумма минимальна, важнее не оставить плательщика без автопродления).
+    """
+    from decimal import Decimal
+
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import Salon, User
+    from app.services.tkassa import TKassaClient, TKassaError
+
+    try:
+        client = TKassaClient()
+    except TKassaError as exc:
+        logger.error("finalize_tkassa_verification(%s): клиент недоступен: %s", payment_id, exc)
+        return "rejected"
+
+    try:
+        await client.cancel(payment_id=provider_payment_id, amount_rub=Decimal("1.00"))
+    except TKassaError:
+        logger.exception(
+            "finalize_tkassa_verification(%s): возврат 1₽ не удался, продолжаем "
+            "(сумма минимальна, сохранить RebillId важнее)", payment_id,
+        )
+
+    model = Salon if kind == "business" else User
+    async with AsyncSessionLocal() as db:
+        target = await db.get(model, target_id)
+        if target is None:
+            logger.error("finalize_tkassa_verification: %s %s не найден", kind, target_id)
+            return "rejected"
+        target.recurring_token = rebill_id
+        target.subscription_amount = target_amount
+        await db.commit()
+
+    logger.info("finalize_tkassa_verification(%s): RebillId сохранён для %s %s", payment_id, kind, target_id)
+    return "processed"
+
+
+async def _charge_due(db, client, kind: str, targets: list, notification_url: str, return_url: str, now) -> int:
+    """Общий проход по «должникам» одного вида (салоны ИЛИ модели) — см.
+    charge_due_subscriptions. Возвращает число успешно продлённых.
+
+    Для салонов (kind='business') тариф на КАЖДОЕ автосписание пересчитывается
+    заново по фактическому числу активных мастеров (см.
+    resolve_plan_for_employee_count в app/services/tariffs.py) — так тариф сам
+    «дорастает»/«сжимается» вместе со штатом, без ручного переключения
+    владельцем. У моделей такого пересчёта нет — там тариф не зависит от
+    штата, берём как есть (subscription_amount, выставленный при выборе)."""
+    import uuid
+    from datetime import datetime, timedelta, timezone
+    from decimal import Decimal
+
+    from sqlalchemy import func, select
+
+    from app.models.models import Master, Payment, PaymentKind, PaymentStatus, SalonSubscriptionStatus
+    from app.services.tariffs import TariffError, compute_amount, resolve_plan_for_employee_count
+    from app.services.tkassa import TKassaError
+
+    processed = 0
+    for target in targets:
+        if kind == "business":
+            active_masters = (await db.execute(
+                select(func.count(Master.id)).where(
+                    Master.salon_id == target.id, Master.is_active == True,  # noqa: E712
+                )
+            )).scalar() or 0
+            plan = resolve_plan_for_employee_count(active_masters)
+            try:
+                amount = compute_amount(plan, active_masters)
+            except TariffError as exc:
+                logger.error(
+                    "charge_due_subscriptions: salon %s — тариф не определить (%s), пропуск",
+                    target.id, exc,
+                )
+                continue
+            target.business_tier = plan
+            target.subscription_amount = float(amount)
+        else:
+            amount = Decimal(str(target.subscription_amount or 0))
+            if amount <= 0:
+                logger.error("charge_due_subscriptions: %s %s без subscription_amount, пропуск", kind, target.id)
+                continue
+            plan = target.subscription_tier.value if target.subscription_tier else ""
+
+        payment = Payment(
+            plan=plan or "", kind=PaymentKind.RECURRENT, amount=float(amount),
+            invoice_id=uuid.uuid4().hex,
+            **({"salon_id": target.id} if kind == "business" else {"user_id": target.id}),
+        )
+        db.add(payment)
+        await db.flush()
+
+        try:
+            init_result = await client.init(
+                order_id=payment.invoice_id, amount_rub=amount,
+                description=f"Автопродление тарифа «{plan}» — Руми",
+                notification_url=notification_url, success_url=return_url, fail_url=return_url,
+            )
+            payment.provider_transaction_id = init_result.payment_id
+            charge_result = await client.charge(
+                payment_id=init_result.payment_id, rebill_id=target.recurring_token,
+            )
+        except TKassaError as exc:
+            logger.error("charge_due_subscriptions: %s %s — списание не удалось: %s", kind, target.id, exc)
+            payment.status = PaymentStatus.FAILED
+            target.subscription_status = SalonSubscriptionStatus.PAST_DUE
+            await db.commit()
+            try:
+                from app.services.notifications import notify_admins
+                label = f"Салон «{target.name}» (id={target.id})" if kind == "business" else f"Модель id={target.id}"
+                await notify_admins(
+                    db, "Не удалось списать автопродление подписки",
+                    f"{label}, тариф «{plan}»: {exc}",
+                )
+            except Exception:
+                logger.exception("charge_due_subscriptions: не удалось отправить алерт")
+            continue
+
+        if charge_result.status == "CONFIRMED":
+            payment.status = PaymentStatus.SUCCEEDED
+            payment.paid_at = datetime.now(timezone.utc)
+            target.subscription_expires_at = now + timedelta(days=30)
+            target.subscription_status = SalonSubscriptionStatus.ACTIVE
+            processed += 1
+        # Иначе не подтверждён сразу — платёж остаётся PENDING, статус
+        # финализирует вебхук /tkassa/notify терминальным уведомлением.
+        await db.commit()
+    return processed
+
+
+async def charge_due_subscriptions(ctx: dict[str, Any]) -> str:
+    """Плановые автосписания по автопродлению — раз в сутки (cron, см.
+    app/core/worker.py). Обслуживает и салоны (бизнес-тариф), и моделей —
+    у Т-Кассы нет своего планировщика подписок: плательщику с auto_renew=True
+    и истёкшим subscription_expires_at заводим новый Init (свежий OrderId на
+    сумму subscription_amount) и тут же Charge по сохранённому recurring_token
+    (RebillId). Ошибка одного плательщика не должна прерывать обработку
+    остальных — поэтому try/except внутри цикла (см. _charge_due), а не вокруг."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.core.config import settings
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import Salon, SalonSubscriptionStatus, User
+    from app.services.tkassa import TKassaClient, TKassaError
+
+    now = datetime.now(timezone.utc)
+    due_statuses = [
+        SalonSubscriptionStatus.TRIALING, SalonSubscriptionStatus.ACTIVE, SalonSubscriptionStatus.PAST_DUE,
+    ]
+
+    async with AsyncSessionLocal() as db:
+        due_salons = (await db.execute(
+            select(Salon).where(
+                Salon.auto_renew == True,  # noqa: E712
+                Salon.recurring_token.isnot(None),
+                Salon.subscription_status.in_(due_statuses),
+                Salon.subscription_expires_at <= now,
+            )
+        )).scalars().all()
+        due_models = (await db.execute(
+            select(User).where(
+                User.auto_renew == True,  # noqa: E712
+                User.recurring_token.isnot(None),
+                User.subscription_status.in_(due_statuses),
+                User.subscription_expires_at <= now,
+            )
+        )).scalars().all()
+
+        if not due_salons and not due_models:
+            return "processed:0"
+
+        try:
+            client = TKassaClient()
+        except TKassaError as exc:
+            logger.error("charge_due_subscriptions: клиент недоступен: %s", exc)
+            return "rejected"
+
+        base = settings.PUBLIC_BASE_URL.rstrip("/")
+        notification_url = f"{base}/api/v1/payments/tkassa/notify"
+
+        processed = 0
+        if due_salons:
+            processed += await _charge_due(
+                db, client, "business", due_salons, notification_url,
+                f"{base}/business/dashboard?tab=billing", now,
+            )
+        if due_models:
+            processed += await _charge_due(
+                db, client, "model", due_models, notification_url,
+                f"{base}/model/join", now,
+            )
+
+    logger.info(
+        "charge_due_subscriptions: успешно продлено %d из %d",
+        processed, len(due_salons) + len(due_models),
+    )
+    return f"processed:{processed}"

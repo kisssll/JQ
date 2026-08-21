@@ -7,6 +7,7 @@ from app.web.components.icons import (
     ICON_ARROW_LEFT,
     ICON_CIRCLE_CHECK,
 )
+from app.core.config import settings
 import json
 from app.web.pages.legal import LEGAL_VERSION
 
@@ -124,9 +125,21 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                                     <label class="form-label">Email</label>
                                     <input type="email" id="cx-email" placeholder="salon@example.com" class="form-input">
                                 </div>
-                                <div>
-                                    <label class="form-label">Количество сотрудников</label>
-                                    <input type="text" id="cx-exp" placeholder="Например: 7" class="form-input">
+                                <div id="employee-count-wrap" style="display:none;">
+                                    <label class="form-label">Количество сотрудников *</label>
+                                    <input type="number" id="cx-employees" min="1" max="5" placeholder="От 1 до 5" class="form-input">
+                                    <p class="form-hint">Тариф «Лайт» — 250 ₽ за сотрудника/мес, это и есть ваша итоговая сумма.</p>
+                                </div>
+                                <div id="renewal-mode-wrap"{'' if settings.TKASSA_ENABLED else ' style="display:none;"'}>
+                                    <label class="form-label">Продление подписки</label>
+                                    <label class="checkbox-label">
+                                        <input type="radio" name="renewal-mode" value="auto" class="checkbox-input" checked>
+                                        <span class="checkbox-text">Автоматически каждый месяц (можно отменить в любой момент)</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="radio" name="renewal-mode" value="manual" class="checkbox-input">
+                                        <span class="checkbox-text">Буду продлевать вручную</span>
+                                    </label>
                                 </div>
                                 <!-- Ссылки вели на 404, пока страниц документов не
                                      существовало. Плюс согласие на ПДн отделено от
@@ -149,7 +162,7 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                             <button class="checkout-submit" id="submit-btn">
                                 Подключить салон
                             </button>
-                            <p class="checkout-note" id="submit-note">Оплата будет доступна после интеграции с банком. Сейчас — заявка.</p>
+                            <p class="checkout-note" id="submit-note">Первые 14 дней — бесплатно. {'Карта привязывается сразу, но списания не будет до конца пробного периода.' if settings.TKASSA_ENABLED else 'Оплата картой скоро появится — пока тариф активируется сразу на пробный период.'}</p>
                         </div>
                         <div class="checkout-summary" id="tariff-card">
                             <h3 class="tariff-card-name" id="tariff-name">{active["name"]}</h3>
@@ -172,6 +185,7 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
     <script>
         // Данные тарифов из Python
         const tariffs = {tariffs_json};
+        const paymentsEnabled = {'true' if settings.TKASSA_ENABLED else 'false'};
 
         // Иконка галочки для вставки в список
         const checkIcon = `{ICON_CIRCLE_CHECK}`;
@@ -191,9 +205,13 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
             priceEl.querySelector('.price-period').textContent = tariff.period;
 
             const featuresList = document.getElementById('tariff-features');
-            featuresList.innerHTML = tariff.features.map(f => 
+            featuresList.innerHTML = tariff.features.map(f =>
                 `<li>${{checkIcon}}<span>${{f}}</span></li>`
             ).join('');
+
+            document.getElementById('employee-count-wrap').style.display = planId === 'lite' ? '' : 'none';
+            document.getElementById('renewal-mode-wrap').style.display =
+                (paymentsEnabled && planId !== 'custom') ? '' : 'none';
 
             const url = new URL(window.location);
             url.searchParams.set('plan', planId);
@@ -215,7 +233,47 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
             }}
         }});
 
-        // === Обработка отправки формы ===
+        // === Оплата: сервер готовит платёж в Т-Кассе и отдаёт ссылку на
+        // страницу оплаты — просто перенаправляем туда браузер, никакого
+        // виджета не нужно. Факт оплаты подтверждает вебхук на сервере. ===
+        function setNote(text) {{
+            document.getElementById('submit-note').textContent = text;
+        }}
+
+        async function startPayment(salonId, plan, autoRenew, employeeCount, btn) {{
+            try {{
+                const res = await fetch('/api/v1/payments/business/init', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{
+                        salon_id: salonId, plan: plan, auto_renew: autoRenew,
+                        employee_count: employeeCount,
+                    }}),
+                }});
+                const data = await res.json().catch(() => ({{}}));
+                if (!res.ok) {{
+                    setNote(data.detail || 'Не удалось подготовить тариф.');
+                    btn.disabled = false; btn.style.opacity = '1';
+                    return;
+                }}
+                if (!data.requires_payment) {{
+                    setNote('Пробный период запущен — открываем кабинет...');
+                    window.location = data.redirect || '/business/dashboard';
+                    return;
+                }}
+                setNote('Переходим к оплате…');
+                window.location = data.payment_url;
+            }} catch (err) {{
+                setNote('Ошибка сети при подготовке оплаты. Салон уже создан — попробуйте ещё раз.');
+                btn.disabled = false; btn.style.opacity = '1';
+            }}
+        }}
+
+        // Салон создаём только один раз за визит на страницу — при повторной
+        // попытке (после неудачной привязки карты) просто пересоздаём счёт
+        // на оплату для того же салона, а не подаём заявку ещё раз.
+        let createdSalonId = null;
+
         document.getElementById('submit-btn').addEventListener('click', async function(e) {{
             e.preventDefault();
             // Две отметки проверяются раздельно: согласие на ПДн нельзя
@@ -234,15 +292,34 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                 alert('Укажите название салона и телефон.');
                 return;
             }}
+            const plan = new URLSearchParams(window.location.search).get('plan') || 'business';
+
+            let employeeCount = null;
+            if (plan === 'lite') {{
+                employeeCount = parseInt(document.getElementById('cx-employees').value, 10);
+                if (!employeeCount || employeeCount < 1 || employeeCount > 5) {{
+                    alert('Укажите количество сотрудников от 1 до 5 для тарифа «Лайт».');
+                    return;
+                }}
+            }}
+
+            const renewalInput = document.querySelector('input[name="renewal-mode"]:checked');
+            const autoRenew = paymentsEnabled && (!renewalInput || renewalInput.value === 'auto');
+
             const btn = this;
             btn.disabled = true; btn.style.opacity = '0.7';
+
+            if (createdSalonId) {{
+                await startPayment(createdSalonId, plan, autoRenew, employeeCount, btn);
+                return;
+            }}
+
             const fd = new FormData();
             fd.append('salon_name', salon);
             fd.append('phone', phone);
             fd.append('contact_name', document.getElementById('cx-contact').value.trim());
             fd.append('email', document.getElementById('cx-email').value.trim());
-            fd.append('experience', document.getElementById('cx-exp').value.trim());
-            fd.append('plan', new URLSearchParams(window.location.search).get('plan') || 'business');
+            fd.append('plan', plan);
             fd.append('offer_accepted', '1');
             fd.append('pd_consent', '1');
             fd.append('consent_version', '{LEGAL_VERSION}');
@@ -253,15 +330,18 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                     return;
                 }}
                 const data = await res.json().catch(() => ({{}}));
-                if (res.ok) {{
-                    btn.textContent = 'Заявка отправлена';
-                    btn.style.cursor = 'default';
-                    document.getElementById('submit-note').textContent = 'Заявка принята — открываем кабинет...';
-                    window.location = data.redirect || '/business/dashboard';
-                }} else {{
+                if (!res.ok) {{
                     btn.disabled = false; btn.style.opacity = '1';
                     alert(data.detail || 'Не удалось отправить заявку.');
+                    return;
                 }}
+                createdSalonId = data.salon_id;
+                if (plan === 'custom' || !createdSalonId) {{
+                    setNote('Заявка принята — открываем кабинет...');
+                    window.location = data.redirect || '/business/dashboard';
+                    return;
+                }}
+                await startPayment(createdSalonId, plan, autoRenew, employeeCount, btn);
             }} catch (err) {{
                 btn.disabled = false; btn.style.opacity = '1';
                 alert('Ошибка сети. Попробуйте ещё раз.');

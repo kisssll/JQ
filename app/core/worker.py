@@ -18,8 +18,8 @@ from arq.connections import ArqRedis, RedisSettings
 
 from app.core.config import settings
 from app.tasks import (
-    process_payment_webhook, send_booking_reminder, send_email,
-    send_evening_deals_blast, send_sms, send_tg_message,
+    charge_due_subscriptions, finalize_tkassa_verification, process_payment_webhook,
+    send_booking_reminder, send_email, send_evening_deals_blast, send_sms, send_tg_message,
 )
 
 REDIS_SETTINGS = RedisSettings.from_dsn(settings.REDIS_URL)
@@ -60,12 +60,15 @@ class WorkerSettings:
     functions = [
         send_sms, send_tg_message, send_booking_reminder, send_email,
         process_payment_webhook, send_evening_deals_blast,
+        finalize_tkassa_verification, charge_due_subscriptions,
     ]
     # Ежедневная рассылка «вечерних окон со скидкой» в 18:00 по Томску (UTC+7).
     # arq считает cron по локальному времени процесса; контейнер воркера в UTC,
     # поэтому 11:00 UTC = 18:00 Томск. (Если TZ контейнера сменят — поправить.)
+    # Автосписания подписок — в 06:00 UTC (13:00 Томск), отдельно от рассылки.
     cron_jobs = [
         cron(send_evening_deals_blast, hour={11}, minute={0}, run_at_startup=False),
+        cron(charge_due_subscriptions, hour={6}, minute={0}, run_at_startup=False),
     ]
     redis_settings = REDIS_SETTINGS
     on_startup = _on_startup

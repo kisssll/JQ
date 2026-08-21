@@ -11,10 +11,6 @@ from app.web.components.icons import (
     ICON_SHIELD_CHECK,
     ICON_CLOCK,
     ICON_TRENDING_UP,
-    ICON_BUILDING2,
-    ICON_SETTINGS,
-    ICON_MEGAPHONE,
-    ICON_ROCKET,
     ICON_CIRCLE_CHECK,
     ICON_ARROW_RIGHT,
     ICON_ZAP,
@@ -345,43 +341,31 @@ def render_business_landing_page(user=None) -> str:
                 </div>
                 <div class="bl-how-steps">
                     <div class="bl-how-step">
-                        <div class="bl-step-icon">
-                            <div class="bl-icon-circle">{ICON_BUILDING2}</div>
-                            <span class="bl-step-number">Шаг 1</span>
-                        </div>
+                        <div class="bl-icon-circle">{ICON_CIRCLE_CHECK}</div>
                         <div class="bl-step-content">
-                            <h3>Зарегистрируйте салон</h3>
-                            <p>Создайте профиль салона, добавьте фото, описание, адрес и список услуг.</p>
+                            <h3 class="bl-step-title">Зарегистрируйте салон</h3>
+                            <p class="bl-step-desc">Создайте профиль салона, добавьте фото, описание, адрес и список услуг.</p>
                         </div>
                     </div>
                     <div class="bl-how-step">
-                        <div class="bl-step-icon">
-                            <div class="bl-icon-circle">{ICON_SETTINGS}</div>
-                            <span class="bl-step-number">Шаг 2</span>
-                        </div>
+                        <div class="bl-icon-circle">{ICON_CIRCLE_CHECK}</div>
                         <div class="bl-step-content">
-                            <h3>Настройте расписание</h3>
-                            <p>Добавьте мастеров, их графики, услуги и цены. Всё настраивается за 15 минут.</p>
+                            <h3 class="bl-step-title">Настройте расписание</h3>
+                            <p class="bl-step-desc">Добавьте мастеров, их графики, услуги и цены. Всё настраивается за 15 минут.</p>
                         </div>
                     </div>
                     <div class="bl-how-step">
-                        <div class="bl-step-icon">
-                            <div class="bl-icon-circle">{ICON_MEGAPHONE}</div>
-                            <span class="bl-step-number">Шаг 3</span>
-                        </div>
+                        <div class="bl-icon-circle">{ICON_CIRCLE_CHECK}</div>
                         <div class="bl-step-content">
-                            <h3>Привлекайте клиентов</h3>
-                            <p>Ваш салон появится на платформе. Клиенты и модели начнут записываться.</p>
+                            <h3 class="bl-step-title">Привлекайте клиентов</h3>
+                            <p class="bl-step-desc">Ваш салон появится на платформе. Клиенты и модели начнут записываться.</p>
                         </div>
                     </div>
                     <div class="bl-how-step">
-                        <div class="bl-step-icon">
-                            <div class="bl-icon-circle">{ICON_ROCKET}</div>
-                            <span class="bl-step-number">Шаг 4</span>
-                        </div>
+                        <div class="bl-icon-circle">{ICON_CIRCLE_CHECK}</div>
                         <div class="bl-step-content">
-                            <h3>Развивайте бизнес</h3>
-                            <p>Используйте аналитику, акции и программы лояльности для роста.</p>
+                            <h3 class="bl-step-title">Развивайте бизнес</h3>
+                            <p class="bl-step-desc">Используйте аналитику, акции и программы лояльности для роста.</p>
                         </div>
                     </div>
                 </div>

@@ -920,16 +920,7 @@
 .model-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0;
-    border: 1px solid var(--color-border);
-    border-radius: 1rem;
-    overflow: hidden;
-    background: var(--color-surface);
-    transition: box-shadow 0.3s ease;
-}
-
-.model-grid:hover {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+    gap: 1rem;
 }
 
 @media (min-width: 768px) {
@@ -946,8 +937,10 @@
 
 .model-item {
     background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
     padding: 2rem;
-    border: none;
+    transition: box-shadow 0.3s ease;
 }
 
 @media (min-width: 1024px) {
@@ -957,32 +950,26 @@
 }
 
 .model-item:hover {
-    background: var(--color-surface);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
 }
 
-.model-item-value {
+.model-item-highlight {
     font-family: var(--font-heading);
-    font-size: 1.875rem;
+    font-size: 1.25rem;
     font-weight: 700;
-    line-height: 1.2;
     color: var(--color-primary);
-    margin-bottom: 0.5rem;
 }
 
 @media (min-width: 1024px) {
-    .model-item-value {
-        font-size: 2.25rem;
+    .model-item-highlight {
+        font-size: 1.5rem;
     }
-}
-
-.model-item-dot {
-    color: var(--color-primary);
 }
 
 .model-item-desc {
     font-family: var(--font-body);
-    font-size: 0.875rem;
-    line-height: 1.5;
+    font-size: 1rem;
+    line-height: 1.6;
     color: var(--color-muted);
     margin: 0;
 }
@@ -1106,16 +1093,7 @@
 .business-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0;
-    border: 1px solid var(--color-border);
-    border-radius: 1rem;
-    overflow: hidden;
-    background: var(--color-surface);
-    transition: box-shadow 0.3s ease;
-}
-
-.business-grid:hover {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+    gap: 1rem;
 }
 
 @media (min-width: 768px) {
@@ -1132,8 +1110,10 @@
 
 .business-item {
     background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
     padding: 2rem;
-    border: none;
+    transition: box-shadow 0.3s ease;
 }
 
 @media (min-width: 1024px) {
@@ -1143,7 +1123,7 @@
 }
 
 .business-item:hover {
-    background: var(--color-surface);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
 }
 
 .business-number {
@@ -1159,10 +1139,6 @@
     .business-number {
         font-size: 2.25rem;
     }
-}
-
-.business-number-dot {
-    color: var(--color-primary);
 }
 
 .business-item-title {

@@ -178,6 +178,17 @@ class Settings(BaseSettings):
     # возвращает фиктивный request_id и считает любой код верным).
     OTP_ENABLED: bool = True
 
+    # --- Оплата бизнес-подписок (Т-Касса / Т-Бизнес) ---
+    # TerminalKey и Password — из личного кабинета Т-Кассы (раздел с
+    # терминалом, оба секретны — Password участвует в подписи каждого
+    # запроса и вебхука, см. app/services/tkassa.py). Там же нужно прописать
+    # адрес уведомлений PUBLIC_BASE_URL + /api/v1/payments/tkassa/notify и,
+    # отдельным обращением в поддержку, включить метод Charge (для
+    # автопродления) — по умолчанию он заблокирован.
+    TKASSA_ENABLED: bool = False
+    TKASSA_TERMINAL_KEY: str = ""
+    TKASSA_PASSWORD: str = ""
+
     # Выключенный OTP в production = регистрация без подтверждения телефона.
     # Чтобы рубильник не дожил до релиза незамеченным, в production такое
     # состояние надо подтверждать явно вторым флагом — иначе приложение
@@ -220,6 +231,12 @@ class Settings(BaseSettings):
             raise ValueError(
                 "MAX_VERIFY_ENABLED=true, но не заданы MAX_BOT_TOKEN/MAX_BOT_USERNAME — "
                 "кнопка на странице вела бы в никуда. Заполните оба или выключите флаг."
+            )
+        if self.TKASSA_ENABLED and not (self.TKASSA_TERMINAL_KEY and self.TKASSA_PASSWORD):
+            raise ValueError(
+                "TKASSA_ENABLED=true, но не заданы TKASSA_TERMINAL_KEY/TKASSA_PASSWORD — "
+                "оплата тарифов не сможет ни создать платёж, ни проверить подпись "
+                "вебхука. Заполните оба или выключите флаг."
             )
         return self
 

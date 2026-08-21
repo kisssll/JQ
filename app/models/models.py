@@ -39,6 +39,43 @@ class SubscriptionTier(str, enum.Enum):
     PRO = "pro"
     PREMIUM = "premium"
 
+class SalonSubscriptionStatus(str, enum.Enum):
+    """Статус оплаты подписки (Т-Касса) — используется и у Salon
+    (бизнес-тариф), и у User (тариф «модели», см. SubscriptionTier).
+
+    none      — тариф не выбран (заявка ещё не дошла до оплаты);
+    trialing  — пробный период (14 дней), первое списание ещё не проходило;
+    active    — подписка оплачена, доступ активен;
+    past_due  — автосписание не удалось (карта/лимит) — грейс-период, доступ
+                ещё активен до subscription_expires_at, ждём ручной оплаты
+                или следующей плановой попытки (см. app.tasks.charge_due_subscriptions);
+    canceled  — подписка отменена (владельцем или после серии неудачных
+                списаний) — доступ закрывается по subscription_expires_at.
+    """
+    NONE = "none"
+    TRIALING = "trialing"
+    ACTIVE = "active"
+    PAST_DUE = "past_due"
+    CANCELED = "canceled"
+
+class PaymentStatus(str, enum.Enum):
+    PENDING = "pending"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+
+class PaymentKind(str, enum.Enum):
+    # 1₽, чтобы получить Token карты для будущей подписки — тут же возвращается
+    # клиенту, реальным списанием для него не является.
+    VERIFICATION = "verification"
+    # Первое настоящее автосписание после триала (см. app.tasks.charge_due_subscriptions).
+    SUBSCRIPTION_INITIAL = "subscription_initial"
+    # Плановое автосписание по подписке (каждый месяц).
+    RECURRENT = "recurrent"
+    # Разовая оплата вручную (кнопка «Оплатить» в кабинете, без автопродления).
+    MANUAL = "manual"
+    REFUND = "refund"
+
 class SalonRole(str, enum.Enum):
     OWNER = "owner"
     # Управляющий: правая рука владельца — шире обычного админа (по
@@ -188,8 +225,20 @@ class User(Base):
     # Управляется кнопками в боте (/start → «Мои уведомления»).
     tg_notify_prefs: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
+    # --- Подписка «модели» (Т-Касса) — тариф из SubscriptionTier (start/pro/premium,
+    # см. /model#plans), те же поля и та же механика (триал/автопродление/ручная
+    # оплата), что у Salon.subscription_status и соседей — см. их комментарии.
     subscription_tier: Mapped[Optional[SubscriptionTier]] = mapped_column(Enum(SubscriptionTier), nullable=True)
+    subscription_status: Mapped[SalonSubscriptionStatus] = mapped_column(
+        Enum(SalonSubscriptionStatus, name="usersubscriptionstatus"),
+        default=SalonSubscriptionStatus.NONE, server_default="NONE", nullable=False,
+    )
+    auto_renew: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    trial_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     subscription_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    recurring_token: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    subscription_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    card_last4: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)
 
     master_profile: Mapped[Optional["Master"]] = relationship(back_populates="user", uselist=False)
     created_salons: Mapped[List["Salon"]] = relationship(back_populates="creator")
@@ -366,12 +415,97 @@ class Salon(Base):
     # назад не сбрасывается; дальнейшей видимостью рулит is_hidden.
     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # --- Оплата бизнес-тарифа (Т-Касса / Т-Бизнес) ---
+    # server_default=NONE — существующие салоны (созданы до подключения
+    # оплаты) не попадают в trialing/active задним числом.
+    subscription_status: Mapped[SalonSubscriptionStatus] = mapped_column(
+        Enum(SalonSubscriptionStatus),
+        default=SalonSubscriptionStatus.NONE,
+        server_default="NONE",
+        nullable=False,
+    )
+    # Выбор владельца при подключении тарифа: True — раз в месяц сами вызываем
+    # Charge по recurring_token (см. app.tasks.charge_due_subscriptions, у
+    # Т-Кассы нет своего планировщика подписок — расписание ведём мы); False —
+    # владелец платит вручную кнопкой в кабинете каждый раз (см. payments.py).
+    auto_renew: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    # Конец пробного периода (14 дней с момента выбора тарифа) — до этого
+    # момента доступ активен независимо от факта оплаты.
+    trial_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # До какого момента открыт доступ по тарифу (обновляется каждой успешной
+    # оплатой/автосписанием; во время триала равен trial_ends_at).
+    subscription_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # RebillId Т-Кассы — задан только при auto_renew=True после успешной
+    # верификации карты (первый платёж с Recurrent=Y). Нужен для планового
+    # автосписания (Charge) и отсутствует, если автопродление выключено.
+    recurring_token: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # Сумма планового автосписания, руб. — Т-Касса её нигде у себя не хранит
+    # (в отличие от «подписок» других касс), поэтому держим сами: нужна
+    # каждый раз, когда charge_due_subscriptions готовит новый Init+Charge.
+    subscription_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    # Для отображения в кабинете «привязана карта •• 1234» — последние 4
+    # цифры из маскированного Pan в уведомлении об оплате.
+    card_last4: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)
+
 class SalonPhoto(Base):
     __tablename__ = "salon_photos"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"))
     url: Mapped[str] = mapped_column(String(500))
     salon: Mapped["Salon"] = relationship(back_populates="photos")
+
+
+class Payment(Base):
+    """Запись о платеже Т-Кассы (верификация карты, первое списание по
+    автопродлению, плановое автосписание, разовая ручная оплата, возврат).
+
+    Плательщик — ровно один из salon_id (бизнес-тариф) / user_id (тариф
+    «модели») — см. CheckConstraint ниже. Одна строка — одна попытка
+    списания/возврата (= один вызов Init). invoice_id — наш собственный
+    OrderId (генерируем при инициации оплаты, передаём в Init);
+    provider_transaction_id — PaymentId, который Т-Касса возвращает в ответе
+    на Init и повторяет в уведомлении — ключ идемпотентности (одна и та же
+    транзакция не обрабатывается дважды). raw_payload — сырое тело
+    уведомления целиком, на случай расследования расхождений (см.
+    app/api/v1/endpoints/payments.py).
+    """
+    __tablename__ = "payments"
+    __table_args__ = (
+        CheckConstraint(
+            "(salon_id IS NOT NULL)::int + (user_id IS NOT NULL)::int = 1",
+            name="check_payment_exactly_one_target",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    salon_id: Mapped[Optional[int]] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"), nullable=True, index=True)
+    salon: Mapped[Optional["Salon"]] = relationship()
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user: Mapped[Optional["User"]] = relationship()
+
+    plan: Mapped[str] = mapped_column(String(20), nullable=False)
+    kind: Mapped[PaymentKind] = mapped_column(Enum(PaymentKind), nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="RUB", server_default="RUB", nullable=False)
+    # Только для kind=VERIFICATION: реальная месячная сумма тарифа (для «Лайт»
+    # зависит от количества сотрудников) — на неё выставляется
+    # salon.subscription_amount ПОСЛЕ успешной верификации; сама верификация
+    # идёт на 1₽ (amount выше), эта сумма нигде с клиента не списывается напрямую.
+    target_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
+    # Наш идентификатор счёта (OrderId для Т-Кассы) — уникален, генерируем
+    # сами (uuid4 hex).
+    invoice_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True, index=True)
+    # PaymentId Т-Кассы — приходит в ответе на Init и в уведомлении.
+    provider_transaction_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+
+    status: Mapped[PaymentStatus] = mapped_column(
+        Enum(PaymentStatus), default=PaymentStatus.PENDING, server_default="PENDING", nullable=False,
+    )
+    raw_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class SalonEveningDeal(Base):

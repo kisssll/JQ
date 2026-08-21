@@ -6,7 +6,7 @@ from sqlalchemy import select, func
 from datetime import datetime, timedelta
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
-    SalonMember, User as UserModel, SalonModerationStatus,
+    SalonMember, User as UserModel, SalonModerationStatus, SalonSubscriptionStatus,
     SalonLoyaltySettings, LoyaltyOffer,
 )
 from app.web.components.header import render_header
@@ -28,6 +28,7 @@ from app.web.components.icons import (
     ICON_SPARKLES,
     ICON_SETTINGS_GEAR_SMALL,
     ICON_PLUS,
+    ICON_CREDIT_CARD,
 )
 from app.web.pages.business.utils import get_masters_data, get_master_ids, get_overview_revenue_data
 from app.web.pages.business.tabs.overview import render_overview_tab
@@ -43,6 +44,7 @@ from app.web.pages.business.tabs.payroll import render_payroll_tab
 from app.web.pages.business.tabs.cost import render_cost_tab
 from app.web.pages.business.tabs.promo_models import render_promo_models_tab
 from app.web.pages.business.tabs.my_salon import render_my_salon_tab
+from app.web.pages.business.tabs.billing import render_billing_tab
 from app.crm.tabs.clients import render_crm_tab
 
 
@@ -180,6 +182,10 @@ async def render_dashboard_tab(
             can_manage_salon=perms["manage_salon"], is_creator=membership.is_creator,
         )
 
+    if tab_name == "billing":
+        active_masters = len([m for m in masters if m.is_active])
+        return render_billing_tab(salon, perms["manage_tariff"], active_masters)
+
     return ""
 
 
@@ -247,6 +253,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         ('promos', ICON_SPARKLES, f'Акции ({promos_count})', True),
         ('reviews', ICON_STAR_FILLED, f'Отзывы ({reviews_count})', True),
         ('crm', ICON_USER_CHECK, 'Клиенты', True),
+        ('billing', ICON_CREDIT_CARD, 'Тариф', perms["manage_tariff"]),
         ('edit', ICON_SETTINGS_GEAR_SMALL, 'Редактировать салон', True),
     ]
 
@@ -302,8 +309,12 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     if membership.is_creator:
         add_salon_html = f'<a class="salon-switcher-add" href="/business/register-salon">{ICON_PLUS} Добавить салон</a>'
 
-    # Баннер статуса заявки
+    # Баннер статуса заявки + модальное предупреждение (см. publish_gate_modal_html
+    # ниже) — оба про один и тот же случай «модерация пройдена, тариф не выбран»,
+    # баннер держит объяснение постоянно на экране, модалка обращает на него внимание
+    # сразу при заходе в панель (один раз за сессию, см. dashboard.js).
     moderation_banner = ""
+    show_publish_gate_modal = False
     if salon.moderation_status == SalonModerationStatus.PENDING:
         moderation_banner = (
             '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;'
@@ -319,8 +330,26 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
             f'<b>Заявка отклонена.</b>{reason} Свяжитесь с поддержкой.</div>'
         )
+    elif salon.published_at is None and salon.subscription_status == SalonSubscriptionStatus.NONE:
+        # Одобрен, но тариф ещё не выбран — публикация требует оплаты (хотя бы
+        # запуска пробного периода), модерация сама по себе доступ не даёт.
+        can_publish = perms.get("manage_salon") if isinstance(perms, dict) else False
+        billing_link = (
+            f'<a href="/business/dashboard?salon_id={salon.id}&tab=billing" '
+            'style="display:inline-block;margin-top:0.75rem;background:#16a34a;color:#fff;'
+            'text-decoration:none;padding:0.6rem 1.2rem;border-radius:0.6rem;font-size:0.9rem;'
+            f'font-weight:600">{ICON_SPARKLES} Выбрать тариф</a>'
+        ) if can_publish else ''
+        moderation_banner = (
+            '<div style="background:#dcfce7;border:1px solid #16a34a;color:#166534;'
+            'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
+            '<b>Ваш салон прошёл модерацию!</b> Осталось выбрать тариф — без него '
+            'публикация недоступна. До этого салон виден только вам.'
+            f'{billing_link}</div>'
+        )
+        show_publish_gate_modal = can_publish
     elif salon.published_at is None:
-        # Одобрен, но ещё не опубликован владельцем — поздравляем и даём кнопку.
+        # Тариф выбран (хотя бы пробный период) — можно публиковать.
         # Пока не опубликован, салон полностью непубличен (нет в каталоге, запись
         # закрыта). Кнопка шлёт AJAX → на успехе перезагружает панель (см.
         # dashboard.js, #salonPublishBtn). Показываем только тем, кто вправе
@@ -340,6 +369,24 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             'До публикации салон виден только вам.'
             f'{publish_btn}</div>'
         )
+
+    publish_gate_modal_html = ""
+    if show_publish_gate_modal:
+        publish_gate_modal_html = f"""
+        <div class="publish-gate-modal-overlay" id="publishGateModal" data-salon-id="{salon.id}">
+            <div class="publish-gate-modal-box">
+                <button type="button" class="publish-gate-modal-close" id="publishGateModalClose">&times;</button>
+                <div class="publish-gate-icon">💳</div>
+                <h2>Салон пока не виден клиентам</h2>
+                <p>Модерация пройдена, но салон появится в общем каталоге платформы —
+                видимым для клиентов и открытым для записи — только после оплаты
+                тарифа. Как только оплатите (или запустите пробный период),
+                салон сразу появится в списке.</p>
+                <a href="/business/dashboard?salon_id={salon.id}&tab=billing" class="btn-primary">
+                    {ICON_SPARKLES} Выбрать тариф
+                </a>
+            </div>
+        </div>"""
 
     header_html = f"""
     <div class="dashboard-header">
@@ -381,6 +428,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         </div>
     </main>
     {render_footer(user)}
+    {publish_gate_modal_html}
 </body>
 </html>"""
 
