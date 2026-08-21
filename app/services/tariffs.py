@@ -43,12 +43,24 @@ TARIFF_CATALOG: dict[str, Tariff] = {
     ),
 }
 
+# Тарифы «модели» (/model#plans) — все flat, цены оттуда же (у моделей нет
+# понятия «сотрудников», поэтому compute_amount для них всегда без второго
+# аргумента).
+MODEL_TARIFF_CATALOG: dict[str, Tariff] = {
+    "start": Tariff(plan="start", name="Старт", billing="flat", amount=Decimal("490")),
+    "pro": Tariff(plan="pro", name="Про", billing="flat", amount=Decimal("990")),
+    "premium": Tariff(plan="premium", name="Премиум", billing="flat", amount=Decimal("1990")),
+}
 
-def compute_amount(plan: str, employee_count: Optional[int]) -> Decimal:
+
+def compute_amount(
+    plan: str, employee_count: Optional[int] = None,
+    catalog: dict[str, Tariff] = TARIFF_CATALOG,
+) -> Decimal:
     """Сумма месячного платежа по тарифу. Кидает TariffError на невалидный
     план (в т.ч. 'custom' — для него нет самостоятельной оплаты) или
     некорректное количество сотрудников для тарифа «Лайт»."""
-    tariff = TARIFF_CATALOG.get(plan)
+    tariff = catalog.get(plan)
     if tariff is None:
         raise TariffError(f"Тариф «{plan}» недоступен для самостоятельной оплаты")
 

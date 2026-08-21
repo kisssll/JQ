@@ -39,6 +39,43 @@ class SubscriptionTier(str, enum.Enum):
     PRO = "pro"
     PREMIUM = "premium"
 
+class SalonSubscriptionStatus(str, enum.Enum):
+    """Статус оплаты подписки (Т-Касса) — используется и у Salon
+    (бизнес-тариф), и у User (тариф «модели», см. SubscriptionTier).
+
+    none      — тариф не выбран (заявка ещё не дошла до оплаты);
+    trialing  — пробный период (14 дней), первое списание ещё не проходило;
+    active    — подписка оплачена, доступ активен;
+    past_due  — автосписание не удалось (карта/лимит) — грейс-период, доступ
+                ещё активен до subscription_expires_at, ждём ручной оплаты
+                или следующей плановой попытки (см. app.tasks.charge_due_subscriptions);
+    canceled  — подписка отменена (владельцем или после серии неудачных
+                списаний) — доступ закрывается по subscription_expires_at.
+    """
+    NONE = "none"
+    TRIALING = "trialing"
+    ACTIVE = "active"
+    PAST_DUE = "past_due"
+    CANCELED = "canceled"
+
+class PaymentStatus(str, enum.Enum):
+    PENDING = "pending"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+
+class PaymentKind(str, enum.Enum):
+    # 1₽, чтобы получить Token карты для будущей подписки — тут же возвращается
+    # клиенту, реальным списанием для него не является.
+    VERIFICATION = "verification"
+    # Первое настоящее автосписание после триала (см. app.tasks.charge_due_subscriptions).
+    SUBSCRIPTION_INITIAL = "subscription_initial"
+    # Плановое автосписание по подписке (каждый месяц).
+    RECURRENT = "recurrent"
+    # Разовая оплата вручную (кнопка «Оплатить» в кабинете, без автопродления).
+    MANUAL = "manual"
+    REFUND = "refund"
+
 class SalonRole(str, enum.Enum):
     OWNER = "owner"
     # Управляющий: правая рука владельца — шире обычного админа (по
@@ -188,8 +225,20 @@ class User(Base):
     # Управляется кнопками в боте (/start → «Мои уведомления»).
     tg_notify_prefs: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
+    # --- Подписка «модели» (Т-Касса) — тариф из SubscriptionTier (start/pro/premium,
+    # см. /model#plans), те же поля и та же механика (триал/автопродление/ручная
+    # оплата), что у Salon.subscription_status и соседей — см. их комментарии.
     subscription_tier: Mapped[Optional[SubscriptionTier]] = mapped_column(Enum(SubscriptionTier), nullable=True)
+    subscription_status: Mapped[SalonSubscriptionStatus] = mapped_column(
+        Enum(SalonSubscriptionStatus, name="usersubscriptionstatus"),
+        default=SalonSubscriptionStatus.NONE, server_default="NONE", nullable=False,
+    )
+    auto_renew: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    trial_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     subscription_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    recurring_token: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    subscription_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    card_last4: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)
 
     master_profile: Mapped[Optional["Master"]] = relationship(back_populates="user", uselist=False)
     created_salons: Mapped[List["Salon"]] = relationship(back_populates="creator")
@@ -212,42 +261,6 @@ class SalonModerationStatus(str, enum.Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
-
-class SalonSubscriptionStatus(str, enum.Enum):
-    """Статус оплаты бизнес-тарифа салона (Т-Касса).
-
-    none      — тариф не выбран (заявка ещё не дошла до оплаты);
-    trialing  — пробный период (14 дней), первое списание ещё не проходило;
-    active    — подписка оплачена, доступ активен;
-    past_due  — автосписание не удалось (карта/лимит) — грейс-период, доступ
-                ещё активен до subscription_expires_at, ждём ручной оплаты
-                или следующей плановой попытки (см. app.tasks.charge_due_subscriptions);
-    canceled  — подписка отменена (владельцем или после серии неудачных
-                списаний) — доступ закрывается по subscription_expires_at.
-    """
-    NONE = "none"
-    TRIALING = "trialing"
-    ACTIVE = "active"
-    PAST_DUE = "past_due"
-    CANCELED = "canceled"
-
-class PaymentStatus(str, enum.Enum):
-    PENDING = "pending"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    REFUNDED = "refunded"
-
-class PaymentKind(str, enum.Enum):
-    # 1₽, чтобы получить Token карты для будущей подписки — тут же возвращается
-    # клиенту, реальным списанием для него не является.
-    VERIFICATION = "verification"
-    # Первое настоящее автосписание после триала (см. app.tasks.charge_due_subscriptions).
-    SUBSCRIPTION_INITIAL = "subscription_initial"
-    # Плановое автосписание по подписке (каждый месяц).
-    RECURRENT = "recurrent"
-    # Разовая оплата вручную (кнопка «Оплатить» в кабинете, без автопродления).
-    MANUAL = "manual"
-    REFUND = "refund"
 
 
 class SalonChain(Base):
@@ -446,19 +459,29 @@ class Payment(Base):
     """Запись о платеже Т-Кассы (верификация карты, первое списание по
     автопродлению, плановое автосписание, разовая ручная оплата, возврат).
 
-    Одна строка — одна попытка списания/возврата (= один вызов Init).
-    invoice_id — наш собственный OrderId (генерируем при инициации оплаты,
-    передаём в Init); provider_transaction_id — PaymentId, который Т-Касса
-    возвращает в ответе на Init и повторяет в уведомлении — ключ
-    идемпотентности (одна и та же транзакция не обрабатывается дважды).
-    raw_payload — сырое тело уведомления целиком, на случай расследования
-    расхождений (см. app/api/v1/endpoints/payments.py).
+    Плательщик — ровно один из salon_id (бизнес-тариф) / user_id (тариф
+    «модели») — см. CheckConstraint ниже. Одна строка — одна попытка
+    списания/возврата (= один вызов Init). invoice_id — наш собственный
+    OrderId (генерируем при инициации оплаты, передаём в Init);
+    provider_transaction_id — PaymentId, который Т-Касса возвращает в ответе
+    на Init и повторяет в уведомлении — ключ идемпотентности (одна и та же
+    транзакция не обрабатывается дважды). raw_payload — сырое тело
+    уведомления целиком, на случай расследования расхождений (см.
+    app/api/v1/endpoints/payments.py).
     """
     __tablename__ = "payments"
+    __table_args__ = (
+        CheckConstraint(
+            "(salon_id IS NOT NULL)::int + (user_id IS NOT NULL)::int = 1",
+            name="check_payment_exactly_one_target",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"), nullable=False, index=True)
-    salon: Mapped["Salon"] = relationship()
+    salon_id: Mapped[Optional[int]] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"), nullable=True, index=True)
+    salon: Mapped[Optional["Salon"]] = relationship()
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user: Mapped[Optional["User"]] = relationship()
 
     plan: Mapped[str] = mapped_column(String(20), nullable=False)
     kind: Mapped[PaymentKind] = mapped_column(Enum(PaymentKind), nullable=False)

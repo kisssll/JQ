@@ -14,7 +14,7 @@ from app.db.session import get_db
 from app.models.models import (
     User, Salon, SalonPhoto, Master, Service, Promotion,
     SalonMember, SalonRole, OWNER_DEFAULT_PERMISSIONS, AdminAudit, ClientNote,
-    SalonModel, UserRole, SalonModerationStatus, SalonEveningDeal,
+    SalonModel, UserRole, SalonModerationStatus, SalonSubscriptionStatus, SalonEveningDeal,
 )
 from app.schemas.business import (
     SalonUpdateRequest,
@@ -342,6 +342,8 @@ async def publish_salon(
         raise HTTPException(status_code=404, detail="Салон не найден")
     if salon.moderation_status != SalonModerationStatus.APPROVED:
         raise HTTPException(status_code=409, detail="Салон ещё не прошёл модерацию")
+    if salon.subscription_status == SalonSubscriptionStatus.NONE:
+        raise HTTPException(status_code=409, detail="Сначала выберите тариф — без него публикация недоступна")
     if salon.published_at is None:
         salon.published_at = datetime.now(_tz.utc)
         await db.commit()

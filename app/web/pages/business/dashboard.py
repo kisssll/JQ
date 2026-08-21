@@ -6,7 +6,7 @@ from sqlalchemy import select, func
 from datetime import datetime, timedelta
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
-    SalonMember, User as UserModel, SalonModerationStatus,
+    SalonMember, User as UserModel, SalonModerationStatus, SalonSubscriptionStatus,
     SalonLoyaltySettings, LoyaltyOffer,
 )
 from app.web.components.header import render_header
@@ -321,8 +321,25 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
             f'<b>Заявка отклонена.</b>{reason} Свяжитесь с поддержкой.</div>'
         )
+    elif salon.published_at is None and salon.subscription_status == SalonSubscriptionStatus.NONE:
+        # Одобрен, но тариф ещё не выбран — публикация требует оплаты (хотя бы
+        # запуска пробного периода), модерация сама по себе доступ не даёт.
+        can_publish = perms.get("manage_salon") if isinstance(perms, dict) else False
+        billing_link = (
+            f'<a href="/business/dashboard?salon_id={salon.id}&tab=billing" '
+            'style="display:inline-block;margin-top:0.75rem;background:#16a34a;color:#fff;'
+            'text-decoration:none;padding:0.6rem 1.2rem;border-radius:0.6rem;font-size:0.9rem;'
+            f'font-weight:600">{ICON_SPARKLES} Выбрать тариф</a>'
+        ) if can_publish else ''
+        moderation_banner = (
+            '<div style="background:#dcfce7;border:1px solid #16a34a;color:#166534;'
+            'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
+            '<b>Ваш салон прошёл модерацию!</b> Осталось выбрать тариф — без него '
+            'публикация недоступна. До этого салон виден только вам.'
+            f'{billing_link}</div>'
+        )
     elif salon.published_at is None:
-        # Одобрен, но ещё не опубликован владельцем — поздравляем и даём кнопку.
+        # Тариф выбран (хотя бы пробный период) — можно публиковать.
         # Пока не опубликован, салон полностью непубличен (нет в каталоге, запись
         # закрыта). Кнопка шлёт AJAX → на успехе перезагружает панель (см.
         # dashboard.js, #salonPublishBtn). Показываем только тем, кто вправе
