@@ -243,20 +243,16 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                 </div>
                 <div class="model-grid">
                     <div class="model-item">
-                        <div class="model-item-value">−70%<span class="model-item-dot">.</span></div>
-                        <p class="model-item-desc">Услуги от мастеров со скидкой до 70%.</p>
+                        <p class="model-item-desc">Услуги от мастеров со скидкой до <span class="model-item-highlight">70%</span></p>
                     </div>
                     <div class="model-item">
-                        <div class="model-item-value">Приоритет<span class="model-item-dot">.</span></div>
-                        <p class="model-item-desc">Первыми получаете лучшие окна записи.</p>
+                        <p class="model-item-desc"><span class="model-item-highlight">Первыми</span> получаете лучшие окна записи</p>
                     </div>
                     <div class="model-item">
-                        <div class="model-item-value">Новое<span class="model-item-dot">.</span></div>
-                        <p class="model-item-desc">Первые тестируете процедуры и техники.</p>
+                        <p class="model-item-desc"><span class="model-item-highlight">Первые</span> тестируете процедуры и техники</p>
                     </div>
                     <div class="model-item">
-                        <div class="model-item-value">Портфолио<span class="model-item-dot">.</span></div>
-                        <p class="model-item-desc">Профессиональные фото после визита.</p>
+                        <p class="model-item-desc"><span class="model-item-highlight">Профессиональные</span> фото после визита</p>
                     </div>
                 </div>
                 <div class="model-cta">
@@ -280,22 +276,22 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                 </div>
                 <div class="business-grid">
                     <div class="business-item">
-                        <div class="business-number">01<span class="business-number-dot">.</span></div>
+                        <div class="business-number">1</div>
                         <h3 class="business-item-title">Расписание</h3>
                         <p class="business-item-desc">Записи мастеров — в одном окне.</p>
                     </div>
                     <div class="business-item">
-                        <div class="business-number">02<span class="business-number-dot">.</span></div>
+                        <div class="business-number">2</div>
                         <h3 class="business-item-title">Клиенты</h3>
                         <p class="business-item-desc">История, заметки, повторные визиты.</p>
                     </div>
                     <div class="business-item">
-                        <div class="business-number">03<span class="business-number-dot">.</span></div>
+                        <div class="business-number">3</div>
                         <h3 class="business-item-title">Оплата</h3>
                         <p class="business-item-desc">Касса, чаевые, отчёты — внутри.</p>
                     </div>
                     <div class="business-item">
-                        <div class="business-number">04<span class="business-number-dot">.</span></div>
+                        <div class="business-number">4</div>
                         <h3 class="business-item-title">Аналитика</h3>
                         <p class="business-item-desc">Выручка, загрузка, эффективность.</p>
                     </div>
