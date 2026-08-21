@@ -14,7 +14,7 @@ from app.db.session import get_db
 from app.models.models import (
     User, Salon, SalonPhoto, Master, Service, Promotion,
     SalonMember, SalonRole, OWNER_DEFAULT_PERMISSIONS, AdminAudit, ClientNote,
-    SalonModel, UserRole, SalonModerationStatus, SalonEveningDeal,
+    SalonModel, UserRole, SalonModerationStatus, SalonEveningDeal, ConsentDocument,
 )
 from app.schemas.business import (
     SalonUpdateRequest,
@@ -27,6 +27,7 @@ from app.api.deps import (
     get_current_user, check_salon_permission, get_user_primary_salon_id, get_salon_membership,
 )
 from app.services.analytics_service import AnalyticsService
+from app.services.consent_service import record_consents
 from app.core.config import settings
 
 
@@ -86,6 +87,8 @@ async def create_or_update_salon(
     method_override: str = Form(""),
     salon_id: Optional[int] = Form(None),
     offer_accepted: str = Form(""),
+    pd_consent: str = Form(""),
+    consent_version: str = Form(""),
     latitude: Optional[float] = Form(None),
     longitude: Optional[float] = Form(None),
     db: AsyncSession = Depends(get_db)
@@ -128,6 +131,14 @@ async def create_or_update_salon(
         from app.web.pages.register_salon import render_register_salon_page
         return HTMLResponse(
             content=render_register_salon_page(user, error="Нужно принять условия оферты."),
+            status_code=400,
+        )
+    # Согласие на ПДн проверяется отдельно от оферты: склеивать их нельзя.
+    if pd_consent != "1":
+        from app.web.pages.register_salon import render_register_salon_page
+        return HTMLResponse(
+            content=render_register_salon_page(
+                user, error="Отметьте согласие на обработку персональных данных."),
             status_code=400,
         )
 
@@ -191,6 +202,15 @@ async def create_or_update_salon(
     from app.services.notifications import notify_admins
     await notify_admins(db, "Новая заявка на подключение салона",
                         f"«{salon.name}», тел. {salon.phone}. Одобрить/отклонить — админ-панель → Заявки.")
+    # Значения читаем до записи журнала: её commit сбрасывает состояние сессии,
+    # и обращение к user.id после него уходит в ленивую подгрузку.
+    _uid, _uphone = user.id, getattr(user, "phone", None)
+    await record_consents(
+        db, documents=(ConsentDocument.OFFER, ConsentDocument.PD_CONSENT),
+        version=consent_version, source="register_salon",
+        user_id=_uid, phone=_uphone, request=request,
+    )
+
     return RedirectResponse(url="/business/dashboard?success=1", status_code=302)
 
 
@@ -204,6 +224,8 @@ async def apply_business(
     experience: str = Form(""),
     plan: str = Form("business"),
     offer_accepted: str = Form(""),
+    pd_consent: str = Form(""),
+    consent_version: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     """Заявка на подключение салона со страницы /business/checkout.
@@ -249,6 +271,15 @@ async def apply_business(
     from app.services.notifications import notify_admins
     await notify_admins(db, "Новая заявка на подключение салона",
                         f"«{salon.name}», тел. {salon.phone}. Одобрить/отклонить — админ-панель → Заявки.")
+    # Значения читаем до записи журнала: её commit сбрасывает состояние сессии,
+    # и обращение к user.id после него уходит в ленивую подгрузку.
+    _uid, _uphone = user.id, getattr(user, "phone", None)
+    await record_consents(
+        db, documents=(ConsentDocument.OFFER, ConsentDocument.PD_CONSENT),
+        version=consent_version, source="business_checkout",
+        user_id=_uid, phone=_uphone, request=request,
+    )
+
     return {"ok": True, "redirect": "/business/dashboard?submitted=1"}
 
 

@@ -80,7 +80,7 @@ async def test_max_full_flow(client: httpx.AsyncClient, max_enabled):
 
     r = await client.post(
         "/api/v1/auth/register-web",
-        data={"phone": PHONE, "password": PASSWORD, "full_name": "МАКС Тест",
+        data={"phone": PHONE, "password": PASSWORD, "pd_consent": "1", "full_name": "МАКС Тест",
               "request_id": request_id, "code": ""},
     )
     assert r.status_code == 302
@@ -89,7 +89,7 @@ async def test_max_full_flow(client: httpx.AsyncClient, max_enabled):
     # Одноразовость
     r = await client.post(
         "/api/v1/auth/register-web",
-        data={"phone": "+79997778898", "password": PASSWORD,
+        data={"phone": "+79997778898", "password": PASSWORD, "pd_consent": "1",
               "request_id": request_id, "code": ""},
     )
     assert "error=bad_code" in r.headers["location"]

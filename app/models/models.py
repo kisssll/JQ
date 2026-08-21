@@ -1094,3 +1094,40 @@ class ModelMatch(Base):
         Index("ix_model_matches_model_status", "model_user_id", "status"),
         Index("ix_model_matches_salon_status", "salon_id", "status"),
     )
+
+class ConsentDocument(str, enum.Enum):
+    """Документ, с которым согласился человек."""
+    PD_CONSENT = "pd_consent"        # Согласие на обработку персональных данных
+    TERMS = "terms"                  # Пользовательское соглашение
+    OFFER = "offer"                  # Оферта / договор-присоединение (для салонов)
+
+
+class UserConsent(Base):
+    """Журнал согласий.
+
+    Пункт 8 Согласия называет моментом согласия проставление отметки в форме,
+    поэтому нужно хранить сам факт: что подтвердили, когда, в какой редакции
+    документа и с какого адреса. Без этой записи доказать согласие при проверке
+    нечем — сама галочка никуда не сохраняется.
+
+    user_id необязателен: гостевая запись оформляется без учётной записи,
+    там человек опознаётся по телефону.
+    """
+    __tablename__ = "user_consents"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    document: Mapped[ConsentDocument] = mapped_column(Enum(ConsentDocument), nullable=False)
+    version: Mapped[str] = mapped_column(String(32), nullable=False)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)   # какая форма: register, guest_booking, …
+    ip: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    user: Mapped[Optional["User"]] = relationship()
+
+    __table_args__ = (
+        Index("ix_user_consents_user", "user_id"),
+        Index("ix_user_consents_phone", "phone"),
+    )

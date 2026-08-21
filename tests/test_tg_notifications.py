@@ -129,7 +129,7 @@ async def test_registration_saves_tg_chat_id(client, db_session, monkeypatch, tg
 
     r = await client.post(
         "/api/v1/auth/register-web",
-        data={"phone": phone, "password": "Testpass1", "full_name": "ТГ",
+        data={"phone": phone, "password": "Testpass1", "pd_consent": "1", "full_name": "ТГ",
               "request_id": request_id, "code": ""},
     )
     assert r.status_code == 302 and r.headers["location"] == "/profile"

@@ -18,12 +18,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.models.models import (
     User, UserRole, Salon, Master, Service, Booking, BookingStatus,
-    SalonModerationStatus,
+    SalonModerationStatus, ConsentDocument,
 )
 from app.schemas.user import try_normalize_phone
 from app.core.security import get_password_hash
 from app.core.limiter import limiter
 from app.services.booking_service import BookingService
+from app.services.consent_service import record_consent
 from app.services.notifications import notify_booking_created, send_guest_booking_email
 
 router = APIRouter()
@@ -37,6 +38,8 @@ class GuestBookingRequest(BaseModel):
     name: str
     phone: str
     email: Optional[str] = None
+    pd_consent: bool = False
+    consent_version: Optional[str] = None
 
 
 @router.post("/booking")
@@ -53,6 +56,10 @@ async def create_guest_booking(
     name = (data.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Укажите имя")
+    # Форма собирает имя, телефон и почту — те же категории, что и регистрация,
+    # поэтому согласие обязательно и здесь.
+    if not data.pd_consent:
+        raise HTTPException(status_code=400, detail="Отметьте согласие на обработку персональных данных")
 
     salon = (await db.execute(select(Salon).where(Salon.id == data.salon_id))).scalar_one_or_none()
     if (
@@ -133,7 +140,15 @@ async def create_guest_booking(
         "письмо. Следить за статусом записи можно по кнопке ниже.",
     )
 
-    return {"status": "pending", "booking_id": booking.id, "manage_token": token}
+    # Значения ответа читаем до записи журнала: её commit сбрасывает состояние
+    # объекта, и последующее обращение к booking.id уходит в ленивую подгрузку.
+    booking_id, client_id = booking.id, booking.client_id
+    await record_consent(
+        db, document=ConsentDocument.PD_CONSENT, version=data.consent_version or "",
+        source="guest_booking", user_id=client_id, phone=norm_phone, request=request,
+    )
+
+    return {"status": "pending", "booking_id": booking_id, "manage_token": token}
 
 
 @router.post("/booking/{token}/cancel")

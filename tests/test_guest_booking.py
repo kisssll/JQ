@@ -44,7 +44,8 @@ async def _setup(db_session, *, salon_phone, master_phone, guest_enabled=True):
 def _payload(salon_id, master_id, svc_id, phone, **over):
     start = (datetime.now() + timedelta(days=1)).replace(hour=12, minute=0, second=0, microsecond=0)
     p = {"salon_id": salon_id, "master_id": master_id, "service_id": svc_id,
-         "start_time": start.isoformat(), "name": "Гость", "phone": phone}
+         "start_time": start.isoformat(),
+        "pd_consent": True, "name": "Гость", "phone": phone}
     p.update(over)
     return p
 

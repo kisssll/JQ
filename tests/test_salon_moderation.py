@@ -100,7 +100,7 @@ async def test_registration_requires_offer(client, db_session):
     # с офертой — создаётся ЗАЯВКА (pending), фиксируется offer_accepted_at
     r = await client.post("/api/v1/business/my-salon", data={
         "name": "С офертой", "address": "Томск", "city": "Томск", "phone": "+79991112233",
-        "offer_accepted": "1",
+        "offer_accepted": "1", "pd_consent": "1",
     })
     assert r.status_code in (302, 303)
     async with db_session() as db:
@@ -131,7 +131,7 @@ async def test_admin_approve_does_not_auto_publish(client, db_session):
 
 async def test_checkout_apply_requires_login(client):
     r = await client.post("/api/v1/business/apply", data={
-        "salon_name": "X", "phone": "+70000000000", "offer_accepted": "1"})
+        "salon_name": "X", "phone": "+70000000000", "offer_accepted": "1", "pd_consent": "1"})
     assert r.status_code == 401
 
 
@@ -145,7 +145,7 @@ async def test_checkout_apply_creates_pending_and_upgrades_role(client, db_sessi
     # с согласием — заявка pending + роль BUSINESS + владелец
     r = await client.post("/api/v1/business/apply", data={
         "salon_name": "НовыйБиз", "phone": "+79990000001",
-        "offer_accepted": "1", "plan": "business"})
+        "offer_accepted": "1", "pd_consent": "1", "plan": "business"})
     assert r.status_code == 200, r.text
     assert "/business/dashboard" in r.json()["redirect"]
     async with db_session() as db:

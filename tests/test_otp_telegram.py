@@ -95,7 +95,7 @@ async def test_tg_full_flow_and_one_shot(client: httpx.AsyncClient, tg_enabled):
     # 3. Регистрация с подтверждённым request_id, код не нужен
     r = await client.post(
         "/api/v1/auth/register-web",
-        data={"phone": PHONE, "password": PASSWORD, "full_name": "ТГ Тест",
+        data={"phone": PHONE, "password": PASSWORD, "pd_consent": "1", "full_name": "ТГ Тест",
               "request_id": request_id, "code": ""},
     )
     assert r.status_code == 302
@@ -104,7 +104,7 @@ async def test_tg_full_flow_and_one_shot(client: httpx.AsyncClient, tg_enabled):
     # 4. Запись одноразовая: повторное использование того же request_id — отказ
     r = await client.post(
         "/api/v1/auth/register-web",
-        data={"phone": "+79993334456", "password": PASSWORD,
+        data={"phone": "+79993334456", "password": PASSWORD, "pd_consent": "1",
               "request_id": request_id, "code": ""},
     )
     assert r.status_code == 302
@@ -118,7 +118,7 @@ async def test_pending_request_id_is_not_enough(client: httpx.AsyncClient, tg_en
 
     r = await client.post(
         "/api/v1/auth/register-web",
-        data={"phone": PHONE, "password": PASSWORD, "request_id": request_id, "code": ""},
+        data={"phone": PHONE, "password": PASSWORD, "pd_consent": "1", "request_id": request_id, "code": ""},
     )
     assert r.status_code == 302
     assert "error=bad_code" in r.headers["location"]
@@ -132,7 +132,7 @@ async def test_tg_confirmation_is_bound_to_phone(client: httpx.AsyncClient, tg_e
 
     r = await client.post(
         "/api/v1/auth/register-web",
-        data={"phone": "+79990001122", "password": PASSWORD,
+        data={"phone": "+79990001122", "password": PASSWORD, "pd_consent": "1",
               "request_id": request_id, "code": ""},
     )
     assert r.status_code == 302

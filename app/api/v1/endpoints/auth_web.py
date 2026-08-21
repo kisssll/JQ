@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.session import get_db
-from app.models.models import User, UserRole
+from app.models.models import User, UserRole, ConsentDocument
 from app.schemas.user import try_normalize_phone
 from app.core.config import settings
 from app.core.security import (
@@ -24,6 +24,7 @@ from app.core.limiter import (
     reset_login_failures,
 )
 from app.services import otp
+from app.services.consent_service import record_consent
 from app.services import password_reset
 
 router = APIRouter()
@@ -110,6 +111,8 @@ async def register_web(
     full_name: str = Form(""),
     request_id: str = Form(""),
     code: str = Form(""),
+    pd_consent: str = Form(""),
+    consent_version: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     """Регистрация через веб-форму. Роль всегда CLIENT (назначает сервер).
@@ -124,6 +127,11 @@ async def register_web(
 
     if norm_phone is None:
         return RedirectResponse(url=f"/register?error=bad_phone&{keep}", status_code=302)
+
+    # Согласие на обработку ПДн обязательно: без него нельзя создавать учётную
+    # запись, потому что сама регистрация и есть сбор персональных данных.
+    if pd_consent != "1":
+        return RedirectResponse(url=f"/register?error=no_consent&{keep}", status_code=302)
 
     try:
         validate_password_strength(password)
@@ -178,8 +186,17 @@ async def register_web(
         user.tg_chat_id = tg_chat_id
         await db.commit()
 
+    # id читаем до записи журнала: record_consent делает commit, а он сбрасывает
+    # состояние объекта, и обращение к user.id после него уходит в ленивую
+    # подгрузку внутри async-контекста.
+    user_id = user.id
+    await record_consent(
+        db, document=ConsentDocument.PD_CONSENT, version=consent_version,
+        source="register", user_id=user_id, phone=norm_phone, request=request,
+    )
+
     response = RedirectResponse(url="/profile", status_code=302)
-    _set_auth_cookie(response, user.id)
+    _set_auth_cookie(response, user_id)
     return response
 
 @router.post("/forgot-password")
