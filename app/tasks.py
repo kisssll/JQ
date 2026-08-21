@@ -389,24 +389,50 @@ async def finalize_tkassa_verification(
 
 async def _charge_due(db, client, kind: str, targets: list, notification_url: str, return_url: str, now) -> int:
     """Общий проход по «должникам» одного вида (салоны ИЛИ модели) — см.
-    charge_due_subscriptions. Возвращает число успешно продлённых."""
+    charge_due_subscriptions. Возвращает число успешно продлённых.
+
+    Для салонов (kind='business') тариф на КАЖДОЕ автосписание пересчитывается
+    заново по фактическому числу активных мастеров (см.
+    resolve_plan_for_employee_count в app/services/tariffs.py) — так тариф сам
+    «дорастает»/«сжимается» вместе со штатом, без ручного переключения
+    владельцем. У моделей такого пересчёта нет — там тариф не зависит от
+    штата, берём как есть (subscription_amount, выставленный при выборе)."""
     import uuid
     from datetime import datetime, timedelta, timezone
     from decimal import Decimal
 
-    from app.models.models import Payment, PaymentKind, PaymentStatus, SalonSubscriptionStatus
+    from sqlalchemy import func, select
+
+    from app.models.models import Master, Payment, PaymentKind, PaymentStatus, SalonSubscriptionStatus
+    from app.services.tariffs import TariffError, compute_amount, resolve_plan_for_employee_count
     from app.services.tkassa import TKassaError
 
     processed = 0
     for target in targets:
-        amount = Decimal(str(target.subscription_amount or 0))
-        if amount <= 0:
-            logger.error("charge_due_subscriptions: %s %s без subscription_amount, пропуск", kind, target.id)
-            continue
+        if kind == "business":
+            active_masters = (await db.execute(
+                select(func.count(Master.id)).where(
+                    Master.salon_id == target.id, Master.is_active == True,  # noqa: E712
+                )
+            )).scalar() or 0
+            plan = resolve_plan_for_employee_count(active_masters)
+            try:
+                amount = compute_amount(plan, active_masters)
+            except TariffError as exc:
+                logger.error(
+                    "charge_due_subscriptions: salon %s — тариф не определить (%s), пропуск",
+                    target.id, exc,
+                )
+                continue
+            target.business_tier = plan
+            target.subscription_amount = float(amount)
+        else:
+            amount = Decimal(str(target.subscription_amount or 0))
+            if amount <= 0:
+                logger.error("charge_due_subscriptions: %s %s без subscription_amount, пропуск", kind, target.id)
+                continue
+            plan = target.subscription_tier.value if target.subscription_tier else ""
 
-        plan = target.business_tier if kind == "business" else (
-            target.subscription_tier.value if target.subscription_tier else ""
-        )
         payment = Payment(
             plan=plan or "", kind=PaymentKind.RECURRENT, amount=float(amount),
             invoice_id=uuid.uuid4().hex,

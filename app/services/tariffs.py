@@ -76,3 +76,22 @@ def compute_amount(
             f"{tariff.max_employees} сотрудников (указано {employee_count})"
         )
     return tariff.unit_price * employee_count
+
+
+def resolve_plan_for_employee_count(employee_count: int) -> str:
+    """Тариф бизнеса по фактическому числу мастеров — салон стартует с
+    выбранного вручную тарифа (см. checkout/billing-tab), но при каждой
+    следующей оплате (ручной или автосписании, см. app/tasks.py:
+    charge_due_subscriptions) план пересчитывается заново по этой функции:
+    подрос штат — на следующий платёж тариф сам подтянется вверх, и наоборот.
+    Возвращает 'custom', если сотрудников больше, чем покрывает
+    «Корпоративный» (>20) — для него самостоятельной оплаты нет, дальше
+    решает продавец (см. TariffError в compute_amount)."""
+    count = max(employee_count, 1)
+    if count <= TARIFF_CATALOG["lite"].max_employees:
+        return "lite"
+    if count <= 10:
+        return "business"
+    if count <= 20:
+        return "corporate"
+    return "custom"

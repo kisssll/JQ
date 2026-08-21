@@ -78,32 +78,67 @@
         bindPublishGateModal();
     }
 
-    // Вкладка «Тариф»: разовая ручная оплата и отмена автопродления.
-    // Оплата — тот же приём, что на /business/checkout: сервер готовит
-    // платёж в Т-Кассе (/api/v1/payments/business/manual-charge) и отдаёт
-    // ссылку на страницу оплаты — просто перенаправляем туда, без виджета.
-    // Факт оплаты подтверждает вебхук на сервере уже после возврата.
+    // Вкладка «Тариф»: выбор тарифа (если ещё не выбран), разовая ручная
+    // оплата и отмена автопродления. Оплата — тот же приём, что на
+    // /business/checkout: сервер готовит платёж в Т-Кассе и отдаёт ссылку
+    // на страницу оплаты — просто перенаправляем туда, без виджета. Факт
+    // оплаты подтверждает вебхук на сервере уже после возврата. Тариф на
+    // тарифе не фиксируется — сервер сам пересчитывает его по числу мастеров
+    // при каждой следующей оплате (см. resolve_plan_for_employee_count).
     function bindBillingButtons() {
         const note = document.getElementById('billing-note');
         const setNote = (text) => { if (note) note.textContent = text; };
+
+        const selectPlanBtn = document.getElementById('billingSelectPlanBtn');
+        if (selectPlanBtn) {
+            selectPlanBtn.addEventListener('click', async function() {
+                const salonId = parseInt(this.dataset.salonId, 10);
+                const activeMasters = parseInt(this.dataset.activeMasters, 10) || null;
+                const plan = document.querySelector('input[name="billing-plan"]:checked').value;
+                const renewalInput = document.querySelector('input[name="billing-renewal-mode"]:checked');
+                const autoRenew = !!renewalInput && renewalInput.value === 'auto';
+                this.disabled = true;
+                setNote('Готовим тариф…');
+                try {
+                    const res = await fetch('/api/v1/payments/business/init', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            salon_id: salonId, plan: plan, auto_renew: autoRenew,
+                            employee_count: activeMasters,
+                        }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        setNote(data.detail || 'Не удалось подключить тариф.');
+                        this.disabled = false;
+                        return;
+                    }
+                    if (!data.requires_payment) {
+                        setNote('Пробный период запущен — обновляем страницу…');
+                        window.location.reload();
+                        return;
+                    }
+                    setNote('Переходим к оплате…');
+                    window.location = data.payment_url;
+                } catch (e) {
+                    setNote('Ошибка сети, попробуйте ещё раз.');
+                    this.disabled = false;
+                }
+            });
+        }
 
         const payBtn = document.getElementById('billingPayBtn');
         if (payBtn) {
             payBtn.addEventListener('click', async function() {
                 const salonId = this.dataset.salonId;
-                const employeeInput = document.getElementById('billing-employee-count');
-                const employeeCount = employeeInput ? parseInt(employeeInput.value, 10) : null;
-                if (employeeInput && (!employeeCount || employeeCount < 1)) {
-                    setNote('Укажите количество сотрудников.');
-                    return;
-                }
                 this.disabled = true;
                 setNote('Готовим оплату…');
                 try {
                     const res = await fetch('/api/v1/payments/business/manual-charge', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ salon_id: parseInt(salonId, 10), employee_count: employeeCount }),
+                        body: JSON.stringify({ salon_id: parseInt(salonId, 10) }),
                     });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) {

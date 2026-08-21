@@ -19,7 +19,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import check_salon_permission, get_current_user
@@ -27,11 +27,13 @@ from app.core.config import settings
 from app.core.worker import get_arq_pool
 from app.db.session import get_db
 from app.models.models import (
-    Payment, PaymentKind, PaymentStatus, Salon, SalonSubscriptionStatus,
+    Master, Payment, PaymentKind, PaymentStatus, Salon, SalonSubscriptionStatus,
     SubscriptionTier, User,
 )
 from app.services.tkassa import TKassaClient, TKassaError, verify_notification
-from app.services.tariffs import MODEL_TARIFF_CATALOG, TariffError, compute_amount
+from app.services.tariffs import (
+    MODEL_TARIFF_CATALOG, TariffError, compute_amount, resolve_plan_for_employee_count,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -72,7 +74,6 @@ class InitPaymentRequest(BaseModel):
 
 class ManualChargeRequest(BaseModel):
     salon_id: int
-    employee_count: Optional[int] = None
 
 
 class CancelAutoRenewRequest(BaseModel):
@@ -158,7 +159,12 @@ async def manual_business_charge(
 ):
     """Разовая ручная оплата тарифа (кнопка «Оплатить» в кабинете) — и для
     владельцев без автопродления каждый месяц, и как «оплатить досрочно» для
-    остальных. RebillId не запрашиваем — обычный одноразовый платёж."""
+    остальных. RebillId не запрашиваем — обычный одноразовый платёж.
+
+    Тариф на каждую оплату пересчитывается заново по фактическому числу
+    активных мастеров (см. resolve_plan_for_employee_count) — салон стартует
+    с выбранного вручную тарифа, а дальше сам «дорастает»/«сжимается» вместе
+    со штатом, без ручного переключения."""
     _require_enabled()
     await check_salon_permission(db, current_user, body.salon_id, "manage_tariff")
     salon = await db.get(Salon, body.salon_id)
@@ -167,13 +173,19 @@ async def manual_business_charge(
     if not salon.business_tier:
         raise HTTPException(status_code=400, detail="Сначала выберите тариф")
 
+    active_masters = (await db.execute(
+        select(func.count(Master.id)).where(Master.salon_id == salon.id, Master.is_active == True)  # noqa: E712
+    )).scalar() or 0
+    plan = resolve_plan_for_employee_count(active_masters)
+
     try:
-        amount = compute_amount(salon.business_tier, body.employee_count)
+        amount = compute_amount(plan, active_masters)
     except TariffError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    salon.business_tier = plan
     payment = Payment(
-        salon_id=salon.id, plan=salon.business_tier, kind=PaymentKind.MANUAL,
+        salon_id=salon.id, plan=plan, kind=PaymentKind.MANUAL,
         amount=float(amount), invoice_id=uuid.uuid4().hex,
     )
     db.add(payment)
