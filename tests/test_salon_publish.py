@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.core.security import get_password_hash
 from app.models.models import (
     User, UserRole, Salon, SalonMember, SalonRole, SalonModerationStatus,
-    Master, Service,
+    SalonSubscriptionStatus, Master, Service,
 )
 from tests.conftest import register_user
 
@@ -27,17 +27,23 @@ async def _mk_owner(db_session, phone, pw="Bizpass1"):
         return u.id
 
 
-async def _mk_approved_unpublished(db_session, owner_id, name="Салон"):
+async def _mk_approved_unpublished(db_session, owner_id, name="Салон",
+                                   subscription_status=SalonSubscriptionStatus.ACTIVE):
     """Салон в состоянии «прошёл модерацию, но не опубликован».
 
     Создаём PENDING, затем UPDATE'ом переводим в APPROVED — ровно как это
     делает админ-эндпоинт: published_at при этом остаётся NULL (grandfather-
     листенер conftest срабатывает только на INSERT сразу-approved).
+
+    subscription_status по умолчанию ACTIVE: после интеграции биллинга
+    публикация закрыта, пока у салона не выбран тариф (subscription_status != none),
+    поэтому «готовый к публикации» салон должен иметь активную подписку.
     """
     async with db_session() as db:
         s = Salon(name=name, description="", address="Томск, ул. 2",
                   latitude=56.5, longitude=84.9, phone="+79990000001",
                   rating=0.0, reviews_count=0, is_active=True,
+                  subscription_status=subscription_status,
                   moderation_status=SalonModerationStatus.PENDING, creator_id=owner_id)
         db.add(s)
         await db.commit()
@@ -124,6 +130,25 @@ async def test_publish_is_idempotent(client, db_session):
     assert r2.status_code == 200
     # повторная публикация не сдвигает отметку времени
     assert r2.json()["published_at"] == first
+
+
+async def test_publish_blocked_without_tariff(client, db_session):
+    # После интеграции биллинга: салон без выбранного тарифа
+    # (subscription_status=none) опубликовать нельзя — 409, published_at не ставится.
+    owner = await _mk_owner(db_session, "+79995552015")
+    sid = await _mk_approved_unpublished(
+        db_session, owner, name="БезТарифаZZ",
+        subscription_status=SalonSubscriptionStatus.NONE,
+    )
+    await _login(client, "+79995552015")
+
+    r = await client.post(f"/api/v1/business/my-salon/publish?salon_id={sid}")
+    assert r.status_code == 409, r.text
+    assert "тариф" in r.json()["detail"].lower()
+    async with db_session() as db:
+        s = (await db.execute(select(Salon).where(Salon.id == sid))).scalar_one()
+        assert s.published_at is None
+    assert "БезТарифаZZ" not in (await client.get("/salons")).text
 
 
 async def test_publish_requires_approved(client, db_session):
