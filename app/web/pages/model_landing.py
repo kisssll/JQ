@@ -64,7 +64,6 @@ def render_model_landing_page(user=None) -> str:
                         <div class="step-icon">
                             {ICON_USER_PLUS}
                         </div>
-                        <div class="model-step-number">1</div>
                         <h3>Зарегистрируйся</h3>
                         <p>Создай аккаунт в руми и заполни профиль — расскажи о себе, загрузи фото.</p>
                     </div>
@@ -72,7 +71,6 @@ def render_model_landing_page(user=None) -> str:
                         <div class="step-icon">
                             {ICON_SPARKLES}
                         </div>
-                        <div class="model-step-number">2</div>
                         <h3>Выбери подписку</h3>
                         <p>Выбери тариф, который подходит именно тебе — от Старт до Премиум.</p>
                     </div>
@@ -80,7 +78,6 @@ def render_model_landing_page(user=None) -> str:
                         <div class="step-icon">
                             {ICON_SEARCH}
                         </div>
-                        <div class="model-step-number">3</div>
                         <h3>Найди мастера</h3>
                         <p>Ищи мастеров по рейтингу, отзывам и услугам. Фильтруй по расстоянию.</p>
                     </div>
@@ -88,7 +85,6 @@ def render_model_landing_page(user=None) -> str:
                         <div class="step-icon">
                             {ICON_CALENDAR_CHECK}
                         </div>
-                        <div class="model-step-number">4</div>
                         <h3>Запишись на приём</h3>
                         <p>Выбери удобное время и получи услугу со скидкой. Мастер уже ждёт!</p>
                     </div>

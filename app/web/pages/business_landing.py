@@ -84,15 +84,15 @@ def render_business_landing_page(user=None) -> str:
         <section class="section-py bl-pains">
             <div class="section-container">
                 <div class="bl-section-header">
-                    <span class="bl-badge">Зачем это салону</span>
-                    <h2>Решаем реальные проблемы<span class="dot-primary">:</span></h2>
+                    <span class="bl-badge bl-badge-lg">Зачем это салону</span>
+                    <h2>Выбирайте лучшее — руми</h2>
                 </div>
                 <div class="bl-pains-grid">
                     <!-- Карточка 1 -->
                     <div class="bl-pain-card">
                         <div class="bl-pain-header">
-                            {ICON_CIRCLE_X}
-                            <span class="bl-pain-title">Долгий поиск клиентов для новых мастеров</span>
+                            {ICON_CIRCLE_CHECK}
+                            <span class="bl-pain-title">Быстрый поиск клиентов для новых мастеров</span>
                         </div>
                         <div class="bl-pain-solution">
                             {ICON_CIRCLE_CHECK}
@@ -126,8 +126,8 @@ def render_business_landing_page(user=None) -> str:
                     <!-- Карточка 3 -->
                     <div class="bl-pain-card">
                         <div class="bl-pain-header">
-                            {ICON_CIRCLE_X}
-                            <span class="bl-pain-title">Новых клиентов мало, реклама дорогая</span>
+                            {ICON_CIRCLE_CHECK}
+                            <span class="bl-pain-title">Много новых клиентов, бесплатная реклама</span>
                         </div>
                         <div class="bl-pain-solution">
                             {ICON_CIRCLE_CHECK}
@@ -143,12 +143,12 @@ def render_business_landing_page(user=None) -> str:
                     <!-- Карточка 4 -->
                     <div class="bl-pain-card">
                         <div class="bl-pain-header">
-                            {ICON_CIRCLE_X}
-                            <span class="bl-pain-title">Клиенты не могут дозвониться, чтобы записаться</span>
+                            {ICON_CIRCLE_CHECK}
+                            <span class="bl-pain-title">Клиенты не звонят, чтобы записаться</span>
                         </div>
                         <div class="bl-pain-solution">
                             {ICON_CIRCLE_CHECK}
-                            <p>Онлайн-запись за 4 шага — без звонков и форм. Клиент выбирает услугу, мастера и время сам, в любое время суток, а расписание обновляется в реальном времени.</p>
+                            <p>Онлайн-запись за 4 клика — без звонков и форм. Клиент выбирает услугу, мастера и время сам, в любое время суток, а расписание обновляется в реальном времени.</p>
                         </div>
                         <a href="#pricing" class="bl-pain-link">
                             {ICON_TRENDING_UP}
@@ -178,8 +178,8 @@ def render_business_landing_page(user=None) -> str:
                     <!-- Карточка 6 -->
                     <div class="bl-pain-card">
                         <div class="bl-pain-header">
-                            {ICON_CIRCLE_X}
-                            <span class="bl-pain-title">Не видно, что реально приносит деньги</span>
+                            {ICON_CIRCLE_CHECK}
+                            <span class="bl-pain-title">Видно, что реально приносит деньги</span>
                         </div>
                         <div class="bl-pain-solution">
                             {ICON_CIRCLE_CHECK}
@@ -205,33 +205,45 @@ def render_business_landing_page(user=None) -> str:
                 </div>
                 <div class="bl-features-grid">
                     <div class="bl-feature-card">
-                        <div class="bl-icon-wrapper">{ICON_CALENDAR_DAYS}</div>
-                        <h3>Управление расписанием</h3>
+                        <div class="bl-feature-header">
+                            <div class="bl-icon-wrapper">{ICON_CALENDAR_DAYS}</div>
+                            <h3>Управление расписанием</h3>
+                        </div>
                         <p>Полный контроль над записями мастеров. Окна, отмены, переносы — всё в реальном времени. Клиенты записываются онлайн.</p>
                     </div>
                     <div class="bl-feature-card">
-                        <div class="bl-icon-wrapper">{ICON_CHART_COLUMN}</div>
-                        <h3>Аналитика доходов</h3>
+                        <div class="bl-feature-header">
+                            <div class="bl-icon-wrapper">{ICON_CHART_COLUMN}</div>
+                            <h3>Аналитика доходов</h3>
+                        </div>
                         <p>Отслеживайте выручку по дням, неделям и месяцам. Смотрите какие услуги приносят больше прибыли и кто из мастеров самый эффективный.</p>
                     </div>
                     <div class="bl-feature-card">
-                        <div class="bl-icon-wrapper">{ICON_USERS}</div>
-                        <h3>Привлечение клиентов</h3>
+                        <div class="bl-feature-header">
+                            <div class="bl-icon-wrapper">{ICON_USERS}</div>
+                            <h3>Привлечение клиентов</h3>
+                        </div>
                         <p>Ваш салон видят тысячи пользователей руми. Рейтинг и отзывы помогают выделиться. Модели приходят сами.</p>
                     </div>
                     <div class="bl-feature-card">
-                        <div class="bl-icon-wrapper">{ICON_SHIELD_CHECK}</div>
-                        <h3>Проверенные клиенты</h3>
+                        <div class="bl-feature-header">
+                            <div class="bl-icon-wrapper">{ICON_SHIELD_CHECK}</div>
+                            <h3>Проверенные клиенты</h3>
+                        </div>
                         <p>Все пользователи верифицированы. Меньше отмен, больше лояльных клиентов, рейтинг доверия для каждого.</p>
                     </div>
                     <div class="bl-feature-card">
-                        <div class="bl-icon-wrapper">{ICON_CLOCK}</div>
-                        <h3>Экономия времени</h3>
+                        <div class="bl-feature-header">
+                            <div class="bl-icon-wrapper">{ICON_CLOCK}</div>
+                            <h3>Экономия времени</h3>
+                        </div>
                         <p>Автоматические напоминания клиентам, управление очередью, синхронизация с календарём — рутина на автопилоте.</p>
                     </div>
                     <div class="bl-feature-card">
-                        <div class="bl-icon-wrapper">{ICON_TRENDING_UP}</div>
-                        <h3>Рост бизнеса</h3>
+                        <div class="bl-feature-header">
+                            <div class="bl-icon-wrapper">{ICON_TRENDING_UP}</div>
+                            <h3>Рост бизнеса</h3>
+                        </div>
                         <p>Инструменты для масштабирования: акции, программы лояльности, работа с несколькими филиалами из одного кабинета.</p>
                     </div>
                 </div>
@@ -312,8 +324,33 @@ def render_business_landing_page(user=None) -> str:
                     </div>
                     <div class="bl-comparison-row">
                         <span>Программа «Модели»</span>
-                        <span class="bl-comparison-rumi">{ICON_CIRCLE_CHECK} Да — заполняет пустые окна</span>
+                        <span class="bl-comparison-rumi">{ICON_CIRCLE_CHECK} Модели сами бронируют свободные окна мастеров</span>
                         <span class="bl-comparison-other">Нет</span>
+                    </div>
+                    <div class="bl-comparison-row">
+                        <span>Встроенная CRM</span>
+                        <span class="bl-comparison-rumi">{ICON_CIRCLE_CHECK} Уже внутри, без интеграций</span>
+                        <span class="bl-comparison-other">Отдельная система</span>
+                    </div>
+                    <div class="bl-comparison-row">
+                        <span>Аналитика салона</span>
+                        <span class="bl-comparison-rumi">{ICON_CIRCLE_CHECK} По мастерам, услугам и выручке</span>
+                        <span class="bl-comparison-other">Урезанная или платно</span>
+                    </div>
+                    <div class="bl-comparison-row">
+                        <span>Складской учёт</span>
+                        <span class="bl-comparison-rumi">{ICON_CIRCLE_CHECK} Остатки материалов считаются автоматически</span>
+                        <span class="bl-comparison-other">Часто платный модуль</span>
+                    </div>
+                    <div class="bl-comparison-row">
+                        <span>Всё в одном окне и приложении</span>
+                        <span class="bl-comparison-rumi">{ICON_CIRCLE_CHECK} Запись, CRM и аналитика — в одном месте</span>
+                        <span class="bl-comparison-other">Разные системы</span>
+                    </div>
+                    <div class="bl-comparison-row">
+                        <span>Быстрая поддержка</span>
+                        <span class="bl-comparison-rumi">{ICON_CIRCLE_CHECK} Ответ в течение часа</span>
+                        <span class="bl-comparison-other">Долгие очереди тикетов</span>
                     </div>
                     <div class="bl-comparison-row">
                         <span>Стоимость входа</span>
@@ -341,28 +378,24 @@ def render_business_landing_page(user=None) -> str:
                 </div>
                 <div class="bl-how-steps">
                     <div class="bl-how-step">
-                        <div class="bl-icon-circle">{ICON_CIRCLE_CHECK}</div>
                         <div class="bl-step-content">
                             <h3 class="bl-step-title">Зарегистрируйте салон</h3>
                             <p class="bl-step-desc">Создайте профиль салона, добавьте фото, описание, адрес и список услуг.</p>
                         </div>
                     </div>
                     <div class="bl-how-step">
-                        <div class="bl-icon-circle">{ICON_CIRCLE_CHECK}</div>
                         <div class="bl-step-content">
                             <h3 class="bl-step-title">Настройте расписание</h3>
                             <p class="bl-step-desc">Добавьте мастеров, их графики, услуги и цены. Всё настраивается за 15 минут.</p>
                         </div>
                     </div>
                     <div class="bl-how-step">
-                        <div class="bl-icon-circle">{ICON_CIRCLE_CHECK}</div>
                         <div class="bl-step-content">
                             <h3 class="bl-step-title">Привлекайте клиентов</h3>
                             <p class="bl-step-desc">Ваш салон появится на платформе. Клиенты и модели начнут записываться.</p>
                         </div>
                     </div>
                     <div class="bl-how-step">
-                        <div class="bl-icon-circle">{ICON_CIRCLE_CHECK}</div>
                         <div class="bl-step-content">
                             <h3 class="bl-step-title">Развивайте бизнес</h3>
                             <p class="bl-step-desc">Используйте аналитику, акции и программы лояльности для роста.</p>
