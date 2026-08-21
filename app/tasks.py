@@ -324,95 +324,163 @@ async def process_payment_webhook(ctx: dict[str, Any], payload: dict[str, Any]) 
     return "processed"
 
 
-# ── Оплата подписок (CloudPayments) ───────────────────────────────
+# ── Оплата подписок (Т-Касса) ──────────────────────────────────────
 #
-# Отдельно от Т-Кассы выше (тот блок ещё не подключён ни к одному провайдеру).
-# Вебхук-эндпоинты (app/api/v1/endpoints/payments.py) сразу отвечают
-# CloudPayments {"code":0} и синхронно проставляют статус платежа/подписки в
-# БД — это быстро (одна транзакция), не требует очереди. В очередь уходит
-# только медленная часть после успешной ВЕРИФИКАЦИОННОЙ оплаты (1₽): возврат
-# этого рубля и оформление настоящей подписки на будущее — два внешних HTTP
-# вызова к CloudPayments, которые не должны блокировать ответ на вебхук.
+# Отдельно от Т-Кассы-заглушки выше (process_payment_webhook/_apply_payment_update
+# — задел под другой, ещё не выбранный сценарий, не трогаем). Вебхук
+# /tkassa/notify (app/api/v1/endpoints/payments.py) сразу отвечает "OK" и
+# синхронно проставляет статус платежа/подписки в БД — это быстро (одна
+# транзакция). В очередь уходит только медленная часть после успешной
+# ВЕРИФИКАЦИОННОЙ оплаты (1₽): возврат этого рубля — внешний HTTP-вызов к
+# Т-Кассе, который не должен блокировать ответ на вебхук.
 
 
-async def finalize_cloudpayments_verification(
+async def finalize_tkassa_verification(
     ctx: dict[str, Any],
     payment_id: int,
     salon_id: int,
-    plan: str,
+    rebill_id: str,
     target_amount: float,
-    token: str,
-    trial_ends_at_iso: str,
-    cp_transaction_id: str,
+    provider_payment_id: str,
 ) -> str:
     """После успешного верификационного платежа (1₽, см. PaymentKind.VERIFICATION):
-    вернуть эту сумму клиенту и оформить подписку CloudPayments на target_amount
-    (настоящая месячная цена тарифа) со стартом первого списания по окончании
-    пробного периода (trial_ends_at) — так триал остаётся реально бесплатным.
+    вернуть эту сумму клиенту и сохранить RebillId + сумму месячного платежа
+    на салоне — у Т-Кассы нет объекта «подписка», регулярные списания дальше
+    планирует и вызывает сама платформа (см. charge_due_subscriptions).
 
-    Возврат 1₽ — best-effort: если он не удался, не блокируем оформление
-    подписки (сумма минимальна, важнее не оставить салон без автопродления).
-    Провал именно оформления подписки — ретраим и, если так и не вышло,
-    откатываем auto_renew, чтобы кабинет не врал про автопродление.
+    Возврат 1₽ — best-effort: если он не удался, не блокируем сохранение
+    RebillId (сумма минимальна, важнее не оставить салон без автопродления).
     """
-    from datetime import datetime
     from decimal import Decimal
 
     from app.db.session import AsyncSessionLocal
     from app.models.models import Salon
-    from app.services.cloudpayments import CloudPaymentsClient, CloudPaymentsError
+    from app.services.tkassa import TKassaClient, TKassaError
 
     try:
-        client = CloudPaymentsClient()
-    except CloudPaymentsError as exc:
-        logger.error("finalize_cloudpayments_verification(%s): клиент недоступен: %s", payment_id, exc)
+        client = TKassaClient()
+    except TKassaError as exc:
+        logger.error("finalize_tkassa_verification(%s): клиент недоступен: %s", payment_id, exc)
         return "rejected"
 
     try:
-        await client.refund(cp_transaction_id, Decimal("1.00"))
-    except CloudPaymentsError:
+        await client.cancel(payment_id=provider_payment_id, amount_rub=Decimal("1.00"))
+    except TKassaError:
         logger.exception(
-            "finalize_cloudpayments_verification(%s): возврат 1₽ не удался, продолжаем "
-            "(сумма минимальна, оформление подписки важнее)", payment_id,
+            "finalize_tkassa_verification(%s): возврат 1₽ не удался, продолжаем "
+            "(сумма минимальна, сохранить RebillId важнее)", payment_id,
         )
 
-    trial_ends_at = datetime.fromisoformat(trial_ends_at_iso)
     async with AsyncSessionLocal() as db:
         salon = await db.get(Salon, salon_id)
         if salon is None:
-            logger.error("finalize_cloudpayments_verification: salon %s не найден", salon_id)
+            logger.error("finalize_tkassa_verification: salon %s не найден", salon_id)
             return "rejected"
-        try:
-            sub = await client.create_subscription(
-                token=token, account_id=str(salon_id),
-                description=f"Руми — тариф «{plan}»",
-                amount=Decimal(str(target_amount)),
-                email=salon.email or "",
-                start_date=trial_ends_at,
-            )
-        except CloudPaymentsError as exc:
-            from app.core.worker import WorkerSettings
-            if ctx["job_try"] >= WorkerSettings.max_tries:
-                # Последняя попытка тоже провалилась — дальше arq job не повторит.
-                # Откатываем auto_renew, чтобы кабинет не обещал автопродление,
-                # которого по факту нет (владелец увидит это и включит вручную).
-                logger.error(
-                    "finalize_cloudpayments_verification(%s): подписка не оформлена после "
-                    "%d попыток, отключаем автопродление: %s", payment_id, ctx["job_try"], exc,
-                )
-                salon.auto_renew = False
-                await db.commit()
-                return "rejected"
-            logger.warning(
-                "finalize_cloudpayments_verification(%s): подписка не оформлена (попытка %d): %s",
-                payment_id, ctx["job_try"], exc,
-            )
-            raise _retry(ctx, TransientTaskError(str(exc))) from exc
-
-        salon.cp_subscription_id = sub.id
+        salon.recurring_token = rebill_id
+        salon.subscription_amount = target_amount
         await db.commit()
-    logger.info(
-        "finalize_cloudpayments_verification(%s): подписка %s оформлена, старт %s",
-        payment_id, sub.id, trial_ends_at_iso,
-    )
+
+    logger.info("finalize_tkassa_verification(%s): RebillId сохранён для salon %s", payment_id, salon_id)
     return "processed"
+
+
+async def charge_due_subscriptions(ctx: dict[str, Any]) -> str:
+    """Плановые автосписания по автопродлению — раз в сутки (cron, см.
+    app/core/worker.py). У Т-Кассы нет своего планировщика подписок:
+    салону с auto_renew=True и истёкшим subscription_expires_at заводим
+    новый Init (свежий OrderId на сумму subscription_amount) и тут же
+    Charge по сохранённому recurring_token (RebillId). Ошибка одного салона
+    не должна прерывать обработку остальных — поэтому try/except внутри
+    цикла, а не вокруг него."""
+    import uuid
+    from datetime import datetime, timedelta, timezone
+    from decimal import Decimal
+
+    from sqlalchemy import select
+
+    from app.core.config import settings
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import (
+        Payment, PaymentKind, PaymentStatus, Salon, SalonSubscriptionStatus,
+    )
+    from app.services.tkassa import TKassaClient, TKassaError
+
+    now = datetime.now(timezone.utc)
+    processed = 0
+
+    async with AsyncSessionLocal() as db:
+        due_salons = (await db.execute(
+            select(Salon).where(
+                Salon.auto_renew == True,  # noqa: E712
+                Salon.recurring_token.isnot(None),
+                Salon.subscription_status.in_([
+                    SalonSubscriptionStatus.TRIALING, SalonSubscriptionStatus.ACTIVE,
+                    SalonSubscriptionStatus.PAST_DUE,
+                ]),
+                Salon.subscription_expires_at <= now,
+            )
+        )).scalars().all()
+
+        if not due_salons:
+            return "processed:0"
+
+        try:
+            client = TKassaClient()
+        except TKassaError as exc:
+            logger.error("charge_due_subscriptions: клиент недоступен: %s", exc)
+            return "rejected"
+
+        base = settings.PUBLIC_BASE_URL.rstrip("/")
+        notification_url = f"{base}/api/v1/payments/tkassa/notify"
+        return_url = f"{base}/business/dashboard?tab=billing"
+
+        for salon in due_salons:
+            amount = Decimal(str(salon.subscription_amount or 0))
+            if amount <= 0:
+                logger.error("charge_due_subscriptions: salon %s без subscription_amount, пропуск", salon.id)
+                continue
+
+            payment = Payment(
+                salon_id=salon.id, plan=salon.business_tier or "", kind=PaymentKind.RECURRENT,
+                amount=float(amount), invoice_id=uuid.uuid4().hex,
+            )
+            db.add(payment)
+            await db.flush()
+
+            try:
+                init_result = await client.init(
+                    order_id=payment.invoice_id, amount_rub=amount,
+                    description=f"Автопродление тарифа «{salon.business_tier}» — Руми",
+                    notification_url=notification_url, success_url=return_url, fail_url=return_url,
+                )
+                payment.provider_transaction_id = init_result.payment_id
+                charge_result = await client.charge(
+                    payment_id=init_result.payment_id, rebill_id=salon.recurring_token,
+                )
+            except TKassaError as exc:
+                logger.error("charge_due_subscriptions: salon %s — списание не удалось: %s", salon.id, exc)
+                payment.status = PaymentStatus.FAILED
+                salon.subscription_status = SalonSubscriptionStatus.PAST_DUE
+                await db.commit()
+                try:
+                    from app.services.notifications import notify_admins
+                    await notify_admins(
+                        db, "Не удалось списать автопродление подписки",
+                        f"Салон «{salon.name}» (id={salon.id}), тариф «{salon.business_tier}»: {exc}",
+                    )
+                except Exception:
+                    logger.exception("charge_due_subscriptions: не удалось отправить алерт")
+                continue
+
+            if charge_result.status == "CONFIRMED":
+                payment.status = PaymentStatus.SUCCEEDED
+                payment.paid_at = datetime.now(timezone.utc)
+                salon.subscription_expires_at = now + timedelta(days=30)
+                salon.subscription_status = SalonSubscriptionStatus.ACTIVE
+                processed += 1
+            # Иначе не подтверждён сразу — платёж остаётся PENDING, статус
+            # финализирует вебхук /tkassa/notify терминальным уведомлением.
+            await db.commit()
+
+    logger.info("charge_due_subscriptions: успешно продлено %d из %d салонов", processed, len(due_salons))
+    return f"processed:{processed}"

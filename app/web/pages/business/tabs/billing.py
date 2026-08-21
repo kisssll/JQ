@@ -1,10 +1,9 @@
 # app/web/pages/business/tabs/billing.py
-"""Вкладка «Тариф» — статус оплаты бизнес-подписки (CloudPayments) и две
-ручные кнопки, backend для которых уже есть в app/api/v1/endpoints/payments.py:
+"""Вкладка «Тариф» — статус оплаты бизнес-подписки (Т-Касса) и две ручные
+кнопки, backend для которых уже есть в app/api/v1/endpoints/payments.py:
 «Оплатить» (/business/manual-charge) и «Отменить автопродление»
-(/business/cancel-auto-renew). Сама привязка/списание карты всегда идёт
-через виджет CloudPayments в браузере — эта вкладка только готовит счёт и
-показывает текущий статус."""
+(/business/cancel-auto-renew). Сама оплата — редирект на страницу Т-Кассы,
+эта вкладка только готовит платёж и показывает текущий статус."""
 from app.core.config import settings
 from app.models.models import Salon, SalonSubscriptionStatus
 from app.services.tariffs import TARIFF_CATALOG
@@ -66,7 +65,7 @@ def render_billing_tab(salon: Salon, can_manage: bool) -> str:
                    max="{tariff.max_employees}" value="{tariff.min_employees}" class="form-input">
         </div>"""
 
-    if not settings.CLOUDPAYMENTS_ENABLED:
+    if not settings.TKASSA_ENABLED:
         actions_html = '<p class="text-muted" style="margin-top:1rem;font-size:0.85rem">Оплата картой скоро появится.</p>'
     else:
         pay_btn = (

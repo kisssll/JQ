@@ -54,10 +54,10 @@
     }
 
     // Вкладка «Тариф»: разовая ручная оплата и отмена автопродления.
-    // Оплата — тот же приём, что на /business/checkout: сервер готовит счёт
-    // (/api/v1/payments/business/manual-charge), сам платёж уходит из
-    // браузера прямо в CloudPayments виджетом, факт оплаты подтверждает
-    // вебхук на сервере — здесь просто ждём и перезагружаем панель.
+    // Оплата — тот же приём, что на /business/checkout: сервер готовит
+    // платёж в Т-Кассе (/api/v1/payments/business/manual-charge) и отдаёт
+    // ссылку на страницу оплаты — просто перенаправляем туда, без виджета.
+    // Факт оплаты подтверждает вебхук на сервере уже после возврата.
     function bindBillingButtons() {
         const note = document.getElementById('billing-note');
         const setNote = (text) => { if (note) note.textContent = text; };
@@ -86,30 +86,8 @@
                         this.disabled = false;
                         return;
                     }
-                    if (typeof cp === 'undefined') {
-                        setNote('Виджет оплаты не загрузился. Обновите страницу и попробуйте ещё раз.');
-                        this.disabled = false;
-                        return;
-                    }
-                    setNote('Открываем форму оплаты…');
-                    const widget = new cp.CloudPayments();
-                    const btn = this;
-                    widget.charge({
-                        publicId: data.public_id,
-                        description: data.description,
-                        amount: data.amount,
-                        currency: data.currency,
-                        invoiceId: data.invoice_id,
-                        accountId: data.account_id,
-                        email: data.email,
-                        skin: 'modern',
-                    }, function onSuccess() {
-                        setNote('Оплата прошла — обновляем страницу…');
-                        window.location.reload();
-                    }, function onFail(reason) {
-                        setNote('Оплата не прошла (' + (reason || 'попробуйте ещё раз') + ').');
-                        btn.disabled = false;
-                    });
+                    setNote('Переходим к оплате…');
+                    window.location = data.payment_url;
                 } catch (e) {
                     setNote('Ошибка сети, попробуйте ещё раз.');
                     this.disabled = false;

@@ -46,7 +46,6 @@ from app.web.pages.business.tabs.promo_models import render_promo_models_tab
 from app.web.pages.business.tabs.my_salon import render_my_salon_tab
 from app.web.pages.business.tabs.billing import render_billing_tab
 from app.crm.tabs.clients import render_crm_tab
-from app.core.config import settings
 
 
 _PERM_KEYS = (
@@ -369,7 +368,6 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     <title>Бизнес-панель — {salon.name} — руми</title>
     {get_base_styles()}
     {render_yandex_maps_script()}
-    {'<script src="https://widget.cloudpayments.ru/bundles/cloudpayments.js"></script>' if settings.CLOUDPAYMENTS_ENABLED else ''}
 </head>
 <body>
     {render_header("business")}

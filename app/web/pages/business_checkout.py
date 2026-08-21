@@ -79,7 +79,6 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
     <title>Подключение салона | Руми</title>
     <meta name="description" content="Подключите свой салон к платформе Руми">
     {get_base_styles()}
-    {'<script src="https://widget.cloudpayments.ru/bundles/cloudpayments.js"></script>' if settings.CLOUDPAYMENTS_ENABLED else ''}
 </head>
 <body>
     {render_header("business")}
@@ -130,7 +129,7 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                                     <input type="number" id="cx-employees" min="1" max="5" placeholder="От 1 до 5" class="form-input">
                                     <p class="form-hint">Тариф «Лайт» — 250 ₽ за сотрудника/мес, это и есть ваша итоговая сумма.</p>
                                 </div>
-                                <div id="renewal-mode-wrap"{'' if settings.CLOUDPAYMENTS_ENABLED else ' style="display:none;"'}>
+                                <div id="renewal-mode-wrap"{'' if settings.TKASSA_ENABLED else ' style="display:none;"'}>
                                     <label class="form-label">Продление подписки</label>
                                     <label class="checkbox-label">
                                         <input type="radio" name="renewal-mode" value="auto" class="checkbox-input" checked>
@@ -149,7 +148,7 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                             <button class="checkout-submit" id="submit-btn">
                                 Подключить салон
                             </button>
-                            <p class="checkout-note" id="submit-note">Первые 14 дней — бесплатно. {'Карта привязывается сразу, но списания не будет до конца пробного периода.' if settings.CLOUDPAYMENTS_ENABLED else 'Оплата картой скоро появится — пока тариф активируется сразу на пробный период.'}</p>
+                            <p class="checkout-note" id="submit-note">Первые 14 дней — бесплатно. {'Карта привязывается сразу, но списания не будет до конца пробного периода.' if settings.TKASSA_ENABLED else 'Оплата картой скоро появится — пока тариф активируется сразу на пробный период.'}</p>
                         </div>
                         <div class="checkout-summary" id="tariff-card">
                             <h3 class="tariff-card-name" id="tariff-name">{active["name"]}</h3>
@@ -172,7 +171,7 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
     <script>
         // Данные тарифов из Python
         const tariffs = {tariffs_json};
-        const cloudPaymentsEnabled = {'true' if settings.CLOUDPAYMENTS_ENABLED else 'false'};
+        const paymentsEnabled = {'true' if settings.TKASSA_ENABLED else 'false'};
 
         // Иконка галочки для вставки в список
         const checkIcon = `{ICON_CIRCLE_CHECK}`;
@@ -198,7 +197,7 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
 
             document.getElementById('employee-count-wrap').style.display = planId === 'lite' ? '' : 'none';
             document.getElementById('renewal-mode-wrap').style.display =
-                (cloudPaymentsEnabled && planId !== 'custom') ? '' : 'none';
+                (paymentsEnabled && planId !== 'custom') ? '' : 'none';
 
             const url = new URL(window.location);
             url.searchParams.set('plan', planId);
@@ -220,8 +219,9 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
             }}
         }});
 
-        // === Оплата: готовим счёт на сервере, платёж всегда идёт из браузера
-        // напрямую в CloudPayments (номер карты сервер не видит) ===
+        // === Оплата: сервер готовит платёж в Т-Кассе и отдаёт ссылку на
+        // страницу оплаты — просто перенаправляем туда браузер, никакого
+        // виджета не нужно. Факт оплаты подтверждает вебхук на сервере. ===
         function setNote(text) {{
             document.getElementById('submit-note').textContent = text;
         }}
@@ -247,32 +247,8 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                     window.location = data.redirect || '/business/dashboard';
                     return;
                 }}
-                if (typeof cp === 'undefined') {{
-                    setNote('Виджет оплаты не загрузился. Обновите страницу и попробуйте ещё раз.');
-                    btn.disabled = false; btn.style.opacity = '1';
-                    return;
-                }}
-                setNote('Открываем форму оплаты…');
-                const widget = new cp.CloudPayments();
-                widget.charge({{
-                    publicId: data.public_id,
-                    description: data.description,
-                    amount: data.amount,
-                    currency: data.currency,
-                    invoiceId: data.invoice_id,
-                    accountId: data.account_id,
-                    email: data.email,
-                    skin: 'modern',
-                    // Признак для CloudPayments: с этого платежа нужен Token карты
-                    // для будущей подписки (оформляется сервером после успеха).
-                    data: {{ cloudPayments: {{ recurrent: {{ interval: 'Month', period: 1 }} }} }},
-                }}, function onSuccess() {{
-                    window.location = '/business/dashboard?payment=pending';
-                }}, function onFail(reason) {{
-                    setNote('Оплата не прошла (' + (reason || 'попробуйте ещё раз') + '). Салон уже создан — можно повторить привязку карты.');
-                    btn.disabled = false; btn.style.opacity = '1';
-                    btn.textContent = 'Повторить привязку карты';
-                }});
+                setNote('Переходим к оплате…');
+                window.location = data.payment_url;
             }} catch (err) {{
                 setNote('Ошибка сети при подготовке оплаты. Салон уже создан — попробуйте ещё раз.');
                 btn.disabled = false; btn.style.opacity = '1';
@@ -309,7 +285,7 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
             }}
 
             const renewalInput = document.querySelector('input[name="renewal-mode"]:checked');
-            const autoRenew = cloudPaymentsEnabled && (!renewalInput || renewalInput.value === 'auto');
+            const autoRenew = paymentsEnabled && (!renewalInput || renewalInput.value === 'auto');
 
             const btn = this;
             btn.disabled = true; btn.style.opacity = '0.7';
