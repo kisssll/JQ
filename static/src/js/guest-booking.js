@@ -145,6 +145,13 @@ import { confirmDialog } from './ui-feedback.js';
         const phone = document.getElementById('gb-phone').value.trim();
         const email = document.getElementById('gb-email').value.trim();
         if (!name || !phone) { err.textContent = 'Укажите имя и телефон'; return; }
+        // Согласие на ПДн обязательно и здесь: форма собирает имя, телефон и
+        // почту, то есть ровно те же категории, что и регистрация.
+        const consent = document.getElementById('gb-consent');
+        if (consent && !consent.checked) {
+            err.textContent = 'Отметьте согласие на обработку персональных данных';
+            return;
+        }
         this.disabled = true;
         err.textContent = '';
         try {
@@ -154,6 +161,7 @@ import { confirmDialog } from './ui-feedback.js';
                 body: JSON.stringify({
                     salon_id: salonId, master_id: state.master.id, service_id: state.service.id,
                     start_time: state.slot, name, phone, email: email || null,
+                    pd_consent: true, consent_version: document.body.dataset.legalVersion || null,
                 }),
             });
             const data = await res.json();

@@ -5,6 +5,7 @@ from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.yandex_maps import render_yandex_maps_script, yandex_maps_enabled
 from app.web.cities import RUSSIAN_CITIES, DEFAULT_CITY
+from app.web.pages.legal import LEGAL_VERSION
 
 
 def render_register_salon_page(user=None, error: str = "") -> str:
@@ -89,10 +90,25 @@ def render_register_salon_page(user=None, error: str = "") -> str:
                     <input type="email" name="email" placeholder="salon@example.com (необязательно)" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 0.4rem;">
                     <p class="text-muted" style="font-size: 0.8rem; margin: 0 0 1.5rem;">На неё можно отправлять реквизиты новых сотрудников и получать уведомления о записях.</p>
 
-                    <label style="display: flex; gap: 0.6rem; align-items: flex-start; margin-bottom: 1.5rem; font-size: 0.85rem; cursor: pointer;" class="text-muted">
-                        <input type="checkbox" name="offer_accepted" value="1" required style="margin-top: 0.2rem; flex-shrink: 0;">
-                        <span>Я принимаю условия оферты и договора-присоединения, даю согласие на обработку персональных данных. Доступ к работе открывается после подтверждения заявки платформой.</span>
-                    </label>
+                    <!-- Раньше здесь была одна галочка, склеивавшая принятие оферты
+                         и согласие на обработку ПДн. С 1 сентября 2025 согласие
+                         должно быть отдельным, поэтому отметки разведены. -->
+                    <div class="consent-block">
+                        <label class="consent-check">
+                            <input type="checkbox" name="offer_accepted" value="1" class="consent-check-input" required>
+                            <span class="consent-check-text">Я принимаю условия оферты и договора-присоединения, изложенные в
+                                <a href="/terms" target="_blank" rel="noopener">Пользовательском соглашении</a>.</span>
+                        </label>
+                        <label class="consent-check" style="margin-top: 0.6rem;">
+                            <input type="checkbox" name="pd_consent" value="1" class="consent-check-input" required>
+                            <span class="consent-check-text">Я даю согласие на обработку персональных данных на условиях
+                                <a href="/consent" target="_blank" rel="noopener">Согласия</a>.</span>
+                        </label>
+                        <input type="hidden" name="consent_version" value="{LEGAL_VERSION}">
+                        <p class="consent-note">Доступ к работе открывается после подтверждения заявки платформой.
+                            Как мы обрабатываем данные — в
+                            <a href="/privacy" target="_blank" rel="noopener">Политике</a>.</p>
+                    </div>
 
                     <button type="submit" class="btn-primary" style="width: 100%; padding: 1rem; font-size: 1rem;">Отправить заявку</button>
                 </form>

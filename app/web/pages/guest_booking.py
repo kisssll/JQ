@@ -18,6 +18,7 @@ from app.web.components.icons import (
     ICON_CHECK,
     ICON_CIRCLE_CHECK,
 )
+from app.web.pages.legal import LEGAL_VERSION
 
 
 _STYLE = """
@@ -88,7 +89,7 @@ def _shell(title: str, inner: str) -> str:
     {get_base_styles()}
     {_STYLE}
 </head>
-<body class="gb-body">
+<body class="gb-body" data-legal-version="{LEGAL_VERSION}">
     <header class="gb-header">
         <a href="/" id="header-logo">руми.</a>
         <a href="/login" class="gb-login">Войти</a>
@@ -180,6 +181,17 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
                     <input type="tel" id="gb-phone" class="gb-input phone-input" value="+7" placeholder="+7 (___) ___-__-__" required></div>
                 <div class="gb-field"><label>Email — для уведомлений, необязательно</label>
                     <input type="email" id="gb-email" class="gb-input" autocomplete="email" placeholder="example@mail.ru"></div>
+                <div class="consent-block">
+                    <label class="consent-check">
+                        <input type="checkbox" id="gb-consent" class="consent-check-input" required>
+                        <span class="consent-check-text">Я даю согласие на обработку персональных данных на условиях
+                            <a href="/consent" target="_blank" rel="noopener">Согласия</a>.</span>
+                    </label>
+                    <p class="consent-note">Записываясь, вы принимаете
+                        <a href="/terms" target="_blank" rel="noopener">Пользовательское соглашение</a>
+                        и подтверждаете, что ознакомились с
+                        <a href="/privacy" target="_blank" rel="noopener">Политикой обработки персональных данных</a>.</p>
+                </div>
                 <p id="gb-error" class="gb-error"></p>
                 <button id="gb-submit" class="gb-primary">Записаться</button>
             </div>

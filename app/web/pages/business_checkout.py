@@ -8,6 +8,7 @@ from app.web.components.icons import (
     ICON_CIRCLE_CHECK,
 )
 import json
+from app.web.pages.legal import LEGAL_VERSION
 
 TARIFFS = {
     "lite": {
@@ -127,10 +128,23 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                                     <label class="form-label">Количество сотрудников</label>
                                     <input type="text" id="cx-exp" placeholder="Например: 7" class="form-input">
                                 </div>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" class="checkbox-input" id="terms-checkbox">
-                                    <span class="checkbox-text">Я соглашаюсь с <a href="/terms" class="text-link">условиями использования</a> и <a href="/privacy" class="text-link">политикой конфиденциальности</a></span>
-                                </label>
+                                <!-- Ссылки вели на 404, пока страниц документов не
+                                     существовало. Плюс согласие на ПДн отделено от
+                                     принятия условий: склеивать их нельзя. -->
+                                <div class="consent-block">
+                                    <label class="consent-check">
+                                        <input type="checkbox" class="consent-check-input" id="terms-checkbox">
+                                        <span class="consent-check-text">Я принимаю
+                                            <a href="/terms" target="_blank" rel="noopener">Пользовательское соглашение</a>.</span>
+                                    </label>
+                                    <label class="consent-check" style="margin-top: 0.6rem;">
+                                        <input type="checkbox" class="consent-check-input" id="consent-checkbox">
+                                        <span class="consent-check-text">Я даю согласие на обработку персональных данных на условиях
+                                            <a href="/consent" target="_blank" rel="noopener">Согласия</a>.</span>
+                                    </label>
+                                    <p class="consent-note">Как мы обрабатываем данные — в
+                                        <a href="/privacy" target="_blank" rel="noopener">Политике обработки персональных данных</a>.</p>
+                                </div>
                             </div>
                             <button class="checkout-submit" id="submit-btn">
                                 Подключить салон
@@ -204,9 +218,14 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
         // === Обработка отправки формы ===
         document.getElementById('submit-btn').addEventListener('click', async function(e) {{
             e.preventDefault();
-            const checkbox = document.getElementById('terms-checkbox');
-            if (!checkbox.checked) {{
-                alert('Пожалуйста, согласитесь с условиями использования и политикой конфиденциальности.');
+            // Две отметки проверяются раздельно: согласие на ПДн нельзя
+            // считать данным вместе с принятием соглашения.
+            if (!document.getElementById('terms-checkbox').checked) {{
+                window.rumiToastError('Примите Пользовательское соглашение, чтобы продолжить.');
+                return;
+            }}
+            if (!document.getElementById('consent-checkbox').checked) {{
+                window.rumiToastError('Отметьте согласие на обработку персональных данных.');
                 return;
             }}
             const salon = document.getElementById('cx-salon').value.trim();
@@ -225,6 +244,8 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
             fd.append('experience', document.getElementById('cx-exp').value.trim());
             fd.append('plan', new URLSearchParams(window.location.search).get('plan') || 'business');
             fd.append('offer_accepted', '1');
+            fd.append('pd_consent', '1');
+            fd.append('consent_version', '{LEGAL_VERSION}');
             try {{
                 const res = await fetch('/api/v1/business/apply', {{ method: 'POST', body: fd }});
                 if (res.status === 401) {{

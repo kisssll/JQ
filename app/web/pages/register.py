@@ -3,6 +3,7 @@ import html
 from fastapi import Request
 from app.core.config import settings
 from app.web.components.styles import get_base_styles
+from app.web.components.consent import render_consent_block
 from app.web.components.icons import (
     ICON_X,
 )
@@ -137,6 +138,7 @@ def render_register_page(request: Request) -> str:
                     <li data-rule="digit"><span class="mark">{ICON_X}</span> Цифра</li>
                 </ul>
             </div>
+            {render_consent_block(action="Регистрируясь")}
             <button type="submit" id="submitBtn" class="btn-primary auth-btn" disabled>Зарегистрироваться</button>
         </form>
         <div class="auth-links">
