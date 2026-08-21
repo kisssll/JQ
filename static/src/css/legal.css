@@ -217,3 +217,69 @@
     outline: 2px solid var(--color-danger);
     outline-offset: 2px;
 }
+
+/* ===== Уведомление о cookie (static/src/js/cookie-notice.js) ===== */
+.cookie-notice {
+    position: fixed;
+    z-index: 900;   /* ниже тостов (1000) и диалога (1010) */
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: .85rem 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: .75rem;
+    box-shadow: 0 8px 24px rgba(26, 26, 31, .12);
+    animation: cookie-notice-in .2s ease-out;
+}
+
+.cookie-notice-text {
+    flex: 1;
+    margin: 0;
+    font-size: .82rem;
+    line-height: 1.45;
+    color: var(--color-body);
+}
+
+.cookie-notice-text a {
+    color: var(--color-accent-hover);
+}
+
+.cookie-notice-btn {
+    flex-shrink: 0;
+    padding: .45rem 1.15rem;
+    border: 1px solid var(--color-accent);
+    border-radius: 9999px;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: .82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .15s;
+}
+
+.cookie-notice-btn:hover {
+    filter: brightness(.95);
+}
+
+@media (max-width: 640px) {
+    .cookie-notice {
+        flex-direction: column;
+        align-items: stretch;
+        gap: .75rem;
+    }
+}
+
+@keyframes cookie-notice-in {
+    from { opacity: 0; transform: translateY(.5rem); }
+    to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cookie-notice { animation: none; }
+}
