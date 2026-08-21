@@ -322,3 +322,97 @@ async def process_payment_webhook(ctx: dict[str, Any], payload: dict[str, Any]) 
         raise _retry(ctx, exc) from exc
     logger.info("process_payment_webhook OrderId=%s: обработан", payload["OrderId"])
     return "processed"
+
+
+# ── Оплата подписок (CloudPayments) ───────────────────────────────
+#
+# Отдельно от Т-Кассы выше (тот блок ещё не подключён ни к одному провайдеру).
+# Вебхук-эндпоинты (app/api/v1/endpoints/payments.py) сразу отвечают
+# CloudPayments {"code":0} и синхронно проставляют статус платежа/подписки в
+# БД — это быстро (одна транзакция), не требует очереди. В очередь уходит
+# только медленная часть после успешной ВЕРИФИКАЦИОННОЙ оплаты (1₽): возврат
+# этого рубля и оформление настоящей подписки на будущее — два внешних HTTP
+# вызова к CloudPayments, которые не должны блокировать ответ на вебхук.
+
+
+async def finalize_cloudpayments_verification(
+    ctx: dict[str, Any],
+    payment_id: int,
+    salon_id: int,
+    plan: str,
+    target_amount: float,
+    token: str,
+    trial_ends_at_iso: str,
+    cp_transaction_id: str,
+) -> str:
+    """После успешного верификационного платежа (1₽, см. PaymentKind.VERIFICATION):
+    вернуть эту сумму клиенту и оформить подписку CloudPayments на target_amount
+    (настоящая месячная цена тарифа) со стартом первого списания по окончании
+    пробного периода (trial_ends_at) — так триал остаётся реально бесплатным.
+
+    Возврат 1₽ — best-effort: если он не удался, не блокируем оформление
+    подписки (сумма минимальна, важнее не оставить салон без автопродления).
+    Провал именно оформления подписки — ретраим и, если так и не вышло,
+    откатываем auto_renew, чтобы кабинет не врал про автопродление.
+    """
+    from datetime import datetime
+    from decimal import Decimal
+
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import Salon
+    from app.services.cloudpayments import CloudPaymentsClient, CloudPaymentsError
+
+    try:
+        client = CloudPaymentsClient()
+    except CloudPaymentsError as exc:
+        logger.error("finalize_cloudpayments_verification(%s): клиент недоступен: %s", payment_id, exc)
+        return "rejected"
+
+    try:
+        await client.refund(cp_transaction_id, Decimal("1.00"))
+    except CloudPaymentsError:
+        logger.exception(
+            "finalize_cloudpayments_verification(%s): возврат 1₽ не удался, продолжаем "
+            "(сумма минимальна, оформление подписки важнее)", payment_id,
+        )
+
+    trial_ends_at = datetime.fromisoformat(trial_ends_at_iso)
+    async with AsyncSessionLocal() as db:
+        salon = await db.get(Salon, salon_id)
+        if salon is None:
+            logger.error("finalize_cloudpayments_verification: salon %s не найден", salon_id)
+            return "rejected"
+        try:
+            sub = await client.create_subscription(
+                token=token, account_id=str(salon_id),
+                description=f"Руми — тариф «{plan}»",
+                amount=Decimal(str(target_amount)),
+                email=salon.email or "",
+                start_date=trial_ends_at,
+            )
+        except CloudPaymentsError as exc:
+            from app.core.worker import WorkerSettings
+            if ctx["job_try"] >= WorkerSettings.max_tries:
+                # Последняя попытка тоже провалилась — дальше arq job не повторит.
+                # Откатываем auto_renew, чтобы кабинет не обещал автопродление,
+                # которого по факту нет (владелец увидит это и включит вручную).
+                logger.error(
+                    "finalize_cloudpayments_verification(%s): подписка не оформлена после "
+                    "%d попыток, отключаем автопродление: %s", payment_id, ctx["job_try"], exc,
+                )
+                salon.auto_renew = False
+                await db.commit()
+                return "rejected"
+            logger.warning(
+                "finalize_cloudpayments_verification(%s): подписка не оформлена (попытка %d): %s",
+                payment_id, ctx["job_try"], exc,
+            )
+            raise _retry(ctx, TransientTaskError(str(exc))) from exc
+
+        salon.cp_subscription_id = sub.id
+        await db.commit()
+    logger.info(
+        "finalize_cloudpayments_verification(%s): подписка %s оформлена, старт %s",
+        payment_id, sub.id, trial_ends_at_iso,
+    )
+    return "processed"

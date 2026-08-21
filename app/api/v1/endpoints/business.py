@@ -249,7 +249,9 @@ async def apply_business(
     from app.services.notifications import notify_admins
     await notify_admins(db, "Новая заявка на подключение салона",
                         f"«{salon.name}», тел. {salon.phone}. Одобрить/отклонить — админ-панель → Заявки.")
-    return {"ok": True, "redirect": "/business/dashboard?submitted=1"}
+    # salon_id — чек-ауту нужен, чтобы следующим шагом дёрнуть
+    # /api/v1/payments/business/init (выбор автопродления, запуск триала/оплаты).
+    return {"ok": True, "redirect": "/business/dashboard?submitted=1", "salon_id": salon.id}
 
 
 @router.delete("/my-salon")

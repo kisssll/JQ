@@ -28,6 +28,7 @@ from app.web.components.icons import (
     ICON_SPARKLES,
     ICON_SETTINGS_GEAR_SMALL,
     ICON_PLUS,
+    ICON_CREDIT_CARD,
 )
 from app.web.pages.business.utils import get_masters_data, get_master_ids, get_overview_revenue_data
 from app.web.pages.business.tabs.overview import render_overview_tab
@@ -43,7 +44,9 @@ from app.web.pages.business.tabs.payroll import render_payroll_tab
 from app.web.pages.business.tabs.cost import render_cost_tab
 from app.web.pages.business.tabs.promo_models import render_promo_models_tab
 from app.web.pages.business.tabs.my_salon import render_my_salon_tab
+from app.web.pages.business.tabs.billing import render_billing_tab
 from app.crm.tabs.clients import render_crm_tab
+from app.core.config import settings
 
 
 _PERM_KEYS = (
@@ -180,6 +183,9 @@ async def render_dashboard_tab(
             can_manage_salon=perms["manage_salon"], is_creator=membership.is_creator,
         )
 
+    if tab_name == "billing":
+        return render_billing_tab(salon, perms["manage_tariff"])
+
     return ""
 
 
@@ -247,6 +253,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         ('promos', ICON_SPARKLES, f'Акции ({promos_count})', True),
         ('reviews', ICON_STAR_FILLED, f'Отзывы ({reviews_count})', True),
         ('crm', ICON_USER_CHECK, 'Клиенты', True),
+        ('billing', ICON_CREDIT_CARD, 'Тариф', perms["manage_tariff"]),
         ('edit', ICON_SETTINGS_GEAR_SMALL, 'Редактировать салон', True),
     ]
 
@@ -362,6 +369,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     <title>Бизнес-панель — {salon.name} — руми</title>
     {get_base_styles()}
     {render_yandex_maps_script()}
+    {'<script src="https://widget.cloudpayments.ru/bundles/cloudpayments.js"></script>' if settings.CLOUDPAYMENTS_ENABLED else ''}
 </head>
 <body>
     {render_header("business")}

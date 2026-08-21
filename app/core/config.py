@@ -148,6 +148,19 @@ class Settings(BaseSettings):
     # возвращает фиктивный request_id и считает любой код верным).
     OTP_ENABLED: bool = True
 
+    # --- Оплата бизнес-подписок (CloudPayments) ---
+    # Public ID — не секрет, уходит в HTML страницы оплаты (виджету нужен на
+    # клиенте). Api Secret — секрет, только сервер: подпись вебхуков
+    # (Content-HMAC) и вызовы REST API (возврат/подписки). Оба берутся в
+    # личном кабинете cloudpayments.ru → Настройки → API. Там же в разделе
+    # «Рекуррентные платежи» нужно включить приём Token с оплат (иначе
+    # /subscriptions/create не получит токен карты) и в «HTTP-уведомления»
+    # прописать урлы на PUBLIC_BASE_URL + /api/v1/payments/cloudpayments/...
+    # (check/pay/fail/recurrent/cancel/refund — см. app/api/v1/endpoints/payments.py).
+    CLOUDPAYMENTS_ENABLED: bool = False
+    CLOUDPAYMENTS_PUBLIC_ID: str = ""
+    CLOUDPAYMENTS_API_SECRET: str = ""
+
     # Выключенный OTP в production = регистрация без подтверждения телефона.
     # Чтобы рубильник не дожил до релиза незамеченным, в production такое
     # состояние надо подтверждать явно вторым флагом — иначе приложение
@@ -190,6 +203,14 @@ class Settings(BaseSettings):
             raise ValueError(
                 "MAX_VERIFY_ENABLED=true, но не заданы MAX_BOT_TOKEN/MAX_BOT_USERNAME — "
                 "кнопка на странице вела бы в никуда. Заполните оба или выключите флаг."
+            )
+        if self.CLOUDPAYMENTS_ENABLED and not (
+            self.CLOUDPAYMENTS_PUBLIC_ID and self.CLOUDPAYMENTS_API_SECRET
+        ):
+            raise ValueError(
+                "CLOUDPAYMENTS_ENABLED=true, но не заданы CLOUDPAYMENTS_PUBLIC_ID/"
+                "CLOUDPAYMENTS_API_SECRET — оплата тарифов не сможет ни принять "
+                "платёж, ни проверить подпись вебхука. Заполните оба или выключите флаг."
             )
         return self
 

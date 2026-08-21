@@ -213,6 +213,42 @@ class SalonModerationStatus(str, enum.Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
 
+class SalonSubscriptionStatus(str, enum.Enum):
+    """Статус оплаты бизнес-тарифа салона (CloudPayments).
+
+    none      — тариф не выбран (заявка ещё не дошла до оплаты);
+    trialing  — пробный период (14 дней), первое списание ещё не проходило;
+    active    — подписка оплачена, доступ активен;
+    past_due  — автосписание не удалось (карта/лимит) — грейс-период, доступ
+                ещё активен до subscription_expires_at, ждём ручной оплаты
+                или следующей попытки CloudPayments;
+    canceled  — подписка отменена (владельцем или после серии неудачных
+                списаний) — доступ закрывается по subscription_expires_at.
+    """
+    NONE = "none"
+    TRIALING = "trialing"
+    ACTIVE = "active"
+    PAST_DUE = "past_due"
+    CANCELED = "canceled"
+
+class PaymentStatus(str, enum.Enum):
+    PENDING = "pending"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+
+class PaymentKind(str, enum.Enum):
+    # 1₽, чтобы получить Token карты для будущей подписки — тут же возвращается
+    # клиенту, реальным списанием для него не является.
+    VERIFICATION = "verification"
+    # Первое настоящее списание по подписке CloudPayments (после триала).
+    SUBSCRIPTION_INITIAL = "subscription_initial"
+    # Плановое автосписание по подписке (каждый месяц).
+    RECURRENT = "recurrent"
+    # Разовая оплата вручную (кнопка «Оплатить» в кабинете, без автопродления).
+    MANUAL = "manual"
+    REFUND = "refund"
+
 
 class SalonChain(Base):
     """Сеть салонов одного бренда: несколько независимых салонов (у каждого
@@ -366,12 +402,80 @@ class Salon(Base):
     # назад не сбрасывается; дальнейшей видимостью рулит is_hidden.
     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # --- Оплата бизнес-тарифа (CloudPayments) ---
+    # server_default=NONE — существующие салоны (созданы до подключения
+    # оплаты) не попадают в trialing/active задним числом.
+    subscription_status: Mapped[SalonSubscriptionStatus] = mapped_column(
+        Enum(SalonSubscriptionStatus),
+        default=SalonSubscriptionStatus.NONE,
+        server_default="NONE",
+        nullable=False,
+    )
+    # Выбор владельца при подключении тарифа: True — CloudPayments сам
+    # списывает раз в месяц по подписке (cp_subscription_id); False — владелец
+    # платит вручную кнопкой в кабинете каждый раз (см. payments.py).
+    auto_renew: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    # Конец пробного периода (14 дней с момента выбора тарифа) — до этого
+    # момента доступ активен независимо от факта оплаты.
+    trial_ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # До какого момента открыт доступ по тарифу (обновляется каждой успешной
+    # оплатой/автосписанием; во время триала равен trial_ends_at).
+    subscription_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Id подписки CloudPayments (sc_...) — задан только при auto_renew=True
+    # после успешной верификации карты. Нужен для отмены автопродления.
+    cp_subscription_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # Для отображения в кабинете «привязана карта •• 1234» — из вебхука оплаты.
+    card_last4: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)
+
 class SalonPhoto(Base):
     __tablename__ = "salon_photos"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"))
     url: Mapped[str] = mapped_column(String(500))
     salon: Mapped["Salon"] = relationship(back_populates="photos")
+
+
+class Payment(Base):
+    """Запись о платеже CloudPayments (верификация карты, первое списание по
+    подписке, плановое автосписание, разовая ручная оплата, возврат).
+
+    Одна строка — одна попытка списания/возврата. invoice_id — наш собственный
+    идентификатор счёта (генерируем при инициации оплаты, передаём в виджет);
+    для платежей, инициированных CloudPayments напрямую (плановые автосписания
+    по подписке), invoice_id может отсутствовать — идентифицируем такие по
+    cp_transaction_id + salon_id. raw_payload — сырой вебхук целиком, на случай
+    расследования расхождений (см. app/api/v1/endpoints/payments.py).
+    """
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"), nullable=False, index=True)
+    salon: Mapped["Salon"] = relationship()
+
+    plan: Mapped[str] = mapped_column(String(20), nullable=False)
+    kind: Mapped[PaymentKind] = mapped_column(Enum(PaymentKind), nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="RUB", server_default="RUB", nullable=False)
+    # Только для kind=VERIFICATION: реальная месячная сумма тарифа (для «Лайт»
+    # зависит от количества сотрудников), которую нужно поставить в подписку
+    # CloudPayments ПОСЛЕ триала — сама верификация идёт на 1₽ (amount выше),
+    # эта сумма нигде с клиента не списывается напрямую.
+    target_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
+    # Наш идентификатор счёта — уникален, генерируем сами (uuid4 hex).
+    # Nullable: автосписания по подписке CloudPayments его не несут.
+    invoice_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True, index=True)
+    # TransactionId CloudPayments — приходит в вебхуке, ключ идемпотентности
+    # (одна и та же транзакция не обрабатывается дважды).
+    cp_transaction_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
+
+    status: Mapped[PaymentStatus] = mapped_column(
+        Enum(PaymentStatus), default=PaymentStatus.PENDING, server_default="PENDING", nullable=False,
+    )
+    raw_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class SalonEveningDeal(Base):
