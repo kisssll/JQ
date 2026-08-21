@@ -62,7 +62,11 @@ www.{$DOMAIN:localhost} {
 
     # Значения приходят из docker-compose.edge.yml (там же дефолты; Caddy-дефолт
     # в {$VAR:...} не сработал бы — compose передаёт переменную пустой строкой)
-    basic_auth {
+    # Вебхук T-Bank (server-to-server, у банка нет basic-auth) исключаем из
+    # авторизации — иначе уведомление об оплате упрётся в 401 и подписка не
+    # активируется. Сам эндпоинт /tkassa/notify проверяет подпись запроса.
+    @protected not path /api/v1/payments/tkassa/notify*
+    basic_auth @protected {
         {$STAGING_BASIC_AUTH_USER} {$STAGING_BASIC_AUTH_HASH}
     }
 
