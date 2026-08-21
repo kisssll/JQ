@@ -27,10 +27,13 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+import ssl
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
+from pathlib import Path
 from typing import Optional
 
+import certifi
 import httpx
 
 from app.core.config import settings
@@ -38,6 +41,25 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 API_BASE = "https://securepay.tinkoff.ru/v2"
+
+# securepay.tinkoff.ru (T-Bank) отдаёт TLS-сертификат, выпущенный нацУЦ Минцифры
+# (Russian Trusted Root CA), которого нет в certifi-бандле httpx → без этого
+# любой запрос падает с "self-signed certificate in certificate chain". Доверяем
+# стандартным CA + российскому корню ТОЛЬКО в этом клиенте (не глобально —
+# чтобы не расширять поверхность доверия остального приложения).
+_RU_CA = Path(__file__).resolve().parent.parent / "certs" / "russian_trusted_ca.crt"
+
+
+def _build_ssl_context() -> ssl.SSLContext:
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    if _RU_CA.exists():
+        ctx.load_verify_locations(cafile=str(_RU_CA))
+    else:  # pragma: no cover
+        logger.warning("Russian Trusted CA не найден (%s) — запрос к Т-Кассе, вероятно, упадёт по TLS", _RU_CA)
+    return ctx
+
+
+_SSL_CTX = _build_ssl_context()
 
 
 class TKassaError(Exception):
@@ -114,7 +136,7 @@ class TKassaClient:
             **{k: v for k, v in body_fields.items() if v not in (None, "")},
         }
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=15, verify=_SSL_CTX) as client:
                 response = await client.post(f"{API_BASE}/{method}", json=body)
         except httpx.HTTPError as exc:
             raise TKassaError(f"Сеть/таймаут при обращении к Т-Кассе {method}: {exc}") from exc
