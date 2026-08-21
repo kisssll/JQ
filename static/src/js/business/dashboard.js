@@ -53,6 +53,31 @@
         bindPublishBtn();
     }
 
+    // Предупреждение «салон не виден без оплаты» (см. publish_gate_modal_html
+    // в dashboard.py) — показываем один раз за сессию вкладки браузера, чтобы
+    // не всплывало при каждом переходе между вкладками панели (тут навигация —
+    // полная перезагрузка страницы, см. tab_buttons в dashboard.py).
+    function bindPublishGateModal() {
+        const modal = document.getElementById('publishGateModal');
+        if (!modal) return;
+        const salonId = modal.dataset.salonId;
+        const key = 'publishGateModalShown:' + salonId;
+        if (!sessionStorage.getItem(key)) {
+            modal.classList.add('active');
+            sessionStorage.setItem(key, '1');
+        }
+        const close = () => modal.classList.remove('active');
+        document.getElementById('publishGateModalClose').addEventListener('click', close);
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) close();
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindPublishGateModal);
+    } else {
+        bindPublishGateModal();
+    }
+
     // Вкладка «Тариф»: разовая ручная оплата и отмена автопродления.
     // Оплата — тот же приём, что на /business/checkout: сервер готовит
     // платёж в Т-Кассе (/api/v1/payments/business/manual-charge) и отдаёт

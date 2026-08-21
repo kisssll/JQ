@@ -304,8 +304,12 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     if membership.is_creator:
         add_salon_html = f'<a class="salon-switcher-add" href="/business/register-salon">{ICON_PLUS} Добавить салон</a>'
 
-    # Баннер статуса заявки
+    # Баннер статуса заявки + модальное предупреждение (см. publish_gate_modal_html
+    # ниже) — оба про один и тот же случай «модерация пройдена, тариф не выбран»,
+    # баннер держит объяснение постоянно на экране, модалка обращает на него внимание
+    # сразу при заходе в панель (один раз за сессию, см. dashboard.js).
     moderation_banner = ""
+    show_publish_gate_modal = False
     if salon.moderation_status == SalonModerationStatus.PENDING:
         moderation_banner = (
             '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;'
@@ -338,6 +342,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             'публикация недоступна. До этого салон виден только вам.'
             f'{billing_link}</div>'
         )
+        show_publish_gate_modal = can_publish
     elif salon.published_at is None:
         # Тариф выбран (хотя бы пробный период) — можно публиковать.
         # Пока не опубликован, салон полностью непубличен (нет в каталоге, запись
@@ -359,6 +364,24 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             'До публикации салон виден только вам.'
             f'{publish_btn}</div>'
         )
+
+    publish_gate_modal_html = ""
+    if show_publish_gate_modal:
+        publish_gate_modal_html = f"""
+        <div class="publish-gate-modal-overlay" id="publishGateModal" data-salon-id="{salon.id}">
+            <div class="publish-gate-modal-box">
+                <button type="button" class="publish-gate-modal-close" id="publishGateModalClose">&times;</button>
+                <div class="publish-gate-icon">💳</div>
+                <h2>Салон пока не виден клиентам</h2>
+                <p>Модерация пройдена, но салон появится в общем каталоге платформы —
+                видимым для клиентов и открытым для записи — только после оплаты
+                тарифа. Как только оплатите (или запустите пробный период),
+                салон сразу появится в списке.</p>
+                <a href="/business/dashboard?salon_id={salon.id}&tab=billing" class="btn-primary">
+                    {ICON_SPARKLES} Выбрать тариф
+                </a>
+            </div>
+        </div>"""
 
     header_html = f"""
     <div class="dashboard-header">
@@ -400,6 +423,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         </div>
     </main>
     {render_footer(user)}
+    {publish_gate_modal_html}
 </body>
 </html>"""
 

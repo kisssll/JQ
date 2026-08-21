@@ -713,3 +713,74 @@
         padding-right: 1rem;
     }
 }
+
+/* --- Предупреждение «салон не виден без оплаты» --- */
+.publish-gate-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.publish-gate-modal-overlay.active {
+    display: flex;
+}
+
+.publish-gate-modal-box {
+    background: var(--color-surface);
+    border-radius: 1rem;
+    padding: 2rem;
+    max-width: 420px;
+    width: 90%;
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+    text-align: center;
+}
+
+.publish-gate-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--color-muted);
+    transition: color 0.2s;
+}
+
+.publish-gate-modal-close:hover {
+    color: var(--color-heading);
+}
+
+.publish-gate-modal-box .publish-gate-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.publish-gate-modal-box h2 {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin: 0 0 0.75rem;
+}
+
+.publish-gate-modal-box p {
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    line-height: 1.5;
+    margin: 0 0 1.5rem;
+}
+
+.publish-gate-modal-box .btn-primary {
+    display: inline-block;
+    text-decoration: none;
+}
