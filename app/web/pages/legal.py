@@ -8,6 +8,7 @@
 текст должен быть доступен для копирования и поиска.
 """
 import pathlib
+import re
 
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
@@ -46,9 +47,40 @@ DOCUMENTS = {
 _cache: dict[str, str] = {}
 
 
+def _strip_own_title(body: str, page_title: str) -> str:
+    """Документ начинается собственным названием, и на странице оно дублировало
+    <h1>. Срезаем ведущие заголовки, только если их текст целиком входит в
+    название страницы — так «СОГЛАСИЕ» и «на обработку персональных данных»
+    (в исходнике это две строки) уходят, а любой содержательный раздел
+    остаётся. Файлы в app/web/legal/ при этом не трогаем: они верны оригиналу.
+    """
+    def norm(s: str) -> str:
+        s = re.sub(r"<[^>]+>", "", s)
+        s = re.sub(r"\s+", " ", s).strip().lower()
+        return s.replace("руми", "").strip(" .«»")
+
+    title = norm(page_title)
+    while True:
+        m = re.match(r"\s*<(h2|p)>(.*?)</\1>\s*", body, re.S)
+        if not m:
+            return body
+        head = norm(m.group(2))
+        # Совпадение в любую сторону: в документах название длиннее страницы
+        # («Политика обработки персональных данных РУМИ»), а у согласия —
+        # короче, оно разбито на две строки. Ограничение по длине обязательно:
+        # без него условие «title in head» срезало пункт 1.1 Политики, который
+        # просто упоминает название документа внутри себя.
+        if not head or len(head) > len(title) + 12:
+            return body
+        if not (head in title or title in head):
+            return body
+        body = body[m.end():]
+
+
 def _body(slug: str) -> str:
     if slug not in _cache:
-        _cache[slug] = (_LEGAL_DIR / DOCUMENTS[slug]["file"]).read_text(encoding="utf-8")
+        raw = (_LEGAL_DIR / DOCUMENTS[slug]["file"]).read_text(encoding="utf-8")
+        _cache[slug] = _strip_own_title(raw, DOCUMENTS[slug]["title"])
     return _cache[slug]
 
 
