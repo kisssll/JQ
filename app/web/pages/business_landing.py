@@ -392,7 +392,7 @@ def render_business_landing_page(user=None) -> str:
                     <div class="bl-how-step">
                         <div class="bl-step-content">
                             <h3 class="bl-step-title">Привлекайте клиентов</h3>
-                            <p class="bl-step-desc">Ваш салон появится на платформе. Клиенты и модели начнут записываться.</p>
+                            <p class="bl-step-desc">Оплатите подписку — и ваш салон появится в общем списке платформы. Клиенты и модели начнут записываться.</p>
                         </div>
                     </div>
                     <div class="bl-how-step">

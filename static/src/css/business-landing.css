@@ -632,34 +632,45 @@
     margin: 0;
 }
 
-/* На устройствах с наведением мышью — заголовок и текст в одну строку,
-   пояснение выезжает справа от заголовка при hover, без переполнения плашки. */
+/* На устройствах с наведением мышью — по умолчанию виден только крупный
+   заголовок по центру плашки; при hover описание «выезжает» справа, а
+   заголовок этим же движением уходит левее (оба — часть одной flex-группы
+   с justify-content:center, поэтому сдвиг происходит сам, без transform
+   на заголовке и без скачка при наведении). */
 @media (hover: hover) and (pointer: fine) {
     .bl-step-content {
         flex-direction: row;
         align-items: baseline;
+        justify-content: center;
         min-width: 0;
         overflow: hidden;
     }
     .bl-step-title {
         white-space: nowrap;
         flex-shrink: 0;
-        transition: transform 0.35s ease;
+        font-size: 1.4rem;
+        transition: font-size 0.35s ease;
     }
     .bl-step-desc {
-        margin-left: 1rem;
-        min-width: 0;
-        flex: 1;
+        margin-left: 0;
+        max-width: 0;
         opacity: 0;
-        transform: translateX(-0.75rem);
-        transition: opacity 0.35s ease, transform 0.35s ease;
+        overflow: hidden;
+        white-space: nowrap; /* пока max-width:0 — иначе текст переносится по слову на строку и раздувает плашку по высоте */
+        transition: opacity 0.35s ease, max-width 0.35s ease, margin-left 0.35s ease, white-space 0s step-end 0.3s;
     }
     .bl-how-step:hover .bl-step-title {
-        transform: translateX(-0.25rem);
+        font-size: 1.125rem;
     }
     .bl-how-step:hover .bl-step-desc {
+        margin-left: 1rem;
+        max-width: 28rem;
         opacity: 1;
-        transform: translateX(0);
+        /* normal включаем ближе к концу раскрытия (см. transition-delay выше),
+           иначе перенос слов включится раньше, чем max-width вырастет, и текст
+           на миг «взорвётся» по высоте посреди анимации */
+        white-space: normal;
+        transition: opacity 0.35s ease, max-width 0.35s ease, margin-left 0.35s ease, white-space 0s step-end 0.3s;
     }
 }
 
