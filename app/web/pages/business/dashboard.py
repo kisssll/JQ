@@ -184,7 +184,7 @@ async def render_dashboard_tab(
 
     if tab_name == "billing":
         active_masters = len([m for m in masters if m.is_active])
-        return render_billing_tab(salon, perms["manage_tariff"], active_masters)
+        return await render_billing_tab(db, salon, perms["manage_tariff"], active_masters)
 
     return ""
 
