@@ -20,6 +20,7 @@ from app.core.config import settings
 from app.tasks import (
     charge_due_subscriptions, finalize_tkassa_verification, process_payment_webhook,
     send_booking_reminder, send_email, send_evening_deals_blast, send_max_message, send_sms, send_tg_message,
+    subscription_reminders,
 )
 
 REDIS_SETTINGS = RedisSettings.from_dsn(settings.REDIS_URL)
@@ -59,6 +60,7 @@ async def _on_startup(ctx: dict) -> None:
 class WorkerSettings:
     functions = [
         send_sms, send_tg_message, send_max_message, send_booking_reminder, send_email,
+        subscription_reminders,
         process_payment_webhook, send_evening_deals_blast,
         finalize_tkassa_verification, charge_due_subscriptions,
     ]
@@ -69,6 +71,8 @@ class WorkerSettings:
     cron_jobs = [
         cron(send_evening_deals_blast, hour={11}, minute={0}, run_at_startup=False),
         cron(charge_due_subscriptions, hour={6}, minute={0}, run_at_startup=False),
+        # Напоминания по подписке — раз в сутки, 09:00 Томск (02:00 UTC)
+        cron(subscription_reminders, hour={2}, minute={0}, run_at_startup=False),
     ]
     redis_settings = REDIS_SETTINGS
     on_startup = _on_startup

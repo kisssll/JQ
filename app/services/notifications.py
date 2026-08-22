@@ -599,3 +599,29 @@ async def _salon_booking_email(db: AsyncSession, booking, kind: str) -> None:
         await pool.enqueue_job("send_email", salon.email, f"{title} — {salon.name} — Руми", plain, html)
     except Exception:
         logger.exception("_salon_booking_email(%s): не поставлено", getattr(booking, "id", "?"))
+
+
+# ── Подписка и тариф ─────────────────────────────────────────────────────────
+
+async def notify_subscription(db: AsyncSession, salon, text: str) -> None:
+    """Сообщение владельцу салона о его подписке.
+
+    Шлём создателю салона: тариф и деньги — его зона, а не всей команды.
+    Тема личных подписок здесь не проверяется: это не «сервис вежливости», а
+    предупреждение о том, что салон вот-вот пропадёт из каталога.
+    """
+    try:
+        owner = (await db.execute(
+            select(User).where(User.id == salon.creator_id)
+        )).scalar_one_or_none()
+        await deliver(owner, f"💳 «{salon.name}»: {text}", subject="Тариф — Руми")
+    except Exception:
+        logger.exception("notify_subscription(salon=%s): не отправлено", getattr(salon, "id", "?"))
+
+
+async def notify_model_subscription(db: AsyncSession, user, text: str) -> None:
+    """То же для тарифа «модели» — плательщик сам пользователь."""
+    try:
+        await deliver(user, f"💳 {text}", subject="Тариф — Руми")
+    except Exception:
+        logger.exception("notify_model_subscription(user=%s): не отправлено", getattr(user, "id", "?"))

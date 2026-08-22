@@ -1,6 +1,8 @@
 # app/api/v1/endpoints/master.py
 from typing import Optional
 from urllib.parse import quote
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, status
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +17,7 @@ from app.api.deps import (
 from app.core.security import get_password_hash
 from app.schemas.user import try_normalize_phone
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/schedule")
@@ -78,8 +81,23 @@ async def _sync_billing_headcount(db, salon_id: int) -> None:
             Master.salon_id == salon_id, Master.is_active == True,  # noqa: E712
         )
     )).scalar() or 0
-    register_headcount(salon, active)
+    charged = register_headcount(salon, active)
     await db.commit()
+
+    # Счёт вырастет — предупреждаем сразу, а не постфактум при списании
+    if charged > 0:
+        try:
+            from app.services.notifications import notify_subscription
+            from app.services.tariffs import TARIFF_CATALOG
+            tariff = TARIFF_CATALOG.get(salon.business_tier)
+            plan_str = f"тариф «{tariff.name}», " if tariff else ""
+            await notify_subscription(
+                db, salon,
+                f"в салоне теперь {active} активных мастеров: {plan_str}"
+                f"доплата за остаток месяца {int(round(float(charged)))} ₽ войдёт в следующий счёт.",
+            )
+        except Exception:
+            logger.exception("уведомление о росте тарифа не отправлено (salon=%s)", salon_id)
 
 
 @router.post("/create-web")

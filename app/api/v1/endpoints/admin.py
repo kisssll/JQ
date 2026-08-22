@@ -126,6 +126,40 @@ async def change_role(uid: int, request: Request, role: str = Form(...), db: Asy
     return _back("users", ok=f"Роль {target.phone}: {old} → {new_role.value}")
 
 
+@router.post("/salons/{sid}/grant-trial")
+async def grant_trial(sid: int, request: Request, db: AsyncSession = Depends(get_db)):
+    """Выдать салону повторный бесплатный период.
+
+    Обычным путём триал даётся один раз (см. payments.py: trial_available) —
+    это единственная лазейка, и она намеренно только у старшего модератора,
+    с записью в аудит.
+    """
+    from app.models.models import Salon, SalonSubscriptionStatus
+    from app.services.subscription import start_trial
+
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    salon = (await db.execute(select(Salon).where(Salon.id == sid))).scalar_one_or_none()
+    if not salon:
+        return _back("salons", err="Салон не найден")
+
+    active_masters = (await db.execute(
+        select(func.count(Master.id)).where(
+            Master.salon_id == salon.id, Master.is_active == True,  # noqa: E712
+        )
+    )).scalar() or 0
+    salon.subscription_status = SalonSubscriptionStatus.TRIALING
+    salon.trial_used_at = None  # снимаем отметку, чтобы start_trial проставил свежую
+    ends = start_trial(salon, 14, active_masters=active_masters)
+    _audit(db, admin.id, "grant_trial", "salon", salon.id,
+           f"«{salon.name}»: выдан повторный пробный период до {ends:%d.%m.%Y}",
+           salon_id=salon.id)
+    await db.commit()
+    return _back("salons", ok=f"«{salon.name}»: пробный период до {ends:%d.%m.%Y}")
+
+
 @router.post("/users/{uid}/toggle-active")
 async def toggle_active(uid: int, request: Request, db: AsyncSession = Depends(get_db)):
     admin = await _get_senior_admin(request, db)

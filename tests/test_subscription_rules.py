@@ -154,3 +154,64 @@ async def test_expired_subscription_drops_salon_from_catalog(client, db_session)
     html = (await client.get("/salons")).text
     assert "ОплаченныйZZ" in html
     assert "ПросроченныйZZ" not in html
+
+
+# ── Напоминания по подписке ──────────────────────────────────────────────────
+
+async def test_reminders_warn_before_cutoff(db_session, monkeypatch):
+    """Жёсткое отключение честно только с предупреждением заранее: за 3 дня до
+    конца триала и за 7/3/1 день при ручной оплате."""
+    import app.tasks as tasks
+    from app.models.models import Salon
+
+    sent: list[str] = []
+
+    async def fake_notify(db, salon, text):
+        sent.append(text)
+
+    monkeypatch.setattr("app.services.notifications.notify_subscription", fake_notify)
+
+    now = datetime.now(timezone.utc)
+    sid = await _mk_salon(db_session, "НапоминаемZZ", now + timedelta(days=10))
+    async with db_session() as db:
+        s = await db.get(Salon, sid)
+        s.subscription_status = SalonSubscriptionStatus.TRIALING
+        s.trial_ends_at = now + timedelta(days=3)      # триал кончается через 3 дня
+        s.business_tier = "lite"
+        await db.commit()
+
+    await tasks.subscription_reminders({"job_try": 1})
+    assert any("бесплатный период" in t for t in sent), sent
+
+    sent.clear()
+    async with db_session() as db:
+        s = await db.get(Salon, sid)
+        s.subscription_status = SalonSubscriptionStatus.ACTIVE
+        s.trial_ends_at = None
+        s.auto_renew = False
+        s.subscription_expires_at = now + timedelta(days=7)   # ручная оплата: за 7 дней
+        await db.commit()
+
+    await tasks.subscription_reminders({"job_try": 1})
+    assert any("продлите тариф" in t for t in sent), sent
+
+
+async def test_admin_can_grant_repeat_trial(db_session):
+    """Триал даётся один раз, но у старшего модератора есть ручная лазейка."""
+    from app.models.models import Salon
+    from app.services.subscription import start_trial, trial_available
+
+    sid = await _mk_salon(db_session, "ПовторныйТриалZZ", datetime.now(timezone.utc) - timedelta(days=1))
+    async with db_session() as db:
+        s = await db.get(Salon, sid)
+        start_trial(s, 14)
+        await db.commit()
+        assert trial_available(s) is False       # второй раз сам не возьмёт
+
+        # то, что делает админ-роут: снимает отметку и выдаёт заново
+        s.trial_used_at = None
+        ends = start_trial(s, 14)
+        await db.commit()
+        await db.refresh(s)
+        assert s.access_until > datetime.now(timezone.utc)
+        assert ends > datetime.now(timezone.utc)

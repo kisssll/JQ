@@ -530,6 +530,18 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
             target.subscription_status = SalonSubscriptionStatus.PAST_DUE
             await db.commit()
             try:
+                from app.services.notifications import notify_model_subscription, notify_subscription
+                fail_text = (
+                    "не удалось списать оплату по карте. Продлите тариф вручную в кабинете, "
+                    "иначе доступ закончится и карточка пропадёт из каталога."
+                )
+                if kind == "business":
+                    await notify_subscription(db, target, fail_text)
+                else:
+                    await notify_model_subscription(db, target, fail_text)
+            except Exception:
+                logger.exception("charge_due_subscriptions: владелец не уведомлён")
+            try:
                 from app.services.notifications import notify_admins
                 label = f"Салон «{target.name}» (id={target.id})" if kind == "business" else f"Модель id={target.id}"
                 await notify_admins(
@@ -625,3 +637,90 @@ async def charge_due_subscriptions(ctx: dict[str, Any]) -> str:
         processed, len(due_salons) + len(due_models),
     )
     return f"processed:{processed}"
+
+
+async def subscription_reminders(ctx: dict[str, Any]) -> str:
+    """Ежедневные напоминания по подписке (крон).
+
+    Жёсткое отключение по истечении срока честно только тогда, когда человека
+    предупредили заранее — поэтому набор такой:
+      * триал заканчивается: за 3 дня и в последний день;
+      * автосписание: за 3 дня, с суммой;
+      * БЕЗ автопродления (платит вручную): за 7, 3 и 1 день;
+      * доступ истёк сегодня: салон скрыт из каталога.
+    Задача идёт раз в сутки, поэтому дублей не будет и без отдельного журнала:
+    условие срабатывает ровно в свой день.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import Salon, SalonSubscriptionStatus, User
+    from app.services.notifications import notify_model_subscription, notify_subscription
+    from app.services.subscription import _aware
+    from app.services.tariffs import TARIFF_CATALOG
+
+    now = datetime.now(timezone.utc)
+    sent = 0
+
+    def _days_until(value) -> Optional[int]:
+        value = _aware(value)
+        return (value.date() - now.date()).days if value else None
+
+    async def _messages_for(target, is_salon: bool) -> list[str]:
+        out: list[str] = []
+        status = target.subscription_status
+        trial_left = _days_until(getattr(target, "trial_ends_at", None))
+        paid_left = _days_until(getattr(target, "subscription_expires_at", None))
+        access_left = _days_until(getattr(target, "access_until", None))
+
+        if status == SalonSubscriptionStatus.TRIALING and trial_left in (3, 0):
+            plan = TARIFF_CATALOG.get(getattr(target, "business_tier", None))
+            price = f", дальше тариф «{plan.name}»" if plan else ""
+            out.append(
+                "бесплатный период заканчивается сегодня" if trial_left == 0
+                else "бесплатный период заканчивается через 3 дня"
+                f"{price}. Оплатите, чтобы не пропасть из каталога."
+            )
+        elif status in (SalonSubscriptionStatus.ACTIVE, SalonSubscriptionStatus.PAST_DUE):
+            amount = getattr(target, "subscription_amount", None)
+            pending = float(getattr(target, "pending_proration", 0) or 0)
+            total = (amount or 0) + pending
+            if target.auto_renew and paid_left == 3:
+                sum_str = f" {int(round(total))} ₽" if total else ""
+                out.append(f"через 3 дня спишем{sum_str} за следующий месяц.")
+            elif not target.auto_renew and paid_left in (7, 3, 1):
+                out.append(
+                    f"оплаченный период заканчивается через {paid_left} "
+                    f"{'день' if paid_left == 1 else 'дня'} — продлите тариф в кабинете."
+                )
+
+        if access_left is not None and access_left == 0 and not (status == SalonSubscriptionStatus.TRIALING):
+            out.append(
+                "доступ по тарифу закончился — карточка скрыта из каталога, новая запись "
+                "закрыта. Уже созданные записи сохранены."
+                if is_salon else
+                "доступ по тарифу закончился — анкета скрыта из поиска."
+            )
+        return out
+
+    async with AsyncSessionLocal() as db:
+        salons = (await db.execute(
+            select(Salon).where(Salon.subscription_status != SalonSubscriptionStatus.NONE)
+        )).scalars().all()
+        for salon in salons:
+            for text in await _messages_for(salon, True):
+                await notify_subscription(db, salon, text)
+                sent += 1
+
+        models = (await db.execute(
+            select(User).where(User.subscription_status != SalonSubscriptionStatus.NONE)
+        )).scalars().all()
+        for user in models:
+            for text in await _messages_for(user, False):
+                await notify_model_subscription(db, user, text)
+                sent += 1
+
+    logger.info("subscription_reminders: отправлено %d напоминаний", sent)
+    return f"sent:{sent}"
