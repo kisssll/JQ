@@ -31,6 +31,19 @@ def _month_bounds(period_month: datetime) -> tuple[datetime, datetime]:
     return start, end
 
 
+def _range_bounds(month_from: datetime, month_to: datetime) -> tuple[datetime, datetime, int]:
+    """Границы [start, end) по диапазону месяцев ВКЛЮЧИТЕЛЬНО + число месяцев.
+    from > to — молча меняем местами (устойчиво к перепутанным полям формы)."""
+    a = month_from.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    b = month_to.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if a > b:
+        a, b = b, a
+    start = a
+    end = _month_bounds(b)[1]
+    num_months = (b.year - a.year) * 12 + (b.month - a.month) + 1
+    return start, end, num_months
+
+
 class PayrollService:
     @staticmethod
     async def calculate_payroll(db: AsyncSession, *, master_id: int, period_month: datetime) -> dict:
@@ -66,6 +79,54 @@ class PayrollService:
             "period_month": start,
             "revenue": revenue,
             "base_salary": base_salary,
+            "commission_percent": commission_percent,
+            "commission": commission,
+            "adjustments": adjustments,
+            "adjustments_sum": adjustments_sum,
+            "total": base_salary + commission + adjustments_sum,
+        }
+
+    @staticmethod
+    async def calculate_payroll_range(
+        db: AsyncSession, *, master_id: int, month_from: datetime, month_to: datetime,
+    ) -> dict:
+        """Расчёт зарплаты за ДИАПАЗОН месяцев (включительно). Оклад = месячная
+        ставка × число месяцев; % от выручки за весь диапазон; бонусы/штрафы —
+        все, чей period_month попадает в диапазон. Пропорций внутри месяца нет."""
+        start, end, num_months = _range_bounds(month_from, month_to)
+
+        settings = (await db.execute(
+            select(MasterPayrollSettings).where(MasterPayrollSettings.master_id == master_id)
+        )).scalar_one_or_none()
+        base_salary_monthly = settings.base_salary if settings else 0
+        commission_percent = settings.commission_percent if settings else 0.0
+
+        revenue = (await db.execute(
+            select(func.coalesce(func.sum(Booking.final_price), 0)).where(
+                Booking.master_id == master_id,
+                Booking.start_time >= start, Booking.start_time < end,
+                Booking.status.in_(PAID_BOOKING_STATUSES),
+            )
+        )).scalar() or 0
+        commission = int(revenue * commission_percent / 100)
+
+        adjustments = (await db.execute(
+            select(PayrollAdjustment).where(
+                PayrollAdjustment.master_id == master_id,
+                PayrollAdjustment.period_month >= start,
+                PayrollAdjustment.period_month < end,
+            ).order_by(PayrollAdjustment.created_at.desc())
+        )).scalars().all()
+        adjustments_sum = sum(a.amount for a in adjustments)
+
+        base_salary = base_salary_monthly * num_months
+        return {
+            "master_id": master_id,
+            "month_from": start,
+            "num_months": num_months,
+            "revenue": revenue,
+            "base_salary": base_salary,            # оклад за весь диапазон
+            "base_salary_monthly": base_salary_monthly,  # месячная ставка (для модалки «Ставка»)
             "commission_percent": commission_percent,
             "commission": commission,
             "adjustments": adjustments,
@@ -142,3 +203,20 @@ class PayrollService:
             return abs(int(result.scalar() or 0))
 
         raise PayrollError("Укажите booking_id либо master_id+period_month")
+
+    @staticmethod
+    async def calculate_cogs_range(
+        db: AsyncSession, *, master_id: int, month_from: datetime, month_to: datetime,
+    ) -> int:
+        """Себестоимость расходников мастера за ДИАПАЗОН месяцев (включительно)."""
+        start, end, _ = _range_bounds(month_from, month_to)
+        result = await db.execute(
+            select(func.coalesce(func.sum(InventoryMovement.delta * InventoryMovement.unit_cost_snapshot), 0))
+            .join(InventoryItem, InventoryItem.id == InventoryMovement.item_id)
+            .where(
+                InventoryItem.master_id == master_id,
+                InventoryMovement.type == InventoryMovementType.CONSUMPTION,
+                InventoryMovement.created_at >= start, InventoryMovement.created_at < end,
+            )
+        )
+        return abs(int(result.scalar() or 0))

@@ -126,10 +126,10 @@ async def render_dashboard_tab(
         )
 
     if tab_name == "payroll":
-        return await render_payroll_tab(db, salon, masters, master_ids, qp.get("period")) if perms["manage_payroll"] else ""
+        return await render_payroll_tab(db, salon, masters, master_ids, qp.get("date_from"), qp.get("date_to")) if perms["manage_payroll"] else ""
 
     if tab_name == "cost":
-        return await render_cost_tab(db, salon, masters, master_ids, qp.get("period")) if perms["view_finances"] else ""
+        return await render_cost_tab(db, salon, masters, master_ids, qp.get("date_from"), qp.get("date_to")) if perms["view_finances"] else ""
 
     if tab_name == "records":
         records_filters = {

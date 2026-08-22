@@ -8,20 +8,23 @@ from app.services.payroll_service import PayrollService
 from app.web.components.hint import hint as _hint
 
 
-def _parse_period(period: str | None) -> datetime:
-    if period:
+def _parse_month(raw: str | None) -> datetime:
+    if raw:
         try:
-            return datetime.strptime(period, "%Y-%m")
+            return datetime.strptime(raw, "%Y-%m")
         except ValueError:
             pass
     return datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
-async def render_cost_tab(db: AsyncSession, salon, masters, master_ids, period_raw: str) -> str:
-    """Вкладка «Себестоимость» — реальная прибыль с учётом расходников и зарплат."""
+async def render_cost_tab(db: AsyncSession, salon, masters, master_ids, date_from_raw: str, date_to_raw: str) -> str:
+    """Вкладка «Себестоимость» — реальная прибыль с учётом расходников и зарплат
+    за ДИАПАЗОН месяцев (с — по)."""
 
-    period = _parse_period(period_raw)
-    period_str = period.strftime("%Y-%m")
+    month_from = _parse_month(date_from_raw)
+    month_to = _parse_month(date_to_raw or date_from_raw)
+    from_str = month_from.strftime("%Y-%m")
+    to_str = month_to.strftime("%Y-%m")
 
     master_user_names = {}
     for m in masters:
@@ -31,8 +34,8 @@ async def render_cost_tab(db: AsyncSession, salon, masters, master_ids, period_r
     rows_html = ""
     total_revenue = total_cogs = total_payroll = 0
     for m in masters:
-        payroll = await PayrollService.calculate_payroll(db, master_id=m.id, period_month=period)
-        cogs = await PayrollService.calculate_cogs(db, master_id=m.id, period_month=period)
+        payroll = await PayrollService.calculate_payroll_range(db, master_id=m.id, month_from=month_from, month_to=month_to)
+        cogs = await PayrollService.calculate_cogs_range(db, master_id=m.id, month_from=month_from, month_to=month_to)
         revenue = payroll["revenue"]
         margin = revenue - cogs - payroll["total"]
 
@@ -64,8 +67,12 @@ async def render_cost_tab(db: AsyncSession, salon, masters, master_ids, period_r
             <input type="hidden" name="salon_id" value="{salon.id}">
             <input type="hidden" name="tab" value="cost">
             <div>
-                <label class="text-muted" style="display:block;font-size:0.75rem;margin-bottom:0.25rem">Период</label>
-                <input type="month" name="period" class="custom-date" value="{period_str}" style="padding:0.5rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                <label class="text-muted" style="display:block;font-size:0.75rem;margin-bottom:0.25rem">Период: с</label>
+                <input type="month" name="date_from" class="custom-date" value="{from_str}" max="{to_str}" style="padding:0.5rem;border:1px solid var(--color-border);border-radius:0.5rem">
+            </div>
+            <div>
+                <label class="text-muted" style="display:block;font-size:0.75rem;margin-bottom:0.25rem">по</label>
+                <input type="month" name="date_to" class="custom-date" value="{to_str}" min="{from_str}" style="padding:0.5rem;border:1px solid var(--color-border);border-radius:0.5rem">
             </div>
             <button type="submit" class="btn-outline">Показать</button>
         </form>

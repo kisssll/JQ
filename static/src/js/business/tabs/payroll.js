@@ -75,12 +75,7 @@
                 e.preventDefault();
                 const masterId = this.dataset.masterId;
                 if (!masterId) return;
-                // Добавляем скрытое поле period_month
-                const periodInput = document.createElement('input');
-                periodInput.type = 'hidden';
-                periodInput.name = 'period_month';
-                periodInput.value = document.getElementById('payrollPeriod').value;
-                this.appendChild(periodInput);
+                // period_month берётся из поля #adjustmentMonth в самой форме
                 this.action = '/api/v1/payroll/master/' + masterId + '/adjustment';
                 this.method = 'post';
                 this.submit();

@@ -8,20 +8,23 @@ from app.services.payroll_service import PayrollService
 from app.web.components.icons import ICON_CHEVRON_DOWN, ICON_CHEVRON_UP
 
 
-def _parse_period(period: str | None) -> datetime:
-    if period:
+def _parse_month(raw: str | None) -> datetime:
+    if raw:
         try:
-            return datetime.strptime(period, "%Y-%m")
+            return datetime.strptime(raw, "%Y-%m")
         except ValueError:
             pass
     return datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
-async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, period_raw: str) -> str:
-    """Вкладка «Зарплаты» — оклад + % от выручки + ручные бонусы/штрафы."""
+async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, date_from_raw: str, date_to_raw: str) -> str:
+    """Вкладка «Зарплаты» — оклад + % от выручки + ручные бонусы/штрафы за
+    ДИАПАЗОН месяцев (с — по)."""
 
-    period = _parse_period(period_raw)
-    period_str = period.strftime("%Y-%m")
+    month_from = _parse_month(date_from_raw)
+    month_to = _parse_month(date_to_raw or date_from_raw)
+    from_str = month_from.strftime("%Y-%m")
+    to_str = month_to.strftime("%Y-%m")
 
     master_user_names = {}
     for m in masters:
@@ -34,7 +37,7 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, perio
     total_revenue = 0
 
     for m in masters:
-        result = await PayrollService.calculate_payroll(db, master_id=m.id, period_month=period)
+        result = await PayrollService.calculate_payroll_range(db, master_id=m.id, month_from=month_from, month_to=month_to)
         total_payroll += result["total"]
         total_revenue += result["revenue"]
 
@@ -58,7 +61,7 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, perio
             <td class="adj-cell">{adj_summary}</td>
             <td class="total-cell">{total_str} ₽</td>
             <td class="actions-cell">
-                <button class="btn-outline" onclick="openRateModal({m.id}, {result['base_salary']}, {result['commission_percent']})">Ставка</button>
+                <button class="btn-outline" onclick="openRateModal({m.id}, {result['base_salary_monthly']}, {result['commission_percent']})">Ставка</button>
                 <button class="btn-outline" onclick="openAdjustmentModal({m.id})">Бонус/штраф</button>
             </td>
         </tr>"""
@@ -95,7 +98,7 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, perio
                     <span class="payroll-card-total">{total_str} ₽</span>
                 </div>
                 <div class="payroll-card-actions">
-                    <button class="btn-outline" onclick="openRateModal({m.id}, {result['base_salary']}, {result['commission_percent']})">Ставка</button>
+                    <button class="btn-outline" onclick="openRateModal({m.id}, {result['base_salary_monthly']}, {result['commission_percent']})">Ставка</button>
                     <button class="btn-outline" onclick="openAdjustmentModal({m.id})">Бонус/штраф</button>
                 </div>
             </div>
@@ -114,8 +117,12 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, perio
             <input type="hidden" name="salon_id" value="{salon.id}">
             <input type="hidden" name="tab" value="payroll">
             <div>
-                <label class="period-label">Период</label>
-                <input type="month" name="period" class="period-input custom-date" value="{period_str}">
+                <label class="period-label">Период: с</label>
+                <input type="month" name="date_from" class="period-input custom-date" value="{from_str}" max="{to_str}">
+            </div>
+            <div>
+                <label class="period-label">по</label>
+                <input type="month" name="date_to" class="period-input custom-date" value="{to_str}" min="{from_str}">
             </div>
             <button type="submit" class="btn-outline period-submit">Показать</button>
         </form>
@@ -188,6 +195,8 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, perio
                 <input type="number" id="adjustmentAmount" name="amount" class="modal-input" required>
                 <label class="modal-label">Причина</label>
                 <input type="text" id="adjustmentReason" name="reason" class="modal-input" required>
+                <label class="modal-label">Месяц начисления</label>
+                <input type="month" id="adjustmentMonth" name="period_month" class="modal-input" value="{to_str}" required>
                 <div class="payroll-modal-actions">
                     <button type="button" class="btn-outline" onclick="closeModal('adjustmentModal')">Отмена</button>
                     <button type="submit" class="btn-primary">Начислить</button>
@@ -196,6 +205,4 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, perio
         </div>
     </div>
 
-    <!-- Скрытое поле для периода (используется в JS) -->
-    <input type="hidden" id="payrollPeriod" value="{period_str}">
     """
