@@ -179,12 +179,11 @@ async def register_web(
     await db.commit()
     await db.refresh(user)
 
-    # Если номер подтверждали через Telegram — бот оставил chat_id, забираем
-    # его в профиль: уведомления о записях заработают с первого дня.
-    tg_chat_id = await otp.pop_tg_chat_id(norm_phone)
-    if tg_chat_id:
-        user.tg_chat_id = tg_chat_id
-        await db.commit()
+    # Если номер подтверждали ботом (Telegram или MAX) — забираем оставленный
+    # им chat_id в профиль и выставляем канал уведомлений: чем подтвердил,
+    # туда и шлём. Уведомления о записях заработают с первого дня.
+    from app.services.notify_channel import bind_after_verification
+    await bind_after_verification(db, user, norm_phone)
 
     # id читаем до записи журнала: record_consent делает commit, а он сбрасывает
     # состояние объекта, и обращение к user.id после него уходит в ленивую

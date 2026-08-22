@@ -233,6 +233,43 @@ async def update_city_form(
     return RedirectResponse(url="/profile?success=city_updated", status_code=302)
 
 
+@router.post("/me/notify-channel")
+async def update_notify_channel_form(
+    request: Request,
+    channel: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Смена канала уведомлений (Telegram / MAX / почта).
+
+    Переключиться можно только на ПОДКЛЮЧЁННЫЙ канал: выбрать мессенджер, к
+    которому не привязан бот, нельзя — иначе уведомления молча перестали бы
+    приходить.
+    """
+    from app.web.auth import get_current_user_from_cookie
+    from app.models.models import NotifyChannel
+
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        target = NotifyChannel(channel)
+    except ValueError:
+        return RedirectResponse(url="/profile?error=notify_channel_invalid", status_code=302)
+
+    addresses = {
+        NotifyChannel.TG: user.tg_chat_id,
+        NotifyChannel.MAX: user.max_chat_id,
+        NotifyChannel.EMAIL: (user.email or "").strip() or None,
+    }
+    if target == NotifyChannel.NONE or not addresses.get(target):
+        return RedirectResponse(url="/profile?error=notify_channel_unavailable", status_code=302)
+
+    user.notify_channel = target
+    await db.commit()
+    return RedirectResponse(url="/profile?success=notify_channel_updated", status_code=302)
+
+
 @router.post("/me/phone-form")
 async def update_phone_form(
     request: Request,
@@ -276,10 +313,10 @@ async def update_phone_form(
         return RedirectResponse(url="/profile?error=phone_not_verified", status_code=302)
 
     user.phone = norm
-    new_chat = await otp.pop_tg_chat_id(norm)
-    if new_chat:
-        user.tg_chat_id = new_chat
     await db.commit()
+    # Номер сменили через бота — переносим новую привязку мессенджера и канал
+    from app.services.notify_channel import bind_after_verification
+    await bind_after_verification(db, user, norm)
 
     return RedirectResponse(url="/profile?success=phone_updated", status_code=302)
 

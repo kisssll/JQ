@@ -96,6 +96,63 @@ async def _send_via_telegram(chat_id: int, text: str) -> None:
                        chat_id, resp.status_code, resp.text[:120])
 
 
+async def _send_via_max(chat_id: int, text: str) -> None:
+    """Отправка сообщения ботом MAX. В отличие от Telegram публичного HTTP-API
+    под рукой нет — пользуемся клиентом maxapi (это разовый вызов, polling не
+    поднимаем, конфликта с процессом бота нет).
+
+    Сетевые сбои — TransientTaskError (ретрай); остальное считаем постоянным.
+    """
+    from app.core.config import settings
+
+    if not settings.MAX_BOT_TOKEN:
+        logger.info("[dev-заглушка MAX] chat=%s: %s", chat_id, text[:60])
+        return
+
+    from maxapi import Bot
+
+    bot = Bot(settings.MAX_BOT_TOKEN)
+    try:
+        await bot.send_message(chat_id=chat_id, text=text)
+    except Exception as exc:  # библиотека не разделяет сетевые/логические ошибки
+        raise TransientTaskError(f"MAX: {exc}") from exc
+    finally:
+        try:
+            await bot.close_session()
+        except Exception:  # закрытие сессии не должно ронять задачу
+            logger.debug("max chat=%s: сессия не закрылась", chat_id, exc_info=True)
+
+
+async def _deliver(channel, address, text: str, subject: str = "Руми") -> None:
+    """Отправка в уже отрезолвленный канал — общий транспорт для задач,
+    которые шлют пользователю напрямую (напоминания). Канал резолвится
+    вызывающим кодом через notify_channel.resolve()."""
+    from app.models.models import NotifyChannel
+
+    if address is None:
+        return
+    if channel == NotifyChannel.EMAIL:
+        await _send_via_smtp(address, subject, text)
+    elif channel == NotifyChannel.MAX:
+        await _send_via_max(address, text)
+    else:
+        await _send_via_telegram(address, text)
+
+
+async def send_max_message(ctx: dict[str, Any], chat_id: int, text: str) -> str:
+    """Уведомление в MAX вне запроса — зеркало send_tg_message."""
+    try:
+        await _send_via_max(chat_id, text)
+    except TransientTaskError as exc:
+        logger.warning(
+            "send_max_message chat=%s: временный сбой (попытка %d): %s",
+            chat_id, ctx["job_try"], exc,
+        )
+        raise _retry(ctx, exc) from exc
+    logger.info("send_max_message chat=%s: отправлено (попытка %d)", chat_id, ctx["job_try"])
+    return "sent"
+
+
 async def send_tg_message(ctx: dict[str, Any], chat_id: int, text: str) -> str:
     """Уведомление в Telegram вне запроса (записи, напоминания)."""
     try:
@@ -135,7 +192,8 @@ async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
             client = (
                 await db.execute(select(User).where(User.id == booking.client_id))
             ).scalar_one_or_none()
-            if client is None or not client.tg_chat_id:
+            from app.services.notify_channel import has_channel
+            if client is None or not has_channel(client):
                 return "skipped:no-chat"
 
             from app.services.notifications import TOPIC_REMINDERS, wants
@@ -157,7 +215,9 @@ async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
             f"{service.name if service else 'услуга'} в «{salon.name}»\n"
             f"Адрес: {salon.address or 'уточните у салона'}"
         )
-        chat_id = client.tg_chat_id
+        # Канал клиента резолвим здесь же — дальше объект пользователя не трогаем
+        from app.services.notify_channel import resolve as _resolve_channel
+        channel, address = _resolve_channel(client)
     except TransientTaskError:
         raise
     except Exception as exc:  # БД недоступна и т.п. — пробуем позже
@@ -166,7 +226,7 @@ async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
         raise _retry(ctx, exc) from exc
 
     try:
-        await _send_via_telegram(chat_id, text)
+        await _deliver(channel, address, text, subject="Напоминание о записи — Руми")
     except TransientTaskError as exc:
         raise _retry(ctx, exc) from exc
     return "sent"
@@ -193,9 +253,10 @@ async def send_evening_deals_blast(ctx: dict[str, Any]) -> str:
         async with AsyncSessionLocal() as db:
             if not await any_windows_today(db):
                 return "skipped:no-windows"
+            from app.services.notify_channel import has_channel_clause
             recipients = (await db.execute(
                 select(User).where(
-                    User.tg_chat_id.isnot(None),
+                    has_channel_clause(),
                     User.is_guest == False,  # noqa: E712
                 )
             )).scalars().all()
@@ -210,12 +271,22 @@ async def send_evening_deals_blast(ctx: dict[str, Any]) -> str:
         f"{link}"
     )
 
+    from app.services.notify_channel import resolve as _resolve_channel
+    from app.models.models import NotifyChannel as _NC
+
     pool = await get_arq_pool()
     sent = 0
     for u in recipients:
         if not wants(u, TOPIC_EVENING_DEALS):
             continue
-        await pool.enqueue_job("send_tg_message", u.tg_chat_id, text)
+        channel, address = _resolve_channel(u)
+        if address is None:
+            continue
+        if channel == _NC.EMAIL:
+            await pool.enqueue_job("send_email", address, "Вечерние окна со скидкой — Руми", text)
+        else:
+            task = "send_max_message" if channel == _NC.MAX else "send_tg_message"
+            await pool.enqueue_job(task, address, text)
         sent += 1
     logger.info("send_evening_deals_blast: поставлено %d сообщений", sent)
     return f"queued:{sent}"

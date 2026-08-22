@@ -170,6 +170,35 @@ async def pop_tg_chat_id(phone: str) -> int | None:
         return None
 
 
+def _max_chat_key(phone: str) -> str:
+    return f"otp:max-chat:{_hash(phone)}"
+
+
+async def save_max_chat_id(phone_hash: str, chat_id: int) -> None:
+    """Зеркало save_tg_chat_id для MAX: бот запоминает chat_id подтвердившего
+    номер, регистрация переносит его в users.max_chat_id (pop_max_chat_id)."""
+    try:
+        r = get_redis()
+        await r.set(f"otp:max-chat:{phone_hash}", chat_id, ex=3600)
+    except Exception as e:
+        raise OTPError(f"Хранилище кодов недоступно: {e}") from e
+
+
+async def pop_max_chat_id(phone: str) -> int | None:
+    """Зеркало pop_tg_chat_id для MAX. Ошибки Redis глотаем — привязка бонус,
+    а не условие регистрации."""
+    try:
+        r = get_redis()
+        key = _max_chat_key(phone)
+        value = await r.get(key)
+        if value is None:
+            return None
+        await r.delete(key)
+        return int(value)
+    except Exception:
+        return None
+
+
 async def get_tg_status(request_id: str) -> str:
     """pending | confirmed | not_found (нет записи, истекла или не мессенджер).
 

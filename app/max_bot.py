@@ -32,6 +32,7 @@ from app.services.otp import (
     _hash,
     _key,
     _mask_phone,
+    save_max_chat_id,
 )
 
 logger = logging.getLogger("max_bot")
@@ -137,6 +138,13 @@ async def on_contact(event: MessageCreated, contact) -> None:
     if verdict == VERDICT_OK:
         await r.hset(_key(token), "status", TG_STATUS_CONFIRMED)
         await r.delete(_pending_key(user_id))
+        # Запоминаем chat_id: регистрация перенесёт его в users.max_chat_id
+        # (pop_max_chat_id), и уведомления в MAX заработают сразу. Сбой записи
+        # не должен ломать подтверждение номера — привязку можно повторить.
+        try:
+            await save_max_chat_id(record["phone_hash"], chat_id)
+        except Exception:
+            logger.warning("max_user=%s: chat_id не сохранён", user_id, exc_info=True)
         logger.info(
             "confirmed: max_user=%s phone=%s",
             user_id, _mask_phone(try_normalize_phone(contact_phone) or ""),

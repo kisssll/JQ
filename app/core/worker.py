@@ -19,7 +19,7 @@ from arq.connections import ArqRedis, RedisSettings
 from app.core.config import settings
 from app.tasks import (
     charge_due_subscriptions, finalize_tkassa_verification, process_payment_webhook,
-    send_booking_reminder, send_email, send_evening_deals_blast, send_sms, send_tg_message,
+    send_booking_reminder, send_email, send_evening_deals_blast, send_max_message, send_sms, send_tg_message,
 )
 
 REDIS_SETTINGS = RedisSettings.from_dsn(settings.REDIS_URL)
@@ -58,7 +58,7 @@ async def _on_startup(ctx: dict) -> None:
 
 class WorkerSettings:
     functions = [
-        send_sms, send_tg_message, send_booking_reminder, send_email,
+        send_sms, send_tg_message, send_max_message, send_booking_reminder, send_email,
         process_payment_webhook, send_evening_deals_blast,
         finalize_tkassa_verification, charge_due_subscriptions,
     ]

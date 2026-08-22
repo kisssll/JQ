@@ -14,7 +14,8 @@
 мастером и владельцем — он получит каждое уведомление один раз (дедуп
 по chat_id, приоритет более специфичной роли).
 
-Приходят только тем, у кого привязан Telegram (users.tg_chat_id).
+Доставка идёт в канал пользователя (Telegram, MAX или почта — см.
+services/notify_channel.py); если канала нет, уведомление тихо не уходит.
 Любая ошибка глотается с логом: уведомления — сервис вежливости, они
 не имеют права ломать бизнес-действие, которое их породило.
 """
@@ -27,10 +28,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.worker import get_arq_pool
+from app.services.notify_channel import (
+    has_channel,
+    has_channel_clause,
+    resolve as resolve_channel,
+    task_for as task_for_channel,
+)
 from app.models.models import (
     Booking,
     Master,
     ModelMatch,
+    NotifyChannel,
     Review,
     ReviewTargetType,
     Salon,
@@ -93,7 +101,7 @@ async def _members_with_permission(
             .where(
                 SalonMember.salon_id == salon_id,
                 SalonMember.is_active == True,  # noqa: E712
-                User.tg_chat_id.isnot(None),
+                has_channel_clause(),
             )
         )
     ).all()
@@ -104,18 +112,20 @@ async def _members_with_permission(
 
 
 class _Fanout:
-    """Отправка с дедупом по chat_id: первый (более специфичный) текст побеждает."""
+    """Отправка с дедупом по пользователю: первый (более специфичный) текст
+    побеждает. Дедуп именно по user.id, а не по chat_id — у пользователя
+    теперь может быть несколько адресов (TG/MAX/почта)."""
 
     def __init__(self) -> None:
         self._sent: set[int] = set()
 
     async def send(self, user: User | None, text: str, topic: str | None = None) -> None:
-        if user is None or not user.tg_chat_id or user.tg_chat_id in self._sent:
+        if user is None or user.id in self._sent:
             return
         if topic is not None and not wants(user, topic):
             return
-        await _enqueue(user.tg_chat_id, text)
-        self._sent.add(user.tg_chat_id)
+        if await deliver(user, text):
+            self._sent.add(user.id)
 
 
 def reminder_eta_utc(start_naive: datetime, salon_tz: str) -> datetime | None:
@@ -153,9 +163,28 @@ async def _booking_context(db: AsyncSession, booking: Booking) -> dict:
     }
 
 
-async def _enqueue(chat_id: int, text: str, **kwargs) -> None:
+async def deliver(user: User | None, text: str, subject: str = "Руми", **kwargs) -> bool:
+    """Доставка одного уведомления пользователю в ЕГО канал (TG/MAX/почта).
+
+    Раньше здесь был прямой enqueue в Telegram, поэтому обладатели MAX и почты
+    не получали ничего. Теперь канал резолвится (см. notify_channel.resolve),
+    а если достучаться некуда — тихо логируем и возвращаем False: отсутствие
+    канала не должно ронять действие пользователя.
+    """
+    channel, address = resolve_channel(user)
+    if address is None:
+        logger.info(
+            "уведомление не доставлено (нет канала): user=%s",
+            getattr(user, "id", "?"),
+        )
+        return False
+
     pool = await get_arq_pool()
-    await pool.enqueue_job("send_tg_message", chat_id, text, **kwargs)
+    if channel == NotifyChannel.EMAIL:
+        await pool.enqueue_job("send_email", address, subject, text, **kwargs)
+    else:
+        await pool.enqueue_job(task_for_channel(channel), address, text, **kwargs)
+    return True
 
 
 async def notify_booking_created(db: AsyncSession, booking: Booking) -> None:
@@ -195,7 +224,7 @@ async def notify_booking_created(db: AsyncSession, booking: Booking) -> None:
                 topic=TOPIC_BOOKINGS,
             )
 
-        if client and client.tg_chat_id:
+        if has_channel(client):
             eta = reminder_eta_utc(booking.start_time, salon.timezone)
             if eta:
                 pool = await get_arq_pool()
@@ -283,7 +312,7 @@ async def notify_warehouse_request_created(db: AsyncSession, request: WarehouseR
                     SalonMember.salon_id == request.salon_id,
                     SalonMember.is_active == True,  # noqa: E712
                     SalonMember.notify_warehouse_requests == True,  # noqa: E712
-                    User.tg_chat_id.isnot(None),
+                    has_channel_clause(),
                 )
             )
         ).all()
@@ -365,13 +394,14 @@ async def notify_admins(db: AsyncSession, subject: str, body: str = "") -> None:
     try:
         pool = await get_arq_pool()
         admins = (await db.execute(
-            select(User).where(User.role == UserRole.ADMIN, User.tg_chat_id.isnot(None))
+            select(User).where(User.role == UserRole.ADMIN, has_channel_clause())
         )).scalars().all()
         seen: set[int] = set()
         for admin in admins:
-            if admin.tg_chat_id and admin.tg_chat_id not in seen:
-                seen.add(admin.tg_chat_id)
-                await pool.enqueue_job("send_tg_message", admin.tg_chat_id, f"🛡️ {text}")
+            if admin.id in seen:
+                continue
+            seen.add(admin.id)
+            await deliver(admin, f"🛡️ {text}", subject=f"[Руми] {subject}")
         if settings.ADMIN_ALERT_EMAIL:
             await pool.enqueue_job(
                 "send_email", settings.ADMIN_ALERT_EMAIL, f"[Руми] {subject}", body or subject
@@ -445,7 +475,7 @@ async def _creators_for_salons(db: AsyncSession, salon_ids: list[int]) -> list[U
                 SalonMember.salon_id.in_(salon_ids),
                 SalonMember.is_creator == True,  # noqa: E712
                 SalonMember.is_active == True,  # noqa: E712
-                User.tg_chat_id.isnot(None),
+                has_channel_clause(),
             )
         )
     ).scalars().all()

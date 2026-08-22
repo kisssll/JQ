@@ -32,6 +32,83 @@ from app.web.components.icons import (
 )
 from app.core.config import settings
 
+def _notify_channel_block(user) -> str:
+    """Реальное управление каналом уведомлений.
+
+    Раньше здесь стояла заглушка (чекбоксы и селект email/vk/telegram, ни к
+    чему не подключённые). Теперь показываем фактический канал, даём
+    переключиться на любой ПОДКЛЮЧЁННЫЙ и мягко зовём подключить, если
+    доставлять некуда — блокировать ничего не нужно.
+    """
+    from app.core.config import settings
+    from app.models.models import NotifyChannel
+    from app.services.notify_channel import CHANNEL_LABELS, resolve
+
+    if user is None:
+        return ""
+
+    channel, _address = resolve(user)
+    available = []
+    if getattr(user, "tg_chat_id", None):
+        available.append(NotifyChannel.TG)
+    if getattr(user, "max_chat_id", None):
+        available.append(NotifyChannel.MAX)
+    if (getattr(user, "email", "") or "").strip():
+        available.append(NotifyChannel.EMAIL)
+
+    if not available:
+        # Канала нет — мягкий промпт, без запретов
+        links = []
+        if settings.TG_BOT_USERNAME:
+            links.append(
+                f'<a class="btn-outline" href="https://t.me/{settings.TG_BOT_USERNAME}" '
+                f'target="_blank" rel="noopener">Подключить Telegram</a>'
+            )
+        if settings.MAX_BOT_USERNAME:
+            links.append(
+                f'<a class="btn-outline" href="https://max.ru/{settings.MAX_BOT_USERNAME}" '
+                f'target="_blank" rel="noopener">Подключить MAX</a>'
+            )
+        return f"""
+            <p class="settings-card-hint" style="margin:0 0 0.75rem">
+                Канал уведомлений не подключён — напоминания о записях и важные
+                сообщения приходить не будут. Подключите мессенджер или укажите
+                почту в разделе «Смена данных».
+            </p>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{''.join(links)}</div>"""
+
+    options = "".join(
+        f'<option value="{c.value}"{" selected" if c == channel else ""}>{CHANNEL_LABELS[c]}</option>'
+        for c in available
+    )
+    missing = []
+    if NotifyChannel.TG not in available and settings.TG_BOT_USERNAME:
+        missing.append(
+            f'<a href="https://t.me/{settings.TG_BOT_USERNAME}" target="_blank" rel="noopener">Telegram</a>'
+        )
+    if NotifyChannel.MAX not in available and settings.MAX_BOT_USERNAME:
+        missing.append(
+            f'<a href="https://max.ru/{settings.MAX_BOT_USERNAME}" target="_blank" rel="noopener">MAX</a>'
+        )
+    missing_hint = (
+        f'<p class="settings-card-hint" style="margin:0.5rem 0 0">Можно подключить ещё: {", ".join(missing)}.</p>'
+        if missing else ""
+    )
+
+    return f"""
+            <form method="post" action="/api/v1/users/me/notify-channel" class="settings-select-group">
+                <label for="notify-method">Способ получения:</label>
+                <select name="channel" id="notify-method" class="settings-select custom-select">
+                    {options}
+                </select>
+                <button type="submit" class="btn-outline settings-save-btn">Сохранить</button>
+            </form>
+            <p class="settings-card-hint" style="margin:0.5rem 0 0">
+                Сейчас уведомления приходят: <strong>{CHANNEL_LABELS[channel]}</strong>.
+            </p>
+            {missing_hint}"""
+
+
 def render_profile_page(user=None, master_profile=None, salon=None, stats=None, error=None, success=None) -> str:
     # Обработка сообщений
     error_message = ""
@@ -48,6 +125,8 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
             "email_not_verified": "Код неверный или истёк — запросите новый",
             "otp_unavailable": "Сервис подтверждения временно недоступен, попробуйте позже",
             "update_failed": "Не удалось обновить профиль",
+            "notify_channel_invalid": "Неизвестный канал уведомлений",
+            "notify_channel_unavailable": "Этот канал не подключён — сначала привяжите бота или укажите почту",
         }
         error_message = f'<div class="profile-alert profile-alert-error">{error_messages.get(error, "Произошла ошибка")}</div>'
 
@@ -59,6 +138,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
             "city_updated": "Город обновлён",
             "phone_updated": "Телефон обновлён",
             "avatar_updated": "Аватар обновлён",
+            "notify_channel_updated": "Канал уведомлений обновлён",
         }
         success_message = f'<div class="profile-alert profile-alert-success">{success_messages.get(success, "Операция выполнена успешно")}</div>'
 
@@ -232,30 +312,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
                 <span class="settings-icon-wrapper">{ICON_BELL}</span>
                 Уведомления
             </h2>
-            <div class="settings-notification-group">
-                <div class="settings-switch-item">
-                    <label class="settings-switch">
-                        <input type="checkbox" checked id="notify-bookings">
-                        <span class="settings-slider"></span>
-                    </label>
-                    <span>Напоминания о записях</span>
-                </div>
-                <div class="settings-switch-item">
-                    <label class="settings-switch">
-                        <input type="checkbox" checked id="notify-promotions">
-                        <span class="settings-slider"></span>
-                    </label>
-                    <span>Новые акции салонов</span>
-                </div>
-            </div>
-            <div class="settings-select-group">
-                <label for="notify-method">Способ получения:</label>
-                <select id="notify-method" class="settings-select custom-select">
-                    <option value="email">Email</option>
-                    <option value="vk">VK</option>
-                    <option value="telegram">Telegram</option>
-                </select>
-            </div>
+            {_notify_channel_block(user)}
         </div>
 
         <!-- Смена данных (аккордеон) -->

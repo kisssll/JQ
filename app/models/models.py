@@ -20,6 +20,23 @@ class UserRole(str, enum.Enum):
     BUSINESS = "business"
     ADMIN = "admin"
 
+
+class NotifyChannel(str, enum.Enum):
+    """Куда доставлять уведомления пользователю.
+
+    none  — канала нет (вход через Яндекс/VK без мессенджера, старые записи);
+    tg    — Telegram (users.tg_chat_id);
+    max   — MAX (users.max_chat_id);
+    email — почта (users.email), запасной канал.
+
+    Ставится автоматически по способу подтверждения телефона: чем подтвердил,
+    туда и шлём. Меняется вручную в профиле.
+    """
+    NONE = "none"
+    TG = "tg"
+    MAX = "max"
+    EMAIL = "email"
+
 class BookingStatus(str, enum.Enum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
@@ -220,6 +237,18 @@ class User(Base):
     # Привязка Telegram для уведомлений (блок 18+): chat_id из бота.
     # BigInteger — телеграмовские id не влезают в int32. NULL = не привязан.
     tg_chat_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    # Привязка MAX — зеркало tg_chat_id. Раньше MAX умел только подтверждать
+    # телефон, а уведомления шли исключительно в Telegram: подтвердившийся
+    # через MAX не получал вообще ничего. Теперь chat_id сохраняется и MAX
+    # становится полноценным каналом доставки.
+    max_chat_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    # Куда слать уведомления. Ставится автоматически при подтверждении телефона
+    # (чем подтвердил — туда и шлём), меняется в профиле. NONE = канала нет,
+    # доставка попробует email, иначе уведомление не уйдёт (мягко логируем).
+    notify_channel: Mapped[NotifyChannel] = mapped_column(
+        Enum(NotifyChannel), default=NotifyChannel.NONE,
+        server_default="NONE", nullable=False,
+    )
     # Личные подписки на темы уведомлений {тема: bool}; NULL/нет ключа =
     # включено. Права салона решают «кто может», это — «кто хочет».
     # Управляется кнопками в боте (/start → «Мои уведомления»).
