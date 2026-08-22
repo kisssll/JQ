@@ -15,7 +15,15 @@
 import asyncio
 import os
 import pathlib
+import signal
 import tempfile
+
+# arq.Worker.close() безусловно шлёт себе signal.SIGUSR1 (см. worker.py) — на
+# POSIX (CI) это штатный сигнал, на Windows его вообще нет в модуле signal,
+# и тесты с Worker(handle_signals=False) падают AttributeError ещё до assert'ов.
+# Подставляем существующий сигнал-заглушку — arq использует только .name для лога.
+if not hasattr(signal, "SIGUSR1"):
+    signal.SIGUSR1 = signal.SIGTERM
 
 # ── Окружение — ДО любого импорта приложения ────────────────────────────────
 _KEYS_DIR = tempfile.mkdtemp(prefix="rumi-test-keys-")
