@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.core.security import get_password_hash
 from app.models.models import (
     User, UserRole, Salon, SalonMember, SalonRole, SalonModerationStatus,
-    Master, Service,
+    SalonSubscriptionStatus, Master, Service,
 )
 from tests.conftest import register_user
 
@@ -27,7 +27,8 @@ async def _mk_owner(db_session, phone, pw="Bizpass1"):
         return u.id
 
 
-async def _mk_approved_unpublished(db_session, owner_id, name="Салон"):
+async def _mk_approved_unpublished(db_session, owner_id, name="Салон",
+                                    subscription_status=SalonSubscriptionStatus.NONE):
     """Салон в состоянии «прошёл модерацию, но не опубликован».
 
     Создаём PENDING, затем UPDATE'ом переводим в APPROVED — ровно как это
@@ -38,6 +39,7 @@ async def _mk_approved_unpublished(db_session, owner_id, name="Салон"):
         s = Salon(name=name, description="", address="Томск, ул. 2",
                   latitude=56.5, longitude=84.9, phone="+79990000001",
                   rating=0.0, reviews_count=0, is_active=True,
+                  subscription_status=subscription_status,
                   moderation_status=SalonModerationStatus.PENDING, creator_id=owner_id)
         db.add(s)
         await db.commit()
@@ -99,7 +101,8 @@ async def test_booking_blocked_until_published(client, db_session):
 
 async def test_owner_publishes_makes_public(client, db_session):
     owner = await _mk_owner(db_session, "+79995552010")
-    sid = await _mk_approved_unpublished(db_session, owner, name="ПубликуемыйZZ")
+    sid = await _mk_approved_unpublished(db_session, owner, name="ПубликуемыйZZ",
+                                          subscription_status=SalonSubscriptionStatus.ACTIVE)
     await _login(client, "+79995552010")
 
     r = await client.post(f"/api/v1/business/my-salon/publish?salon_id={sid}")
@@ -114,7 +117,8 @@ async def test_owner_publishes_makes_public(client, db_session):
 
 async def test_publish_is_idempotent(client, db_session):
     owner = await _mk_owner(db_session, "+79995552011")
-    sid = await _mk_approved_unpublished(db_session, owner)
+    sid = await _mk_approved_unpublished(db_session, owner,
+                                          subscription_status=SalonSubscriptionStatus.ACTIVE)
     await _login(client, "+79995552011")
 
     r1 = await client.post(f"/api/v1/business/my-salon/publish?salon_id={sid}")
@@ -142,6 +146,18 @@ async def test_publish_requires_approved(client, db_session):
 
     r = await client.post(f"/api/v1/business/my-salon/publish?salon_id={sid}")
     assert r.status_code == 409, r.text
+
+
+async def test_publish_requires_subscription(client, db_session):
+    owner = await _mk_owner(db_session, "+79995552015")
+    sid = await _mk_approved_unpublished(db_session, owner)  # subscription_status=NONE по умолчанию
+    await _login(client, "+79995552015")
+
+    r = await client.post(f"/api/v1/business/my-salon/publish?salon_id={sid}")
+    assert r.status_code == 409, r.text
+    async with db_session() as db:
+        s = (await db.execute(select(Salon).where(Salon.id == sid))).scalar_one()
+        assert s.published_at is None
 
 
 async def test_publish_requires_permission(client, db_session):
