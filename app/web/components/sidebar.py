@@ -9,6 +9,7 @@ from app.web.components.icons import (
     ICON_HEART,
     ICON_LOGOUT,
     ICON_CALENDAR_DAYS_SIDEBAR,
+    ICON_CREDIT_CARD,
 )
 
 def render_sidebar(current_page: str = "home", user=None) -> str:
@@ -110,6 +111,9 @@ def render_sidebar(current_page: str = "home", user=None) -> str:
                     </a>
                     <a class="sidebar-link {is_active('manifest')}" href="/about">
                         {ICON_FILE_TEXT} Манифест
+                    </a>
+                    <a class="sidebar-link {is_active('tariffs')}" href="/tariffs">
+                        {ICON_CREDIT_CARD} Тарифы и информация
                     </a>
                 </div>
 

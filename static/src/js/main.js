@@ -12,6 +12,7 @@ import './password-validator.js';
 import './phone-mask.js';
 import './profile.js';
 import './salons.js';
+import './tariffs.js';
 import './otp-code.js';
 import './salon-detail.js';
 import './bookings.js';

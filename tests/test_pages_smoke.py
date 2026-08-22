@@ -18,7 +18,7 @@ from app.models.models import (
 )
 
 PUBLIC_PAGES = [
-    "/", "/salons", "/business", "/login", "/register", "/about",
+    "/", "/salons", "/business", "/login", "/register", "/about", "/tariffs",
     "/forgot-password", "/reset-password", "/offline", "/model", "/book",
     "/robots.txt", "/sitemap.xml", "/logout", "/definitely-no-such-page-xyz",
 ]

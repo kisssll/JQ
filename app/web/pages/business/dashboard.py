@@ -29,6 +29,7 @@ from app.web.components.icons import (
     ICON_SETTINGS_GEAR_SMALL,
     ICON_PLUS,
     ICON_CREDIT_CARD,
+    ICON_MESSAGE_CIRCLE,
 )
 from app.web.pages.business.utils import get_masters_data, get_master_ids, get_overview_revenue_data
 from app.web.pages.business.tabs.overview import render_overview_tab
@@ -45,6 +46,7 @@ from app.web.pages.business.tabs.cost import render_cost_tab
 from app.web.pages.business.tabs.promo_models import render_promo_models_tab
 from app.web.pages.business.tabs.my_salon import render_my_salon_tab
 from app.web.pages.business.tabs.billing import render_billing_tab
+from app.web.pages.business.tabs.instructions import render_instructions_tab
 from app.crm.tabs.clients import render_crm_tab
 
 
@@ -186,6 +188,9 @@ async def render_dashboard_tab(
         active_masters = len([m for m in masters if m.is_active])
         return render_billing_tab(salon, perms["manage_tariff"], active_masters)
 
+    if tab_name == "instructions":
+        return render_instructions_tab()
+
     return ""
 
 
@@ -255,6 +260,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         ('crm', ICON_USER_CHECK, 'Клиенты', True),
         ('billing', ICON_CREDIT_CARD, 'Тариф', perms["manage_tariff"]),
         ('edit', ICON_SETTINGS_GEAR_SMALL, 'Редактировать салон', True),
+        ('instructions', ICON_MESSAGE_CIRCLE, 'Инструкция', True),
     ]
 
     visible_slugs = [slug for slug, _, _, visible in tab_buttons if visible]

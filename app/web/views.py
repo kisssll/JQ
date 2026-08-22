@@ -467,6 +467,14 @@ async def about_page(request: Request, db: AsyncSession = Depends(get_db)):
     return HTMLResponse(content=render_about_page(user))
 
 
+@router.get("/tariffs", response_class=HTMLResponse)
+async def tariffs_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """«Тарифы и информация» — тарифы платформы, документы, инструкции по сайту."""
+    user = await get_current_user_from_cookie(request, db)
+    from app.web.pages.tariffs import render_tariffs_page
+    return HTMLResponse(content=render_tariffs_page(user))
+
+
 @router.get("/model", response_class=HTMLResponse)
 async def model_landing_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
