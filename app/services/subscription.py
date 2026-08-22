@@ -132,8 +132,15 @@ def register_headcount(salon, active_masters: int, at: Optional[datetime] = None
     if active_masters <= billed:
         return Decimal("0")
 
-    if salon.subscription_status == SalonSubscriptionStatus.TRIALING:
-        salon.billed_masters = active_masters  # планку двигаем, денег не берём
+    # Доплату берём ТОЛЬКО с того, кто уже платит: внутри оплаченного месяца
+    # штат вырос — доплачивает разницу. На бесплатном периоде, до выбора тарифа
+    # (NONE) и после отказа от подписки (CANCELED) денег не берём — новый салон,
+    # заводящий своих мастеров, ничего не должен. Планку при этом двигаем, чтобы
+    # первый реальный счёт был ровно тарифом за текущий штат.
+    if salon.subscription_status not in (
+        SalonSubscriptionStatus.ACTIVE, SalonSubscriptionStatus.PAST_DUE,
+    ):
+        salon.billed_masters = active_masters
         return Decimal("0")
 
     plan_before = salon.business_tier
@@ -227,6 +234,10 @@ def start_trial(target, trial_days: int, at: Optional[datetime] = None,
     target.subscription_expires_at = trial_ends_at
     target.access_until = access_until_for_trial(trial_ends_at)
     target.trial_used_at = now
+    # Бесплатный период — с чистого листа: всё, что могло накопиться до выбора
+    # тарифа, обнуляем, иначе оно всплыло бы в первом же счёте.
+    if hasattr(target, "pending_proration"):
+        target.pending_proration = 0.0
     if active_masters is not None and hasattr(target, "billed_masters"):
         # Планка = штат на старте: за этих людей доплату не берём.
         target.billed_masters = active_masters

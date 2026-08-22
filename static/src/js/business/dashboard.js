@@ -170,7 +170,11 @@ import { confirmDialog, toastNetworkError } from '../ui-feedback.js';
                     const res = await fetch('/api/v1/payments/business/manual-charge', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ salon_id: parseInt(salonId, 10) }),
+                        body: JSON.stringify({
+                            salon_id: parseInt(salonId, 10),
+                            // срок предоплаты: 1 месяц по умолчанию
+                            months: parseInt((document.getElementById('billingMonths') || {}).value || '1', 10),
+                        }),
                     });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) {

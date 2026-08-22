@@ -215,3 +215,43 @@ async def test_admin_can_grant_repeat_trial(db_session):
         await db.refresh(s)
         assert s.access_until > datetime.now(timezone.utc)
         assert ends > datetime.now(timezone.utc)
+
+
+# ── Новый салон не платит за собственный штат ────────────────────────────────
+
+def test_no_proration_before_tariff_chosen():
+    """Салон ещё не выбрал тариф (NONE) и заводит своих мастеров — это не
+    «рост штата внутри оплаченного месяца», денег он не должен."""
+    s = _salon(subscription_status=SalonSubscriptionStatus.NONE, business_tier=None, billed_masters=0)
+    assert register_headcount(s, 3) == 0
+    assert s.pending_proration == 0.0
+    assert s.billed_masters == 3      # планку двигаем — первый счёт будет ровно тарифом
+
+
+def test_trial_start_clears_pending_accrued_earlier():
+    """Даже если что-то накопилось до подключения тарифа, старт бесплатного
+    периода обнуляет счётчик: триал бесплатный целиком."""
+    s = _salon(subscription_status=SalonSubscriptionStatus.NONE, pending_proration=825.0)
+    start_trial(s, 14, active_masters=3)
+    assert s.pending_proration == 0.0
+
+
+def test_canceled_subscription_does_not_accrue():
+    s = _salon(subscription_status=SalonSubscriptionStatus.CANCELED, billed_masters=2)
+    assert register_headcount(s, 5) == 0
+    assert s.pending_proration == 0.0
+
+
+# ── Предоплата вперёд ────────────────────────────────────────────────────────
+
+async def test_prepay_extends_access_by_paid_months(db_session):
+    """Оплата на несколько месяцев вперёд продлевает доступ на весь срок,
+    а не на один месяц."""
+    from app.services.subscription import apply_successful_payment
+
+    now = datetime.now(timezone.utc)
+    s = _salon(pending_proration=500.0, billed_masters=3)
+    months = 12
+    apply_successful_payment(s, now + timedelta(days=30 * months), active_masters=3)
+    assert s.access_until == now + timedelta(days=360)
+    assert s.pending_proration == 0.0   # доплата вошла в этот платёж

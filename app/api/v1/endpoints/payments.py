@@ -40,6 +40,9 @@ router = APIRouter()
 
 TRIAL_DAYS = 14
 VERIFICATION_AMOUNT = Decimal("1.00")
+# Потолок предоплаты — чисто инженерная страховка от абсурдных сроков
+# (10 лет), продуктового ограничения тут нет.
+MAX_PREPAY_MONTHS = 120
 
 _SUCCESS_STATUSES = {"CONFIRMED"}
 _FAILURE_STATUSES = {"REJECTED", "DEADLINE_EXPIRED", "CANCELED", "AUTH_FAIL"}
@@ -74,6 +77,9 @@ class InitPaymentRequest(BaseModel):
 
 class ManualChargeRequest(BaseModel):
     salon_id: int
+    # За сколько месяцев платим вперёд. 1 — обычная помесячная оплата;
+    # больше — предоплата (доступ продлевается на весь оплаченный срок).
+    months: int = 1
 
 
 class CancelAutoRenewRequest(BaseModel):
@@ -204,14 +210,21 @@ async def manual_business_charge(
     except TariffError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    months = max(1, int(body.months or 1))
+    if months > MAX_PREPAY_MONTHS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Оплатить можно максимум на {MAX_PREPAY_MONTHS} месяцев вперёд",
+        )
+
     salon.business_tier = plan
-    # К счёту добавляем доплату, накопленную за рост штата внутри уже
+    # Тариф × срок предоплаты + доплата, накопленная за рост штата внутри уже
     # оплаченного месяца (register_headcount): в момент найма денег не берём,
     # они падают в следующий платёж.
-    amount = (amount + Decimal(str(salon.pending_proration or 0))).quantize(Decimal("0.01"))
+    amount = (amount * months + Decimal(str(salon.pending_proration or 0))).quantize(Decimal("0.01"))
     payment = Payment(
         salon_id=salon.id, plan=plan, kind=PaymentKind.MANUAL,
-        amount=float(amount), invoice_id=uuid.uuid4().hex,
+        amount=float(amount), months=months, invoice_id=uuid.uuid4().hex,
     )
     db.add(payment)
     await db.flush()
@@ -652,7 +665,8 @@ async def tkassa_notify(request: Request, db: AsyncSession = Depends(get_db)):
                 else now
             )
             from app.services.subscription import apply_successful_payment
-            apply_successful_payment(target, base + timedelta(days=30))
+            # Предоплата вперёд: продлеваем на весь оплаченный срок, а не на месяц
+            apply_successful_payment(target, base + timedelta(days=30 * max(1, payment.months or 1)))
             target.subscription_status = SalonSubscriptionStatus.ACTIVE
 
         await db.commit()

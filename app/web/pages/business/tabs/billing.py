@@ -254,9 +254,19 @@ async def render_billing_tab(
     if not settings.TKASSA_ENABLED:
         actions_html = '<p class="billing-muted">Оплата картой скоро появится.</p>'
     else:
+        # Предоплата вперёд: раньше платить можно было только помесячно.
+        # Срок выбирается рядом с кнопкой и уходит в manual-charge.
+        months_options = "".join(
+            f'<option value="{m}">{label}</option>'
+            for m, label in (
+                (1, "на 1 месяц"), (3, "на 3 месяца"), (6, "на 6 месяцев"),
+                (12, "на год"), (24, "на 2 года"),
+            )
+        )
         buttons = [
+            f'<select id="billingMonths" class="billing-months" aria-label="Срок оплаты">{months_options}</select>',
             f'<button id="billingPayBtn" class="btn-primary billing-btn" '
-            f'data-salon-id="{salon.id}">Оплатить</button>'
+            f'data-salon-id="{salon.id}">Оплатить</button>',
         ]
         if salon.auto_renew:
             buttons.append(f'<button id="billingCancelBtn" class="btn-outline billing-btn" '

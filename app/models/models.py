@@ -552,6 +552,9 @@ class Payment(Base):
 
     # Наш идентификатор счёта (OrderId для Т-Кассы) — уникален, генерируем
     # сами (uuid4 hex).
+    # За сколько месяцев платёж (предоплата вперёд): 1 — обычный месяц.
+    # Нужен, чтобы при подтверждении продлить доступ ровно на оплаченный срок.
+    months: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     invoice_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True, index=True)
     # PaymentId Т-Кассы — приходит в ответе на Init и в уведомлении.
     provider_transaction_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
