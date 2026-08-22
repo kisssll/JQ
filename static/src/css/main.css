@@ -8,6 +8,7 @@
 
 /* Компоненты (footer, header, sidebar) */
 @import './components.css';
+@import './password-toggle.css';
 
 /* Стили страниц */
 @import './about.css';
@@ -40,4 +41,5 @@
 /* Импорты для кастомных форм */
 @import 'choices.js/public/assets/styles/choices.min.css';
 @import 'flatpickr/dist/flatpickr.min.css';
+@import 'flatpickr/dist/plugins/monthSelect/style.css';
 @import './custom-forms.css';

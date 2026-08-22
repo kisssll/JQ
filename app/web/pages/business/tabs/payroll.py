@@ -104,6 +104,9 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, perio
     if not rows_html:
         rows_html = '<tr><td colspan="8" class="empty-state">Мастеров пока нет</td></tr>'
         cards_html = '<div class="empty-state">Мастеров пока нет</div>'
+    elif total_revenue == 0 and total_payroll == 0:
+        rows_html = '<tr><td colspan="8" class="empty-state">Данных за этот период нет</td></tr>'
+        cards_html = '<div class="empty-state">Данных за этот период нет</div>'
 
     master_options = "".join(f'<option value="{m.id}">{master_user_names.get(m.id, "—")}</option>' for m in masters)
 

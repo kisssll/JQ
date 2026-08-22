@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
+from app.core.config import settings
 from app.models.models import Salon, User, Master, Service as ServiceModel
 from app.web.pages.home import render_home_page
 from app.web.pages.login import render_login_page         
@@ -221,12 +222,34 @@ async def business_dashboard_page(
     if not user:
         return RedirectResponse(url="/login?redirect=/business/dashboard", status_code=302)
 
-    resolved_id = await get_user_primary_salon_id(db, user.id, salon_id)
+    # salon_id из URL (явное переключение через свитчер) в приоритете; если его
+    # нет — пробуем салон, запомненный в cookie с прошлого визита, и только
+    # если он тоже недоступен — стандартную эвристику get_user_primary_salon_id.
+    resolved_id = None
+    if salon_id is not None:
+        resolved_id = await get_user_primary_salon_id(db, user.id, salon_id)
+    if resolved_id is None:
+        last_salon_cookie = request.cookies.get("last_salon_id")
+        if last_salon_cookie and last_salon_cookie.isdigit():
+            resolved_id = await get_user_primary_salon_id(db, user.id, int(last_salon_cookie))
+    if resolved_id is None:
+        resolved_id = await get_user_primary_salon_id(db, user.id, None)
+
     if resolved_id is not None:
         salon = (await db.execute(select(Salon).where(Salon.id == resolved_id))).scalar_one_or_none()
         membership = await get_salon_membership(db, user.id, resolved_id)
         if salon and membership:
-            return HTMLResponse(content=await render_business_dashboard(db, user, salon, membership, request.query_params))
+            response = HTMLResponse(content=await render_business_dashboard(db, user, salon, membership, request.query_params))
+            response.set_cookie(
+                key="last_salon_id",
+                value=str(resolved_id),
+                httponly=True,
+                secure=settings.COOKIE_SECURE,
+                max_age=365 * 24 * 60 * 60,
+                samesite="lax",
+                path="/",
+            )
+            return response
 
     master = (await db.execute(select(Master).where(Master.user_id == user.id, Master.is_active == True))).scalar_one_or_none()
     if master is not None:

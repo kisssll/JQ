@@ -664,7 +664,12 @@ document.addEventListener('DOMContentLoaded', function() {
             this.disabled = true;
             try {
                 const res = await fetch(`/api/v1/business/my-salon/visibility-toggle?salon_id=${this.dataset.salonId}`, { method: 'POST' });
-                if (!res.ok) { alert('Не удалось изменить видимость салона'); this.disabled = false; return; }
+                if (!res.ok) {
+                    const errBody = await res.json().catch(() => ({}));
+                    alert(errBody.detail || 'Не удалось изменить видимость салона');
+                    this.disabled = false;
+                    return;
+                }
                 const data = await res.json();
                 const hint = document.getElementById('salonVisibilityHint');
                 const icon = window.ICON_EYE || '';

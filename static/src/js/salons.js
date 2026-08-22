@@ -202,6 +202,25 @@ document.addEventListener('DOMContentLoaded', function () {
     updateAvailableCategories();
     if (filterState.city) applyFilters();
 
+    // === Переход по ссылке «название салона» из карточки записи («Мои
+    // записи», ?highlight=<id>) — сбрасываем фильтр города (иначе карточка
+    // из другого города останется скрытой), прокручиваем к ней и подсвечиваем. ===
+    const highlightId = new URLSearchParams(window.location.search).get('highlight');
+    if (highlightId) {
+        const targetCard = cards.find(c => c.dataset.salonId === highlightId);
+        if (targetCard) {
+            if (filterState.city) {
+                filterState.city = '';
+                if (citySelect) citySelect.value = '';
+                updateAvailableCategories();
+            }
+            applyFilters();
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetCard.classList.add('salon-card--highlighted');
+            setTimeout(() => targetCard.classList.remove('salon-card--highlighted'), 2500);
+        }
+    }
+
     document.querySelectorAll('#ratingFilterGroup .filter-chip').forEach(btn => {
         btn.addEventListener('click', function () {
             document.querySelectorAll('#ratingFilterGroup .filter-chip').forEach(b => b.classList.remove('active'));

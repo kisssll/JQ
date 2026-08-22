@@ -27,6 +27,7 @@ from app.api.deps import (
     get_current_user, check_salon_permission, get_user_primary_salon_id, get_salon_membership,
 )
 from app.services.analytics_service import AnalyticsService
+from app.services.subscription_service import is_billing_active
 from app.core.config import settings
 
 
@@ -317,7 +318,22 @@ async def toggle_salon_visibility(
     salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
     if salon is None:
         raise HTTPException(status_code=404, detail="Салон не найден")
-    salon.is_hidden = not salon.is_hidden
+
+    if salon.is_hidden:
+        # Хотят показать обратно — если скрыт за неоплату (или подписка вообще
+        # истекла к этому моменту), тумблер не должен обходить биллинг: иначе
+        # ближайший запуск expire_unpaid_salons снова скроет салон без объяснений.
+        if not is_billing_active(salon):
+            raise HTTPException(
+                status_code=409,
+                detail="Сначала оплатите подписку — салон появится в каталоге автоматически после оплаты",
+            )
+        salon.is_hidden = False
+        salon.hidden_reason = None
+    else:
+        salon.is_hidden = True
+        salon.hidden_reason = None  # скрыт вручную владельцем, не биллингом
+
     await db.commit()
     return {"is_hidden": salon.is_hidden}
 

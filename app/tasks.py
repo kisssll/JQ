@@ -472,6 +472,11 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
             payment.paid_at = datetime.now(timezone.utc)
             target.subscription_expires_at = now + timedelta(days=30)
             target.subscription_status = SalonSubscriptionStatus.ACTIVE
+            if kind == "business" and target.hidden_reason == "billing":
+                # Успешное автосписание после того, как салон уже скрыли за
+                # неоплату (expire_unpaid_salons) — возвращаем в каталог.
+                target.is_hidden = False
+                target.hidden_reason = None
             processed += 1
         # Иначе не подтверждён сразу — платёж остаётся PENDING, статус
         # финализирует вебхук /tkassa/notify терминальным уведомлением.
@@ -548,3 +553,48 @@ async def charge_due_subscriptions(ctx: dict[str, Any]) -> str:
         processed, len(due_salons) + len(due_models),
     )
     return f"processed:{processed}"
+
+
+async def expire_unpaid_salons(ctx: dict[str, Any]) -> str:
+    """Скрывает из каталога опубликованные салоны, у которых истёк доступ по
+    тарифу (subscription_expires_at в прошлом) без последующей оплаты — раз в
+    сутки (cron, см. app/core/worker.py), сразу после charge_due_subscriptions
+    (чтобы автосписание в 06:00 успело продлить срок раньше, чем эта задача
+    проверит его).
+
+    subscription_expires_at — единая граница доступа что для 14-дневного
+    триала, что для оплаченного месяца, что для грейс-периода PAST_DUE (см.
+    докстринг Salon.subscription_status) — истёк и статус не ACTIVE, значит
+    оплаты не было. Салоны, уже скрытые владельцем вручную (is_hidden=True),
+    не трогаем — is_hidden==False в условии гарантирует, что задача действует
+    только один раз и не путает причину скрытия."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import Salon, SalonSubscriptionStatus
+
+    now = datetime.now(timezone.utc)
+    async with AsyncSessionLocal() as db:
+        expired = (await db.execute(
+            select(Salon).where(
+                Salon.published_at.isnot(None),
+                Salon.is_hidden == False,  # noqa: E712
+                Salon.subscription_expires_at.isnot(None),
+                Salon.subscription_expires_at <= now,
+                Salon.subscription_status != SalonSubscriptionStatus.ACTIVE,
+            )
+        )).scalars().all()
+
+        for salon in expired:
+            salon.is_hidden = True
+            salon.hidden_reason = "billing"
+            if salon.subscription_status in (SalonSubscriptionStatus.TRIALING, SalonSubscriptionStatus.PAST_DUE):
+                salon.subscription_status = SalonSubscriptionStatus.CANCELED
+
+        if expired:
+            await db.commit()
+
+    logger.info("expire_unpaid_salons: скрыто %d салонов за неоплату", len(expired))
+    return f"hidden:{len(expired)}"

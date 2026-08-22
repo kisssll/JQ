@@ -38,6 +38,7 @@ async def render_analytics_tab(db: AsyncSession, salon, master_ids) -> str:
             "avg_check": (total_revenue // total_paid) if total_paid else 0,
         },
         "top_services": top_services,
+        "salon_created_at": salon.created_at.date().isoformat(),
     }
     initial_json = json.dumps(initial_data, ensure_ascii=False)
 
@@ -64,10 +65,12 @@ async def render_analytics_tab(db: AsyncSession, salon, master_ids) -> str:
             <div class="analytics-daterange">
                 <input type="date" id="analyticsDateFrom" class="custom-date" value="{date_from.isoformat()}">
                 <span class="analytics-daterange-sep">—</span>
-                <input type="date" id="analyticsDateTo" class="custom-date" value="{date_to.isoformat()}">
+                <input type="date" id="analyticsDateTo" class="custom-date" value="{date_to.isoformat()}" title="Считается автоматически от даты начала — можно скорректировать вручную">
                 <button type="button" class="btn-outline" id="analyticsApplyRange">Показать</button>
+                <button type="button" class="btn-outline" id="analyticsAllTime">Весь период</button>
             </div>
         </div>
+        <p class="analytics-daterange-hint text-muted">Выберите дату начала — конец периода (день/неделя/месяц/год) подставится автоматически по выбранной вкладке гранулярности выше, но его можно вручную сдвинуть на любую другую дату</p>
 
         <div class="analytics-kpi" id="analyticsKpi"></div>
 

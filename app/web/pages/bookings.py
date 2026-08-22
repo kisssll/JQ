@@ -21,6 +21,7 @@ from app.web.components.icons import (
     ICON_CHECK_SMALL,      # для сообщения об успехе
     ICON_CLOCK,
     ICON_TRASH,
+    ICON_SCISSORS_SMALL,
 )
 
 async def render_bookings_page(db: AsyncSession, user) -> str:
@@ -91,6 +92,12 @@ async def render_bookings_page(db: AsyncSession, user) -> str:
         
         date_str = booking.start_time.replace(tzinfo=None).strftime('%d.%m.%Y в %H:%M')
         price_str = f"{booking.final_price or '—'} ₽"
+        duration_minutes = int((booking.end_time - booking.start_time).total_seconds() // 60)
+
+        salon_link_html = (
+            f'<a href="/salons?highlight={salon_id}" class="booking-salon-link">{salon_name}</a>'
+            if salon_id else f'<span class="booking-salon-link booking-salon-link--plain">{salon_name}</span>'
+        )
         
         # Проверяем, есть ли уже отзыв на эту запись
         review = None
@@ -126,25 +133,21 @@ async def render_bookings_page(db: AsyncSession, user) -> str:
                 <span class="service-name">{service_name}</span>
                 <span class="booking-status">{status_label}</span>
             </div>
-            <div class="booking-body">
-                <p>
-                    <span class="booking-icon-wrapper">{ICON_CALENDAR_BOOKING}</span>
-                    <span class="label">Дата:</span> {date_str}
-                </p>
-                <p>
-                    <span class="booking-icon-wrapper">{ICON_USER_BOOKING}</span>
-                    <span class="label">Мастер:</span> {master_name}
-                </p>
-                <p>
-                    <span class="booking-icon-wrapper">{ICON_BUILDING_BOOKING}</span>
-                    <span class="label">Салон:</span> {salon_name}
-                </p>
-                {f'<p><span class="booking-icon-wrapper">{ICON_MAP_PIN}</span><span class="label">Адрес:</span> {salon_address}</p>' if salon_address else ''}
-                {f'<p><span class="booking-icon-wrapper">{ICON_PHONE}</span><span class="label">Телефон:</span> {salon_phone}</p>' if salon_phone else ''}
-                <p>
-                    <span class="booking-icon-wrapper">{ICON_MONEY_BOOKING}</span>
-                    <span class="label">Цена:</span> {price_str}
-                </p>
+            <div class="booking-info-grid">
+                <div class="booking-col booking-col-salon">
+                    <p class="booking-salon-name"><span class="booking-icon-wrapper">{ICON_BUILDING_BOOKING}</span>{salon_link_html}</p>
+                    {f'<p class="booking-address"><span class="booking-icon-wrapper">{ICON_MAP_PIN}</span>{salon_address}</p>' if salon_address else ''}
+                    {f'<p class="booking-phone"><span class="booking-icon-wrapper">{ICON_PHONE}</span><span class="label">Телефон:</span> {salon_phone}</p>' if salon_phone else ''}
+                </div>
+                <div class="booking-col booking-col-service">
+                    <p><span class="booking-icon-wrapper">{ICON_USER_BOOKING}</span><span class="label">Мастер:</span> {master_name}</p>
+                    <p><span class="booking-icon-wrapper">{ICON_SCISSORS_SMALL}</span>{service_name}</p>
+                    <p><span class="booking-icon-wrapper">{ICON_CALENDAR_BOOKING}</span>{date_str}</p>
+                    <p><span class="booking-icon-wrapper">{ICON_CLOCK}</span>{duration_minutes} мин</p>
+                </div>
+                <div class="booking-col booking-col-price">
+                    <p class="booking-price"><span class="booking-icon-wrapper">{ICON_MONEY_BOOKING}</span>{price_str}</p>
+                </div>
             </div>
             {cancel_btn}
             {review_html}

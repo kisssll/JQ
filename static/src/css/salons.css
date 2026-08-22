@@ -350,6 +350,16 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
 
+/* Переход по ссылке «название салона» из карточки записи («Мои записи»)
+   — подсвечиваем карточку салона, чтобы её было легко найти в списке. */
+.salon-card--highlighted {
+    animation: salonCardHighlight 2.2s ease;
+}
+@keyframes salonCardHighlight {
+    0%, 100% { box-shadow: 0 1px 3px rgba(0,0,0,0.04); outline: 2px solid transparent; }
+    15%, 60% { box-shadow: 0 0 0 4px var(--color-accent-light); outline: 2px solid var(--color-primary); }
+}
+
 .salon-card-inner {
     display: flex;
     flex-direction: column;

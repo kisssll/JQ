@@ -50,10 +50,62 @@ async def test_switcher_and_add_salon_link_shown_for_owner_with_multiple_salons(
     assert 'class="salon-switcher-add"' in r.text
     assert 'href="/business/register-salon"' in r.text
 
-    # Переключение на второй салон через ?salon_id=
+    # Переключение на второй салон через ?salon_id= — оба имени всегда есть
+    # в HTML (это опции <select>), поэтому проверяем именно активный салон:
+    # <title> и «выбранную» опцию рендерит только текущий (переключённый) салон.
     r = await client.get(f"/business/dashboard?salon_id={salon_b_id}")
     assert r.status_code == 200
-    assert "Салон Б" in r.text
+    assert "<title>Бизнес-панель — Салон Б —" in r.text
+    assert f'<option value="{salon_b_id}" selected>Салон Б</option>' in r.text
+
+    r = await client.get(f"/business/dashboard?salon_id={salon_a_id}")
+    assert r.status_code == 200
+    assert "<title>Бизнес-панель — Салон А —" in r.text
+    assert f'<option value="{salon_a_id}" selected>Салон А</option>' in r.text
+
+
+async def test_switcher_choice_remembered_across_visits(client, db_session):
+    """После переключения на салон Б повторный заход без ?salon_id= должен
+    открывать именно его (запомнено в cookie), а не эвристику «по умолчанию»."""
+    async with db_session() as db:
+        owner = User(phone="+79996660004", full_name="Owner3",
+                    hashed_password=get_password_hash("Testpass1"), role=UserRole.BUSINESS)
+        db.add(owner)
+        await db.commit()
+        await db.refresh(owner)
+
+        salon_a = Salon(name="Салон Г", address="a", phone="+70000000410",
+                        latitude=1.0, longitude=1.0, timezone="Europe/Moscow",
+                        moderation_status=SalonModerationStatus.APPROVED, is_active=True,
+                        creator_id=owner.id)
+        salon_b = Salon(name="Салон Д", address="b", phone="+70000000411",
+                        latitude=1.0, longitude=1.0, timezone="Europe/Moscow",
+                        moderation_status=SalonModerationStatus.APPROVED, is_active=True,
+                        creator_id=owner.id)
+        db.add_all([salon_a, salon_b])
+        await db.commit()
+        await db.refresh(salon_a)
+        await db.refresh(salon_b)
+
+        db.add(SalonMember(salon_id=salon_a.id, user_id=owner.id, role=SalonRole.OWNER,
+                           is_creator=True, permissions={"manage_salon": True}, is_active=True))
+        db.add(SalonMember(salon_id=salon_b.id, user_id=owner.id, role=SalonRole.OWNER,
+                           is_creator=True, permissions={"manage_salon": True}, is_active=True))
+        await db.commit()
+        salon_b_id = salon_b.id
+
+    await _login(client, "+79996660004")
+
+    r = await client.get(f"/business/dashboard?salon_id={salon_b_id}")
+    assert r.status_code == 200
+    assert "<title>Бизнес-панель — Салон Д —" in r.text
+    assert "last_salon_id" in r.cookies and r.cookies["last_salon_id"] == str(salon_b_id)
+
+    # Заход без salon_id — должен открыться запомненный «Салон Д», а не
+    # дефолтный по эвристике get_user_primary_salon_id (более раннее членство).
+    r = await client.get("/business/dashboard")
+    assert r.status_code == 200
+    assert "<title>Бизнес-панель — Салон Д —" in r.text
 
 
 async def test_add_salon_link_hidden_for_hired_admin(client, db_session):

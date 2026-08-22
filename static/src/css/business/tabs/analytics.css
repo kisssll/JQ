@@ -62,6 +62,10 @@
 .dashboard-page .analytics-daterange-sep {
     color: var(--color-muted);
 }
+.dashboard-page .analytics-daterange-hint {
+    font-size: 0.8rem;
+    margin: -1rem 0 1.5rem;
+}
 
 /* KPI карточки */
 .dashboard-page .analytics-kpi {

@@ -3,7 +3,7 @@ import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
     SalonMember, User as UserModel, SalonModerationStatus, SalonSubscriptionStatus,
@@ -219,11 +219,11 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
 
     # Собираем уникальные салоны (по id) из обоих списков
     salons_by_id = {}
-    for member, salon in member_salons:
-        salons_by_id[salon.id] = (member, salon)
-    for salon in created_salons:
-        if salon.id not in salons_by_id:
-            salons_by_id[salon.id] = (None, salon)
+    for member, s in member_salons:
+        salons_by_id[s.id] = (member, s)
+    for s in created_salons:
+        if s.id not in salons_by_id:
+            salons_by_id[s.id] = (None, s)
 
     other_memberships = list(salons_by_id.values())
 
@@ -365,6 +365,53 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             'До публикации салон виден только вам.'
             f'{publish_btn}</div>'
         )
+    else:
+        # Уже опубликован — здесь смотрим не на факт публикации, а на оплату:
+        # 1) уже скрыт биллингом за неоплату (истёк триал/грейс-период PAST_DUE,
+        #    см. app.tasks.expire_unpaid_salons) — «появится после оплаты»;
+        # 2) ещё не скрыт, но оплаты не было (идёт триал) или последний платёж
+        #    не прошёл (PAST_DUE) — предупреждаем заранее, пока не поздно.
+        now = datetime.now(timezone.utc)
+        can_manage_tariff = perms.get("manage_tariff") if isinstance(perms, dict) else False
+
+        def _billing_link(accent: str) -> str:
+            if not can_manage_tariff:
+                return ''
+            return (
+                f'<a href="/business/dashboard?salon_id={salon.id}&tab=billing" '
+                f'style="display:inline-block;margin-top:0.75rem;background:#fff;color:{accent};'
+                'text-decoration:none;padding:0.6rem 1.2rem;border-radius:0.6rem;font-size:0.9rem;'
+                f'font-weight:600;border:1px solid {accent}">{ICON_SPARKLES} Оплатить подписку</a>'
+            )
+
+        if salon.hidden_reason == "billing":
+            moderation_banner = (
+                '<div style="background:#fee2e2;border:1px solid #ef4444;color:#991b1b;'
+                'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
+                '<b>Салон скрыт из каталога.</b> Подписка не оплачена — салон снова появится '
+                'в общем списке платформы и откроется для записи сразу после оплаты.'
+                f'{_billing_link("#ef4444")}</div>'
+            )
+        elif salon.subscription_status == SalonSubscriptionStatus.PAST_DUE:
+            moderation_banner = (
+                '<div style="background:#fee2e2;border:1px solid #ef4444;color:#991b1b;'
+                'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
+                '<b>Не удалось списать оплату.</b> Обновите привязанную карту или оплатите '
+                'вручную — иначе салон скоро пропадёт из каталога.'
+                f'{_billing_link("#ef4444")}</div>'
+            )
+        elif salon.subscription_status == SalonSubscriptionStatus.TRIALING and salon.trial_ends_at:
+            days_left = max(0, (salon.trial_ends_at - now).days)
+            deadline = salon.trial_ends_at.strftime('%d.%m.%Y')
+            days_word = 'день' if days_left == 1 else ('дня' if 2 <= days_left <= 4 else 'дней')
+            moderation_banner = (
+                '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;'
+                'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
+                f'<b>Идёт бесплатный пробный период</b> — осталось {days_left} {days_word} '
+                f'(до {deadline}). Оплатите подписку, чтобы салон не пропал из каталога '
+                'после его окончания.'
+                f'{_billing_link("#f59e0b")}</div>'
+            )
 
     publish_gate_modal_html = ""
     if show_publish_gate_modal:
