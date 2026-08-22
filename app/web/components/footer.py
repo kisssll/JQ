@@ -87,7 +87,7 @@ def render_footer(user=None) -> str:
                  электронной почты; ОГРН и ИНН добавлены для полноты реквизитов. -->
             <address class="footer-contacts">
                 <p class="footer-contacts-title">ООО «РУМИ»</p>
-                <p>634021, Россия, Томская обл., г. Томск, ул. Шевченко, д. 21, кв. 20</p>
+                <p>Россия, Томская область, г. Томск</p>
                 <p>ОГРН 1267000004370 · ИНН 7000036144</p>
                 <p><a class="footer-link" href="mailto:hello@rrumi.ru">hello@rrumi.ru</a></p>
             </address>
