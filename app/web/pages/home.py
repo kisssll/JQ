@@ -2,6 +2,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Salon, SalonModerationStatus
+from app.services.subscription import access_clause
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
@@ -27,6 +28,7 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
             select(Salon).where(
                 Salon.is_active == True, Salon.moderation_status == SalonModerationStatus.APPROVED,
                 Salon.published_at.isnot(None), Salon.is_hidden == False,
+                access_clause(Salon),  # тариф: доступ открыт
             ).order_by(Salon.rating.desc()).limit(3)
         )
         salons = result.scalars().all()

@@ -58,6 +58,30 @@ async def get_my_schedule(
     }
 
 
+async def _sync_billing_headcount(db, salon_id: int) -> None:
+    """Пересчитать «планку» оплаченного штата салона после изменений в составе.
+
+    Штат вырос сверх оплаченного — начисляем доплату за остаток месяца (она
+    попадёт в следующий счёт, сейчас денег не берём). Сокращение штата планку
+    не опускает: возвратов нет, а повторное включение того же мастера не
+    должно начислять второй раз (см. services/subscription.register_headcount).
+    """
+    from sqlalchemy import func as _func
+    from app.models.models import Salon as _Salon
+    from app.services.subscription import register_headcount
+
+    salon = await db.get(_Salon, salon_id)
+    if salon is None:
+        return
+    active = (await db.execute(
+        select(_func.count(Master.id)).where(
+            Master.salon_id == salon_id, Master.is_active == True,  # noqa: E712
+        )
+    )).scalar() or 0
+    register_headcount(salon, active)
+    await db.commit()
+
+
 @router.post("/create-web")
 async def create_master_web(
     request: Request,
@@ -116,6 +140,7 @@ async def create_master_web(
     )
     db.add(master)
     await db.commit()
+    await _sync_billing_headcount(db, salon.id)
 
     # Реквизиты возвращаем только для НОВОГО аккаунта (у существующего — свой пароль).
     creds = None
@@ -266,5 +291,6 @@ async def toggle_master_web(
         )
 
     await db.commit()
+    await _sync_billing_headcount(db, master.salon_id)
 
     return RedirectResponse(url="/business/dashboard?tab=employees", status_code=302)

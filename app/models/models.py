@@ -268,6 +268,12 @@ class User(Base):
     recurring_token: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     subscription_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     card_last4: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)
+    # Доступ и правила смены тарифа «модели» — зеркало Salon (см. подробные
+    # комментарии там). Штата у модели нет, поэтому планки/доплаты за рост
+    # штата здесь не нужны: тарифы моделей фиксированные.
+    access_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    trial_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_downgrade_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     master_profile: Mapped[Optional["Master"]] = relationship(back_populates="user", uselist=False)
     created_salons: Mapped[List["Salon"]] = relationship(back_populates="creator")
@@ -475,6 +481,28 @@ class Salon(Base):
     # Для отображения в кабинете «привязана карта •• 1234» — последние 4
     # цифры из маскированного Pan в уведомлении об оплате.
     card_last4: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)
+
+    # --- Доступ и правила смены тарифа ---
+    # ЕДИНЫЙ срок доступа: до этого момента салон виден в ленте и принимает
+    # новую запись. Политика запаса живёт здесь, а не в фильтрах каталога:
+    # триал → trial_ends_at + TRIAL_GRACE_DAYS, после первой оплаты → строго
+    # subscription_expires_at (без запаса). Истёк — салон выпадает из выдачи,
+    # уже созданные брони не трогаем.
+    access_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Когда салону выдавали пробный период. Неснимаемая отметка: триал даётся
+    # один раз, повторно — только руками админа (см. админ-панель).
+    trial_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # «Планка» оплаченного штата за текущий период: за скольких мастеров уже
+    # заплачено. Доплату за рост штата начисляем только при превышении планки —
+    # иначе переключатель «мастер вкл/выкл» начислял бы повторно (у Master нет
+    # истории, только is_active).
+    billed_masters: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    # Накопленная доплата за рост штата внутри оплаченного месяца, руб.
+    # Прибавляется к следующему счёту и обнуляется после успешной оплаты.
+    pending_proration: Mapped[float] = mapped_column(Float, default=0.0, server_default="0", nullable=False)
+    # Когда последний раз понижали тариф — понижение доступно не чаще
+    # раза в DOWNGRADE_COOLDOWN_DAYS (защита от игры «нанял-уволил»).
+    last_downgrade_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 class SalonPhoto(Base):
     __tablename__ = "salon_photos"

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import timedelta, datetime, timezone as tz
+from types import SimpleNamespace
 from typing import List
 
 from app.db.session import get_db
@@ -19,17 +20,23 @@ async def _salon_bookable(db, master_id: int) -> bool:
     (модерация регистрации бизнеса).
     """
     row = (await db.execute(
-        select(Salon.is_active, Salon.moderation_status, Salon.is_hidden, Master.is_active, Salon.published_at)
+        select(Salon.is_active, Salon.moderation_status, Salon.is_hidden, Master.is_active,
+               Salon.published_at, Salon.access_until)
         .join(Master, Master.salon_id == Salon.id)
         .where(Master.id == master_id)
     )).first()
     # Салон одобрен, опубликован владельцем (published_at не NULL), активен и не
     # скрыт владельцем И сам мастер активен (мягко удалённый — is_active=False —
     # записи не принимает).
-    return (
+    if not (
         bool(row) and row[0] and row[1] == SalonModerationStatus.APPROVED
         and not row[2] and row[3] and row[4] is not None
-    )
+    ):
+        return False
+    # Тариф: подписка должна быть живой — истекла, и салон новую запись не
+    # принимает (уже созданные брони это не затрагивает).
+    from app.services.subscription import has_access
+    return has_access(SimpleNamespace(access_until=row[5]))
 from app.schemas.booking import BookingCreate, BookingResponse, BookingCancel
 from app.api.deps import get_current_user, get_salon_membership
 from app.services.notifications import notify_booking_cancelled, notify_booking_created, send_guest_booking_email

@@ -496,6 +496,8 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
                 )
                 continue
             target.business_tier = plan
+            # Доплата за рост штата внутри оплаченного месяца — в этот счёт
+            amount = (amount + Decimal(str(target.pending_proration or 0))).quantize(Decimal("0.01"))
             target.subscription_amount = float(amount)
         else:
             amount = Decimal(str(target.subscription_amount or 0))
@@ -541,7 +543,11 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
         if charge_result.status == "CONFIRMED":
             payment.status = PaymentStatus.SUCCEEDED
             payment.paid_at = datetime.now(timezone.utc)
-            target.subscription_expires_at = now + timedelta(days=30)
+            from app.services.subscription import apply_successful_payment
+            apply_successful_payment(
+                target, now + timedelta(days=30),
+                active_masters=active_masters if kind == "business" else None,
+            )
             target.subscription_status = SalonSubscriptionStatus.ACTIVE
             processed += 1
         # Иначе не подтверждён сразу — платёж остаётся PENDING, статус

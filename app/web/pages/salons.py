@@ -111,6 +111,8 @@ def _build_search_sql(p: SalonQuery, trgm: bool):
         "s.moderation_status = 'APPROVED'",
         "s.published_at IS NOT NULL",
         "s.is_hidden = false",
+        # Тариф: доступ должен быть открыт (см. services/subscription.py)
+        "s.access_until > now()",
     ]
 
     if p.city:
@@ -218,7 +220,7 @@ async def _available_cities(db: AsyncSession) -> list[str]:
     rows = await db.execute(text(
         "SELECT DISTINCT city FROM salons "
         "WHERE is_active = true AND moderation_status = 'APPROVED' "
-        "AND published_at IS NOT NULL AND is_hidden = false "
+        "AND published_at IS NOT NULL AND is_hidden = false AND access_until > now() "
         "AND city IS NOT NULL AND city <> '' ORDER BY city"
     ))
     return [r[0] for r in rows.all()]
@@ -234,7 +236,7 @@ async def _categories_by_city(db: AsyncSession) -> dict[str, list[str]]:
         "JOIN masters m ON m.salon_id = s.id "
         "JOIN services sv ON sv.master_id = m.id "
         "WHERE s.is_active = true AND s.moderation_status = 'APPROVED' "
-        "AND s.published_at IS NOT NULL AND s.is_hidden = false "
+        "AND s.published_at IS NOT NULL AND s.is_hidden = false AND s.access_until > now() "
         "AND s.city IS NOT NULL AND s.city <> '' "
         "AND m.is_active = true AND sv.is_active = true "
         "AND sv.is_model_practice = false AND sv.category IS NOT NULL"

@@ -44,6 +44,10 @@ async def _mk_approved_unpublished(db_session, owner_id, name="Салон",
                   latitude=56.5, longitude=84.9, phone="+79990000001",
                   rating=0.0, reviews_count=0, is_active=True,
                   subscription_status=subscription_status,
+                  # Живая подписка = открытый доступ: без access_until салон не
+                  # попадёт в каталог (см. services/subscription.py).
+                  access_until=(datetime.now(timezone.utc) + timedelta(days=30)
+                                if subscription_status != SalonSubscriptionStatus.NONE else None),
                   moderation_status=SalonModerationStatus.PENDING, creator_id=owner_id)
         db.add(s)
         await db.commit()

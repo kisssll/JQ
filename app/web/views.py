@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
 from app.models.models import Salon, User, Master, Service as ServiceModel
+from app.services.subscription import access_clause
 from app.web.pages.home import render_home_page
 from app.web.pages.login import render_login_page         
 from app.web.pages.register import render_register_page
@@ -592,6 +593,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
         Salon.is_active == True,  # noqa: E712
         Salon.moderation_status == SalonModerationStatus.APPROVED,
         Salon.published_at.isnot(None),
+        access_clause(Salon),  # тариф: доступ открыт
         Salon.is_hidden == False,  # noqa: E712
     ))).scalars().all()
     urls += [f"https://rrumi.ru/salons/{sid}" for sid in salons]

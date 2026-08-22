@@ -8,6 +8,7 @@ from app.models.models import (
     Salon, SalonPhoto, Master, Service, Promotion, User,
     Review, ReviewPhoto, ReviewTargetType, SalonModerationStatus, SalonChain,
 )
+from app.services.subscription import access_clause
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
@@ -47,6 +48,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
         Salon.is_active == True,
         Salon.moderation_status == SalonModerationStatus.APPROVED,
         Salon.published_at.isnot(None),
+        access_clause(Salon),  # тариф: доступ открыт
         Salon.is_hidden == False,
     ))
     salon = result.scalar_one_or_none()
@@ -65,6 +67,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
             Salon.is_active == True,
             Salon.moderation_status == SalonModerationStatus.APPROVED,
             Salon.published_at.isnot(None),
+            access_clause(Salon),  # тариф: доступ открыт
             Salon.is_hidden == False,
         ).order_by(Salon.name))).scalars().all()
         if chain and siblings:

@@ -110,13 +110,34 @@ async def init_business_payment(
     except TariffError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    from app.services.subscription import has_access, start_trial, trial_available
+
+    # Живую подписку не трогаем: раньше повторный init затирал оплаченный
+    # период датой триала — то есть портил уже купленный доступ.
+    if has_access(salon):
+        raise HTTPException(
+            status_code=409,
+            detail="Тариф уже подключён — сменить его можно во вкладке «Тариф»",
+        )
+    # Бесплатный период даётся один раз на салон; повторно — только руками
+    # админа (см. админ-панель).
+    if not trial_available(salon):
+        raise HTTPException(
+            status_code=409,
+            detail="Бесплатный период уже использован — оплатите тариф в кабинете",
+        )
+
+    active_masters = (await db.execute(
+        select(func.count(Master.id)).where(
+            Master.salon_id == salon.id, Master.is_active == True,  # noqa: E712
+        )
+    )).scalar() or 0
+
     now = datetime.now(timezone.utc)
-    trial_ends_at = now + timedelta(days=TRIAL_DAYS)
     salon.business_tier = body.plan
     salon.auto_renew = body.auto_renew
     salon.subscription_status = SalonSubscriptionStatus.TRIALING
-    salon.trial_ends_at = trial_ends_at
-    salon.subscription_expires_at = trial_ends_at
+    trial_ends_at = start_trial(salon, TRIAL_DAYS, now, active_masters=active_masters)
 
     if not body.auto_renew:
         await db.commit()
@@ -184,6 +205,10 @@ async def manual_business_charge(
         raise HTTPException(status_code=400, detail=str(exc))
 
     salon.business_tier = plan
+    # К счёту добавляем доплату, накопленную за рост штата внутри уже
+    # оплаченного месяца (register_headcount): в момент найма денег не берём,
+    # они падают в следующий платёж.
+    amount = (amount + Decimal(str(salon.pending_proration or 0))).quantize(Decimal("0.01"))
     payment = Payment(
         salon_id=salon.id, plan=plan, kind=PaymentKind.MANUAL,
         amount=float(amount), invoice_id=uuid.uuid4().hex,
@@ -229,6 +254,182 @@ async def cancel_auto_renew(
     return {"ok": True}
 
 
+
+class ChangePlanRequest(BaseModel):
+    salon_id: int
+    plan: str
+
+
+@router.post("/business/change-plan")
+async def change_business_plan(
+    body: ChangePlanRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Смена тарифа владельцем в любой момент.
+
+    Раньше выбор тарифа был доступен только при подключении (статус NONE), а
+    дальше план молча пересчитывался по числу мастеров при каждой оплате.
+    Теперь владелец меняет тариф сам: повышение — без ограничений, понижение —
+    не чаще раза в 3 месяца (защита от игры «нанял-уволил»).
+
+    Деньги сейчас не списываем: новый тариф вступает в силу со следующего
+    счёта, а разница за остаток текущего месяца копится в pending_proration.
+    """
+    from app.services.subscription import (
+        SubscriptionError, ensure_can_change_plan, is_downgrade, proration_for_growth,
+    )
+
+    await check_salon_permission(db, current_user, body.salon_id, "manage_tariff")
+    salon = await db.get(Salon, body.salon_id)
+    if salon is None:
+        raise HTTPException(status_code=404, detail="Салон не найден")
+
+    try:
+        ensure_can_change_plan(salon, body.plan)
+    except SubscriptionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    active_masters = (await db.execute(
+        select(func.count(Master.id)).where(
+            Master.salon_id == salon.id, Master.is_active == True,  # noqa: E712
+        )
+    )).scalar() or 0
+
+    previous = salon.business_tier
+    if is_downgrade(previous, body.plan):
+        salon.last_downgrade_at = datetime.now(timezone.utc)
+    else:
+        # Повышение: доплачиваем разницу за оставшиеся дни месяца.
+        extra = proration_for_growth(previous, active_masters, body.plan, active_masters)
+        if extra > 0:
+            salon.pending_proration = float(
+                Decimal(str(salon.pending_proration or 0)) + extra
+            )
+    salon.business_tier = body.plan
+    await db.commit()
+    return {
+        "ok": True, "plan": salon.business_tier,
+        "pending_proration": float(salon.pending_proration or 0),
+    }
+
+
+@router.post("/business/enable-auto-renew")
+async def enable_auto_renew(
+    body: CancelAutoRenewRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Включить автопродление обратно (и/или перепривязать карту).
+
+    Раньше путь был односторонним: отменить автопродление можно, а вернуть —
+    нет. Заводим верификационный платёж на 1₽ с Recurrent=Y, как при первом
+    подключении: он вернётся, а RebillId останется для будущих списаний.
+    """
+    _require_enabled()
+    await check_salon_permission(db, current_user, body.salon_id, "manage_tariff")
+    salon = await db.get(Salon, body.salon_id)
+    if salon is None:
+        raise HTTPException(status_code=404, detail="Салон не найден")
+    if not salon.business_tier:
+        raise HTTPException(status_code=400, detail="Сначала выберите тариф")
+
+    active_masters = (await db.execute(
+        select(func.count(Master.id)).where(
+            Master.salon_id == salon.id, Master.is_active == True,  # noqa: E712
+        )
+    )).scalar() or 0
+    try:
+        amount = compute_amount(salon.business_tier, active_masters)
+    except TariffError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    payment = Payment(
+        salon_id=salon.id, plan=salon.business_tier, kind=PaymentKind.VERIFICATION,
+        amount=float(VERIFICATION_AMOUNT), target_amount=float(amount),
+        invoice_id=uuid.uuid4().hex,
+    )
+    db.add(payment)
+    await db.flush()
+
+    notification_url, success_url, fail_url = _notify_urls("business")
+    try:
+        client = TKassaClient()
+        result = await client.init(
+            order_id=payment.invoice_id, amount_rub=VERIFICATION_AMOUNT,
+            description=f"Привязка карты — тариф «{salon.business_tier}» (Руми)",
+            notification_url=notification_url, success_url=success_url, fail_url=fail_url,
+            recurrent=True, customer_key=str(salon.id),
+            client_ip=request.client.host if request.client else None,
+        )
+    except TKassaError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=502, detail=f"Не удалось создать платёж в Т-Кассе: {exc}")
+
+    payment.provider_transaction_id = result.payment_id
+    salon.auto_renew = True
+    await db.commit()
+    return {"requires_payment": True, "payment_url": result.payment_url}
+
+
+@router.post("/business/cancel-subscription")
+async def cancel_subscription(
+    body: CancelAutoRenewRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Полный отказ от подписки (в отличие от отмены автопродления).
+
+    Доступ не отбираем задним числом: оплаченный период салон дорабатывает,
+    после чего выпадает из ленты по access_until.
+    """
+    await check_salon_permission(db, current_user, body.salon_id, "manage_tariff")
+    salon = await db.get(Salon, body.salon_id)
+    if salon is None:
+        raise HTTPException(status_code=404, detail="Салон не найден")
+    salon.auto_renew = False
+    salon.recurring_token = None
+    salon.subscription_status = SalonSubscriptionStatus.CANCELED
+    await db.commit()
+    return {"ok": True, "access_until": salon.access_until.isoformat() if salon.access_until else None}
+
+
+class CustomTariffRequest(BaseModel):
+    salon_id: int
+    comment: str = ""
+
+
+@router.post("/business/custom-request")
+async def request_custom_tariff(
+    body: CustomTariffRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Заявка на индивидуальный тариф (>20 мастеров): самостоятельной оплаты
+    для него нет, дальше решает продавец — шлём заявку админам."""
+    await check_salon_permission(db, current_user, body.salon_id, "manage_tariff")
+    salon = await db.get(Salon, body.salon_id)
+    if salon is None:
+        raise HTTPException(status_code=404, detail="Салон не найден")
+
+    active_masters = (await db.execute(
+        select(func.count(Master.id)).where(
+            Master.salon_id == salon.id, Master.is_active == True,  # noqa: E712
+        )
+    )).scalar() or 0
+    try:
+        from app.services.notifications import notify_admins
+        await notify_admins(
+            db, "Заявка на индивидуальный тариф",
+            f"Салон «{salon.name}» (id={salon.id}), активных мастеров: {active_masters}, "
+            f"телефон {salon.phone}. Комментарий: {body.comment.strip() or '—'}",
+        )
+    except Exception:
+        logger.exception("request_custom_tariff(%s): заявка не отправлена", salon.id)
+    return {"ok": True}
+
+
 # ── Тарифы «модели» (/model#plans) ──────────────────────────────────────────
 # Та же схема, что у бизнеса выше (см. init_business_payment) — но плательщик
 # всегда current_user, отдельный salon_id не нужен.
@@ -253,13 +454,28 @@ async def init_model_payment(
     except TariffError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    from app.services.subscription import (
+        has_access as _has_access, start_trial as _start_trial,
+        trial_available as _trial_available,
+    )
+
+    # Те же правила, что у салонов: живую подписку не затираем, бесплатный
+    # период — один раз на пользователя.
+    if _has_access(current_user):
+        raise HTTPException(
+            status_code=409, detail="Тариф уже подключён — сменить его можно в кабинете",
+        )
+    if not _trial_available(current_user):
+        raise HTTPException(
+            status_code=409,
+            detail="Бесплатный период уже использован — оплатите тариф в кабинете",
+        )
+
     now = datetime.now(timezone.utc)
-    trial_ends_at = now + timedelta(days=TRIAL_DAYS)
     current_user.subscription_tier = SubscriptionTier(body.plan)
     current_user.auto_renew = body.auto_renew
     current_user.subscription_status = SalonSubscriptionStatus.TRIALING
-    current_user.trial_ends_at = trial_ends_at
-    current_user.subscription_expires_at = trial_ends_at
+    trial_ends_at = _start_trial(current_user, TRIAL_DAYS, now)
 
     if not body.auto_renew:
         await db.commit()
@@ -435,7 +651,8 @@ async def tkassa_notify(request: Request, db: AsyncSession = Depends(get_db)):
                 if target.subscription_expires_at and target.subscription_expires_at > now
                 else now
             )
-            target.subscription_expires_at = base + timedelta(days=30)
+            from app.services.subscription import apply_successful_payment
+            apply_successful_payment(target, base + timedelta(days=30))
             target.subscription_status = SalonSubscriptionStatus.ACTIVE
 
         await db.commit()
