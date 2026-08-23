@@ -285,40 +285,107 @@ def _users_tab(users, me_id):
 
 # ── ВКЛАДКА: САЛОНЫ ──────────────────────────────────────────────────────────
 def _salons_tab(salons, owner_phone_by_id):
-    rows = ""
+    """Салон = карточка, а не строка таблицы.
+
+    В строке жили десять контролов в одной ячейке на 620px, разделённые голым
+    <br>: два поля без подписей, системный <select> и кнопки-обрубки
+    «Деактив.», «Активир.», «Тариф» — понять, что делает каждая, было нельзя,
+    а таблица уезжала вбок. Карточка даёт место на подписи и разводит действия
+    по двум группам: что делаем с салоном и что с его подпиской.
+    Вкладка «Заявки» в этой же панели уже построена на карточках.
+    """
+    from app.services.tariffs import TARIFF_CATALOG
+
+    plan_options = "".join(
+        f'<option value="{t.plan}">{t.name}</option>' for t in TARIFF_CATALOG.values()
+    )
+
+    cards = ""
     for s in salons:
         owner = owner_phone_by_id.get(s.creator_id, "—") if s.creator_id else "нет"
-        owner_form = (
-            f'<form method="post" action="/api/v1/admin/salons/{s.id}/owner" style="display:inline-flex;gap:0.25rem">'
-            f'<input name="owner_phone" placeholder="+7… (пусто = снять)" value="" '
-            f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:0.4rem;width:150px">'
-            f'<button class="btn-mini">Сменить</button></form>'
-        )
-        toggle = (
-            f'<form method="post" action="/api/v1/admin/salons/{s.id}/toggle-active" style="display:inline">'
-            f'<button class="btn-mini">{"Деактив." if s.is_active else "Активир."}</button></form>'
-        )
-        delete = (
-            f'<form method="post" action="/api/v1/admin/salons/{s.id}/delete" style="display:inline" '
-            f'data-confirm="Удалить салон «{_esc(s.name)}»?" data-confirm-label="Подтвердить">'
-            f'<button class="btn-mini btn-danger">Удалить</button></form>'
-        )
-        rows += f"""<tr>
-            <td>{s.id}</td>
-            <td>{_esc(s.name)}</td>
-            <td>{_esc(owner)}</td>
-            <td>{ICON_STAR_FILLED} {s.rating} ({s.reviews_count})</td>
-            <td>{_active_badge(s.is_active)} {_moderation_badge(s.moderation_status)}</td>
-            <td>{_subscription_cell(s)}</td>
-            <td style="white-space:nowrap">{owner_form} {toggle} {delete}<br>{_subscription_actions(s)}</td>
-        </tr>"""
+        toggle_label = "Деактивировать" if s.is_active else "Активировать"
+
+        cards += f"""
+        <article class="adm-salon">
+            <header class="adm-salon-head">
+                <div class="adm-salon-title">
+                    <strong>{_esc(s.name)}</strong>
+                    <span class="adm-salon-id">#{s.id}</span>
+                </div>
+                <div class="adm-salon-badges">
+                    {_active_badge(s.is_active)} {_moderation_badge(s.moderation_status)}
+                </div>
+            </header>
+
+            <div class="adm-salon-facts">
+                <span>Владелец: <strong>{_esc(owner)}</strong></span>
+                <span>{ICON_STAR_FILLED} {s.rating} ({s.reviews_count})</span>
+                {_subscription_cell(s)}
+            </div>
+
+            <div class="adm-salon-groups">
+                <section class="adm-group">
+                    <h4 class="adm-group-title">Салон</h4>
+                    <form method="post" action="/api/v1/admin/salons/{s.id}/owner" class="adm-inline-form">
+                        <label class="adm-field">
+                            <span class="adm-field-label">Новый владелец</span>
+                            <input name="owner_phone" placeholder="+7 999 123-45-67" value=""
+                                   class="adm-input" aria-label="Телефон нового владельца">
+                        </label>
+                        <button class="btn-mini">Назначить</button>
+                        <span class="adm-hint">Пустое поле снимает владельца</span>
+                    </form>
+                    <div class="adm-group-actions">
+                        <form method="post" action="/api/v1/admin/salons/{s.id}/toggle-active"
+                              data-confirm="{toggle_label} салон «{_esc(s.name)}»?" data-confirm-label="{toggle_label}">
+                            <button class="btn-mini">{toggle_label}</button>
+                        </form>
+                        <form method="post" action="/api/v1/admin/salons/{s.id}/delete"
+                              data-confirm="Удалить салон «{_esc(s.name)}»?" data-confirm-label="Удалить">
+                            <button class="btn-mini btn-danger">Удалить салон</button>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="adm-group">
+                    <h4 class="adm-group-title">Подписка</h4>
+                    <div class="adm-group-actions">
+                        <form method="post" action="/api/v1/admin/salons/{s.id}/grant-trial">
+                            <button class="btn-mini">Дать 14 дней триала</button>
+                        </form>
+                        <form method="post" action="/api/v1/admin/salons/{s.id}/grant-access" class="adm-inline-form">
+                            <label class="adm-field">
+                                <span class="adm-field-label">Месяцев</span>
+                                <input name="months" type="number" min="1" max="120" value="1"
+                                       class="adm-input is-num" aria-label="Сколько месяцев доступа выдать">
+                            </label>
+                            <button class="btn-mini">Выдать доступ</button>
+                        </form>
+                        <form method="post" action="/api/v1/admin/salons/{s.id}/set-plan" class="adm-inline-form">
+                            <label class="adm-field">
+                                <span class="adm-field-label">Тариф</span>
+                                <select name="plan" class="adm-input custom-select"
+                                        aria-label="Тариф салона">{plan_options}</select>
+                            </label>
+                            <button class="btn-mini">Сменить тариф</button>
+                        </form>
+                        <form method="post" action="/api/v1/admin/salons/{s.id}/revoke-access"
+                              data-confirm="Снять доступ у «{_esc(s.name)}»? Салон уйдёт из каталога."
+                              data-confirm-label="Снять">
+                            <button class="btn-mini btn-danger">Снять доступ</button>
+                        </form>
+                    </div>
+                </section>
+            </div>
+        </article>"""
+
+    if not cards:
+        cards = '<p class="adm-empty">Салонов пока нет</p>'
+
     return f"""
     <div class="tab-content" id="tab-salons">
-        <h2 style="margin-bottom:1rem">Салоны ({len(salons)})</h2>
-        <div style="overflow-x:auto"><table>
-            <thead><tr><th>ID</th><th>Название</th><th>Владелец</th><th>Рейтинг</th><th>Статус</th><th>Подписка</th><th>Действия</th></tr></thead>
-            <tbody>{rows}</tbody>
-        </table></div>
+        <h2 class="adm-tab-title">Салоны ({len(salons)})</h2>
+        <div class="adm-salon-list">{cards}</div>
     </div>
     """
 
@@ -361,63 +428,41 @@ def _reports_tab(reports):
 
 # ── ВКЛАДКА: ОТЗЫВЫ ──────────────────────────────────────────────────────────
 def _subscription_cell(s) -> str:
-    """Тариф, статус и срок доступа салона — в админке этого не было вовсе,
-    и понять, платит ли салон, было неоткуда."""
+    """Тариф, статус и срок доступа салона.
+
+    Цвета берём из токенов: тут стояли #f59e0b / #22c55e / #ef4444 мимо
+    палитры продукта."""
     from datetime import datetime, timezone
     from app.services.tariffs import TARIFF_CATALOG
 
     tariff = TARIFF_CATALOG.get(getattr(s, "business_tier", None))
     plan = tariff.name if tariff else (getattr(s, "business_tier", None) or "—")
-    status_labels = {
-        "NONE": ("нет тарифа", "var(--color-muted)"),
-        "TRIALING": ("пробный", "#f59e0b"),
-        "ACTIVE": ("оплачен", "#22c55e"),
-        "PAST_DUE": ("платёж не прошёл", "#ef4444"),
-        "CANCELED": ("отменена", "var(--color-muted)"),
+    status_tone = {
+        "NONE": ("нет тарифа", "is-none"),
+        "TRIALING": ("пробный", "is-trial"),
+        "ACTIVE": ("оплачен", "is-active"),
+        "PAST_DUE": ("платёж не прошёл", "is-failed"),
+        "CANCELED": ("отменена", "is-none"),
     }
     raw = getattr(s.subscription_status, "name", str(s.subscription_status))
-    label, color = status_labels.get(raw, (raw, "var(--color-muted)"))
+    label, tone = status_tone.get(raw, (raw, "is-none"))
 
     until = getattr(s, "access_until", None)
     if until is None:
-        until_str = '<span style="color:#ef4444">доступа нет</span>'
+        access = '<span class="adm-sub is-failed">доступа нет</span>'
     else:
         if until.tzinfo is None:
             until = until.replace(tzinfo=timezone.utc)
         live = until > datetime.now(timezone.utc)
-        until_str = (f'<span style="color:{"#22c55e" if live else "#ef4444"}">'
-                     f'до {until.strftime("%d.%m.%Y")}{"" if live else " (истёк)"}</span>')
+        access = (f'<span class="adm-sub {"is-active" if live else "is-failed"}">'
+                  f'до {until.strftime("%d.%m.%Y")}{"" if live else " (истёк)"}</span>')
 
     pending = float(getattr(s, "pending_proration", 0) or 0)
-    pending_str = (f'<br><span style="color:#f59e0b;font-size:0.75rem">доплата {int(round(pending))} ₽</span>'
-                   if pending > 0 else "")
-    return (f'<strong>{plan}</strong><br><span style="color:{color};font-size:0.8rem">{label}</span>'
-            f'<br><span style="font-size:0.8rem">{until_str}</span>{pending_str}')
+    pending_html = (f'<span class="adm-sub is-trial">доплата {int(round(pending))} ₽</span>'
+                    if pending > 0 else "")
 
-
-def _subscription_actions(s) -> str:
-    """Ручное управление подпиской: продлить триал, выдать/продлить платный
-    доступ, сменить тариф, снять доступ. Все действия — под старшим
-    модератором и с записью в аудит (см. app/api/v1/endpoints/admin.py)."""
-    from app.services.tariffs import TARIFF_CATALOG
-
-    plan_options = "".join(
-        f'<option value="{t.plan}">{t.name}</option>' for t in TARIFF_CATALOG.values()
-    )
-    return (
-        f'<form method="post" action="/api/v1/admin/salons/{s.id}/grant-trial" style="display:inline">'
-        f'<button class="btn-mini">+14 дн. триал</button></form> '
-        f'<form method="post" action="/api/v1/admin/salons/{s.id}/grant-access" style="display:inline-flex;gap:0.25rem">'
-        f'<input name="months" type="number" min="1" max="120" value="1" title="Месяцев доступа" '
-        f'style="width:56px;padding:0.3rem;border:1px solid var(--color-border);border-radius:0.4rem">'
-        f'<button class="btn-mini">Выдать доступ</button></form> '
-        f'<form method="post" action="/api/v1/admin/salons/{s.id}/set-plan" style="display:inline-flex;gap:0.25rem">'
-        f'<select name="plan" style="padding:0.3rem;border:1px solid var(--color-border);border-radius:0.4rem">{plan_options}</select>'
-        f'<button class="btn-mini">Тариф</button></form> '
-        f'<form method="post" action="/api/v1/admin/salons/{s.id}/revoke-access" style="display:inline" '
-        f'data-confirm="Снять доступ у «{_esc(s.name)}»? Салон уйдёт из каталога." data-confirm-label="Снять">'
-        f'<button class="btn-mini btn-danger">Снять доступ</button></form>'
-    )
+    return (f'<span>Тариф: <strong>{plan}</strong></span>'
+            f'<span class="adm-sub {tone}">{label}</span>{access}{pending_html}')
 
 
 def _reviews_tab(reviews, client_by_id, master_name_by_id, salon_name_by_id):
@@ -612,6 +657,46 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
            растягивается по ширине и ряд выглядит законченным. */
         .stat-grid {{ display:flex; flex-wrap:wrap; gap:1rem }}
         .stat-grid > * {{ flex:1 1 calc(25% - 0.75rem); min-width:150px }}
+
+        /* ===== Вкладка «Салоны»: карточка вместо строки таблицы =====
+           В строке было десять контролов в одной ячейке на 620px, разделённых
+           голым <br>, и таблица уезжала вбок. */
+        .adm-tab-title {{ margin-bottom:1rem }}
+        .adm-salon-list {{ display:flex; flex-direction:column; gap:1rem }}
+        .adm-salon {{ background:var(--color-surface); border:1px solid var(--color-border);
+                      border-radius:1rem; padding:1.25rem }}
+        .adm-salon-head {{ display:flex; align-items:center; justify-content:space-between;
+                           gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem }}
+        .adm-salon-title {{ display:flex; align-items:baseline; gap:0.5rem; font-size:1.05rem }}
+        .adm-salon-id {{ color:var(--color-muted); font-size:0.8rem; font-variant-numeric:tabular-nums }}
+        .adm-salon-badges {{ display:flex; gap:0.4rem; flex-wrap:wrap }}
+        .adm-salon-facts {{ display:flex; flex-wrap:wrap; gap:0.4rem 1.25rem;
+                            padding-bottom:1rem; margin-bottom:1rem;
+                            border-bottom:1px solid var(--color-border); font-size:0.85rem }}
+        .adm-sub {{ font-weight:600 }}
+        .adm-sub.is-active {{ color:var(--color-success) }}
+        .adm-sub.is-trial {{ color:var(--color-warning) }}
+        .adm-sub.is-failed {{ color:var(--color-danger) }}
+        .adm-sub.is-none {{ color:var(--color-muted) }}
+
+        /* Два столбца: что делаем с салоном и что с его подпиской. */
+        .adm-salon-groups {{ display:grid; grid-template-columns:minmax(0,1fr); gap:1.25rem }}
+        @media (min-width:900px) {{
+            .adm-salon-groups {{ grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) }}
+        }}
+        .adm-group-title {{ margin:0 0 0.6rem; font-size:0.72rem; font-weight:700;
+                            text-transform:uppercase; letter-spacing:0.06em; color:var(--color-muted) }}
+        .adm-group-actions {{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:0.5rem }}
+        .adm-inline-form {{ display:flex; align-items:flex-end; gap:0.5rem; flex-wrap:wrap;
+                            margin-bottom:0.6rem }}
+        .adm-field {{ display:flex; flex-direction:column; gap:0.2rem }}
+        .adm-field-label {{ font-size:0.7rem; color:var(--color-muted) }}
+        .adm-input {{ padding:0.35rem 0.55rem; border:1px solid var(--color-border);
+                      border-radius:0.45rem; font-size:0.85rem; font-family:var(--font-body);
+                      background:var(--color-surface); color:var(--color-heading); width:11rem }}
+        .adm-input.is-num {{ width:5rem; font-variant-numeric:tabular-nums }}
+        .adm-hint {{ font-size:0.72rem; color:var(--color-muted); align-self:center }}
+        .adm-empty {{ padding:2rem; text-align:center; color:var(--color-muted) }}
         .stat-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:1rem; padding:1.25rem; text-align:center }}
         .stat-value {{ font-size:1.6rem; font-weight:700; color:var(--color-primary) }}
         .stat-label {{ font-size:0.8rem; color:var(--color-muted); margin-top:0.25rem }}
