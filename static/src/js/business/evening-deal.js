@@ -41,8 +41,16 @@ document.addEventListener('DOMContentLoaded', function () {
     async function openModal() {
         lastFocused = document.activeElement;
         errorEl.hidden = true;
-        // Подтягиваем актуальные значения: настройку могли поменять в другой
-        // вкладке панели, а разметка отрисована один раз при загрузке.
+
+        // Показываем сразу, с уже отрисованными значениями: раньше окно ждало
+        // ответа сервера и по медленной сети открывалось с заметной паузой.
+        modal.hidden = false;
+        document.body.classList.add('ed-modal-open');
+        document.addEventListener('keydown', onKeydown, true);
+        block.querySelector('#edDiscount').focus();
+
+        // Затем подтягиваем актуальные значения: настройку могли поменять в
+        // другой вкладке панели, а разметка отрисована один раз при загрузке.
         try {
             const res = await fetch(url());
             if (res.ok) {
@@ -59,12 +67,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     cb.checked = svc.indexOf(parseInt(cb.value, 10)) >= 0;
                 });
             }
-        } catch (e) { /* покажем то, что уже отрисовано */ }
-
-        modal.hidden = false;
-        document.body.classList.add('ed-modal-open');
-        document.addEventListener('keydown', onKeydown, true);
-        block.querySelector('#edDiscount').focus();
+        } catch (e) { /* остаёмся на том, что уже отрисовано */ }
     }
 
     async function save() {
