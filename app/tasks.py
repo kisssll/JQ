@@ -497,7 +497,8 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
                 continue
             target.business_tier = plan
             # Доплата за рост штата внутри оплаченного месяца — в этот счёт
-            amount = (amount + Decimal(str(target.pending_proration or 0))).quantize(Decimal("0.01"))
+            from app.services.subscription import settle_proration
+            amount = (amount + Decimal(str(settle_proration(target)))).quantize(Decimal("0.01"))
             target.subscription_amount = float(amount)
         else:
             amount = Decimal(str(target.subscription_amount or 0))

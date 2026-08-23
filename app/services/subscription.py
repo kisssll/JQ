@@ -117,84 +117,94 @@ def proration_for_growth(
     return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def register_headcount(salon, active_masters: int, at: Optional[datetime] = None) -> Decimal:
-    """Учесть текущий штат салона: если он превысил «планку» оплаченного,
-    начислить доплату за остаток месяца и поднять планку.
-
-    Возвращает начисленную сумму (0, если планка не превышена). Во время
-    бесплатного периода доплаты не копятся — триал бесплатный целиком.
-    Планка не опускается при сокращении штата: возвратов нет, а повторное
-    включение того же мастера не должно начислять второй раз.
-    """
-    from app.models.models import SalonSubscriptionStatus
-
-    billed = salon.billed_masters or 0
-    if active_masters <= billed:
-        return Decimal("0")
-
-    # Доплату берём ТОЛЬКО с того, кто уже платит: внутри оплаченного месяца
-    # штат вырос — доплачивает разницу. На бесплатном периоде, до выбора тарифа
-    # (NONE) и после отказа от подписки (CANCELED) денег не берём — новый салон,
-    # заводящий своих мастеров, ничего не должен. Планку при этом двигаем, чтобы
-    # первый реальный счёт был ровно тарифом за текущий штат.
-    if salon.subscription_status not in (
-        SalonSubscriptionStatus.ACTIVE, SalonSubscriptionStatus.PAST_DUE,
-    ):
-        salon.billed_masters = active_masters
-        return Decimal("0")
-
-    plan_before = covered_plan(salon)
-    plan_after = resolve_plan_for_employee_count(active_masters)
-    amount = proration_for_growth(plan_before, billed, plan_after, active_masters, at)
-
-    salon.billed_masters = active_masters
-    if amount > 0:
-        salon.pending_proration = float(Decimal(str(salon.pending_proration or 0)) + amount)
-    if plan_after in TARIFF_CATALOG:
-        salon.business_tier = plan_after
-        # Уровень плана теперь покрыт — второй раз за него не берём
-        if plan_rank(plan_after) > plan_rank(getattr(salon, "billed_plan", None)):
-            salon.billed_plan = plan_after
-    return amount
-
-
 def covered_plan(salon) -> Optional[str]:
     """Уровень тарифа, который уже покрыт оплатой/начисленной доплатой."""
     return getattr(salon, "billed_plan", None) or salon.business_tier
 
 
-def register_plan_change(salon, target_plan: str, active_masters: int,
-                         at: Optional[datetime] = None) -> Decimal:
-    """Ручная смена тарифа: доплачиваем ТОЛЬКО за превышение уже покрытого
-    уровня.
+def monthly_overage(salon, masters: int) -> Decimal:
+    """На сколько месячно дороже действующий уровень, чем уже ОПЛАЧЕННЫЙ.
 
-    Раньше доплата начислялась на каждое повышение, а понижение её не
-    кредитовало — цикл «повысил → понизил → повысил» раздувал счёт на ровном
-    месте. Теперь уровень плана работает как планка (по аналогии со штатом):
-    возврат на ранее оплаченный тариф бесплатен, доплата берётся один раз.
+    Уровень — это пара «тариф + штат»: подорожать можно и наймом, и ручным
+    повышением плана. Ноль, если действующий уровень не дороже оплаченного.
+    """
+    baseline_plan = covered_plan(salon)
+    baseline_masters = salon.billed_masters or 0
+    effective_plan = salon.business_tier
+    if not effective_plan:
+        return Decimal("0")
+    try:
+        after = compute_amount(effective_plan, masters)
+    except TariffError:
+        return Decimal("0")
+    try:
+        before = compute_amount(baseline_plan, baseline_masters) if baseline_plan else Decimal("0")
+    except TariffError:
+        before = Decimal("0")
+    return max(after - before, Decimal("0"))
+
+
+def accrue_proration(salon, at: Optional[datetime] = None) -> Decimal:
+    """Докапать доплату за отрезок, прошедший на текущем уровне превышения.
+
+    Начисляем ПО ДНЯМ фактического превышения, а не одной суммой за весь
+    остаток месяца: нанял и в тот же день уволил — платить не за что,
+    проработал неделю — оплачивается неделя. Делитель тот же, 30.
     """
     from app.models.models import SalonSubscriptionStatus
 
-    covered = covered_plan(salon)
-    salon.business_tier = target_plan
+    now = _aware(at) or _now()
+    since = _aware(getattr(salon, "proration_from", None))
+    salon.proration_from = now
 
-    # На бесплатном периоде и без подписки денег не берём (см. register_headcount)
+    if since is None or now <= since:
+        return Decimal("0")
+    # Копим только с того, кто уже платит (см. register_headcount)
     if salon.subscription_status not in (
         SalonSubscriptionStatus.ACTIVE, SalonSubscriptionStatus.PAST_DUE,
     ):
-        if plan_rank(target_plan) > plan_rank(getattr(salon, "billed_plan", None)):
-            salon.billed_plan = target_plan
         return Decimal("0")
 
-    if plan_rank(target_plan) <= plan_rank(covered):
-        return Decimal("0")  # уровень уже оплачен
+    level = getattr(salon, "prorated_masters", 0) or 0
+    rate = monthly_overage(salon, level)
+    if rate <= 0:
+        return Decimal("0")
 
-    billed = salon.billed_masters or active_masters
-    amount = proration_for_growth(covered, billed, target_plan, active_masters, at)
-    salon.billed_plan = target_plan
+    days = Decimal(str((now - since).total_seconds() / 86400))
+    amount = (rate / Decimal(PRORATION_DIVISOR) * days).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
     if amount > 0:
         salon.pending_proration = float(Decimal(str(salon.pending_proration or 0)) + amount)
     return amount
+
+
+def register_headcount(salon, active_masters: int, at: Optional[datetime] = None) -> Decimal:
+    """Учесть текущий штат салона.
+
+    Сначала закрываем прошедший отрезок по прежнему уровню, затем фиксируем
+    новый. Уменьшение штата больше не «застревает»: с этого момента доплата
+    капает по новому (меньшему) уровню, а если штат вернулся к оплаченному —
+    не капает вовсе.
+    """
+    accrued = accrue_proration(salon, at)
+
+    salon.prorated_masters = active_masters
+    if active_masters > (salon.billed_masters or 0):
+        plan_after = resolve_plan_for_employee_count(active_masters)
+        if plan_after in TARIFF_CATALOG:
+            salon.business_tier = plan_after
+    return accrued
+
+
+def settle_proration(salon, at: Optional[datetime] = None) -> float:
+    """Досчитать доплату до момента выставления счёта и вернуть её сумму.
+
+    Вызывается перед формированием платежа: иначе последний отрезок (с
+    последнего изменения штата до оплаты) остался бы неоплаченным.
+    """
+    accrue_proration(salon, at)
+    return float(salon.pending_proration or 0)
 
 
 # ── Смена тарифа ─────────────────────────────────────────────────────────────
@@ -235,6 +245,28 @@ def ensure_can_change_plan(salon, target_plan: str) -> None:
         )
 
 
+def register_plan_change(salon, target_plan: str, active_masters: int,
+                         at: Optional[datetime] = None) -> Decimal:
+    """Ручная смена тарифа: доплата только за превышение уже покрытого уровня.
+
+    Сначала закрываем прошедший отрезок по прежнему уровню (иначе дни на старом
+    тарифе потерялись бы), затем переключаем план. Возврат на ранее оплаченный
+    тариф бесплатен — планка billed_plan не опускается до оплаты.
+    """
+    from app.models.models import SalonSubscriptionStatus
+
+    accrue_proration(salon, at)
+    covered = covered_plan(salon)
+    salon.business_tier = target_plan
+    salon.prorated_masters = active_masters
+
+    # billed_plan — это «что оплачено», он двигается только в момент оплаты.
+    # От повторного начисления при перещёлкивании защищает само посуточное
+    # начисление: платим за время на уровне, а не за факт перехода.
+    del covered
+    return Decimal("0")
+
+
 def suggested_downgrade(salon, active_masters: int) -> Optional[str]:
     """Тариф, на который салону выгодно перейти по текущему штату (или None).
 
@@ -267,6 +299,11 @@ def apply_successful_payment(target, expires_at: datetime, active_masters: Optio
     # Оплата покрыла текущий тариф — планка едет за ним (в т.ч. вниз)
     if hasattr(target, "billed_plan"):
         target.billed_plan = getattr(target, "business_tier", None)
+    # Новый период — отсчёт доплаты с нуля от текущего уровня
+    if hasattr(target, "proration_from"):
+        target.proration_from = _now()
+        if active_masters is not None:
+            target.prorated_masters = active_masters
 
 
 def start_trial(target, trial_days: int, at: Optional[datetime] = None,

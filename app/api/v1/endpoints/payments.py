@@ -223,7 +223,11 @@ async def manual_business_charge(
     # Тариф × срок предоплаты + доплата, накопленная за рост штата внутри уже
     # оплаченного месяца (register_headcount): в момент найма денег не берём,
     # они падают в следующий платёж.
-    amount = (amount * months + Decimal(str(salon.pending_proration or 0))).quantize(Decimal("0.01"))
+    # Досчитываем доплату до момента счёта: последний отрезок (с прошлого
+    # изменения штата до оплаты) иначе остался бы неоплаченным.
+    from app.services.subscription import settle_proration
+    pending = Decimal(str(settle_proration(salon)))
+    amount = (amount * months + pending).quantize(Decimal("0.01"))
     payment = Payment(
         salon_id=salon.id, plan=plan, kind=PaymentKind.MANUAL,
         amount=float(amount), months=months, invoice_id=uuid.uuid4().hex,

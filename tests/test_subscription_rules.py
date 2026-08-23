@@ -22,7 +22,8 @@ from app.services.subscription import (
 
 def _salon(**kw):
     base = dict(
-        business_tier="lite", billed_masters=0, pending_proration=0.0,
+        business_tier="lite", billed_plan="lite", billed_masters=0,
+        prorated_masters=0, proration_from=None, pending_proration=0.0,
         subscription_status=SalonSubscriptionStatus.ACTIVE,
         last_downgrade_at=None, trial_used_at=None, access_until=None,
         trial_ends_at=None, subscription_expires_at=None,
@@ -78,21 +79,35 @@ def test_proration_between_tariffs_uses_difference_not_full_price():
 
 
 def test_watermark_prevents_double_charge_on_toggle():
-    s = _salon(billed_masters=4, business_tier="lite")
-    first = register_headcount(s, 5)
-    assert first > 0 and s.billed_masters == 5
-    # мастера выключили и снова включили — планка уже 5, второй раз не берём
-    assert register_headcount(s, 4) == 0
-    assert register_headcount(s, 5) == 0
-    assert s.billed_masters == 5
+    """Выключил и снова включил того же мастера — второй раз не платит.
 
+    Доплата теперь капает по дням: считаем два дня на уровне 5 мастеров,
+    затем возврат к 4 и снова 5 — за «повторный найм» ничего не начисляется
+    сверх фактически отработанного времени.
+    """
+    t0 = datetime(2026, 5, 10, tzinfo=timezone.utc)
+    s = _salon(billed_masters=4, business_tier="lite", proration_from=t0, prorated_masters=4)
+
+    register_headcount(s, 5, at=t0)                      # нанял — отсчёт пошёл
+    assert s.pending_proration == 0.0                    # времени ещё не прошло
+
+    register_headcount(s, 4, at=t0 + timedelta(days=2))  # проработал 2 дня
+    after_two_days = s.pending_proration
+    assert after_two_days > 0
+
+    # вернули того же мастера и сразу выключили — лишнего не начислили
+    register_headcount(s, 5, at=t0 + timedelta(days=2))
+    register_headcount(s, 4, at=t0 + timedelta(days=2))
+    assert s.pending_proration == after_two_days
 
 def test_no_proration_during_trial():
-    s = _salon(billed_masters=1, subscription_status=SalonSubscriptionStatus.TRIALING)
-    assert register_headcount(s, 5) == 0      # триал бесплатный целиком
-    assert s.billed_masters == 5              # но планку двигаем
+    """Бесплатный период бесплатен целиком, сколько бы мастеров ни завели."""
+    t0 = datetime(2026, 5, 10, tzinfo=timezone.utc)
+    s = _salon(billed_masters=1, prorated_masters=1, proration_from=t0,
+               subscription_status=SalonSubscriptionStatus.TRIALING)
+    register_headcount(s, 5, at=t0)
+    register_headcount(s, 5, at=t0 + timedelta(days=10))
     assert s.pending_proration == 0.0
-
 
 # ── Смена тарифа ─────────────────────────────────────────────────────────────
 
@@ -220,13 +235,13 @@ async def test_admin_can_grant_repeat_trial(db_session):
 # ── Новый салон не платит за собственный штат ────────────────────────────────
 
 def test_no_proration_before_tariff_chosen():
-    """Салон ещё не выбрал тариф (NONE) и заводит своих мастеров — это не
-    «рост штата внутри оплаченного месяца», денег он не должен."""
-    s = _salon(subscription_status=SalonSubscriptionStatus.NONE, business_tier=None, billed_masters=0)
-    assert register_headcount(s, 3) == 0
+    """Салон ещё не выбрал тариф и заводит своих мастеров — денег не должен."""
+    t0 = datetime(2026, 5, 10, tzinfo=timezone.utc)
+    s = _salon(subscription_status=SalonSubscriptionStatus.NONE, business_tier=None,
+               billed_plan=None, billed_masters=0, prorated_masters=0, proration_from=t0)
+    register_headcount(s, 3, at=t0)
+    register_headcount(s, 3, at=t0 + timedelta(days=10))
     assert s.pending_proration == 0.0
-    assert s.billed_masters == 3      # планку двигаем — первый счёт будет ровно тарифом
-
 
 def test_trial_start_clears_pending_accrued_earlier():
     """Даже если что-то накопилось до подключения тарифа, старт бесплатного

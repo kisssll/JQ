@@ -507,6 +507,12 @@ class Salon(Base):
     # начисленной доплатой. Без неё перещёлкивание тарифов туда-обратно
     # начисляло доплату заново на каждый апгрейд и раздувало счёт.
     billed_plan: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # С какого момента действует текущий уровень превышения штата/тарифа.
+    # Доплата начисляется ПО ДНЯМ фактического превышения: нанял и в тот же
+    # день уволил — платить не за что; проработал неделю — оплачивается неделя.
+    proration_from: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Уровень штата, действующий с proration_from (0 — превышения нет).
+    prorated_masters: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     # Накопленная доплата за рост штата внутри оплаченного месяца, руб.
     # Прибавляется к следующему счёту и обнуляется после успешной оплаты.
     pending_proration: Mapped[float] = mapped_column(Float, default=0.0, server_default="0", nullable=False)
