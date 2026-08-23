@@ -503,6 +503,10 @@ class Salon(Base):
     # иначе переключатель «мастер вкл/выкл» начислял бы повторно (у Master нет
     # истории, только is_active).
     billed_masters: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    # «Планка» по ТАРИФУ: уровень плана, который уже покрыт оплатой или ранее
+    # начисленной доплатой. Без неё перещёлкивание тарифов туда-обратно
+    # начисляло доплату заново на каждый апгрейд и раздувало счёт.
+    billed_plan: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     # Накопленная доплата за рост штата внутри оплаченного месяца, руб.
     # Прибавляется к следующему счёту и обнуляется после успешной оплаты.
     pending_proration: Mapped[float] = mapped_column(Float, default=0.0, server_default="0", nullable=False)

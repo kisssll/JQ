@@ -40,7 +40,9 @@ async def _salon_bookable(db, master_id: int) -> bool:
 from app.schemas.booking import BookingCreate, BookingResponse, BookingCancel
 from app.api.deps import get_current_user, get_salon_membership
 from app.services.notifications import notify_booking_cancelled, notify_booking_created, send_guest_booking_email
-from app.services.booking_service import BookingService, can_mark_completed_now
+from app.services.booking_service import (
+    BookingService, SlotTakenError, can_mark_completed_now, can_mark_no_show_now, commit_booking,
+)
 from app.services.loyalty_service import LoyaltyService, LoyaltyError
 from app.services.schedule_utils import get_effective_work_intervals, is_within_booking_window, MAX_BOOKING_DAYS_AHEAD
 from app.utils.timezone import get_salon_time
@@ -113,8 +115,10 @@ async def create_booking(
     )
     
     db.add(booking)
-    await db.commit()
-    await db.refresh(booking)
+    try:
+        await commit_booking(db, booking)
+    except SlotTakenError:
+        raise HTTPException(status_code=409, detail="Этот слот только что заняли — выберите другое время")
     await notify_booking_created(db, booking)
     return booking
 
@@ -291,8 +295,10 @@ async def create_booking_web(
         start_time=start, end_time=end, status=BookingStatus.PENDING, final_price=service.price
     )
     db.add(booking)
-    await db.commit()
-    await db.refresh(booking)
+    try:
+        await commit_booking(db, booking)
+    except SlotTakenError:
+        return RedirectResponse(url="/bookings?error=slot_taken", status_code=302)
     await notify_booking_created(db, booking)
     return RedirectResponse(url="/bookings?success=1", status_code=302)
 
@@ -373,8 +379,10 @@ async def confirm_booking_web(
         start_time=start, end_time=end, status=BookingStatus.PENDING, final_price=service.price
     )
     db.add(booking)
-    await db.commit()
-    await db.refresh(booking)
+    try:
+        await commit_booking(db, booking)
+    except SlotTakenError:
+        return RedirectResponse(url="/bookings?error=slot_taken", status_code=302)
     await notify_booking_created(db, booking)
     return RedirectResponse(url="/bookings?success=1", status_code=302)
 
@@ -471,6 +479,16 @@ async def no_show_booking(
         raise HTTPException(status_code=404, detail="Запись не найдена")
     if not await _can_mark_booking(db, current_user, booking):
         raise HTTPException(status_code=403, detail="Нет прав отмечать эту запись")
+
+    # Неявку нельзя отметить до начала записи — иначе слот освобождается,
+    # а клиент ещё даже не опоздал.
+    master = (await db.execute(select(Master).where(Master.id == booking.master_id))).scalar_one_or_none()
+    salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none() if master else None
+    if not can_mark_no_show_now(booking, salon.timezone if salon else None):
+        raise HTTPException(
+            status_code=409,
+            detail="«Не пришёл» можно отметить только после начала записи",
+        )
     try:
         return await BookingService.mark_no_show(db, booking)
     except ValueError as e:

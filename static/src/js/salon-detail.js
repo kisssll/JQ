@@ -1,3 +1,4 @@
+import { esc } from './escape-html.js';
 // static/src/js/salon-detail.js
 import { toastNetworkError } from './ui-feedback.js';
 
@@ -70,7 +71,7 @@ import { toastNetworkError } from './ui-feedback.js';
         document.getElementById('selected-master-name').textContent = master.name;
         document.getElementById('selected-master-spec').textContent = master.specialization;
         const avatar = document.getElementById('selected-master-avatar');
-        avatar.innerHTML = master.avatar ? `<img src="${master.avatar}" alt="">` : `<span>${master.name[0]}</span>`;
+        avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
 
         const list = document.getElementById('services-list');
         list.innerHTML = '';
@@ -80,8 +81,8 @@ import { toastNetworkError } from './ui-feedback.js';
             btn.dataset.serviceId = service.id;
             btn.innerHTML = `
                 <div class="service-info">
-                    <span class="service-name">${service.name}</span>
-                    <span class="service-duration">${service.duration} мин</span>
+                    <span class="service-name">${esc(service.name)}</span>
+                    <span class="service-duration">${esc(service.duration)} мин</span>
                 </div>
                 <div class="service-price">${service.price.toLocaleString()} ₽</div>
                 <span class="chevron">${getIcon('chevron-right')}</span>
@@ -109,7 +110,7 @@ import { toastNetworkError } from './ui-feedback.js';
         document.getElementById('selected-master-name-2').textContent = master.name;
         document.getElementById('selected-master-spec-2').textContent = master.specialization;
         const avatar = document.getElementById('selected-master-avatar-2');
-        avatar.innerHTML = master.avatar ? `<img src="${master.avatar}" alt="">` : `<span>${master.name[0]}</span>`;
+        avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
         document.getElementById('selected-service-summary').textContent = service.name;
         document.getElementById('selected-service-price').textContent = `${service.price.toLocaleString()} ₽`;
 
@@ -169,7 +170,7 @@ import { toastNetworkError } from './ui-feedback.js';
         document.getElementById('selected-master-name-3').textContent = master.name;
         document.getElementById('selected-master-spec-3').textContent = master.specialization;
         const avatar = document.getElementById('selected-master-avatar-3');
-        avatar.innerHTML = master.avatar ? `<img src="${master.avatar}" alt="">` : `<span>${master.name[0]}</span>`;
+        avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
         document.getElementById('selected-service-summary-2').textContent = service.name;
         document.getElementById('selected-service-price-2').textContent = `${service.price.toLocaleString()} ₽`;
         document.getElementById('selected-date-summary').textContent = dateStr;
@@ -225,7 +226,7 @@ import { toastNetworkError } from './ui-feedback.js';
         document.getElementById('selected-master-name-4').textContent = master.name;
         document.getElementById('selected-master-spec-4').textContent = master.specialization;
         const avatar = document.getElementById('selected-master-avatar-4');
-        avatar.innerHTML = master.avatar ? `<img src="${master.avatar}" alt="">` : `<span>${master.name[0]}</span>`;
+        avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
         document.getElementById('selected-service-summary-3').textContent = service.name;
         document.getElementById('selected-service-price-3').textContent = `${service.price.toLocaleString()} ₽`;
         document.getElementById('selected-date-summary-2').textContent = dateStr;

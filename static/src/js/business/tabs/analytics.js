@@ -1,3 +1,4 @@
+import { esc } from '../../escape-html.js';
 // static/src/js/business/tabs/analytics.js
 // Вкладка «Аналитика»: переключатель гранулярности (день/неделя/месяц/год) +
 // свой диапазон дат, данные — через JSON API /api/v1/business/my-salon/analytics.
@@ -157,7 +158,7 @@
         }
         tbody.innerHTML = list.map(s => `
             <tr>
-                <td>${s.name}</td>
+                <td>${esc(s.name)}</td>
                 <td>${s.bookings}</td>
                 <td><strong>${formatMoney(s.revenue)}</strong></td>
             </tr>

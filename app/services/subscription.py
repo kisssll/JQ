@@ -143,7 +143,7 @@ def register_headcount(salon, active_masters: int, at: Optional[datetime] = None
         salon.billed_masters = active_masters
         return Decimal("0")
 
-    plan_before = salon.business_tier
+    plan_before = covered_plan(salon)
     plan_after = resolve_plan_for_employee_count(active_masters)
     amount = proration_for_growth(plan_before, billed, plan_after, active_masters, at)
 
@@ -152,6 +152,48 @@ def register_headcount(salon, active_masters: int, at: Optional[datetime] = None
         salon.pending_proration = float(Decimal(str(salon.pending_proration or 0)) + amount)
     if plan_after in TARIFF_CATALOG:
         salon.business_tier = plan_after
+        # Уровень плана теперь покрыт — второй раз за него не берём
+        if plan_rank(plan_after) > plan_rank(getattr(salon, "billed_plan", None)):
+            salon.billed_plan = plan_after
+    return amount
+
+
+def covered_plan(salon) -> Optional[str]:
+    """Уровень тарифа, который уже покрыт оплатой/начисленной доплатой."""
+    return getattr(salon, "billed_plan", None) or salon.business_tier
+
+
+def register_plan_change(salon, target_plan: str, active_masters: int,
+                         at: Optional[datetime] = None) -> Decimal:
+    """Ручная смена тарифа: доплачиваем ТОЛЬКО за превышение уже покрытого
+    уровня.
+
+    Раньше доплата начислялась на каждое повышение, а понижение её не
+    кредитовало — цикл «повысил → понизил → повысил» раздувал счёт на ровном
+    месте. Теперь уровень плана работает как планка (по аналогии со штатом):
+    возврат на ранее оплаченный тариф бесплатен, доплата берётся один раз.
+    """
+    from app.models.models import SalonSubscriptionStatus
+
+    covered = covered_plan(salon)
+    salon.business_tier = target_plan
+
+    # На бесплатном периоде и без подписки денег не берём (см. register_headcount)
+    if salon.subscription_status not in (
+        SalonSubscriptionStatus.ACTIVE, SalonSubscriptionStatus.PAST_DUE,
+    ):
+        if plan_rank(target_plan) > plan_rank(getattr(salon, "billed_plan", None)):
+            salon.billed_plan = target_plan
+        return Decimal("0")
+
+    if plan_rank(target_plan) <= plan_rank(covered):
+        return Decimal("0")  # уровень уже оплачен
+
+    billed = salon.billed_masters or active_masters
+    amount = proration_for_growth(covered, billed, target_plan, active_masters, at)
+    salon.billed_plan = target_plan
+    if amount > 0:
+        salon.pending_proration = float(Decimal(str(salon.pending_proration or 0)) + amount)
     return amount
 
 
@@ -222,6 +264,9 @@ def apply_successful_payment(target, expires_at: datetime, active_masters: Optio
         target.pending_proration = 0.0
     if active_masters is not None and hasattr(target, "billed_masters"):
         target.billed_masters = active_masters
+    # Оплата покрыла текущий тариф — планка едет за ним (в т.ч. вниз)
+    if hasattr(target, "billed_plan"):
+        target.billed_plan = getattr(target, "business_tier", None)
 
 
 def start_trial(target, trial_days: int, at: Optional[datetime] = None,

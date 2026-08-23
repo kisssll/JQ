@@ -1,3 +1,4 @@
+import { esc } from '../../escape-html.js';
 // static/src/js/business/tabs/overview.js
 
 (function() {
@@ -65,9 +66,9 @@
                 const item = document.createElement('div');
                 item.className = 'booking-item';
                 item.innerHTML = `
-                    <div class="avatar">${initials}</div>
+                    <div class="avatar">${esc(initials)}</div>
                     <div class="info">
-                        <div class="name">${op.client.full_name || op.client.phone}</div>
+                        <div class="name">${esc(op.client.full_name || op.client.phone)}</div>
                         <div class="desc">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             ${time} • ${op.service.name}

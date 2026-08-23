@@ -643,14 +643,20 @@ async def get_business_dashboard(
     from sqlalchemy import func as sql_func
     from datetime import datetime, timedelta
 
-    masters_count = len(salon.masters)
+    # salon.masters — ленивая связь; в async-сессии обращение к ней вне
+    # greenlet-контекста роняло эндпоинт в 500 на КАЖДОМ запросе. Берём
+    # идентификаторы мастеров явным запросом.
+    master_ids = list((await db.execute(
+        select(Master.id).where(Master.salon_id == salon.id)
+    )).scalars().all())
+    masters_count = len(master_ids)
 
     today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start + timedelta(days=1)
 
     bookings_today = await db.execute(
         select(sql_func.count(Booking.id)).where(
-            Booking.master_id.in_([m.id for m in salon.masters]),
+            Booking.master_id.in_(master_ids),
             Booking.start_time >= today_start,
             Booking.start_time < today_end
         )
@@ -667,7 +673,7 @@ async def get_business_dashboard(
         month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         revenue_month = await db.execute(
             select(sql_func.sum(Booking.final_price)).where(
-                Booking.master_id.in_([m.id for m in salon.masters]),
+                Booking.master_id.in_(master_ids),
                 Booking.start_time >= month_start,
                 Booking.status.in_(PAID_BOOKING_STATUSES)
             )

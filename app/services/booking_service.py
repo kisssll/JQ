@@ -11,7 +11,7 @@ from app.utils.timezone import get_salon_time
 # «Пришёл» (COMPLETED) нельзя отметить раньше, чем за час до начала записи —
 # защита от преждевременного закрытия визита. start_time хранится наивным в
 # зоне салона (см. слот-генератор в bookings.py), поэтому сравниваем с наивным
-# «сейчас» в той же зоне. На «Не пришёл» ограничение НЕ распространяется.
+# «сейчас» в той же зоне.
 COMPLETE_MIN_LEAD = timedelta(hours=1)
 
 
@@ -20,6 +20,41 @@ def can_mark_completed_now(booking: Booking, salon_timezone: Optional[str]) -> b
     и позже). Используется и серверным гейтом, и рендером кнопки в панели."""
     now_local = get_salon_time(salon_timezone).replace(tzinfo=None)
     return now_local >= booking.start_time - COMPLETE_MIN_LEAD
+
+
+def can_mark_no_show_now(booking: Booking, salon_timezone: Optional[str]) -> bool:
+    """Наступило ли время записи — только тогда клиента можно считать неявившимся.
+
+    Раньше гейта не было вовсе: неявку разрешалось отметить за сутки до визита,
+    когда клиент физически ещё не мог не прийти (и слот при этом освобождался).
+    В отличие от «Пришёл», запаса в час здесь нет — до начала записи опоздания
+    не существует.
+    """
+    now_local = get_salon_time(salon_timezone).replace(tzinfo=None)
+    return now_local >= booking.start_time
+
+
+class SlotTakenError(Exception):
+    """Слот заняли между проверкой и вставкой (гонка). Ловится уникальным
+    индексом uq_booking_master_slot_active — см. миграцию d7b4c1e05a92."""
+
+
+async def commit_booking(db, booking) -> None:
+    """Зафиксировать бронь, честно отработав гонку за слот.
+
+    is_slot_available() и вставка не атомарны: при одновременных запросах обе
+    проверки проходили, и на один слот вставали две записи. Уникальный
+    частичный индекс делает вторую вставку невозможной — здесь превращаем
+    ошибку БД в доменную, чтобы наверх ушёл понятный 409, а не 500.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise SlotTakenError()
+    await db.refresh(booking)
 
 
 class BookingService:

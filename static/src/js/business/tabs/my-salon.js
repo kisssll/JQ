@@ -1,3 +1,4 @@
+import { esc } from '../../escape-html.js';
 // static/src/js/pages/my-salon.js
 import { confirmDialog, toastError, toastNetworkError } from '../../ui-feedback.js';
 
@@ -133,9 +134,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const item = document.createElement('div');
             item.className = 'my-salon-photo-item';
             item.innerHTML = `
-                <img src="${photo.url}" alt="" class="${borderClass}">
-                <button class="delete-btn" data-action="delete" data-url="${photo.url}" title="Удалить фото">&times;</button>
-                ${isCover ? '<span class="cover-badge">★ Обложка</span>' : `<button class="cover-btn" data-action="cover" data-url="${photo.url}" title="Сделать обложкой">Сделать обложкой</button>`}
+                <img src="${esc(photo.url)}" alt="" class="${esc(borderClass)}">
+                <button class="delete-btn" data-action="delete" data-url="${esc(photo.url)}" title="Удалить фото">&times;</button>
+                ${isCover ? '<span class="cover-badge">★ Обложка</span>' : `<button class="cover-btn" data-action="cover" data-url="${esc(photo.url)}" title="Сделать обложкой">Сделать обложкой</button>`}
             `;
             gallery.appendChild(item);
         });
@@ -248,7 +249,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
             } else {
                 const d = await res.json();
-                statusDiv.innerHTML = `<p style="color:#ef4444">Ошибка: ${d.detail || 'Неизвестная ошибка'}</p>`;
+                statusDiv.innerHTML = `<p style="color:#ef4444">Ошибка: ${esc(d.detail || 'Неизвестная ошибка')}</p>`;
             }
         } catch (e) {
             statusDiv.innerHTML = '<p style="color:#ef4444">Ошибка сети</p>';

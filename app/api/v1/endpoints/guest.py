@@ -24,7 +24,7 @@ from app.models.models import (
 from app.schemas.user import try_normalize_phone
 from app.core.security import get_password_hash
 from app.core.limiter import limiter
-from app.services.booking_service import BookingService
+from app.services.booking_service import BookingService, SlotTakenError, commit_booking
 from app.services.consent_service import record_consent
 from app.services.notifications import notify_booking_created, send_guest_booking_email
 
@@ -131,8 +131,10 @@ async def create_guest_booking(
         guest_email=(data.email or "").strip().lower() or None,
     )
     db.add(booking)
-    await db.commit()
-    await db.refresh(booking)
+    try:
+        await commit_booking(db, booking)
+    except SlotTakenError:
+        raise HTTPException(status_code=409, detail="Этот слот только что заняли — выберите другое время")
 
     await notify_booking_created(db, booking)  # салон/мастер узнают о заявке
     # Гостю (если оставил email) — письмо со ссылкой отслеживания статуса.

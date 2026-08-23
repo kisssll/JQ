@@ -1,3 +1,4 @@
+import { esc } from './escape-html.js';
 // static/src/js/guest-booking.js — запись без регистрации (страница /book/{salon})
 // и управление бронью по токену (/guest-booking/{token}).
 import { confirmDialog } from './ui-feedback.js';
@@ -75,8 +76,8 @@ import { confirmDialog } from './ui-feedback.js';
     masters.forEach(m => {
         const b = document.createElement('button');
         b.className = 'gb-card';
-        b.innerHTML = `<div class="gb-ava">${(m.name[0] || 'М')}</div>` +
-            `<div class="gb-card-body"><strong>${m.name}</strong><small>${m.spec}</small></div>`;
+        b.innerHTML = `<div class="gb-ava">${esc(m.name[0] || 'М')}</div>` +
+            `<div class="gb-card-body"><strong>${esc(m.name)}</strong><small>${esc(m.spec)}</small></div>`;
         b.addEventListener('click', () => { state.master = m; renderServices(); show('service'); });
         mList.appendChild(b);
     });
@@ -88,7 +89,7 @@ import { confirmDialog } from './ui-feedback.js';
         state.master.services.forEach(s => {
             const b = document.createElement('button');
             b.className = 'gb-card';
-            b.innerHTML = `<div class="gb-card-body"><strong>${s.name}</strong><small>${s.duration} мин</small></div>` +
+            b.innerHTML = `<div class="gb-card-body"><strong>${esc(s.name)}</strong><small>${esc(s.duration)} мин</small></div>` +
                 `<div class="gb-card-price">${s.price.toLocaleString('ru-RU')} ₽</div>`;
             b.addEventListener('click', () => { state.service = s; setupDate(); show('slot'); });
             el.appendChild(b);

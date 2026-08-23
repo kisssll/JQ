@@ -88,13 +88,21 @@ async def test_complete_allowed_after_start(client, db_session):
     assert await _status(db_session, bid) == BookingStatus.COMPLETED
 
 
-async def test_no_show_not_time_gated(client, db_session):
-    # «Не пришёл» можно отметить и задолго до начала — гейт только на «Пришёл».
+async def test_no_show_is_time_gated(client, db_session):
+    """Неявку нельзя отметить ДО начала записи: клиент ещё не опоздал, а слот
+    при этом освобождался бы (находка QA S1). После начала — можно."""
     phone, bid = await _setup(db_session, "+79995553004", timedelta(hours=5))
     await _login(client, phone)
     r = await client.post(f"/api/v1/bookings/{bid}/no-show")
-    assert r.status_code == 200, r.text
-    assert await _status(db_session, bid) == BookingStatus.NO_SHOW
+    assert r.status_code == 409, r.text
+    assert await _status(db_session, bid) == BookingStatus.CONFIRMED   # статус не тронут
+
+    # запись уже началась — неявку отметить можно
+    phone2, bid2 = await _setup(db_session, "+79995553005", -timedelta(minutes=5))
+    await _login(client, phone2)
+    r2 = await client.post(f"/api/v1/bookings/{bid2}/no-show")
+    assert r2.status_code == 200, r2.text
+    assert await _status(db_session, bid2) == BookingStatus.NO_SHOW
 
 
 # ── Хелпер (используется и рендером кнопки) ──────────────────────────────────

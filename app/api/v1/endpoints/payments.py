@@ -210,7 +210,9 @@ async def manual_business_charge(
     except TariffError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    months = max(1, int(body.months or 1))
+    months = int(body.months if body.months is not None else 1)
+    if months < 1:
+        raise HTTPException(status_code=400, detail="Срок оплаты — минимум 1 месяц")
     if months > MAX_PREPAY_MONTHS:
         raise HTTPException(
             status_code=400,
@@ -290,7 +292,7 @@ async def change_business_plan(
     счёта, а разница за остаток текущего месяца копится в pending_proration.
     """
     from app.services.subscription import (
-        SubscriptionError, ensure_can_change_plan, is_downgrade, proration_for_growth,
+        SubscriptionError, ensure_can_change_plan, is_downgrade, register_plan_change,
     )
 
     await check_salon_permission(db, current_user, body.salon_id, "manage_tariff")
@@ -312,14 +314,11 @@ async def change_business_plan(
     previous = salon.business_tier
     if is_downgrade(previous, body.plan):
         salon.last_downgrade_at = datetime.now(timezone.utc)
+        salon.business_tier = body.plan
     else:
-        # Повышение: доплачиваем разницу за оставшиеся дни месяца.
-        extra = proration_for_growth(previous, active_masters, body.plan, active_masters)
-        if extra > 0:
-            salon.pending_proration = float(
-                Decimal(str(salon.pending_proration or 0)) + extra
-            )
-    salon.business_tier = body.plan
+        # Повышение: доплата только за превышение уже покрытого уровня —
+        # иначе цикл «повысил → понизил → повысил» начислял её повторно.
+        register_plan_change(salon, body.plan, active_masters)
     await db.commit()
     return {
         "ok": True, "plan": salon.business_tier,
@@ -603,7 +602,15 @@ async def tkassa_notify(request: Request, db: AsyncSession = Depends(get_db)):
     ровно один из salon_id/user_id (см. Payment.__table_args__), остальное
     определяется по нему. Ответ — ровно текст "OK", иначе Т-Касса повторит
     доставку до 100 раз."""
-    payload = await request.json()
+    # Т-Касса шлёт JSON, но на кривом/не-JSON теле (или form-encoded при
+    # ретраях) раньше падали 500 — касса такое повторяет до 100 раз.
+    try:
+        payload = await request.json()
+    except Exception:
+        logger.warning("tkassa/notify: тело не разобрано как JSON")
+        return PlainTextResponse("", status_code=400)
+    if not isinstance(payload, dict):
+        return PlainTextResponse("", status_code=400)
 
     if not settings.TKASSA_ENABLED or payload.get("TerminalKey") != settings.TKASSA_TERMINAL_KEY:
         return PlainTextResponse("", status_code=401)
