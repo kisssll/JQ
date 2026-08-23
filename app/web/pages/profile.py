@@ -436,12 +436,15 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
                                 <input type="email" id="settings-email" name="email" value="{email}" placeholder="example@mail.ru" required>
                             </div>
                             <input type="hidden" id="email-request-id" name="request_id" value="">
+                            <!-- Подсказка идёт сразу за полем, а не между кнопками: раньше
+                                 порядок был «кнопка → подсказка → кнопка», и объяснение
+                                 попадалось на глаза уже после первого действия. -->
+                            <p class="settings-card-hint" id="email-verify-hint">Введите новый email и получите на него код подтверждения.</p>
                             <button type="button" id="email-send-code-btn" class="btn-outline settings-save-btn">Отправить код</button>
-                            <div class="settings-form-group" id="email-code-group" style="display:none;">
+                            <div class="settings-form-group is-short" id="email-code-group" style="display:none;">
                                 <label for="settings-email-code">Код из письма</label>
                                 <input type="text" id="settings-email-code" name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="0000">
                             </div>
-                            <p class="settings-card-hint" id="email-verify-hint">Введите новый email и получите на него код подтверждения.</p>
                             <button type="submit" id="email-save-btn" class="btn-primary settings-save-btn" disabled>Подтвердить и сохранить</button>
                         </form>
                     </div>

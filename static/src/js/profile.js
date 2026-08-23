@@ -1,5 +1,5 @@
 // static/src/js/profile.js
-import { confirmDialog, toastNetworkError } from './ui-feedback.js';
+import { confirmDialog, toastError, toastNetworkError } from './ui-feedback.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     // === РЕДАКТИРОВАНИЕ ПРОФИЛЯ ===
@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const img = container.querySelector('img');
                     if (!res.ok) {
                         if (img) img.remove();
-                        alert(data.detail || 'Не удалось загрузить фото');
+                        toastError(data.detail || 'Не удалось загрузить фото');
                         return;
                     }
                     img.src = data.url + '?t=' + Date.now();
@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
         verifyButtons.forEach(function (btn) {
         btn.addEventListener('click', async function () {
             const phone = phoneInput.value.trim();
-            if (!phone) { alert('Сначала введите новый номер'); return; }
+            if (!phone) { toastError('Сначала введите новый номер'); return; }
             verifyButtons.forEach(b => { b.disabled = true; });
             btn.textContent = 'Открываем ' + (btn.dataset.channel || 'мессенджер') + '…';
             saveBtn.disabled = true;
@@ -215,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 const data = await res.json();
                 if (!res.ok) {
-                    alert(data.detail || 'Не удалось начать подтверждение');
+                    toastError(data.detail || 'Не удалось начать подтверждение');
                     resetVerify();
                     return;
                 }
@@ -256,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         sendBtn.addEventListener('click', async function () {
             const email = emailInput.value.trim();
-            if (!email) { alert('Сначала введите новый email'); return; }
+            if (!email) { toastError('Сначала введите новый email'); return; }
             sendBtn.disabled = true;
             sendBtn.textContent = 'Отправляем…';
             try {
@@ -267,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 const data = await res.json();
                 if (!res.ok) {
-                    alert(data.detail || 'Не удалось отправить код');
+                    toastError(data.detail || 'Не удалось отправить код');
                     sendBtn.disabled = false;
                     sendBtn.textContent = 'Отправить код';
                     return;
