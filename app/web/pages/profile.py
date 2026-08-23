@@ -32,6 +32,57 @@ from app.web.components.icons import (
 )
 from app.core.config import settings
 
+
+def _channels_overview(user, available) -> str:
+    """Список каналов связи: что подключено и что с этим можно сделать.
+
+    Раньше управление было размазано — телефон менялся в одном месте, почта
+    другой формой, мессенджеры подключались только через /start в боте, а
+    отвязать нельзя было вовсе. Здесь всё состояние видно сразу.
+    """
+    from app.core.config import settings
+    from app.models.models import NotifyChannel
+
+    rows = []
+    phone = getattr(user, "phone", "") or "—"
+    rows.append(("Телефон", phone, "подтверждён", "#22c55e", ""))
+
+    def _messenger_row(channel, title, username, url_tpl):
+        connected = channel in available
+        if connected:
+            action = (
+                f'<form method="post" action="/api/v1/users/me/disconnect-channel" style="display:inline">'
+                f'<input type="hidden" name="channel" value="{channel.value}">'
+                f'<button class="btn-mini" type="submit">Отвязать</button></form>'
+            )
+            return (title, "подключён", "подключён", "#22c55e", action)
+        link = (f'<a class="btn-mini" href="{url_tpl.format(username)}" target="_blank" '
+                f'rel="noopener">Подключить</a>') if username else ""
+        return (title, "не подключён", "не подключён", "var(--color-muted)", link)
+
+    rows.append(_messenger_row(NotifyChannel.TG, "Telegram", settings.TG_BOT_USERNAME, "https://t.me/{}"))
+    rows.append(_messenger_row(NotifyChannel.MAX, "MAX", settings.MAX_BOT_USERNAME, "https://max.ru/{}"))
+
+    email = (getattr(user, "email", "") or "").strip()
+    rows.append((
+        "Почта", email or "не указана", "указана" if email else "не указана",
+        "#22c55e" if email else "var(--color-muted)", "",
+    ))
+
+    items = ""
+    for title, value, state, color, action in rows:
+        items += (
+            f'<div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;'
+            f'padding:0.5rem 0;border-bottom:1px solid var(--color-border)">'
+            f'<div><strong>{title}</strong><br>'
+            f'<span class="settings-card-hint" style="color:{color}">{value}</span></div>'
+            f'<div>{action}</div></div>'
+        )
+    return (f'<div style="margin-bottom:1rem">{items}'
+            f'<p class="settings-card-hint" style="margin:0.5rem 0 0">'
+            f'Телефон и почта меняются ниже, в разделе «Смена данных».</p></div>')
+
+
 def _notify_channel_block(user) -> str:
     """Реальное управление каналом уведомлений.
 
@@ -96,6 +147,7 @@ def _notify_channel_block(user) -> str:
     )
 
     return f"""
+            {_channels_overview(user, available)}
             <form method="post" action="/api/v1/users/me/notify-channel" class="settings-select-group">
                 <label for="notify-method">Способ получения:</label>
                 <select name="channel" id="notify-method" class="settings-select custom-select">
@@ -127,6 +179,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
             "update_failed": "Не удалось обновить профиль",
             "notify_channel_invalid": "Неизвестный канал уведомлений",
             "notify_channel_unavailable": "Этот канал не подключён — сначала привяжите бота или укажите почту",
+            "notify_channel_last": "Это единственный канал связи — сначала подключите другой, иначе уведомления перестанут приходить",
         }
         error_message = f'<div class="profile-alert profile-alert-error">{error_messages.get(error, "Произошла ошибка")}</div>'
 
@@ -139,6 +192,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
             "phone_updated": "Телефон обновлён",
             "avatar_updated": "Аватар обновлён",
             "notify_channel_updated": "Канал уведомлений обновлён",
+            "notify_channel_disconnected": "Мессенджер отвязан",
         }
         success_message = f'<div class="profile-alert profile-alert-success">{success_messages.get(success, "Операция выполнена успешно")}</div>'
 
@@ -274,7 +328,24 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
     # Смена телефона — только с подтверждением владения новым номером через TG
     # (телефон = логин-идентификатор). Механика та же, что при регистрации:
     # кнопка → /register/tg-start → бот подтверждает → request_id → сабмит.
+    # Подтвердить новый номер можно любым рабочим мессенджером — раньше был
+    # зашит только Telegram, и владельцы MAX менять телефон не могли вовсе.
+    verify_buttons = []
     if settings.TG_VERIFY_ENABLED:
+        verify_buttons.append(
+            '<button type="button" id="phone-verify-btn" class="btn-outline settings-save-btn phone-verify-btn" '
+            'data-start-url="/api/v1/auth/register/tg-start" data-channel="Telegram">Подтвердить в Telegram</button>'
+        )
+    if settings.MAX_VERIFY_ENABLED:
+        verify_buttons.append(
+            '<button type="button" class="btn-outline settings-save-btn phone-verify-btn" '
+            'data-start-url="/api/v1/auth/register/max-start" data-channel="MAX">Подтвердить в MAX</button>'
+        )
+
+    if verify_buttons:
+        channels_text = " или ".join(
+            b.split('data-channel="')[1].split('"')[0] for b in verify_buttons
+        )
         phone_change_block = f"""
                         <form id="phone-change-form" action="/api/v1/users/me/phone-form" method="post">
                             <div class="settings-form-group">
@@ -282,8 +353,8 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
                                 <input type="tel" id="settings-phone" name="phone" value="{phone}" placeholder="+7XXXXXXXXXX" required>
                             </div>
                             <input type="hidden" id="phone-request-id" name="request_id" value="">
-                            <button type="button" id="phone-verify-btn" class="btn-outline settings-save-btn" data-start-url="/api/v1/auth/register/tg-start">Подтвердить в Telegram</button>
-                            <p class="settings-card-hint" id="phone-verify-hint">Введите новый номер и подтвердите владение им в Telegram.</p>
+                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{''.join(verify_buttons)}</div>
+                            <p class="settings-card-hint" id="phone-verify-hint">Введите новый номер и подтвердите владение им в {channels_text}.</p>
                             <button type="submit" id="phone-save-btn" class="btn-primary settings-save-btn" disabled>Сохранить</button>
                         </form>"""
     else:

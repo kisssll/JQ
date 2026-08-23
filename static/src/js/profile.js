@@ -155,7 +155,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Смена телефона — с подтверждением владения новым номером через Telegram.
     // Пароль/email/город отправляются нативным POST-ом формы (обработчик не нужен).
     (function initPhoneChange() {
-        const verifyBtn = document.getElementById('phone-verify-btn');
+        // Кнопок подтверждения теперь может быть несколько (Telegram и MAX):
+        // общий обработчик, а канал берём из data-start-url нажатой кнопки.
+        const verifyButtons = Array.from(document.querySelectorAll('.phone-verify-btn'));
+        const verifyBtn = verifyButtons[0] || document.getElementById('phone-verify-btn');
         const saveBtn = document.getElementById('phone-save-btn');
         const phoneInput = document.getElementById('settings-phone');
         const reqIdInput = document.getElementById('phone-request-id');
@@ -167,8 +170,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const setHint = (t) => { if (hint) hint.textContent = t; };
         const stopPoll = () => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } };
         const resetVerify = () => {
-            verifyBtn.disabled = false;
-            verifyBtn.textContent = 'Подтвердить в Telegram';
+            // Возвращаем ИМЕННО свои подписи — кнопок может быть две (TG и MAX)
+            verifyButtons.forEach(b => {
+                b.disabled = false;
+                b.textContent = 'Подтвердить в ' + (b.dataset.channel || 'мессенджере');
+            });
         };
 
         async function poll() {
@@ -194,14 +200,15 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (e) { /* сеть моргнула — ждём следующий тик */ }
         }
 
-        verifyBtn.addEventListener('click', async function () {
+        verifyButtons.forEach(function (btn) {
+        btn.addEventListener('click', async function () {
             const phone = phoneInput.value.trim();
             if (!phone) { alert('Сначала введите новый номер'); return; }
-            verifyBtn.disabled = true;
-            verifyBtn.textContent = 'Открываем Telegram…';
+            verifyButtons.forEach(b => { b.disabled = true; });
+            btn.textContent = 'Открываем ' + (btn.dataset.channel || 'мессенджер') + '…';
             saveBtn.disabled = true;
             try {
-                const res = await fetch(verifyBtn.dataset.startUrl, {
+                const res = await fetch(btn.dataset.startUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ phone: phone })
@@ -215,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 reqIdInput.value = data.request_id;
                 deadline = Date.now() + (data.expires_in_seconds || 600) * 1000;
                 window.open(data.deep_link, '_blank');
-                verifyBtn.textContent = 'Ждём подтверждения…';
+                btn.textContent = 'Ждём подтверждения…';
                 setHint('В боте нажмите «Поделиться контактом». Страница поймёт всё сама.');
                 stopPoll();
                 pollTimer = setInterval(poll, 2500);
@@ -223,6 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 toastNetworkError();
                 resetVerify();
             }
+        });
         });
 
         // Изменил номер после подтверждения — требуем верификацию заново

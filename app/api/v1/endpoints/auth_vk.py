@@ -175,6 +175,11 @@ async def vk_callback(
         await db.commit()
         await db.refresh(user)
 
+    # Почта из профиля VK (scope email) — канал уведомлений для тех, кто не
+    # подключал мессенджер (см. services/notify_channel.py).
+    from app.services.notify_channel import adopt_oauth_email
+    await adopt_oauth_email(db, user, profile.get("email"))
+
     if not user.is_active:
         return RedirectResponse(url="/login?error=locked", status_code=302)
 

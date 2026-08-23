@@ -309,13 +309,14 @@ def _salons_tab(salons, owner_phone_by_id):
             <td>{_esc(owner)}</td>
             <td>{ICON_STAR_FILLED} {s.rating} ({s.reviews_count})</td>
             <td>{_active_badge(s.is_active)} {_moderation_badge(s.moderation_status)}</td>
-            <td style="white-space:nowrap">{owner_form} {toggle} {delete}</td>
+            <td>{_subscription_cell(s)}</td>
+            <td style="white-space:nowrap">{owner_form} {toggle} {delete}<br>{_subscription_actions(s)}</td>
         </tr>"""
     return f"""
     <div class="tab-content" id="tab-salons">
         <h2 style="margin-bottom:1rem">Салоны ({len(salons)})</h2>
         <div style="overflow-x:auto"><table>
-            <thead><tr><th>ID</th><th>Название</th><th>Владелец</th><th>Рейтинг</th><th>Статус</th><th>Действия</th></tr></thead>
+            <thead><tr><th>ID</th><th>Название</th><th>Владелец</th><th>Рейтинг</th><th>Статус</th><th>Подписка</th><th>Действия</th></tr></thead>
             <tbody>{rows}</tbody>
         </table></div>
     </div>
@@ -359,6 +360,66 @@ def _reports_tab(reports):
 
 
 # ── ВКЛАДКА: ОТЗЫВЫ ──────────────────────────────────────────────────────────
+def _subscription_cell(s) -> str:
+    """Тариф, статус и срок доступа салона — в админке этого не было вовсе,
+    и понять, платит ли салон, было неоткуда."""
+    from datetime import datetime, timezone
+    from app.services.tariffs import TARIFF_CATALOG
+
+    tariff = TARIFF_CATALOG.get(getattr(s, "business_tier", None))
+    plan = tariff.name if tariff else (getattr(s, "business_tier", None) or "—")
+    status_labels = {
+        "NONE": ("нет тарифа", "var(--color-muted)"),
+        "TRIALING": ("пробный", "#f59e0b"),
+        "ACTIVE": ("оплачен", "#22c55e"),
+        "PAST_DUE": ("платёж не прошёл", "#ef4444"),
+        "CANCELED": ("отменена", "var(--color-muted)"),
+    }
+    raw = getattr(s.subscription_status, "name", str(s.subscription_status))
+    label, color = status_labels.get(raw, (raw, "var(--color-muted)"))
+
+    until = getattr(s, "access_until", None)
+    if until is None:
+        until_str = '<span style="color:#ef4444">доступа нет</span>'
+    else:
+        if until.tzinfo is None:
+            until = until.replace(tzinfo=timezone.utc)
+        live = until > datetime.now(timezone.utc)
+        until_str = (f'<span style="color:{"#22c55e" if live else "#ef4444"}">'
+                     f'до {until.strftime("%d.%m.%Y")}{"" if live else " (истёк)"}</span>')
+
+    pending = float(getattr(s, "pending_proration", 0) or 0)
+    pending_str = (f'<br><span style="color:#f59e0b;font-size:0.75rem">доплата {int(round(pending))} ₽</span>'
+                   if pending > 0 else "")
+    return (f'<strong>{plan}</strong><br><span style="color:{color};font-size:0.8rem">{label}</span>'
+            f'<br><span style="font-size:0.8rem">{until_str}</span>{pending_str}')
+
+
+def _subscription_actions(s) -> str:
+    """Ручное управление подпиской: продлить триал, выдать/продлить платный
+    доступ, сменить тариф, снять доступ. Все действия — под старшим
+    модератором и с записью в аудит (см. app/api/v1/endpoints/admin.py)."""
+    from app.services.tariffs import TARIFF_CATALOG
+
+    plan_options = "".join(
+        f'<option value="{t.plan}">{t.name}</option>' for t in TARIFF_CATALOG.values()
+    )
+    return (
+        f'<form method="post" action="/api/v1/admin/salons/{s.id}/grant-trial" style="display:inline">'
+        f'<button class="btn-mini">+14 дн. триал</button></form> '
+        f'<form method="post" action="/api/v1/admin/salons/{s.id}/grant-access" style="display:inline-flex;gap:0.25rem">'
+        f'<input name="months" type="number" min="1" max="120" value="1" title="Месяцев доступа" '
+        f'style="width:56px;padding:0.3rem;border:1px solid var(--color-border);border-radius:0.4rem">'
+        f'<button class="btn-mini">Выдать доступ</button></form> '
+        f'<form method="post" action="/api/v1/admin/salons/{s.id}/set-plan" style="display:inline-flex;gap:0.25rem">'
+        f'<select name="plan" style="padding:0.3rem;border:1px solid var(--color-border);border-radius:0.4rem">{plan_options}</select>'
+        f'<button class="btn-mini">Тариф</button></form> '
+        f'<form method="post" action="/api/v1/admin/salons/{s.id}/revoke-access" style="display:inline" '
+        f'data-confirm="Снять доступ у «{_esc(s.name)}»? Салон уйдёт из каталога." data-confirm-label="Снять">'
+        f'<button class="btn-mini btn-danger">Снять доступ</button></form>'
+    )
+
+
 def _reviews_tab(reviews, client_by_id, master_name_by_id, salon_name_by_id):
     rows = ""
     for r in reviews:

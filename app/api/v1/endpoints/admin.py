@@ -160,6 +160,103 @@ async def grant_trial(sid: int, request: Request, db: AsyncSession = Depends(get
     return _back("salons", ok=f"«{salon.name}»: пробный период до {ends:%d.%m.%Y}")
 
 
+@router.post("/salons/{sid}/grant-access")
+async def grant_access(sid: int, request: Request, months: int = Form(1),
+                       db: AsyncSession = Depends(get_db)):
+    """Выдать/продлить ПЛАТНЫЙ доступ руками — для оплат мимо кассы (счёт,
+    наличные, договор). Продлеваем от текущего срока, если он ещё не истёк,
+    иначе от сегодня."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.models import Salon, SalonSubscriptionStatus
+    from app.services.subscription import apply_successful_payment
+    from app.services.tariffs import resolve_plan_for_employee_count
+
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    salon = (await db.execute(select(Salon).where(Salon.id == sid))).scalar_one_or_none()
+    if not salon:
+        return _back("salons", err="Салон не найден")
+    months = max(1, min(int(months or 1), 120))
+
+    now = datetime.now(timezone.utc)
+    current = salon.subscription_expires_at
+    if current is not None and current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    base = current if current and current > now else now
+
+    active_masters = (await db.execute(
+        select(func.count(Master.id)).where(
+            Master.salon_id == salon.id, Master.is_active == True,  # noqa: E712
+        )
+    )).scalar() or 0
+    if not salon.business_tier:
+        plan = resolve_plan_for_employee_count(active_masters)
+        salon.business_tier = plan if plan != "custom" else "corporate"
+
+    apply_successful_payment(salon, base + timedelta(days=30 * months),
+                             active_masters=active_masters)
+    salon.subscription_status = SalonSubscriptionStatus.ACTIVE
+    _audit(db, admin.id, "grant_access", "salon", salon.id,
+           f"«{salon.name}»: доступ выдан вручную на {months} мес., "
+           f"до {salon.access_until:%d.%m.%Y}", salon_id=salon.id)
+    await db.commit()
+    return _back("salons", ok=f"«{salon.name}»: доступ до {salon.access_until:%d.%m.%Y}")
+
+
+@router.post("/salons/{sid}/set-plan")
+async def set_salon_plan(sid: int, request: Request, plan: str = Form(...),
+                         db: AsyncSession = Depends(get_db)):
+    """Сменить тариф салона руками — правило «понижение раз в 3 месяца» на
+    админа не распространяется (например, после договорённости с продавцом)."""
+    from app.models.models import Salon
+    from app.services.tariffs import TARIFF_CATALOG
+
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    salon = (await db.execute(select(Salon).where(Salon.id == sid))).scalar_one_or_none()
+    if not salon:
+        return _back("salons", err="Салон не найден")
+    if plan not in TARIFF_CATALOG:
+        return _back("salons", err="Неизвестный тариф")
+
+    was = salon.business_tier or "—"
+    salon.business_tier = plan
+    _audit(db, admin.id, "set_plan", "salon", salon.id,
+           f"«{salon.name}»: тариф {was} → {plan}", salon_id=salon.id)
+    await db.commit()
+    return _back("salons", ok=f"«{salon.name}»: тариф {TARIFF_CATALOG[plan].name}")
+
+
+@router.post("/salons/{sid}/revoke-access")
+async def revoke_access(sid: int, request: Request, db: AsyncSession = Depends(get_db)):
+    """Снять доступ немедленно (нарушение, ошибочная выдача). Салон уходит из
+    каталога и перестаёт принимать новую запись; созданные брони не трогаем."""
+    from datetime import datetime, timezone
+    from app.models.models import Salon, SalonSubscriptionStatus
+
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    salon = (await db.execute(select(Salon).where(Salon.id == sid))).scalar_one_or_none()
+    if not salon:
+        return _back("salons", err="Салон не найден")
+
+    now = datetime.now(timezone.utc)
+    salon.access_until = now
+    salon.subscription_expires_at = now
+    salon.subscription_status = SalonSubscriptionStatus.CANCELED
+    salon.auto_renew = False
+    _audit(db, admin.id, "revoke_access", "salon", salon.id,
+           f"«{salon.name}»: доступ снят вручную", salon_id=salon.id)
+    await db.commit()
+    return _back("salons", ok=f"«{salon.name}»: доступ снят, салон вне каталога")
+
+
 @router.post("/users/{uid}/toggle-active")
 async def toggle_active(uid: int, request: Request, db: AsyncSession = Depends(get_db)):
     admin = await _get_senior_admin(request, db)

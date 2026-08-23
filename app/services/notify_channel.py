@@ -118,3 +118,30 @@ async def bind_after_verification(db, user: User, phone: str) -> None:
 
     if changed:
         await db.commit()
+
+
+async def adopt_oauth_email(db, user: User, email: Optional[str]) -> None:
+    """Сохранить почту, полученную при входе через VK/Яндекс, и сделать её
+    каналом уведомлений, если другого канала нет.
+
+    Без этого OAuth-пользователь оставался вообще без связи: мессенджер он не
+    подключал, а почту провайдер отдавал, но мы её не записывали — уведомления
+    молча уходили в никуда. Чужую почту не занимаем: если адрес уже принадлежит
+    другому аккаунту, просто пропускаем (email в модели уникален).
+    """
+    from sqlalchemy import select as _select
+
+    email = (email or "").strip().lower()
+    if not email or (user.email or "").strip().lower() == email:
+        return
+
+    taken = (await db.execute(
+        _select(User.id).where(User.email == email, User.id != user.id)
+    )).scalar_one_or_none()
+    if taken:
+        return
+
+    user.email = email
+    if (user.notify_channel or NotifyChannel.NONE) == NotifyChannel.NONE:
+        user.notify_channel = NotifyChannel.EMAIL
+    await db.commit()

@@ -270,6 +270,61 @@ async def update_notify_channel_form(
     return RedirectResponse(url="/profile?success=notify_channel_updated", status_code=302)
 
 
+@router.post("/me/disconnect-channel")
+async def disconnect_channel_form(
+    request: Request,
+    channel: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Отвязать мессенджер (Telegram или MAX).
+
+    Последний рабочий канал отвязать нельзя: иначе человек молча перестал бы
+    получать напоминания о записях и предупреждения об оплате, не понимая
+    почему. Просим сначала подключить другой (решение Артёма).
+    """
+    from app.web.auth import get_current_user_from_cookie
+    from app.models.models import NotifyChannel
+    from app.services.notify_channel import resolve
+
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+
+    try:
+        target = NotifyChannel(channel)
+    except ValueError:
+        return RedirectResponse(url="/profile?error=notify_channel_invalid", status_code=302)
+    if target not in (NotifyChannel.TG, NotifyChannel.MAX):
+        return RedirectResponse(url="/profile?error=notify_channel_invalid", status_code=302)
+
+    # Сколько каналов останется, если отвязать этот
+    remaining = []
+    if user.tg_chat_id and target != NotifyChannel.TG:
+        remaining.append(NotifyChannel.TG)
+    if user.max_chat_id and target != NotifyChannel.MAX:
+        remaining.append(NotifyChannel.MAX)
+    if (user.email or "").strip():
+        remaining.append(NotifyChannel.EMAIL)
+    if not remaining:
+        return RedirectResponse(url="/profile?error=notify_channel_last", status_code=302)
+
+    if target == NotifyChannel.TG:
+        user.tg_chat_id = None
+    else:
+        user.max_chat_id = None
+
+    # Если отвязали текущий канал доставки — переводим на оставшийся
+    if user.notify_channel == target:
+        user.notify_channel = remaining[0]
+    await db.commit()
+    # Страховка: канал мог протухнуть иначе — синхронизируем с реальностью
+    actual, _addr = resolve(user)
+    if user.notify_channel != actual:
+        user.notify_channel = actual
+        await db.commit()
+    return RedirectResponse(url="/profile?success=notify_channel_disconnected", status_code=302)
+
+
 @router.post("/me/phone-form")
 async def update_phone_form(
     request: Request,

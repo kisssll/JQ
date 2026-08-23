@@ -149,6 +149,11 @@ async def yandex_callback(
         await db.commit()
         await db.refresh(user)
 
+    # Почта из профиля — единственный канал уведомлений у тех, кто вошёл через
+    # OAuth и не подключал мессенджер (см. services/notify_channel.py).
+    from app.services.notify_channel import adopt_oauth_email
+    await adopt_oauth_email(db, user, profile.get("default_email"))
+
     if not user.is_active:
         return RedirectResponse(url="/login?error=locked", status_code=302)
 
