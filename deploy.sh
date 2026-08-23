@@ -25,6 +25,7 @@ done
 case "${ENV_NAME}" in
     prod)
         COMPOSE=(docker compose -p rumi-prod -f docker-compose.prod.yml)
+        COMPOSE_FILE="docker-compose.prod.yml"
         PROJECT="rumi-prod"
         APP_CONTAINER="rumi-prod-app"
         IMAGE="rumi-app:prod"
@@ -32,6 +33,7 @@ case "${ENV_NAME}" in
         ;;
     staging)
         COMPOSE=(docker compose -p rumi-staging -f docker-compose.staging.yml --env-file .env.staging)
+        COMPOSE_FILE="docker-compose.staging.yml"
         PROJECT="rumi-staging"
         APP_CONTAINER="rumi-staging-app"
         IMAGE="rumi-app:staging"
@@ -63,6 +65,34 @@ if [ "${NO_BUILD}" -eq 0 ]; then
     echo "[deploy:${ENV_NAME}] сборка образа..."
     "${COMPOSE[@]}" build app
 fi
+
+# Имена контейнеров стека фиксированы в compose-файле (container_name), поэтому
+# конфликт «container name is already in use» всегда упирается в одно из них.
+# Читаем список из файла, а не держим в скрипте: новый сервис иначе молча
+# выпал бы из чистки.
+STACK_NAMES=$(awk '/^[[:space:]]*container_name:[[:space:]]*/ {print $2}' "${COMPOSE_FILE}")
+
+# Снести контейнеры, занимающие имена стека, ПО ИМЕНИ, а не по метке проекта.
+# Вся прежняя чистка фильтровала по label=com.docker.compose.project, и этого
+# оказалось мало: деплой падал на «name /rumi-staging-redis is already in use»
+# уже после того, как цикл ожидания не нашёл ни одного контейнера проекта —
+# занявший имя контейнер этой метки не нёс (создан прошлым compose другой
+# версии либо потерял метки при переименовании), поэтому был невидим.
+purge_stack_names() {
+    local left name
+    for name in ${STACK_NAMES}; do
+        docker rm -f "${name}" >/dev/null 2>&1 || true
+    done
+    # rm -f возвращается раньше, чем демон закончил удаление.
+    for _ in $(seq 1 20); do
+        left=""
+        for name in ${STACK_NAMES}; do
+            docker inspect "${name}" >/dev/null 2>&1 && left="${left} ${name}"
+        done
+        [ -z "${left}" ] && break
+        sleep 0.5
+    done
+}
 
 # Если предыдущий деплой оборвался, compose оставляет переименованные
 # контейнеры вида <хеш>_rumi-staging-arq в статусе created — они занимают имя
@@ -142,6 +172,8 @@ if ! "${COMPOSE[@]}" up -d; then
         docker rm -f ${REST} >/dev/null 2>&1 || true
         sleep 2
     fi
+    # И по именам — на случай контейнера без метки проекта (см. purge_stack_names).
+    purge_stack_names
     "${COMPOSE[@]}" up -d
 fi
 
