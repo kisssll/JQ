@@ -36,6 +36,7 @@ import './business/tabs/analytics.js';
 import './business/tabs/my-salon.js';
 import './model/dashboard.js';
 import './business/dashboard.js';
+import './business/evening-deal.js';
 import './business/tabs/overview.js';
 import './business/tabs/promos.js';
 import './business/tabs/services.js';
