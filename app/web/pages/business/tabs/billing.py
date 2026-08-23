@@ -264,7 +264,7 @@ async def render_billing_tab(
             )
         )
         buttons = [
-            f'<select id="billingMonths" class="billing-months" aria-label="Срок оплаты">{months_options}</select>',
+            f'<select id="billingMonths" class="billing-months custom-select" aria-label="Срок оплаты">{months_options}</select>',
             f'<button id="billingPayBtn" class="btn-primary billing-btn" '
             f'data-salon-id="{salon.id}">Оплатить</button>',
         ]

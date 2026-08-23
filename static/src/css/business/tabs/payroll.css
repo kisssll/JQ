@@ -96,9 +96,43 @@
     white-space: nowrap;
 }
 .payroll-table td {
-    padding: 0.75rem 1rem;
+    padding: 0.9rem 1rem;
     border-bottom: 1px solid var(--color-border);
     vertical-align: middle;
+}
+
+/* Восемь колонок на 1309px шли впритык. Числовые — моноширинными цифрами и
+   по правому краю: так столбцы сумм читаются как столбцы, а не как каша. */
+.payroll-table td:nth-child(n+2):nth-child(-n+7),
+.payroll-table th:nth-child(n+2):nth-child(-n+7) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.payroll-table th:first-child,
+.payroll-table td:first-child {
+    width: 15rem;
+}
+
+.payroll-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Кнопки действий были 71 и 112px в колонке на 268px — прижимаем вправо и
+   даём им одинаковую высоту, чтобы строка не выглядела рваной. */
+.payroll-table .actions-cell {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.payroll-table .actions-cell button {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8rem;
+    border-radius: 0.5rem;
+}
+
+.payroll-table .actions-cell button + button {
+    margin-left: 0.4rem;
 }
 .payroll-table .empty-state {
     text-align: center;
