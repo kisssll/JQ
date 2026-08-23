@@ -16,6 +16,7 @@ from app.models.models import (
 DASHBOARD_TABS = [
     "overview", "analytics", "schedule", "employees", "services", "payroll",
     "cost", "records", "warehouse", "models", "promos", "reviews", "crm", "edit",
+    "instructions",
 ]
 
 
@@ -55,3 +56,10 @@ async def test_all_business_dashboard_tabs_render(client, db_session):
         r = await client.get(f"/business/dashboard?tab={tab}")
         assert r.status_code == 200, f"вкладка {tab!r} → {r.status_code}: {r.text[:400]}"
         assert f'id="tab-{tab}"' in r.text, f"вкладка {tab!r}: контент не отрендерился"
+
+    # «Инструкция» — по разделу на каждую остальную вкладку панели (15: все
+    # DASHBOARD_TABS кроме самой «instructions», плюс «billing» — она не в
+    # DASHBOARD_TABS выше, но есть в панели, см. tab_buttons в dashboard.py).
+    r = await client.get("/business/dashboard?tab=instructions")
+    assert r.status_code == 200
+    assert r.text.count('class="accordion-item"') == 15

@@ -396,3 +396,57 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .flatpickr-calendar .flatpickr-time .flatpickr-am-pm {
     display: none;
 }
+
+/* ---- Месяц-пикер (поле «Период» на вкладках Себестоимость/Зарплаты) ---- */
+/* Стрелки шапки здесь листают года, а не месяцы — год обязательно должен
+   быть виден, иначе непонятно, куда попал клик по стрелке. */
+.flatpickr-calendar.flatpickr-monthSelect-theme-light {
+    width: 280px;
+}
+
+.flatpickr-calendar.flatpickr-monthSelect-theme-light .numInput.cur-year,
+.flatpickr-calendar.flatpickr-monthSelect-theme-light .flatpickr-current-month .cur-year {
+    display: inline-block !important;
+    font-size: 0.9rem !important;
+    font-weight: 400;
+    color: var(--color-heading);
+    background: transparent;
+    border: none !important;
+    width: 56px !important;
+    text-align: center;
+}
+
+.flatpickr-monthSelect-months {
+    justify-content: center;
+}
+
+.flatpickr-monthSelect-month {
+    border-radius: 0.5rem;
+    color: var(--color-heading);
+    font-size: 0.8rem;
+    font-weight: 400;
+}
+
+.flatpickr-monthSelect-month:hover,
+.flatpickr-monthSelect-month:focus {
+    background: var(--color-accent-light);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.flatpickr-monthSelect-month.today {
+    border-color: var(--color-primary);
+}
+
+.flatpickr-monthSelect-month.today:hover,
+.flatpickr-monthSelect-month.today:focus {
+    background: var(--color-accent-light);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.flatpickr-monthSelect-month.selected {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+}

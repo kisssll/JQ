@@ -46,6 +46,9 @@
     color: var(--color-primary);
     margin-bottom: 1rem;
 }
+.bl-badge-lg {
+    font-size: 1rem;
+}
 .bl-section-header h2 {
     font-family: var(--font-heading);
     font-size: 1.875rem;
@@ -227,7 +230,7 @@
     width: 1.25rem;
     height: 1.25rem;
     flex-shrink: 0;
-    color: #f87171;
+    color: var(--color-primary);
     margin-top: 0.125rem;
 }
 .bl-pain-title {
@@ -321,15 +324,21 @@
     box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
     transform: translateY(-4px);
 }
+.bl-feature-header {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    margin-bottom: 0.75rem;
+}
 .bl-icon-wrapper {
     display: flex;
+    flex-shrink: 0;
     height: 3rem;
     width: 3rem;
     align-items: center;
     justify-content: center;
     border-radius: 0.75rem;
     background: rgba(192, 129, 184, 0.12);
-    margin-bottom: 1.25rem;
 }
 .bl-icon-wrapper svg {
     color: var(--color-primary);
@@ -338,14 +347,14 @@
 }
 .bl-feature-card h3 {
     font-family: var(--font-heading);
-    font-size: 1.125rem;
+    font-size: 1.25rem;
     font-weight: 600;
     color: var(--color-heading);
-    margin-bottom: 0.75rem;
+    margin: 0;
 }
 .bl-feature-card p {
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: 1rem;
     line-height: 1.625;
     color: var(--color-muted);
 }
@@ -601,22 +610,6 @@
 .bl-how-step:hover {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
 }
-.bl-icon-circle {
-    display: flex;
-    height: 3.5rem;
-    width: 3.5rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 1rem;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
-    flex-shrink: 0;
-}
-.bl-icon-circle svg {
-    color: #fff;
-    width: 1.5rem;
-    height: 1.5rem;
-}
 .bl-step-content {
     display: flex;
     flex-direction: column;
@@ -626,47 +619,58 @@
 }
 .bl-step-title {
     font-family: var(--font-heading);
-    font-size: 1rem;
+    font-size: 1.125rem;
     font-weight: 600;
     color: var(--color-heading);
     margin: 0;
 }
 .bl-step-desc {
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: 1rem;
     line-height: 1.5;
     color: var(--color-muted);
     margin: 0;
 }
 
-/* На устройствах с наведением мышью — заголовок и текст в одну строку,
-   пояснение выезжает справа от заголовка при hover, без переполнения плашки. */
+/* На устройствах с наведением мышью — по умолчанию виден только крупный
+   заголовок по центру плашки; при hover описание «выезжает» справа, а
+   заголовок этим же движением уходит левее (оба — часть одной flex-группы
+   с justify-content:center, поэтому сдвиг происходит сам, без transform
+   на заголовке и без скачка при наведении). */
 @media (hover: hover) and (pointer: fine) {
     .bl-step-content {
         flex-direction: row;
         align-items: baseline;
+        justify-content: center;
         min-width: 0;
         overflow: hidden;
     }
     .bl-step-title {
         white-space: nowrap;
         flex-shrink: 0;
-        transition: transform 0.35s ease;
+        font-size: 1.4rem;
+        transition: font-size 0.35s ease;
     }
     .bl-step-desc {
-        margin-left: 1rem;
-        min-width: 0;
-        flex: 1;
+        margin-left: 0;
+        max-width: 0;
         opacity: 0;
-        transform: translateX(-0.75rem);
-        transition: opacity 0.35s ease, transform 0.35s ease;
+        overflow: hidden;
+        white-space: nowrap; /* пока max-width:0 — иначе текст переносится по слову на строку и раздувает плашку по высоте */
+        transition: opacity 0.35s ease, max-width 0.35s ease, margin-left 0.35s ease, white-space 0s step-end 0.3s;
     }
     .bl-how-step:hover .bl-step-title {
-        transform: translateX(-0.25rem);
+        font-size: 1.125rem;
     }
     .bl-how-step:hover .bl-step-desc {
+        margin-left: 1rem;
+        max-width: 28rem;
         opacity: 1;
-        transform: translateX(0);
+        /* normal включаем ближе к концу раскрытия (см. transition-delay выше),
+           иначе перенос слов включится раньше, чем max-width вырастет, и текст
+           на миг «взорвётся» по высоте посреди анимации */
+        white-space: normal;
+        transition: opacity 0.35s ease, max-width 0.35s ease, margin-left 0.35s ease, white-space 0s step-end 0.3s;
     }
 }
 

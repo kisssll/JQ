@@ -561,6 +561,12 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
                 active_masters=active_masters if kind == "business" else None,
             )
             target.subscription_status = SalonSubscriptionStatus.ACTIVE
+            if kind == "business" and target.hidden_reason == "billing":
+                # Страховка на случай салонов, скрытых за неоплату старым
+                # механизмом: доступ теперь держит access_until, поэтому просто
+                # снимаем флаг, чтобы он не путал причину скрытия.
+                target.is_hidden = False
+                target.hidden_reason = None
             processed += 1
         # Иначе не подтверждён сразу — платёж остаётся PENDING, статус
         # финализирует вебхук /tkassa/notify терминальным уведомлением.

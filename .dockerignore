@@ -7,6 +7,8 @@ keys/
 # Виртуальные окружения и кэши
 .venv/
 venv/
+node_modules/
+static/dist/
 __pycache__/
 *.pyc
 .pytest_cache/

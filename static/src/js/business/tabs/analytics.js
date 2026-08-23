@@ -15,6 +15,35 @@
         return (n || 0).toLocaleString('ru-RU') + ' ₽';
     }
 
+    // ISO (Y-m-d) → ДД.ММ.ГГГГ для отображения пользователю.
+    function formatRuDate(iso) {
+        const [y, m, d] = (iso || '').split('-');
+        return (y && m && d) ? `${d}.${m}.${y}` : (iso || '');
+    }
+
+    function daysInMonth(year, month1to12) {
+        return new Date(Date.UTC(year, month1to12, 0)).getUTCDate();
+    }
+
+    // Конец периода от даты начала: день — тот же день, неделя — +6 дней,
+    // месяц/год — ровно календарный месяц/год минус 1 день (с клампом на
+    // короткие месяцы, чтобы 31.01 + месяц не улетало на март).
+    function addPeriodEnd(fromISO, granularity) {
+        const [y, m, day] = fromISO.split('-').map(Number);
+        if (granularity === 'day') return fromISO;
+        if (granularity === 'week') {
+            const d = new Date(Date.UTC(y, m - 1, day + 6));
+            return d.toISOString().slice(0, 10);
+        }
+        const monthsToAdd = granularity === 'year' ? 12 : 1;
+        const total = y * 12 + (m - 1) + monthsToAdd;
+        const ny = Math.floor(total / 12);
+        const nm = (total % 12) + 1;
+        const clampedDay = Math.min(day, daysInMonth(ny, nm));
+        const d = new Date(Date.UTC(ny, nm - 1, clampedDay - 1));
+        return d.toISOString().slice(0, 10);
+    }
+
     function formatLabel(periodStart, granularity) {
         const d = new Date(periodStart + 'T00:00:00');
         if (granularity === 'day') return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
@@ -50,7 +79,7 @@
             <div class="kpi-card">
                 <div class="kpi-label">Всего записей</div>
                 <div class="kpi-value">${s.total_bookings}</div>
-                <div class="kpi-trend" style="color:var(--color-muted)">c ${data.date_from} по ${data.date_to}</div>
+                <div class="kpi-trend" style="color:var(--color-muted)">c ${formatRuDate(data.date_from)} по ${formatRuDate(data.date_to)}</div>
             </div>
         `;
     }
@@ -135,14 +164,55 @@
         `).join('');
     }
 
+    function setDateInput(id, isoValue) {
+        const el = document.getElementById(id);
+        // custom-forms.js оборачивает эти инпуты в flatpickr с altInput —
+        // видимое поле не синхронизируется само при прямом el.value = ...,
+        // поэтому даты нужно проставлять через API самого инстанса.
+        if (el._flatpickr) {
+            el._flatpickr.setDate(isoValue, false);
+        } else {
+            el.value = isoValue;
+        }
+    }
+
     function applyData(data) {
-        currentGranularity = data.granularity;
-        document.getElementById('analyticsDateFrom').value = data.date_from;
-        document.getElementById('analyticsDateTo').value = data.date_to;
+        // currentGranularity — это активная ВКЛАДКА (день/неделя/месяц/год),
+        // а не бакет конкретного ответа: при «Показать» с якорной датой бэкенд
+        // может вернуть более мелкий бакет (см. chartGranularityForPeriod), и
+        // затирать им currentGranularity нельзя — иначе собьётся авто-подстановка
+        // конца периода при следующем выборе даты начала.
+        setDateInput('analyticsDateFrom', data.date_from);
+        setDateInput('analyticsDateTo', data.date_to);
         renderKpi(data);
         renderChart(data);
         renderTopServices(data.top_services);
         closeDayDetails();
+    }
+
+    // При выборе «даты с» конец периода подставляется автоматически по
+    // активной вкладке гранулярности (день→тот же день, неделя→+6 дней и
+    // т.д.), но остаётся обычным редактируемым полем — пользователь может
+    // сдвинуть его вручную на любую другую дату перед «Показать».
+    function syncDateToFromAnchor() {
+        const fromEl = document.getElementById('analyticsDateFrom');
+        if (!fromEl || !fromEl.value) return;
+        setDateInput('analyticsDateTo', addPeriodEnd(fromEl.value, currentGranularity));
+    }
+
+    // Неделя/месяц, применённые к конкретному якорному диапазону (а не как
+    // общий обзорный тренд по клику на вкладку), разбиваем на бары уровнем
+    // мельче — иначе 7–30-дневный диапазон даёт бакет того же уровня в 1-2
+    // малополезных столбца (что и показывал график на скриншоте пользователя).
+    function chartGranularityForPeriod(uiGranularity) {
+        if (uiGranularity === 'week' || uiGranularity === 'month') return 'day';
+        if (uiGranularity === 'year') return 'month';
+        return uiGranularity;
+    }
+
+    const dateFromEl = document.getElementById('analyticsDateFrom');
+    if (dateFromEl && dateFromEl._flatpickr) {
+        dateFromEl._flatpickr.config.onChange.push(syncDateToFromAnchor);
     }
 
     if (window.analyticsInitial) {
@@ -153,9 +223,10 @@
         btn.addEventListener('click', async function() {
             document.querySelectorAll('.analytics-gran-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
+            currentGranularity = this.dataset.granularity;
             this.disabled = true;
             try {
-                const data = await loadAnalytics(this.dataset.granularity);
+                const data = await loadAnalytics(currentGranularity);
                 applyData(data);
             } catch (e) {
                 alert(e.message || 'Ошибка сети');
@@ -172,7 +243,33 @@
             if (!dateFrom || !dateTo) return;
             this.disabled = true;
             try {
-                const data = await loadAnalytics(currentGranularity, dateFrom, dateTo);
+                const data = await loadAnalytics(chartGranularityForPeriod(currentGranularity), dateFrom, dateTo);
+                applyData(data);
+            } catch (e) {
+                alert(e.message || 'Ошибка сети');
+            }
+            this.disabled = false;
+        });
+    }
+
+    const allTimeBtn = document.getElementById('analyticsAllTime');
+    if (allTimeBtn) {
+        allTimeBtn.addEventListener('click', async function() {
+            const sinceDate = window.analyticsInitial && window.analyticsInitial.salon_created_at;
+            if (!sinceDate) return;
+            const today = new Date().toISOString().slice(0, 10);
+            // День/неделя над многолетним диапазоном дали бы тысячи точек на
+            // графике (см. MAX_POINTS на бэкенде) — для «всего периода»
+            // переключаемся на более крупный бакет, если сейчас выбран мелкий.
+            let granularity = currentGranularity;
+            if (granularity === 'day' || granularity === 'week') granularity = 'month';
+            this.disabled = true;
+            try {
+                const data = await loadAnalytics(granularity, sinceDate, today);
+                currentGranularity = granularity;
+                document.querySelectorAll('.analytics-gran-btn').forEach(b => {
+                    b.classList.toggle('active', b.dataset.granularity === granularity);
+                });
                 applyData(data);
             } catch (e) {
                 alert(e.message || 'Ошибка сети');

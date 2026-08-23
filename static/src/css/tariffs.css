@@ -1,0 +1,36 @@
+/* static/src/css/tariffs.css */
+/* Страница «Тарифы и информация» — переиспользует .tab-btn/.tab-content
+   (bookings.css) и .settings-accordion/.plan-card (settings.css/model-landing.css),
+   здесь только контейнер под-вкладок и заголовки групп тарифов. */
+
+.tariffs-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.5rem;
+}
+
+.tariffs-group-title {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 2rem 0 1.25rem;
+}
+.tariffs-group-title:first-child {
+    margin-top: 0;
+}
+
+/* 4 тарифа салонов не влезают ровно в 3 колонки model-landing.css —
+   свободная сетка, без переопределения общего .plans-grid. */
+.tariffs-page .plans-grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+@media (max-width: 640px) {
+    .tariffs-tabs {
+        gap: 0.4rem;
+    }
+}

@@ -162,7 +162,7 @@ def render_promos_tab(
                     <input type="number" id="loyaltyRegularPercent" min="0" max="99" value="{settings.regular_client_discount_percent if settings else 0}">
                 </div>
                 <div class="loyalty-field">
-                    <label for="loyaltyVisitsThreshold">Визитов за год для авто-статуса</label>
+                    <label for="loyaltyVisitsThreshold">Статус «Постоянный клиент»: визитов за год {_hint("Клиенту автоматически присваивается статус «Постоянный клиент», как только он наберёт это число визитов за последние 12 месяцев. Статус лишь открывает администратору возможность выбрать скидку слева при завершении записи в «Расписании» — сама скидка не начисляется автоматически. Оставьте поле пустым, чтобы присваивать статус только вручную.")}</label>
                     <input type="number" id="loyaltyVisitsThreshold" min="1" placeholder="Не задано — только вручную" value="{settings.regular_client_visits_threshold if settings and settings.regular_client_visits_threshold else ''}">
                 </div>
             </div>

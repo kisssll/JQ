@@ -51,6 +51,16 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH"
 
+# Пакеты ОС (util-linux и т.п.) в базовом слое python:3.11-slim фиксируются
+# на момент публикации тега и со временем накапливают исправленные апстримом
+# HIGH-CVE (Trivy-гейт в CI: ignore-unfixed=true — падаем именно на тех, для
+# которых патч уже есть). apt upgrade подтягивает патчи Debian на момент
+# сборки, не дожидаясь, пока Docker Hub перевыпустит сам тег.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # непривилегированный пользователь
 RUN groupadd -r app && useradd -r -g app -d /app app
 

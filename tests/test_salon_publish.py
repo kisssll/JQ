@@ -109,7 +109,8 @@ async def test_booking_blocked_until_published(client, db_session):
 
 async def test_owner_publishes_makes_public(client, db_session):
     owner = await _mk_owner(db_session, "+79995552010")
-    sid = await _mk_approved_unpublished(db_session, owner, name="ПубликуемыйZZ")
+    sid = await _mk_approved_unpublished(db_session, owner, name="ПубликуемыйZZ",
+                                          subscription_status=SalonSubscriptionStatus.ACTIVE)
     await _login(client, "+79995552010")
 
     r = await client.post(f"/api/v1/business/my-salon/publish?salon_id={sid}")
@@ -124,7 +125,8 @@ async def test_owner_publishes_makes_public(client, db_session):
 
 async def test_publish_is_idempotent(client, db_session):
     owner = await _mk_owner(db_session, "+79995552011")
-    sid = await _mk_approved_unpublished(db_session, owner)
+    sid = await _mk_approved_unpublished(db_session, owner,
+                                          subscription_status=SalonSubscriptionStatus.ACTIVE)
     await _login(client, "+79995552011")
 
     r1 = await client.post(f"/api/v1/business/my-salon/publish?salon_id={sid}")
@@ -171,6 +173,22 @@ async def test_publish_requires_approved(client, db_session):
 
     r = await client.post(f"/api/v1/business/my-salon/publish?salon_id={sid}")
     assert r.status_code == 409, r.text
+
+
+async def test_publish_requires_subscription(client, db_session):
+    owner = await _mk_owner(db_session, "+79995552015")
+    # Хелпер по умолчанию даёт салону живую подписку (иначе он невидим в
+    # каталоге) — здесь тариф нужен именно отсутствующим.
+    sid = await _mk_approved_unpublished(
+        db_session, owner, subscription_status=SalonSubscriptionStatus.NONE,
+    )
+    await _login(client, "+79995552015")
+
+    r = await client.post(f"/api/v1/business/my-salon/publish?salon_id={sid}")
+    assert r.status_code == 409, r.text
+    async with db_session() as db:
+        s = (await db.execute(select(Salon).where(Salon.id == sid))).scalar_one()
+        assert s.published_at is None
 
 
 async def test_publish_requires_permission(client, db_session):

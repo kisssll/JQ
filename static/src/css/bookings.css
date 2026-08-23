@@ -138,6 +138,53 @@
     color: var(--color-heading);
 }
 
+/* Три колонки: салон/контакты — мастер/услуга/время — цена */
+.booking-info-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1.3fr 0.7fr;
+    gap: 1rem 1.5rem;
+    padding-top: 0.25rem;
+}
+.booking-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.booking-col p {
+    font-size: 0.9rem;
+    color: var(--color-muted);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.booking-col .label {
+    font-weight: 500;
+    color: var(--color-heading);
+}
+.booking-salon-link {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--color-primary);
+    text-decoration: none;
+}
+.booking-salon-link:hover {
+    text-decoration: underline;
+}
+.booking-salon-link--plain {
+    color: var(--color-heading);
+    cursor: default;
+}
+.booking-col-price {
+    align-items: flex-end;
+    text-align: right;
+}
+.booking-price {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--color-heading);
+}
+
 /* Стили для иконок в карточке */
 .booking-icon-wrapper {
     display: inline-flex;
@@ -307,6 +354,18 @@
     margin-bottom: 1.5rem;
 }
 
+@media (max-width: 768px) {
+    .booking-info-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .booking-col-price {
+        grid-column: 1 / -1;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.5rem;
+    }
+}
+
 /* Адаптив */
 @media (max-width: 640px) {
     .bookings-main {
@@ -325,6 +384,14 @@
     .booking-header {
         flex-wrap: wrap;
         gap: 0.5rem;
+    }
+    .booking-info-grid {
+        grid-template-columns: 1fr;
+        gap: 0.6rem;
+    }
+    .booking-col-price {
+        align-items: flex-start;
+        text-align: left;
     }
     .review-modal-box {
         padding: 1.5rem;

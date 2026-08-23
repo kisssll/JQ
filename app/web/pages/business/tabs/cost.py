@@ -61,6 +61,9 @@ async def render_cost_tab(db: AsyncSession, salon, masters, master_ids, date_fro
     total_profit = total_revenue - total_cogs - total_payroll
     profit_color = "#22c55e" if total_profit >= 0 else "#ef4444"
 
+    if masters and total_revenue == 0 and total_cogs == 0 and total_payroll == 0:
+        rows_html = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--color-muted)">Данных за этот период нет</td></tr>'
+
     return f"""
     <div id="tab-cost" class="tab-content">
         <form method="get" action="/business/dashboard" style="display:flex;gap:0.75rem;align-items:flex-end;margin-bottom:1.5rem">

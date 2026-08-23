@@ -28,6 +28,7 @@ from app.api.deps import (
 )
 from app.services.analytics_service import AnalyticsService
 from app.services.consent_service import record_consents
+from app.services.subscription import has_access
 from app.core.config import settings
 
 
@@ -347,7 +348,22 @@ async def toggle_salon_visibility(
     salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
     if salon is None:
         raise HTTPException(status_code=404, detail="Салон не найден")
-    salon.is_hidden = not salon.is_hidden
+
+    if salon.is_hidden:
+        # Хотят показать обратно — но если доступ по тарифу истёк, каталог всё
+        # равно не покажет салон (фильтр по access_until). Без явной ошибки
+        # владелец щёлкал бы тумблер и не понимал, почему салона нет.
+        if not has_access(salon):
+            raise HTTPException(
+                status_code=409,
+                detail="Сначала оплатите подписку — салон появится в каталоге автоматически после оплаты",
+            )
+        salon.is_hidden = False
+        salon.hidden_reason = None
+    else:
+        salon.is_hidden = True
+        salon.hidden_reason = None  # скрыт вручную владельцем, не биллингом
+
     await db.commit()
     return {"is_hidden": salon.is_hidden}
 

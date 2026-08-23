@@ -668,6 +668,11 @@ async def tkassa_notify(request: Request, db: AsyncSession = Depends(get_db)):
             # Предоплата вперёд: продлеваем на весь оплаченный срок, а не на месяц
             apply_successful_payment(target, base + timedelta(days=30 * max(1, payment.months or 1)))
             target.subscription_status = SalonSubscriptionStatus.ACTIVE
+            if kind == "business" and target.hidden_reason == "billing":
+                # Оплатили после того, как салон уже скрыли за неоплату
+                # (см. app.tasks.expire_unpaid_salons) — возвращаем в каталог.
+                target.is_hidden = False
+                target.hidden_reason = None
 
         await db.commit()
         return PlainTextResponse("OK")

@@ -2,11 +2,20 @@
 import '../css/main.css';
 import './ui-feedback.js';
 import './cookie-notice.js';
+
+
+/* custom-forms.js (Choices/flatpickr) — идёт раньше вкладок бизнес-панели,
+   которым нужен уже готовый el._flatpickr на своих date/month-инпутах
+   (например, аналитике — чтобы повесить onChange на «дату с» сразу). */
+import './custom-forms.js';
+import './password-toggle.js';
+
 import './sidebar.js';
 import './password-validator.js';
 import './phone-mask.js';
 import './profile.js';
 import './salons.js';
+import './tariffs.js';
 import './otp-code.js';
 import './salon-detail.js';
 import './bookings.js';
@@ -32,6 +41,3 @@ import './business/tabs/promos.js';
 import './business/tabs/services.js';
 import './address-geocoder.js';
 import './business/tabs/payroll.js';
-
-/* Импорт для кастомных форм */
-import './custom-forms.js';
