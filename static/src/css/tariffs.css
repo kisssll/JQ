@@ -1,7 +1,12 @@
-/* static/src/css/tariffs.css */
-/* Страница «Тарифы и информация» — переиспользует .tab-btn/.tab-content
-   (bookings.css) и .settings-accordion/.plan-card (settings.css/model-landing.css),
-   здесь только контейнер под-вкладок и заголовки групп тарифов. */
+/* static/src/css/tariffs.css
+   Страница «Тарифы и информация» (/tariffs).
+
+   Раньше страница держалась на чужих файлах: .tab-btn из bookings.css,
+   .plan-card из model-landing.css, .settings-accordion из settings.css.
+   Последний — часть мёртвой тройки settings, которую иначе можно было бы
+   удалить. Здесь собственные стили карточек и инструкций; всё под
+   .tariffs-page, чтобы не задеть лендинг моделей, который тоже рисует
+   .plan-card. */
 
 .tariffs-tabs {
     display: flex;
@@ -14,23 +19,310 @@
 
 .tariffs-group-title {
     font-family: var(--font-heading);
-    font-size: 1.25rem;
+    font-size: 1.3rem;
     font-weight: 700;
     color: var(--color-heading);
-    margin: 2rem 0 1.25rem;
+    margin: 2.5rem 0 0.35rem;
 }
+
 .tariffs-group-title:first-child {
     margin-top: 0;
 }
 
-/* 4 тарифа салонов не влезают ровно в 3 колонки model-landing.css —
-   свободная сетка, без переопределения общего .plans-grid. */
+.tariffs-group-hint {
+    margin: 0 0 1.5rem;
+    font-size: 0.9rem;
+    color: var(--color-muted);
+}
+
+/* ===== Карточки тарифов =====
+   Колонки заданы явно, а не через auto-fit: у салонов четыре тарифа, и на
+   обычном десктопе auto-fit укладывал их в три колонки, оставляя четвёртую
+   карточку одну в ряду. Четыре в ряд помещаются только на широком экране —
+   ниже ровнее смотрится 2×2. */
 .tariffs-page .plans-grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    align-items: stretch;
+}
+
+@media (min-width: 620px) {
+    .tariffs-page .plans-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1000px) {
+    .tariffs-page .plans-grid.cols-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1400px) {
+    .tariffs-page .plans-grid.cols-4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.tariffs-page .plan-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    background: var(--color-surface);
+    box-shadow: 0 1px 3px rgba(26, 26, 31, 0.04);
+    transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+}
+
+.tariffs-page .plan-card:hover {
+    border-color: var(--color-accent-light);
+    box-shadow: 0 8px 20px rgba(26, 26, 31, 0.07);
+    transform: translateY(-2px);
+}
+
+/* Выделение популярного — рамка и бейдж, без сплошной заливки: залитая
+   розовым карточка забивала соседние и ломала читаемость списка. */
+.tariffs-page .plan-card.is-popular {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.tariffs-page .plan-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.tariffs-page .plan-name {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 650;
+    color: var(--color-heading);
+}
+
+.tariffs-page .plan-badge {
+    flex-shrink: 0;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: var(--color-accent-light);
+    color: var(--color-accent-hover);
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.tariffs-page .plan-desc {
+    margin: 0.3rem 0 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--color-muted);
+}
+
+.tariffs-page .plan-price {
+    margin: 1rem 0 0;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+
+.tariffs-page .plan-price .amount {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--color-heading);
+    font-variant-numeric: tabular-nums;
+}
+
+.tariffs-page .plan-price .period {
+    font-size: 0.78rem;
+    color: var(--color-muted);
+}
+
+.tariffs-page .plan-features {
+    list-style: none;
+    margin: 1.1rem 0 0;
+    padding: 1.1rem 0 0;
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: var(--color-body);
+}
+
+.tariffs-page .plan-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+/* li тут обязателен: без него селектор совпадает по специфичности с
+   `.plan-features li svg` из model-landing.css и исход решал бы порядок
+   импортов в main.css. */
+.tariffs-page .plan-features li svg {
+    flex-shrink: 0;
+    width: 0.95rem;
+    height: 0.95rem;
+    margin-top: 0.1rem;
+    color: var(--color-accent);
+}
+
+/* Кнопка прижата к низу — у тарифов разное число пунктов, иначе кнопки
+   встают на разной высоте и ряд выглядит рваным. */
+.tariffs-page .plan-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    margin-top: auto;
+    padding: 0.7rem 1.25rem;
+    border-radius: 999px;
+    /* background задаём явно: у .plan-btn в model-landing.css градиентная
+       заливка, и без сброса розовый текст лёг бы на розовый фон. */
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: none;
+    transition: background 0.2s;
+}
+
+.tariffs-page .plan-btn:hover {
+    background: var(--color-accent-hover);
+    transform: none;
+}
+
+.tariffs-page .plan-card:not(.is-popular) .plan-btn {
+    background: var(--color-surface-alt);
+    color: var(--color-heading);
+}
+
+.tariffs-page .plan-card:not(.is-popular) .plan-btn:hover {
+    background: var(--color-accent-light);
+    color: var(--color-accent-hover);
+}
+
+.tariffs-page .plan-btn svg {
+    width: 0.9rem;
+    height: 0.9rem;
+    transition: transform 0.2s;
+}
+
+.tariffs-page .plan-card:hover .plan-btn svg {
+    transform: translateX(2px);
+}
+
+/* ===== Вкладка «Документы» ===== */
+.doc-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+    gap: 0.75rem;
+}
+
+.doc-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    padding: 1.15rem 1.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.9rem;
+    background: var(--color-surface);
+    text-decoration: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.doc-card:hover {
+    border-color: var(--color-accent);
+    box-shadow: 0 6px 16px rgba(26, 26, 31, 0.06);
+}
+
+.doc-card-icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.6rem;
+    background: var(--color-accent-light);
+    color: var(--color-accent-hover);
+}
+
+.doc-card-icon svg {
+    width: 1.1rem;
+    height: 1.1rem;
+}
+
+.doc-card-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.doc-card-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--color-heading);
+}
+
+.doc-card-desc {
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--color-muted);
+}
+
+/* Стрелка отъезжает вправо при наведении — единственный намёк, что карточка
+   кликабельна целиком, а не только заголовок. */
+.doc-card-arrow {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    align-self: center;
+    color: var(--color-muted);
+    transition: transform 0.2s, color 0.2s;
+}
+
+.doc-card-arrow svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.doc-card:hover .doc-card-arrow {
+    color: var(--color-accent);
+    transform: translateX(3px);
 }
 
 @media (max-width: 640px) {
     .tariffs-tabs {
         gap: 0.4rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tariffs-page .plan-card,
+    .tariffs-page .plan-btn,
+    .tariffs-page .plan-btn svg,
+    .doc-card,
+    .doc-card-arrow {
+        transition: none;
+    }
+    .doc-card:hover .doc-card-arrow {
+        transform: none;
+    }
+    .tariffs-page .plan-card:hover .plan-btn svg {
+        transform: none;
+    }
+    .tariffs-page .plan-card:hover {
+        transform: none;
     }
 }

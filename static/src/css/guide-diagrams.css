@@ -1,0 +1,76 @@
+/* static/src/css/guide-diagrams.css
+   Схемы к инструкциям (app/web/components/guide_diagrams.py).
+
+   Линии рисуем через currentColor и переменные темы, размеры текста — в
+   единицах viewBox: SVG масштабируется целиком, поэтому подписи всегда
+   пропорциональны блокам. */
+
+.gd-figure {
+    margin: 0 0 2rem;
+}
+
+/* На узком экране схему из пяти блоков не сжать до читаемости — даём ей
+   прокрутку по горизонтали вместо того, чтобы уменьшать текст до нечитаемого. */
+.gd-scroll {
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Ширину SVG задаёт разметка — она равна ширине viewBox, то есть схема
+   рисуется в натуральном масштабе. Растягивать по контейнеру нельзя: схемы
+   из четырёх и из пяти шагов получали разный масштаб, и подписи у них
+   оказывались разного размера. Не влезло — прокручивается в .gd-scroll. */
+.gd-svg {
+    display: block;
+    max-width: none;
+    height: auto;
+    color: var(--color-accent);
+}
+
+.gd-box {
+    fill: var(--color-surface);
+    stroke: var(--color-border-strong, var(--color-border));
+    stroke-width: 1.6;
+    stroke-linejoin: round;
+}
+
+.gd-arrow {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.gd-num-bg {
+    fill: var(--color-accent-light);
+}
+
+.gd-num {
+    fill: var(--color-accent-hover);
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.gd-title {
+    fill: var(--color-heading);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.gd-sub {
+    fill: var(--color-muted);
+    font-family: var(--font-body);
+    font-size: 11px;
+}
+
+/* Слева, а не по центру: схема уже контейнера и прижата влево, центрированная
+   подпись висела бы в стороне от неё. */
+.gd-caption {
+    margin-top: 0.35rem;
+    font-size: 0.82rem;
+    color: var(--color-muted);
+}

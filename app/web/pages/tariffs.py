@@ -3,57 +3,27 @@
 (салоны + модели), документы и краткие инструкции по сайту. Три под-вкладки
 переключаются на клиенте без перезагрузки (см. static/src/js/tariffs.js).
 
-Тарифы салонов берём из business_checkout.TARIFFS (единственный источник
-витринных текстов для бизнеса) — суммы для оплаты по-прежнему считает
-app.services.tariffs (не трогаем). Тарифы моделей здесь свои (витринных
-текстов моделей отдельным словарём в проекте не было, только внутри
-model_landing.py) — цены синхронны с app.services.tariffs.MODEL_TARIFF_CATALOG.
+Витринные тексты и цены тарифов — из app.web.tariff_presentation, который
+считает суммы из тех же каталогов, что и биллинг: раньше цены на этой странице
+лежали отдельным словарём строками и могли разойтись с тем, что спишут.
+Список документов берём из app.web.pages.legal.DOCUMENTS — тоже раньше был
+скопирован сюда руками, с другими названиями и с четвёртым документом
+(«Политика использования cookie»), которого не существует: cookie описаны
+внутри Политики.
 """
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
-from app.web.components.icons import ICON_CIRCLE_CHECK, ICON_ARROW_RIGHT, ICON_CHEVRON_DOWN
-from app.web.pages.business_checkout import TARIFFS as BUSINESS_TARIFFS
-
-MODEL_TARIFFS = {
-    "start": {
-        "name": "Старт", "description": "Для тех, кто хочет попробовать",
-        "price": "490 ₽", "period": "/мес",
-        "features": [
-            "До 3 записей в месяц", "Скидка 30% на услуги мастеров",
-            "Доступ к начинающим мастерам", "Базовое портфолио",
-        ],
-    },
-    "pro": {
-        "name": "Про", "description": "Самый популярный выбор", "popular": True,
-        "price": "990 ₽", "period": "/мес",
-        "features": [
-            "До 8 записей в месяц", "Скидка 50% на все услуги",
-            "Приоритетная запись", "Доступ к топ-мастерам",
-            "Расширенное портфолио", "Эксклюзивные процедуры",
-        ],
-    },
-    "premium": {
-        "name": "Премиум", "description": "Максимум возможностей",
-        "price": "1 990 ₽", "period": "/мес",
-        "features": [
-            "Безлимитные записи", "Скидка до 70% на услуги",
-            "VIP приоритет на запись", "Доступ ко всем мастерам",
-            "Персональный менеджер", "Фотосессии для портфолио",
-            "Ранний доступ к новым салонам",
-        ],
-    },
-}
-
-# Документы платформы — тексты/страницы появятся отдельно, здесь пока только
-# список с описанием, о чём каждый документ.
-_DOCUMENTS = [
-    ("Политика конфиденциальности", "Как мы обрабатываем и храним ваши персональные данные."),
-    ("Условия использования (публичная оферта)", "Правила пользования платформой для клиентов и бизнеса."),
-    ("Согласие на обработку персональных данных", "Что именно вы подтверждаете при регистрации и записи."),
-    ("Политика использования cookie", "Зачем сайту cookie и как их отключить в браузере."),
-]
+from app.web.components.icons import (
+    ICON_ARROW_RIGHT,
+    ICON_CHEVRON_DOWN,
+    ICON_CIRCLE_CHECK,
+    ICON_FILE_TEXT,
+)
+from app.web.components.guide_diagrams import BOOKING_FLOW, SALON_FLOW
+from app.web.pages.legal import DOCUMENTS, LEGAL_VERSION_HUMAN
+from app.web.tariff_presentation import all_model_plans, all_plans
 
 _SITE_INSTRUCTIONS = [
     (
@@ -93,23 +63,50 @@ _SITE_INSTRUCTIONS = [
 
 
 def _plan_card_html(plan: dict, cta_href: str, cta_label: str) -> str:
-    features_html = "".join(f'<li>{ICON_CIRCLE_CHECK}<span>{f}</span></li>' for f in plan["features"])
-    popular_badge = '<div class="popular-badge">Популярный</div>' if plan.get("popular") else ""
-    popular_class = " popular" if plan.get("popular") else ""
+    """Единая карточка тарифа. Раньше блоки салонов и моделей рисовались одним
+    шаблоном, но выглядели по-разному: у моделей средний план заливался
+    сплошным розовым, у салонов выделенного не было вовсе. Теперь выделение
+    одно на всю страницу — рамка и бейдж, без заливки."""
+    features_html = "".join(
+        f'<li>{ICON_CIRCLE_CHECK}<span>{f}</span></li>' for f in plan["features"]
+    )
+    popular = plan.get("popular")
+    badge = '<span class="plan-badge">Популярный</span>' if popular else ""
     return f"""
-    <div class="plan-card{popular_class}">
-        {popular_badge}
-        <div class="plan-header">
-            <h3 class="plan-name">{plan['name']}</h3>
-            <p class="plan-desc">{plan['description']}</p>
-        </div>
-        <div class="plan-price">
+    <article class="plan-card{' is-popular' if popular else ''}">
+        <header class="plan-header">
+            <div class="plan-name-row">
+                <h3 class="plan-name">{plan['name']}</h3>
+                {badge}
+            </div>
+            <p class="plan-desc">{plan.get('size') or plan.get('description', '')}</p>
+        </header>
+        <p class="plan-price">
             <span class="amount">{plan['price']}</span>
             <span class="period">{plan['period']}</span>
-        </div>
+        </p>
         <ul class="plan-features">{features_html}</ul>
         <a href="{cta_href}" class="plan-btn">{cta_label} {ICON_ARROW_RIGHT}</a>
-    </div>"""
+    </article>"""
+
+
+def _documents_html() -> str:
+    """Карточки-ссылки на сами документы. Раньше это был аккордеон, который
+    раскрывался в одну строку описания и никуда не вёл: вкладка «Документы»
+    документов не давала."""
+    cards = "".join(f"""
+        <a class="doc-card" href="/{d['slug']}">
+            <span class="doc-card-icon">{ICON_FILE_TEXT}</span>
+            <span class="doc-card-text">
+                <span class="doc-card-title">{d['title']}</span>
+                <span class="doc-card-desc">{d['description']}</span>
+            </span>
+            <span class="doc-card-arrow">{ICON_ARROW_RIGHT}</span>
+        </a>""" for d in DOCUMENTS.values())
+    return f"""
+        <p class="tariffs-group-hint">Действующая редакция от {LEGAL_VERSION_HUMAN}.
+        Использование cookie описано в Политике обработки персональных данных.</p>
+        <div class="doc-list">{cards}</div>"""
 
 
 def _accordion_html(items: list[tuple[str, str]]) -> str:
@@ -127,13 +124,13 @@ def render_tariffs_page(user=None) -> str:
     business_cards = "".join(
         _plan_card_html(
             t, "/business/register-salon",
-            "Обсудить условия" if key == "custom" else "Подключить салон",
+            "Обсудить условия" if t["plan"] == "custom" else "Подключить салон",
         )
-        for key, t in BUSINESS_TARIFFS.items()
+        for t in all_plans()
     )
     model_cards = "".join(
         _plan_card_html(t, "/model/join", "Оформить подписку")
-        for t in MODEL_TARIFFS.values()
+        for t in all_model_plans()
     )
 
     return f"""<!DOCTYPE html>
@@ -167,17 +164,21 @@ def render_tariffs_page(user=None) -> str:
 
                 <div id="tab-plans" class="tab-content active">
                     <h2 class="tariffs-group-title">Для владельцев салонов</h2>
-                    <div class="plans-grid">{business_cards}</div>
+                    <p class="tariffs-group-hint">Тариф подстраивается под число мастеров при каждой следующей оплате. Первые 14 дней — бесплатно.</p>
+                    <div class="plans-grid cols-4">{business_cards}</div>
 
                     <h2 class="tariffs-group-title">Для моделей</h2>
-                    <div class="plans-grid">{model_cards}</div>
+                    <p class="tariffs-group-hint">Подписка модели даёт доступ к записям на отработку техник со скидкой.</p>
+                    <div class="plans-grid cols-3">{model_cards}</div>
                 </div>
 
                 <div id="tab-documents" class="tab-content">
-                    <div class="settings-accordion">{_accordion_html(_DOCUMENTS)}</div>
+                    {_documents_html()}
                 </div>
 
                 <div id="tab-guides" class="tab-content">
+                    {BOOKING_FLOW}
+                    {SALON_FLOW}
                     <div class="settings-accordion">{_accordion_html(_SITE_INSTRUCTIONS)}</div>
                 </div>
             </div>
