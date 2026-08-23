@@ -301,7 +301,7 @@ def render_business_landing_page(user=None) -> str:
                     <div class="bl-comparison-header">
                         <span>Что важно салону</span>
                         <span class="bl-comparison-brand">руми</span>
-                        <span id="crm-title">Другие CRM</span>
+                        <span class="bl-comparison-other-title">Другие CRM</span>
                     </div>
                     <!--
                     <div class="bl-comparison-row">
@@ -378,24 +378,28 @@ def render_business_landing_page(user=None) -> str:
                 </div>
                 <div class="bl-how-steps">
                     <div class="bl-how-step">
+                        <span class="bl-step-num" aria-hidden="true">1</span>
                         <div class="bl-step-content">
                             <h3 class="bl-step-title">Зарегистрируйте салон</h3>
                             <p class="bl-step-desc">Создайте профиль салона, добавьте фото, описание, адрес и список услуг.</p>
                         </div>
                     </div>
                     <div class="bl-how-step">
+                        <span class="bl-step-num" aria-hidden="true">2</span>
                         <div class="bl-step-content">
                             <h3 class="bl-step-title">Настройте расписание</h3>
                             <p class="bl-step-desc">Добавьте мастеров, их графики, услуги и цены. Всё настраивается за 15 минут.</p>
                         </div>
                     </div>
                     <div class="bl-how-step">
+                        <span class="bl-step-num" aria-hidden="true">3</span>
                         <div class="bl-step-content">
                             <h3 class="bl-step-title">Привлекайте клиентов</h3>
                             <p class="bl-step-desc">Оплатите подписку — и ваш салон появится в общем списке платформы. Клиенты и модели начнут записываться.</p>
                         </div>
                     </div>
                     <div class="bl-how-step">
+                        <span class="bl-step-num" aria-hidden="true">4</span>
                         <div class="bl-step-content">
                             <h3 class="bl-step-title">Развивайте бизнес</h3>
                             <p class="bl-step-desc">Используйте аналитику, акции и программы лояльности для роста.</p>

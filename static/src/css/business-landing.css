@@ -498,12 +498,17 @@
 }
 
 .bl-comparison-table {
+    /* Цвет выделенной колонки был вписан числом в трёх местах
+       (rgba(192,129,184,.45)) — держим его одной переменной. */
+    --bl-cmp-fill: rgba(192, 129, 184, 0.22);
+    --bl-cmp-fill-strong: rgba(192, 129, 184, 0.38);
+
     overflow: hidden;
     border-radius: 1.5rem;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     transition: box-shadow 0.3s ease, transform 0.3s ease;
-    box-shadow: 
+    box-shadow:
         0 -4px 20px rgba(0, 0, 0, 0.09),
         0 4px 20px rgba(0, 0, 0, 0.06);
 }
@@ -516,7 +521,11 @@
 .bl-comparison-header,
 .bl-comparison-row {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    /* Первая колонка чуть шире: слева короткие названия критериев, справа —
+       длинные значения, при равных третях значения ломались на три строки.
+       На узких экранах таблица прокручивается по горизонтали (min-width у
+       строк ниже по файлу) — это осознанное решение, а не переполнение. */
+    grid-template-columns: 1.1fr 1fr 1fr;
     align-items: stretch;
     font-size: 0.875rem;
 }
@@ -528,57 +537,79 @@
     padding: 0.75rem 1.5rem;
 }
 
-#crm-title {
-    justify-self: center;
-}
 .bl-comparison-header .bl-comparison-brand {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(192, 129, 184, 0.45);
-    border: 2px solid rgba(192, 129, 184, 0.45);
+    background: var(--bl-cmp-fill-strong);
     border-top-left-radius: 1.25rem;
     border-top-right-radius: 1.25rem;
     padding: 0.5rem 1rem;
-    margin: -0.75rem -0.5rem -0.75rem -0.5rem;
+    margin: -0.75rem -0.5rem;
     font-weight: 700;
-    color: var(--color-primary);
+    color: var(--color-accent-hover);
 }
+
 .bl-comparison-row {
     border-top: 1px solid var(--color-border);
     padding: 0.75rem 1.5rem;
 }
+
 .bl-comparison-row > * {
     display: flex;
     align-items: center;
     padding: 0.25rem 0.5rem;
 }
+
 .bl-comparison-row > *:first-child {
-    justify-content: flex-start;
     padding-left: 0;
 }
-.bl-comparison-row > *:last-child {
-    justify-content: center;
-    padding-right: 0;
+
+/* Содержимое колонок выровнено по левому краю, а не по центру: в половине
+   строк текст переносится на две строки, и центрированные обрывки читаются
+   рвано. Заголовок «Другие CRM» тоже слева — раньше он центрировался
+   отдельным правилом по id (#crm-title), единственным на весь файл. */
+.bl-comparison-other-title {
+    justify-self: start;
 }
+
 .bl-comparison-row .bl-comparison-rumi {
-    justify-content: center;
+    /* flex-start, а не center: у многострочных значений галочка вставала по
+       центру двух строк и выглядела оторванной от текста. */
+    align-items: flex-start;
     gap: 0.5rem;
-    background: rgba(192, 129, 184, 0.45);
+    background: var(--bl-cmp-fill);
     margin: -0.75rem -0.5rem;
-    padding: 0.75rem 0.5rem;
+    padding: 0.75rem 0.75rem;
     font-weight: 500;
     color: var(--color-heading);
 }
+
 .bl-comparison-row .bl-comparison-rumi svg {
+    flex-shrink: 0;
     width: 1rem;
     height: 1rem;
-    color: var(--color-primary);
+    /* Подгонка под базовую линию первой строки. */
+    margin-top: 0.15rem;
+    /* Раньше галочка была цвета --color-primary поверх заливки того же тона —
+       на розовом по розовому она читалась как серая. */
+    color: var(--color-accent-hover);
+    /* Иконка нарисована на сетке 24px с обводкой 2; сжатая до 1rem, она даёт
+       меньше пикселя толщины и выглядит блёклой независимо от цвета. */
+    stroke-width: 2.5;
 }
+
 .bl-comparison-row .bl-comparison-other {
-    justify-content: center;
     color: var(--color-muted);
-    padding-left: 0.714em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bl-comparison-table {
+        transition: none;
+    }
+    .bl-comparison-table:hover {
+        transform: none;
+    }
 }
 
 /* --- Как подключить --- */
@@ -596,27 +627,71 @@
     flex-direction: column;
     gap: 1.5rem;
 }
+
+/* Раньше описание шага было спрятано под hover и «выезжало» справа. На
+   десктопе это давало четыре одинаковые пустые плашки с одним заголовком:
+   раздел, который должен объяснять подключение, ничего не объяснял, пока по
+   нему не поводишь мышью, — а на тач-экранах эффекта не было вовсе.
+   Показываем содержимое сразу; от наведения остаётся только лёгкий подъём. */
 .bl-how-step {
+    position: relative;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 1.25rem;
     padding: 1.5rem;
     border-radius: 1rem;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
-    overflow: hidden;
-    transition: box-shadow 0.2s ease-in-out;
+    transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
 }
+
 .bl-how-step:hover {
+    transform: translateY(-2px);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
 }
+
+/* Номер шага: заголовок раздела обещает «4 шага», а в самих плашках номеров
+   не было — порядок читался только по вертикальному расположению. */
+.bl-step-num {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--color-accent-light);
+    color: var(--color-accent-hover);
+    font-family: var(--font-heading);
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* Линия между плашками — показывает, что это последовательность, а не
+   четыре независимых пункта. Идёт по центру кружка с номером:
+   padding 1.5rem + половина кружка 1.25rem. */
+.bl-how-step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 2.75rem;
+    top: 100%;
+    width: 2px;
+    height: 1.5rem;
+    /* Цвет кружка с номером, а не --color-border: на светлом градиенте секции
+       граничный цвет почти сливался с фоном и линии не было видно. */
+    background: var(--color-accent-light);
+}
+
 .bl-step-content {
     display: flex;
     flex-direction: column;
     gap: 0.375rem;
     min-width: 0;
     flex: 1;
+    padding-top: 0.25rem;
 }
+
 .bl-step-title {
     font-family: var(--font-heading);
     font-size: 1.125rem;
@@ -624,6 +699,7 @@
     color: var(--color-heading);
     margin: 0;
 }
+
 .bl-step-desc {
     font-family: var(--font-body);
     font-size: 1rem;
@@ -632,45 +708,30 @@
     margin: 0;
 }
 
-/* На устройствах с наведением мышью — по умолчанию виден только крупный
-   заголовок по центру плашки; при hover описание «выезжает» справа, а
-   заголовок этим же движением уходит левее (оба — часть одной flex-группы
-   с justify-content:center, поэтому сдвиг происходит сам, без transform
-   на заголовке и без скачка при наведении). */
-@media (hover: hover) and (pointer: fine) {
-    .bl-step-content {
-        flex-direction: row;
-        align-items: baseline;
-        justify-content: center;
-        min-width: 0;
-        overflow: hidden;
+@media (max-width: 560px) {
+    .bl-how-step {
+        gap: 0.9rem;
+        padding: 1.25rem;
     }
-    .bl-step-title {
-        white-space: nowrap;
-        flex-shrink: 0;
-        font-size: 1.4rem;
-        transition: font-size 0.35s ease;
+    .bl-step-num {
+        width: 2.1rem;
+        height: 2.1rem;
+        font-size: 0.95rem;
+    }
+    .bl-how-step:not(:last-child)::after {
+        left: 2.3rem;
     }
     .bl-step-desc {
-        margin-left: 0;
-        max-width: 0;
-        opacity: 0;
-        overflow: hidden;
-        white-space: nowrap; /* пока max-width:0 — иначе текст переносится по слову на строку и раздувает плашку по высоте */
-        transition: opacity 0.35s ease, max-width 0.35s ease, margin-left 0.35s ease, white-space 0s step-end 0.3s;
+        font-size: 0.95rem;
     }
-    .bl-how-step:hover .bl-step-title {
-        font-size: 1.125rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bl-how-step {
+        transition: none;
     }
-    .bl-how-step:hover .bl-step-desc {
-        margin-left: 1rem;
-        max-width: 28rem;
-        opacity: 1;
-        /* normal включаем ближе к концу раскрытия (см. transition-delay выше),
-           иначе перенос слов включится раньше, чем max-width вырастет, и текст
-           на миг «взорвётся» по высоте посреди анимации */
-        white-space: normal;
-        transition: opacity 0.35s ease, max-width 0.35s ease, margin-left 0.35s ease, white-space 0s step-end 0.3s;
+    .bl-how-step:hover {
+        transform: none;
     }
 }
 
@@ -824,7 +885,13 @@
     font-size: 0.875rem;
     color: var(--color-muted);
 }
-/* --- Адаптив для таблицы сравнения (ширина от 500px) --- */
+/* --- Таблица сравнения на узких экранах ---
+   Ширина строк зафиксирована (min-width), таблица прокручивается по
+   горизонтали. Раз ширина фиксирована, уменьшать шрифт незачем: прежние два
+   блока (≤768px и ≤499px) сжимали текст до 0.65rem и 0.6rem — это 11 и 10px,
+   на пределе читаемости, — и при этом не экономили ни пикселя ширины.
+   Второй блок был почти полной копией первого и отличался только этими
+   размерами, поэтому объединён в один. */
 @media (max-width: 768px) {
     .bl-comparison-table {
         overflow-x: auto;
@@ -833,8 +900,10 @@
 
     .bl-comparison-header,
     .bl-comparison-row {
-        min-width: 480px; /* чуть меньше 500, чтобы влезало */
-        font-size: 0.7rem;
+        min-width: 480px;
+        font-size: 0.8rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
     }
 
     .bl-comparison-header > *,
@@ -845,40 +914,12 @@
     }
 
     .bl-comparison-header .bl-comparison-brand {
-        font-size: 0.65rem;
+        font-size: 0.8rem;
         padding: 0.2rem 0.5rem;
     }
 
-    .bl-comparison-row .bl-comparison-rumi {
-        font-size: 0.65rem;
-        gap: 0.2rem;
-    }
-
     .bl-comparison-row .bl-comparison-rumi svg {
-        width: 0.75rem;
-        height: 0.75rem;
-    }
-
-    .bl-comparison-row .bl-comparison-other {
-        font-size: 0.65rem;
-    }
-}
-
-/* Для самых маленьких экранов (менее 500px) — включаем прокрутку */
-@media (max-width: 499px) {
-    .bl-comparison-table {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .bl-comparison-header,
-    .bl-comparison-row {
-        min-width: 480px;
-        font-size: 0.6rem;
-    }
-
-    .bl-comparison-header > *,
-    .bl-comparison-row > * {
-        padding: 0.3rem 0.4rem;
+        width: 0.85rem;
+        height: 0.85rem;
     }
 }
