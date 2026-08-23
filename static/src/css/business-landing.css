@@ -521,11 +521,12 @@
 .bl-comparison-header,
 .bl-comparison-row {
     display: grid;
-    /* Первая колонка чуть шире: слева короткие названия критериев, справа —
-       длинные значения, при равных третях значения ломались на три строки.
+    /* Средняя колонка шире: в ней самые длинные формулировки, слева —
+       короткие названия критериев, справа — короткие «Нет», «Только CRM».
+       При равных третях средняя ломалась на три строки.
        На узких экранах таблица прокручивается по горизонтали (min-width у
        строк ниже по файлу) — это осознанное решение, а не переполнение. */
-    grid-template-columns: 1.1fr 1fr 1fr;
+    grid-template-columns: 0.95fr 1.35fr 0.85fr;
     align-items: stretch;
     font-size: 0.875rem;
 }
@@ -545,7 +546,10 @@
     border-top-left-radius: 1.25rem;
     border-top-right-radius: 1.25rem;
     padding: 0.5rem 1rem;
-    margin: -0.75rem -0.5rem;
+    /* Только вертикальный вылет — он прижимает плашку к краям шапки.
+       Горизонтальный (-0.5rem) выводил розовую полосу за пределы своей
+       колонки, и она наезжала на начало колонки «Другие CRM». */
+    margin: -0.75rem 0;
     font-weight: 700;
     color: var(--color-accent-hover);
 }
@@ -571,6 +575,9 @@
    отдельным правилом по id (#crm-title), единственным на весь файл. */
 .bl-comparison-other-title {
     justify-self: start;
+    /* Совпадает с padding-left у .bl-comparison-other, иначе заголовок
+       колонки стоит левее её содержимого. */
+    padding-left: 1rem;
 }
 
 .bl-comparison-row .bl-comparison-rumi {
@@ -579,8 +586,11 @@
     align-items: flex-start;
     gap: 0.5rem;
     background: var(--bl-cmp-fill);
-    margin: -0.75rem -0.5rem;
-    padding: 0.75rem 0.75rem;
+    /* См. комментарий у .bl-comparison-brand: горизонтальный вылет накрывал
+       соседнюю колонку. Пока текст справа был центрирован, это не бросалось
+       в глаза; после выравнивания по левому краю он оказался под полосой. */
+    margin: -0.75rem 0;
+    padding: 0.75rem 1rem;
     font-weight: 500;
     color: var(--color-heading);
 }
@@ -601,6 +611,8 @@
 
 .bl-comparison-row .bl-comparison-other {
     color: var(--color-muted);
+    /* Отступ от края розовой полосы слева — иначе текст прилипает к ней. */
+    padding-left: 1rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -628,11 +640,9 @@
     gap: 1.5rem;
 }
 
-/* Раньше описание шага было спрятано под hover и «выезжало» справа. На
-   десктопе это давало четыре одинаковые пустые плашки с одним заголовком:
-   раздел, который должен объяснять подключение, ничего не объяснял, пока по
-   нему не поводишь мышью, — а на тач-экранах эффекта не было вовсе.
-   Показываем содержимое сразу; от наведения остаётся только лёгкий подъём. */
+/* Базовое состояние — всё видно сразу; таким его получают тач-экраны, где
+   наведения нет. На устройствах с мышью описание прячется и выезжает по
+   наведению (см. блок @media (hover: hover) ниже). */
 .bl-how-step {
     position: relative;
     display: flex;
@@ -726,12 +736,76 @@
     }
 }
 
+/* Раскрытие описания по наведению.
+
+   Прежняя версия выдвигала описание вбок от заголовка, анимируя max-width, и
+   переключала white-space с nowrap на normal с задержкой
+   (`transition: white-space 0s step-end 0.3s`). Задержка не работала никогда:
+   white-space — дискретное свойство, без transition-behavior: allow-discrete
+   оно меняется мгновенно. Перенос включался сразу, пока ширина ещё была
+   нулевой, текст ломался по слову на строку и плашка раздувалась втрое.
+
+   Вбок эти тексты и не помещаются: рядом с заголовком остаётся 474–519px, а
+   описаниям нужно 568–972px в одну строку. Поэтому раскрываем вниз — по
+   высоте, — а заголовок остаётся на месте. Прежде он вместе с описанием
+   менял размер (1.4rem → 1.125rem) и прыгал при наведении.
+
+   Кружок с номером заливается акцентом: в свёрнутом виде это единственный
+   признак, что плашка на что-то реагирует. */
+@media (hover: hover) and (pointer: fine) {
+    .bl-step-desc {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition:
+            max-height 0.3s ease,
+            opacity 0.3s ease,
+            margin-top 0.3s ease;
+    }
+
+    /* Отрицательный отступ гасит gap контейнера, пока описание свёрнуто:
+       иначе под заголовком остаётся пустая полоска в 0.375rem. */
+    .bl-step-content {
+        gap: 0;
+    }
+
+    .bl-step-desc {
+        margin-top: 0;
+    }
+
+    .bl-how-step:hover .bl-step-desc,
+    .bl-how-step:focus-within .bl-step-desc {
+        /* Запас над реальной высотой текста: max-height нельзя анимировать
+           до auto, а самое длинное описание занимает три строки. */
+        max-height: 7rem;
+        margin-top: 0.375rem;
+        opacity: 1;
+    }
+
+    .bl-step-num {
+        transition: background 0.25s ease, color 0.25s ease;
+    }
+
+    .bl-how-step:hover .bl-step-num,
+    .bl-how-step:focus-within .bl-step-num {
+        background: var(--color-accent);
+        color: #fff;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .bl-how-step {
+    .bl-how-step,
+    .bl-step-num,
+    .bl-step-desc {
         transition: none;
     }
     .bl-how-step:hover {
         transform: none;
+    }
+    /* Без анимации прятать описание незачем — показываем сразу. */
+    .bl-step-desc {
+        max-height: none;
+        opacity: 1;
     }
 }
 
