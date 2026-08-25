@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const text = document.createElement('p');
     text.className = 'cookie-notice-text';
     text.innerHTML = 'Мы используем cookie, чтобы сайт работал: помним вход и ваш выбор. ' +
-        'Подробнее — в <a href="/privacy">Политике обработки персональных данных</a>.';
+        'Подробнее — в <a href="/cookies">Политике использования файлов cookie</a>.';
 
     const btn = document.createElement('button');
     btn.type = 'button';

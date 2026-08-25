@@ -105,8 +105,7 @@ def _documents_html() -> str:
             <span class="doc-card-arrow">{ICON_ARROW_RIGHT}</span>
         </a>""" for d in DOCUMENTS.values())
     return f"""
-        <p class="tariffs-group-hint">Действующая редакция от {LEGAL_VERSION_HUMAN}.
-        Использование cookie описано в Политике обработки персональных данных.</p>
+        <p class="tariffs-group-hint">Действующая редакция от {LEGAL_VERSION_HUMAN}.</p>
         <div class="doc-list">{cards}</div>"""
 
 

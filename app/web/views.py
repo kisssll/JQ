@@ -505,6 +505,27 @@ async def consent_page(request: Request, db: AsyncSession = Depends(get_db)):
     return HTMLResponse(content=render_legal_page("consent", user))
 
 
+@router.get("/offer", response_class=HTMLResponse)
+async def offer_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Оферта для клиентов — на неё ссылаются условия оплаты подписки."""
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_legal_page("offer", user))
+
+
+@router.get("/license", response_class=HTMLResponse)
+async def license_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Лицензионная оферта для салонов и мастеров."""
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_legal_page("license", user))
+
+
+@router.get("/cookies", response_class=HTMLResponse)
+async def cookies_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Политика cookie. Адрес /cookies зашит в саму Политику (п. 6.1)."""
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_legal_page("cookies", user))
+
+
 @router.get("/tariffs", response_class=HTMLResponse)
 async def tariffs_page(request: Request, db: AsyncSession = Depends(get_db)):
     """«Тарифы и информация» — тарифы платформы, документы, инструкции по сайту."""

@@ -78,6 +78,9 @@ def render_footer(user=None) -> str:
                         <li><a class="footer-link" href="/terms">Пользовательское соглашение</a></li>
                         <li><a class="footer-link" href="/privacy">Политика обработки ПДн</a></li>
                         <li><a class="footer-link" href="/consent">Согласие на обработку ПДн</a></li>
+                        <li><a class="footer-link" href="/offer">Оферта для клиентов</a></li>
+                        <li><a class="footer-link" href="/license">Оферта для салонов</a></li>
+                        <li><a class="footer-link" href="/cookies">Политика cookie</a></li>
                     </ul>
                 </div>
             </div>
