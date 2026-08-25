@@ -36,6 +36,47 @@
     --color-on-dark: #fff;
     --color-on-dark-muted: #fffc;
     --color-dark: #1a1a2e;
+
+    /* Фирменный тёплый градиент-подложка страниц (home/profile/settings/
+       bookings/favorites/checkout/business-landing) — раньше был захардкожен
+       в каждом файле по отдельности, поэтому не подчинялся теме. */
+    --page-gradient-1: #FFF8F6;
+    --page-gradient-2: #F8C8DC33;
+    --page-gradient-3: #F28C6F22;
+    --page-gradient-2-strong: #F8C8DC44;
+    --page-gradient-3-strong: #F28C6F33;
+}
+
+/* Тёмная тема: фон и поверхности — тёплый тёмный (не холодный чёрно-фиолетовый),
+   в тон бренд-градиенту light-темы. Сиреневый primary/accent-hover для тёмной
+   темы приглушён и потеплён — тот же вид, что в светлой, слепит на больших
+   плашках (шапка профиля, круги иконок, лого) на чёрном фоне. */
+[data-theme="dark"] {
+    --color-background: #1a1315;
+    --color-surface: #241a1d;
+    --color-surface-alt: #2d2125;
+    --color-secondary: #332329;
+    --color-text: #f1e9eb;
+    --color-heading: #fdf6f7;
+    --color-body: #d6c8cd;
+    --color-muted: #ab98a0;
+    --color-border: #402e33;
+
+    --color-primary: #c98fa4;
+    --color-accent: #c98fa4;
+    --color-accent-hover: #a8677e;
+    --color-accent-light: #3b252f;
+    --color-accent-muted: #c98fa466;
+
+    --color-danger-light: #3a1f22;
+    --color-success-light: #17301f;
+    --color-warning-light: #392c17;
+
+    --page-gradient-1: #1a1214;
+    --page-gradient-2: #45293aaa;
+    --page-gradient-3: #33202a55;
+    --page-gradient-2-strong: #45293acc;
+    --page-gradient-3-strong: #33202a77;
 }
 
 html {

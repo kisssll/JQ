@@ -27,6 +27,7 @@ def get_base_styles() -> str:
     """HTML-теги подключения собранного CSS/JS-бандла (с cache-busting по хэшу)
     + PWA-теги (manifest, тема, apple-touch) для установки на экран смартфона."""
     return f"""
+    <script>(function(){{try{{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}}catch(e){{}}}})();</script>
     <link rel="stylesheet" href="/static/dist/main.css?v={_CSS_V}">
     <script type="module" src="/static/dist/main.js?v={_JS_V}"></script>
     <link rel="manifest" href="/manifest.webmanifest">
