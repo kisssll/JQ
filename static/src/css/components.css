@@ -510,7 +510,7 @@
 
 /* components/footer.py */
 .comp-footer {
-    background: linear-gradient(135deg, #1a1a2e 0%, #3a2540 60%, #9e5f96 100%);
+    background: linear-gradient(135deg, #1a1315 0%, #3d2530 60%, #a8677e 100%);
     color: var(--color-on-dark-muted);
     position: relative;
     overflow: hidden;

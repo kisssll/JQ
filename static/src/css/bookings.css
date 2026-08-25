@@ -4,7 +4,7 @@
     margin-right: 16rem;
     padding-top: 100px; 
     min-height: 100vh;
-    background: linear-gradient(to bottom, #FFF8F6, #F8C8DC33, #F28C6F22);
+    background: linear-gradient(to bottom, var(--page-gradient-1), var(--page-gradient-2), var(--page-gradient-3));
 }
 @media (max-width: 1023px) {
     .bookings-main {

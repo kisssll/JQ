@@ -6,7 +6,7 @@
     padding-bottom: 5rem;
     position: relative;
     overflow: hidden;
-    background: linear-gradient(135deg, #faf7f5 0%, #f2e2ee 50%, rgba(192, 129, 184, 0.125) 100%);
+    background: linear-gradient(135deg, var(--color-background) 0%, var(--color-secondary) 50%, rgba(192, 129, 184, 0.125) 100%);
 }
 
 .model-hero .section-container {
@@ -544,7 +544,7 @@
     overflow: hidden;
     padding-top: 3rem;
     padding-bottom: 5rem;
-    background: linear-gradient(135deg, #faf7f5 0%, #f2e2ee 50%, rgba(192, 129, 184, 0.125) 100%);
+    background: linear-gradient(135deg, var(--color-background) 0%, var(--color-secondary) 50%, rgba(192, 129, 184, 0.125) 100%);
 }
 
 /* Изображение – на всю ширину, с наклоном и полупрозрачностью */

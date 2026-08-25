@@ -44,7 +44,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #FFF8F6, #F8C8DC33, #F28C6F22);
+    background: linear-gradient(135deg, var(--page-gradient-1), var(--page-gradient-2), var(--page-gradient-3));
     z-index: 2;
     pointer-events: none;
 }
@@ -113,6 +113,9 @@
     cursor: pointer;
     text-decoration: none;
     min-height: 64px;
+}
+[data-theme="dark"] .home-search-link {
+    background: linear-gradient(135deg, var(--color-surface), var(--color-surface-alt));
 }
 
 .home-search-link:hover {
@@ -1192,9 +1195,9 @@
 .section-gradient {
     background: linear-gradient(
         to bottom,
-        #FFF8F6,
-        #F8C8DC44,
-        #F28C6F33
+        var(--page-gradient-1),
+        var(--page-gradient-2-strong),
+        var(--page-gradient-3-strong)
     );
 }
 

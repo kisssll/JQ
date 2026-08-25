@@ -5,7 +5,7 @@
 }
 
 .section-gradient {
-    background: linear-gradient(135deg, #FFF8F6, #F8C8DC33, #F28C6F22);
+    background: linear-gradient(135deg, var(--page-gradient-1), var(--page-gradient-2), var(--page-gradient-3));
 }
 
 .checkout-wrapper {

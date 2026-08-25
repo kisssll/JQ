@@ -95,7 +95,7 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
         <div style="display:flex;height:calc(100vh - 250px);min-height:400px;border:1px solid var(--color-border);border-radius:1rem;overflow:hidden">
             <!-- Список чатов -->
             <div style="width:320px;border-right:1px solid var(--color-border);background:var(--color-surface-alt);overflow-y:auto">
-                <div style="padding:1rem;border-bottom:1px solid var(--color-border);background:white">
+                <div style="padding:1rem;border-bottom:1px solid var(--color-border);background:var(--color-surface)">
                     <h3 style="margin:0;font-size:1rem">{ICON_MESSAGE_CIRCLE} Чат салона</h3>
                     <p style="margin:0.25rem 0 0;font-size:0.75rem;color:var(--color-muted)">{len(other_members)} участников</p>
                 </div>
@@ -190,14 +190,14 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
             
             const chatWindow = document.getElementById('chatWindow');
             chatWindow.innerHTML = `
-                <div style="padding:0.75rem 1rem;border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:0.75rem;background:white">
+                <div style="padding:0.75rem 1rem;border-bottom:1px solid var(--color-border);display:flex;align-items:center;gap:0.75rem;background:var(--color-surface)">
                     <div class="chat-avatar" style="width:2.25rem;height:2.25rem;font-size:0.85rem">${{userName[0]}}</div>
                     <div>
                         <strong style="font-size:0.9rem">${{userName}}</strong>
                         <div style="font-size:0.75rem;color:var(--color-muted)">${{userRole}}</div>
                     </div>
                 </div>
-                <div style="flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.5rem;background:#fafafa" id="messages-${{userId}}">
+                <div style="flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.5rem;background:var(--color-surface-alt)" id="messages-${{userId}}">
                     <div style="text-align:center;color:var(--color-muted);font-size:0.75rem;margin-bottom:1rem">
                         Начало переписки с ${{userName}}
                     </div>
@@ -205,7 +205,7 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
                         {ICON_FILE_TEXT} Здесь будут ваши сообщения
                     </div>
                 </div>
-                <div style="padding:0.75rem;border-top:1px solid var(--color-border);display:flex;gap:0.5rem;background:white">
+                <div style="padding:0.75rem;border-top:1px solid var(--color-border);display:flex;gap:0.5rem;background:var(--color-surface)">
                     <input type="text" placeholder="Введите сообщение..." id="msgInput-${{userId}}" 
                         style="flex:1;padding:0.6rem 0.75rem;border:1px solid var(--color-border);border-radius:2rem;font-size:0.85rem"
                         onkeydown="if(event.key==='Enter')sendMessage(${{userId}})">

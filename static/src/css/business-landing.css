@@ -74,7 +74,7 @@
     overflow: hidden;
     padding-top: 6rem;
     padding-bottom: 4rem;
-    background: linear-gradient(135deg, #1a1a2e 0%, #3a2540 60%, #9e5f96 100%);
+    background: linear-gradient(135deg, #1a1315 0%, #3d2530 60%, #a8677e 100%);
 }
 .bl-hero .section-container {
     position: relative;
@@ -293,7 +293,7 @@
     background: var(--color-surface);
 }
 .bl-gradient-up {
-    background: linear-gradient(to top, #FFF8F6, #F8C8DC33, #F28C6F22);
+    background: linear-gradient(to top, var(--page-gradient-1), var(--page-gradient-2), var(--page-gradient-3));
     position: relative;
 }
 .bl-features-grid {
@@ -629,7 +629,7 @@
     background: var(--color-background);
 }
 .bl-gradient-down {
-    background: linear-gradient(to bottom, #FFF8F6, #F8C8DC33, var(--color-surface));
+    background: linear-gradient(to bottom, var(--page-gradient-1), var(--page-gradient-2), var(--color-surface));
     position: relative;
 }
 .bl-how-steps {

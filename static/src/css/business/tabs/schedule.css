@@ -256,7 +256,7 @@
     display: none;
     padding: 0.4rem 0.5rem 0.5rem;
     border-top: 1px solid rgba(0, 0, 0, 0.04);
-    background: #ffffff;
+    background: var(--color-surface);
     font-size: 0.7rem;
     line-height: 1.5;
 }
@@ -369,7 +369,7 @@
 
 /* ===== Мобильные карточки ===== */
 .dashboard-page .record-card {
-    background: #ffffff;
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-left: 4px solid transparent;
     border-radius: 0.75rem;
@@ -568,7 +568,7 @@
 }
 
 .dashboard-page .schedule-modal-box {
-    background: white;
+    background: var(--color-surface);
     border-radius: 1rem;
     padding: 2rem;
     max-width: 500px;

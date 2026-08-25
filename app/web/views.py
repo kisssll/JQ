@@ -689,7 +689,7 @@ async def not_found_page(request: Request, path: str):
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #FFF8F6, #F8C8DC33);
+            background: linear-gradient(135deg, var(--page-gradient-1), var(--page-gradient-2));
         }}
         .notfound-code {{
             font-size: 8rem;
@@ -714,7 +714,7 @@ async def not_found_page(request: Request, path: str):
             line-height: 1.6;
         }}
         .notfound .path {{
-            background: white;
+            background: var(--color-surface);
             padding: 0.5rem 1rem;
             border-radius: 0.5rem;
             font-family: monospace;

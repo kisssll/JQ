@@ -23,7 +23,7 @@ def render_model_page(user=None) -> str:
     {get_base_styles()}
     <style>
         .model-hero {{
-            background: linear-gradient(135deg, #FFF8F6, #F8C8DC33, #F28C6F22);
+            background: linear-gradient(135deg, var(--page-gradient-1), var(--page-gradient-2), var(--page-gradient-3));
             text-align: center;
             padding: 6rem 2rem 4rem;
         }}
@@ -166,7 +166,7 @@ def render_model_page(user=None) -> str:
             }}
         }}
         .benefit-card {{
-            background: white;
+            background: var(--color-surface);
             border-radius: 1rem;
             padding: 1.5rem;
             display: flex;
