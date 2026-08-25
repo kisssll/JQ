@@ -57,7 +57,7 @@ def render_sidebar(current_page: str = "home", user=None) -> str:
     if getattr(user, "is_model", False):
         role_items += f"""
                     <a class="sidebar-link {is_active('model_dashboard')}" href="/model/dashboard">
-                        {ICON_MODEL} Мои мэтчи
+                        {ICON_MODEL} Кабинет модели
                     </a>"""
     role_links = ""
     if role_items:
