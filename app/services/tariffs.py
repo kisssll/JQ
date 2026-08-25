@@ -64,13 +64,6 @@ def compute_amount(
     if tariff is None:
         raise TariffError(f"Тариф «{plan}» недоступен для самостоятельной оплаты")
 
-    # ВРЕМЕННО (тест эквайринга Т-Кассы) — реальная сумма списания по
-    # минимальному тарифу модели снижена до 10 ₽. Витринная цена (490 ₽ на
-    # /model#plans и везде, где читают tariff.amount напрямую, а не через
-    # compute_amount) не меняется. УБРАТЬ этот блок после теста.
-    if catalog is MODEL_TARIFF_CATALOG and plan == "start":
-        return Decimal("10")
-
     if tariff.billing == "flat":
         return tariff.amount
 
