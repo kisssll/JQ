@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/warehouse.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -36,7 +37,7 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
         stock_rows += f"""
         <tr>
             <td>{master_user_names.get(mid, '—')}</td>
-            <td>{item.name}</td>
+            <td>{e(item.name)}</td>
             <td><span style="{qty_style}">{item.quantity:g}</span> {item.unit}</td>
             <td>{item.min_quantity:g} {item.unit}</td>
             <td>{item.cost_per_unit} ₽/{item.unit}</td>
@@ -76,7 +77,7 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
             details.append(f"{eq.cost_per_unit} ₽/шт")
         equipment_rows += f"""
         <tr>
-            <td>{eq.name}</td>
+            <td>{e(eq.name)}</td>
             <td>{eq.quantity} шт</td>
             <td>{status_html}</td>
             <td style="font-size:0.8rem;color:var(--color-muted)">{', '.join(details) or '—'}</td>
@@ -99,7 +100,7 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
         <div class="card" style="display:flex;gap:1rem;align-items:center;padding:1rem;margin-bottom:0.75rem">
             <div style="flex:1">
                 <p style="font-weight:600">{type_label}: {target_name}</p>
-                <p style="font-size:0.85rem;color:var(--color-muted)">{author.full_name if author else 'Мастер'} · {req.comment or 'без комментария'}</p>
+                <p style="font-size:0.85rem;color:var(--color-muted)">{author.full_name if author else 'Мастер'} · {e(req.comment or 'без комментария')}</p>
             </div>
             <button class="btn-primary" style="font-size:0.8rem;padding:0.4rem 0.9rem" onclick="resolveWarehouseRequest({req.id})">Решено</button>
             <button class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.9rem" onclick="dismissWarehouseRequest({req.id})">Отклонить</button>
@@ -120,7 +121,7 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
             )).all()
             rows = "".join(f"""
                 <tr>
-                    <td>{item.name}</td>
+                    <td>{e(item.name)}</td>
                     <td>{ai.expected_quantity:g} {item.unit}</td>
                     <td><input type="number" step="0.01" class="audit-actual" data-item-id="{item.id}"
                         value="{ai.expected_quantity:g}" style="width:6rem;padding:0.4rem;border:1px solid var(--color-border);border-radius:0.4rem"></td>
@@ -295,7 +296,7 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
                 const res = await fetch('/api/v1/inventory/master/' + masterId + '/stock');
                 const items = await res.json();
                 receiveItem.innerHTML = '<option value="">Позиция</option>' + items.map(
-                    i => `<option value="${{i.id}}">${{i.name}} (остаток ${{i.quantity}} ${{i.unit}})</option>`
+                    i => `<option value="${{i.id}}">${{e(i.name)}} (остаток ${{i.quantity}} ${{i.unit}})</option>`
                 ).join('');
             }} catch (err) {{
                 receiveItem.innerHTML = '<option value="">Ошибка загрузки</option>';

@@ -1,4 +1,5 @@
 # app/web/pages/master/inventory.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -30,7 +31,7 @@ async def render_master_inventory(db: AsyncSession, user) -> str:
     stock = await InventoryService.get_master_stock(db, master.id)
     stock_rows = "".join(f"""
         <tr>
-            <td>{i.name}</td>
+            <td>{e(i.name)}</td>
             <td><strong style="{'color:#ef4444' if i.quantity <= i.min_quantity else ''}">{i.quantity:g}</strong> {i.unit}</td>
             <td>{i.min_quantity:g} {i.unit}</td>
         </tr>""" for i in stock)
@@ -54,10 +55,10 @@ async def render_master_inventory(db: AsyncSession, user) -> str:
         movement_rows += f"""
         <tr>
             <td>{mv.created_at.strftime('%d.%m.%Y %H:%M')}</td>
-            <td>{item.name}</td>
+            <td>{e(item.name)}</td>
             <td><span style="color:{color};font-weight:600">{label}</span></td>
             <td>{sign}{mv.delta:g} {item.unit}</td>
-            <td class="text-muted">{mv.comment or '—'}</td>
+            <td class="text-muted">{e(mv.comment or '—')}</td>
         </tr>"""
 
     return f"""<!DOCTYPE html>

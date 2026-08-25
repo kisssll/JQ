@@ -11,6 +11,7 @@
 («Политика использования cookie»), которого не существует: cookie описаны
 внутри Политики.
 """
+from app.web.components.escaping import e
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
@@ -76,7 +77,7 @@ def _plan_card_html(plan: dict, cta_href: str, cta_label: str) -> str:
     <article class="plan-card{' is-popular' if popular else ''}">
         <header class="plan-header">
             <div class="plan-name-row">
-                <h3 class="plan-name">{plan['name']}</h3>
+                <h3 class="plan-name">{e(plan['name'])}</h3>
                 {badge}
             </div>
             <p class="plan-desc">{plan.get('size') or plan.get('description', '')}</p>
@@ -98,8 +99,8 @@ def _documents_html() -> str:
         <a class="doc-card" href="/{d['slug']}">
             <span class="doc-card-icon">{ICON_FILE_TEXT}</span>
             <span class="doc-card-text">
-                <span class="doc-card-title">{d['title']}</span>
-                <span class="doc-card-desc">{d['description']}</span>
+                <span class="doc-card-title">{e(d['title'])}</span>
+                <span class="doc-card-desc">{e(d['description'])}</span>
             </span>
             <span class="doc-card-arrow">{ICON_ARROW_RIGHT}</span>
         </a>""" for d in DOCUMENTS.values())

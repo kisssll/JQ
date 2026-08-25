@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/schedule.py
+from app.web.components.escaping import e
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -113,9 +114,10 @@ async def render_schedule_tab(
         hours = None if d in closures_by_date else weekly_hours_cache[weekday]
         day_hours[d] = hours
         if hours:
-            s, e = hours
-            min_hour = s.hour if min_hour is None else min(min_hour, s.hour)
-            eh = e.hour + (1 if e.minute else 0)
+            # start/end, а не s/e: e — экранировщик HTML, импортированный выше
+            start_h, end_h = hours
+            min_hour = start_h.hour if min_hour is None else min(min_hour, start_h.hour)
+            eh = end_h.hour + (1 if end_h.minute else 0)
             max_hour = eh if max_hour is None else max(max_hour, eh)
 
     row_hours = list(range(min_hour, max_hour)) if min_hour is not None else []
@@ -182,7 +184,7 @@ async def render_schedule_tab(
             <div class="schedule-booking-header" onclick="toggleDesktopCard(this)">
                 <span class="booking-time">{time_str}</span>
                 <span class="booking-hint">{seen_html}</span>
-                <span class="booking-client" title="{client_name}">{client_name}</span>
+                <span class="booking-client" title="{e(client_name)}">{e(client_name)}</span>
                 <span class="booking-arrow">{ICON_CHEVRON_DOWN}</span>
             </div>
             <div class="schedule-booking-details">
@@ -243,7 +245,7 @@ async def render_schedule_tab(
                         </span>
                     </div>
                     <div class="record-card-bottom">
-                        <span class="record-card-client">{client_name}</span>
+                        <span class="record-card-client">{e(client_name)}</span>
                         <span class="record-card-chevron">{ICON_CHEVRON_DOWN}</span>
                     </div>
                 </div>
@@ -343,7 +345,7 @@ async def render_schedule_tab(
 
     # Селектор мастера (общий)
     master_select_options = "".join(
-        f'<option value="{m.id}"{" selected" if m.id == selected_master.id else ""}>{master_names.get(m.id, "—")} — {m.specialization}</option>'
+        f'<option value="{m.id}"{" selected" if m.id == selected_master.id else ""}>{master_names.get(m.id, "—")} — {e(m.specialization)}</option>'
         for m in masters
     )
     master_select_html = f"""
@@ -395,7 +397,7 @@ async def render_schedule_tab(
         closures_html = ""
         for c in upcoming_closures:
             scope = master_names.get(c.master_id, f"Мастер #{c.master_id}") if c.master_id else "Весь салон"
-            reason_html = f' — {c.reason}' if c.reason else ''
+            reason_html = f' — {e(c.reason)}' if c.reason else ''
             closures_html += f"""
             <div class="closure-item">
                 <span>{ICON_LOCK_SMALL} {c.date.strftime('%d.%m.%Y')} — {scope}{reason_html}</span>

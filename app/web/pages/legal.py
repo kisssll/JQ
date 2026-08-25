@@ -7,6 +7,7 @@
 152-ФЗ требует свободный доступ к Политике, а на практике это ещё и значит, что
 текст должен быть доступен для копирования и поиска.
 """
+from app.web.components.escaping import e
 import pathlib
 import re
 
@@ -86,7 +87,7 @@ def _body(slug: str) -> str:
 
 def _other_links(current: str) -> str:
     items = "".join(
-        f'<li><a class="legal-nav-link" href="/{d["slug"]}">{d["title"]}</a></li>'
+        f'<li><a class="legal-nav-link" href="/{d["slug"]}">{e(d["title"])}</a></li>'
         for slug, d in DOCUMENTS.items() if slug != current
     )
     return f'<ul class="legal-nav-list">{items}</ul>'
@@ -99,8 +100,8 @@ def render_legal_page(slug: str, user=None) -> str:
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{doc['title']} | руми.</title>
-    <meta name="description" content="{doc['description']}">
+    <title>{e(doc['title'])} | руми.</title>
+    <meta name="description" content="{e(doc['description'])}">
     {get_base_styles()}
 </head>
 <body>
@@ -111,7 +112,7 @@ def render_legal_page(slug: str, user=None) -> str:
         <div class="section-container legal-container">
             <article class="legal-doc">
                 <p class="legal-eyebrow">Документы</p>
-                <h1 class="legal-title">{doc['title']}</h1>
+                <h1 class="legal-title">{e(doc['title'])}</h1>
                 <p class="legal-version">Редакция от {LEGAL_VERSION_HUMAN}</p>
                 <div class="legal-body">
 {_body(slug)}

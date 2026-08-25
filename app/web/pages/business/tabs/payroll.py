@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/payroll.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
@@ -42,7 +43,7 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, date_
         total_revenue += result["revenue"]
 
         adj_summary = ", ".join(
-            f"{'+' if a.amount > 0 else ''}{a.amount} ₽ ({a.reason})" for a in result["adjustments"]
+            f"{'+' if a.amount > 0 else ''}{a.amount} ₽ ({e(a.reason)})" for a in result["adjustments"]
         ) or "—"
 
         salary_str = f"{result['base_salary']:,}".replace(",", " ")
@@ -53,7 +54,7 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, date_
 
         rows_html += f"""
         <tr>
-            <td><strong>{master_name}</strong></td>
+            <td><strong>{e(master_name)}</strong></td>
             <td>{salary_str} ₽</td>
             <td>{result['commission_percent']:g}%</td>
             <td>{revenue_str} ₽</td>
@@ -69,7 +70,7 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, date_
         cards_html += f"""
         <div class="payroll-card">
             <div class="payroll-card-header">
-                <span class="payroll-card-name">{master_name}</span>
+                <span class="payroll-card-name">{e(master_name)}</span>
                 <span class="payroll-card-chevron">{ICON_CHEVRON_DOWN}</span>
             </div>
             <div class="payroll-card-body">

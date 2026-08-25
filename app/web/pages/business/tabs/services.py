@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/services.py
+from app.web.components.escaping import e, ejs
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.models import Service, Master, User as UserModel
@@ -49,14 +50,14 @@ async def render_services_tab(
 
         actions_cell = ""
         if can_manage:
-            name_js = service.name.replace("'", "\\'")
-            desc_js = service.description.replace("'", "\\'") if service.description else ''
+            name_js = ejs(service.name)
+            desc_js = ejs(service.description or '')
             actions_cell = f"""
             <td class="services-actions-cell">
-                <button class="services-edit-btn" onclick="openEditModal({service.id}, '{name_js}', {service.price}, {service.duration_minutes}, '{desc_js}', {service.master_id}, '{service.category or ''}')" title="Редактировать">
+                <button class="services-edit-btn" onclick="openEditModal({service.id}, {name_js}, {service.price}, {service.duration_minutes}, {desc_js}, {service.master_id}, {ejs(service.category or '')})" title="Редактировать">
                     {ICON_EDIT}
                 </button>
-                <form method="post" action="/api/v1/services/{service.id}/delete" data-confirm="Удалить услугу «{name_js}»?" data-confirm-label="Удалить" style="display:inline-block; margin:0;">
+                <form method="post" action="/api/v1/services/{service.id}/delete" data-confirm="Удалить услугу «{e(service.name)}»?" data-confirm-label="Удалить" style="display:inline-block; margin:0;">
                     <button type="submit" class="services-delete-btn" title="Удалить">
                         {ICON_TRASH}
                     </button>
@@ -66,11 +67,11 @@ async def render_services_tab(
 
         services_rows += f"""
         <tr>
-            <td><strong>{service.name}</strong></td>
-            <td>{master_name}</td>
+            <td><strong>{e(service.name)}</strong></td>
+            <td>{e(master_name)}</td>
             <td>{service.duration_minutes} мин</td>
             <td><strong>{service.price:,} ₽</strong></td>
-            <td class="services-desc">{service.description or '—'}</td>
+            <td class="services-desc">{e(service.description or '—')}</td>
             {actions_cell}
         </tr>"""
 
@@ -86,13 +87,13 @@ async def render_services_tab(
 
         actions = ""
         if can_manage:
-            name_js = service.name.replace("'", "\\'")
-            desc_js = service.description.replace("'", "\\'") if service.description else ''
+            name_js = ejs(service.name)
+            desc_js = ejs(service.description or '')
             actions = f"""
-            <button class="services-edit-btn" onclick="openEditModal({service.id}, '{name_js}', {service.price}, {service.duration_minutes}, '{desc_js}', {service.master_id}, '{service.category or ''}')" title="Редактировать">
+            <button class="services-edit-btn" onclick="openEditModal({service.id}, {name_js}, {service.price}, {service.duration_minutes}, {desc_js}, {service.master_id}, {ejs(service.category or '')})" title="Редактировать">
                 {ICON_EDIT}
             </button>
-            <form method="post" action="/api/v1/services/{service.id}/delete" data-confirm="Удалить услугу «{name_js}»?" data-confirm-label="Удалить" style="display:inline-block; margin:0;">
+            <form method="post" action="/api/v1/services/{service.id}/delete" data-confirm="Удалить услугу «{e(service.name)}»?" data-confirm-label="Удалить" style="display:inline-block; margin:0;">
                 <button type="submit" class="services-delete-btn" title="Удалить">
                     {ICON_TRASH}
                 </button>
@@ -104,18 +105,18 @@ async def render_services_tab(
             <div class="service-card-header" onclick="toggleServiceCard(this)">
                 <div class="service-card-main">
                     <div class="service-card-top">
-                        <span class="service-card-name">{service.name}</span>
+                        <span class="service-card-name">{e(service.name)}</span>
                         <span class="service-card-price">{service.price:,} ₽</span>
                     </div>
                     <div class="service-card-bottom">
-                        <span class="service-card-master">{master_name}</span>
+                        <span class="service-card-master">{e(master_name)}</span>
                         <span class="service-card-chevron">{ICON_CHEVRON_DOWN}</span>
                     </div>
                 </div>
             </div>
             <div class="service-card-body" style="display:none;">
                 <div class="service-card-row"><span class="service-card-label">Длительность:</span> {service.duration_minutes} мин</div>
-                <div class="service-card-row"><span class="service-card-label">Описание:</span> {service.description or '—'}</div>
+                <div class="service-card-row"><span class="service-card-label">Описание:</span> {e(service.description or '—')}</div>
                 {f'<div class="service-card-actions">{actions}</div>' if can_manage else ''}
             </div>
         </div>"""
@@ -130,7 +131,7 @@ async def render_services_tab(
         master_user = user_result.scalar_one_or_none()
         master_name = master_user.full_name if master_user else "—"
         selected = " selected" if filter_master_id == m.id else ""
-        master_options += f'<option value="{m.id}"{selected}>{master_name} — {m.specialization}</option>'
+        master_options += f'<option value="{m.id}"{selected}>{e(master_name)} — {e(m.specialization)}</option>'
 
     filters_form = f"""
     <form method="get" action="/business/dashboard" class="services-filters">

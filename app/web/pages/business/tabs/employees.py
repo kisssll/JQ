@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/employees.py
+from app.web.components.escaping import e
 import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,11 +72,11 @@ def _render_staff_card(member, user_data, can_edit_perms, can_remove):
         <div class="staff-card-header">
             <div class="staff-card-main">
                 <div class="staff-card-top">
-                    <span class="staff-card-name">{user_data.full_name or '—'}{creator_badge}</span>
+                    <span class="staff-card-name">{e(user_data.full_name or '—')}{creator_badge}</span>
                     <span class="staff-card-role">{role_label}</span>
                 </div>
                 <div class="staff-card-bottom">
-                    <span class="staff-card-phone">{user_data.phone}</span>
+                    <span class="staff-card-phone">{e(user_data.phone)}</span>
                     <span class="staff-card-chevron">{ICON_CHEVRON_DOWN}</span>
                 </div>
             </div>
@@ -101,7 +102,7 @@ def _render_master_card(master, user_data, can_manage_masters):
     status_text = "На смене" if master.is_active else "Отключён"
 
     actions = f"""
-        <button class="action-btn edit-btn" onclick="editEmployee({master.id}, '{user_name}', '{master.specialization}', {master.experience_years})" title="Редактировать">{ICON_EDIT}</button>
+        <button class="action-btn edit-btn" onclick="editEmployee({master.id}, '{user_name}', '{e(master.specialization)}', {master.experience_years})" title="Редактировать">{ICON_EDIT}</button>
         <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({master.id}, '{user_name}', {str(master.is_active).lower()})" title="{'Отключить' if master.is_active else 'Включить'}">{ICON_POWER}</button>
     """
     if can_manage_masters:
@@ -117,7 +118,7 @@ def _render_master_card(master, user_data, can_manage_masters):
                     <span class="master-card-status-text {status_class}">{status_text}</span>
                 </div>
                 <div class="master-card-bottom">
-                    <span class="master-card-spec">{master.specialization}</span>
+                    <span class="master-card-spec">{e(master.specialization)}</span>
                     <span class="master-card-chevron">{ICON_CHEVRON_DOWN}</span>
                 </div>
             </div>
@@ -223,8 +224,8 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             staff_rows += f"""
             <tr>
                 <td>
-                    <strong>{u.full_name or '—'}</strong>{creator_badge}
-                    <div class="employee-phone">{u.phone}</div>
+                    <strong>{e(u.full_name or '—')}</strong>{creator_badge}
+                    <div class="employee-phone">{e(u.phone)}</div>
                 </td>
                 <td>{role_label}</td>
                 <td class="perms-cell">{perms_summary}</td>
@@ -338,7 +339,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
         status_text = "На смене" if m.is_active else "Отключён"
 
         actions = f"""
-            <button class="action-btn edit-btn" onclick="editEmployee({m.id}, '{user_name}', '{m.specialization}', {m.experience_years})" title="Редактировать">{ICON_EDIT}</button>
+            <button class="action-btn edit-btn" onclick="editEmployee({m.id}, '{user_name}', '{e(m.specialization)}', {m.experience_years})" title="Редактировать">{ICON_EDIT}</button>
             <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({m.id}, '{user_name}', {str(m.is_active).lower()})" title="{'Отключить' if m.is_active else 'Включить'}">{ICON_POWER}</button>
         """
         if can_manage_masters:
@@ -356,7 +357,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
                     </div>
                 </div>
             </td>
-            <td>{m.specialization}</td>
+            <td>{e(m.specialization)}</td>
             <td>{m.experience_years} лет</td>
             <td>{ICON_STAR_FILLED} {m.rating}</td>
             <td>

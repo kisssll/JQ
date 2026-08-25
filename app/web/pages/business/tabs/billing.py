@@ -12,6 +12,7 @@
 ближайшего списания (тариф + накопленная доплата за рост штата), возврат
 автопродления и смена карты, отмена подписки и история платежей.
 """
+from app.web.components.escaping import e
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -69,7 +70,7 @@ def _tariff_cards(current_plan, suggested: str) -> str:
         <label class="billing-plan{' is-current' if is_current else ''}" data-plan="{plan}">
             <input type="radio" name="billing-plan" value="{plan}"{' checked' if is_checked else ''}>
             <span class="billing-plan-head">
-                <span class="billing-plan-name">{view["name"]}</span>
+                <span class="billing-plan-name">{e(view["name"])}</span>
                 {badge}
             </span>
             <span class="billing-plan-size">{view["size"]}</span>
@@ -104,7 +105,7 @@ async def _payments_history(db: AsyncSession, salon_id: int) -> str:
         items += f"""
         <tr>
             <td>{when.strftime(_DATE_FMT) if when else '—'}</td>
-            <td>{tariff.name if tariff else p.plan}</td>
+            <td>{e(tariff.name if tariff else p.plan)}</td>
             <td><strong>{_money(p.amount)} ₽</strong></td>
             <td><span class="billing-status {tone}">{label}</span></td>
         </tr>"""

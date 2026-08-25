@@ -1,4 +1,5 @@
 # app/web/pages/profile.py
+from app.web.components.escaping import e
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
@@ -266,7 +267,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
                 <h3>{ICON_BUILDING2} Мой салон</h3>
             </div>
             <div class="profile-role-body">
-                <div class="profile-business-name">{salon_name}</div>
+                <div class="profile-business-name">{e(salon_name)}</div>
                 <div class="profile-business-meta">
                     <span>{ICON_MAP_PIN} {salon_address}</span>
                     <span>{ICON_PHONE} {salon_phone}</span>

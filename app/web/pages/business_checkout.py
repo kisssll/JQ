@@ -1,4 +1,5 @@
 # app/web/pages/business_checkout.py
+from app.web.components.escaping import e
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
@@ -165,8 +166,8 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                             <p class="checkout-note" id="submit-note">Первые 14 дней — бесплатно. {'Карта привязывается сразу, но списания не будет до конца пробного периода.' if settings.TKASSA_ENABLED else 'Оплата картой скоро появится — пока тариф активируется сразу на пробный период.'}</p>
                         </div>
                         <div class="checkout-summary" id="tariff-card">
-                            <h3 class="tariff-card-name" id="tariff-name">{active["name"]}</h3>
-                            <p class="tariff-card-desc" id="tariff-desc">{active["description"]}</p>
+                            <h3 class="tariff-card-name" id="tariff-name">{e(active["name"])}</h3>
+                            <p class="tariff-card-desc" id="tariff-desc">{e(active["description"])}</p>
                             <div class="tariff-card-price" id="tariff-price">
                                 <span class="price-amount">{active["price"]}</span>
                                 <span class="price-period">{active["period"]}</span>

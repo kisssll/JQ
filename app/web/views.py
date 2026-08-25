@@ -1,4 +1,5 @@
 # app/web/views.py
+from app.web.components.escaping import e
 import html
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -376,19 +377,19 @@ async def book_service_page(salon_id: int, request: Request, db: AsyncSession = 
         user_res = await db.execute(select(User).where(User.id == m.user_id))
         master_user = user_res.scalar_one_or_none()
         name = master_user.full_name if master_user else "Мастер"
-        masters_options += f'<option value="{m.id}">{name} — {m.specialization}</option>'
+        masters_options += f'<option value="{m.id}">{name} — {e(m.specialization)}</option>'
     
     html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Запись — {salon.name} — руми</title>
+    <title>Запись — {e(salon.name)} — руми</title>
     {get_base_styles()}
 </head>
 <body>
     {render_header("salons")}
     <div class="section-container" style="padding-top:2rem;max-width:500px;margin:0 auto">
-        <h1 class="text-display" style="font-size:1.75rem;margin-bottom:0.5rem">Запись в {salon.name}</h1>
+        <h1 class="text-display" style="font-size:1.75rem;margin-bottom:0.5rem">Запись в {e(salon.name)}</h1>
         <p class="text-muted" style="margin-bottom:2rem">Выберите мастера и услугу</p>
         <form action="/api/v1/bookings" method="post">
             <input type="hidden" name="salon_id" value="{salon_id}">
@@ -429,7 +430,7 @@ async def book_service_page(salon_id: int, request: Request, db: AsyncSession = 
                 
                 serviceSelect.innerHTML = '<option value="">Выберите услугу</option>';
                 services.forEach(service => {{
-                    serviceSelect.innerHTML += `<option value="${{service.id}}" data-price="${{service.price}}" data-duration="${{service.duration_minutes}}">${{service.name}} — ${{service.price}} ₽ (${{service.duration_minutes}} мин)</option>`;
+                    serviceSelect.innerHTML += `<option value="${{service.id}}" data-price="${{service.price}}" data-duration="${{service.duration_minutes}}">${{e(service.name)}} — ${{service.price}} ₽ (${{service.duration_minutes}} мин)</option>`;
                 }});
             }} catch (error) {{
                 console.error('Ошибка загрузки услуг:', error);
@@ -571,9 +572,9 @@ async def book_page(request: Request, db: AsyncSession = Depends(get_db)):
     <h2 style="margin-bottom:1.5rem">Подтверждение записи</h2>
     
     <div style="margin-bottom:1rem;padding:1rem;background:var(--color-surface-alt);border-radius:0.75rem">
-        <p><strong>{ICON_BUILDING2} Салон:</strong> {salon_name}</p>
-        <p><strong>{ICON_SCISSORS} Мастер:</strong> {master_name}</p>
-        <p><strong>{ICON_SCISSORS} Услуга:</strong> {service.name}</p>
+        <p><strong>{ICON_BUILDING2} Салон:</strong> {e(salon_name)}</p>
+        <p><strong>{ICON_SCISSORS} Мастер:</strong> {e(master_name)}</p>
+        <p><strong>{ICON_SCISSORS} Услуга:</strong> {e(service.name)}</p>
         <p><strong>{ICON_CLOCK} Длительность:</strong> {service.duration_minutes} мин</p>
         <p><strong>{ICON_CALENDAR_DAYS} Время:</strong> {time_str.replace('T', ' ')}</p>
         <p><strong>{ICON_MONEY} Цена:</strong> <span style="font-size:1.25rem;font-weight:700;color:var(--color-primary)">{service.price} ₽</span></p>

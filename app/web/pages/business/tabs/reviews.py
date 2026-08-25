@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/reviews.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Master, User as UserModel, Review, ReviewPhoto, ReviewTargetType
@@ -57,11 +58,11 @@ async def render_reviews_tab(db: AsyncSession, reviews, salon) -> str:
 
         reviews_rows += f"""
         <tr data-target-type="{r.target_type.value}" data-verified="{'1' if r.is_verified else '0'}">
-            <td><strong>{client_name}</strong></td>
+            <td><strong>{e(client_name)}</strong></td>
             <td>{TARGET_LABELS[r.target_type]}: {target_name}</td>
             <td>{verified_html}</td>
             <td>{stars}</td>
-            <td style="max-width:260px">{r.comment or 'Без комментария'}</td>
+            <td style="max-width:260px">{e(r.comment or 'Без комментария')}</td>
             <td>{photos_html or '—'}</td>
             <td style="font-size:0.85rem;color:var(--color-muted)">{date_str}</td>
         </tr>"""

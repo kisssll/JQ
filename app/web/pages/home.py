@@ -1,4 +1,5 @@
 # app/web/pages/home.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Salon, SalonModerationStatus
@@ -32,8 +33,9 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
             ).order_by(Salon.rating.desc()).limit(3)
         )
         salons = result.scalars().all()
-    except Exception as e:
-        print(f"Ошибка загрузки салонов: {e}")
+    except Exception as exc:
+        # имя exc, а не e: e — экранировщик HTML, импортированный выше
+        print(f"Ошибка загрузки салонов: {exc}")
         salons = []
 
     # Карточки салонов
@@ -41,9 +43,9 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
     for s in salons:
         logo_html = ""
         if s.logo_url:
-            logo_html = f'<img src="{s.logo_url}" alt="{s.name}" class="popular-salon-avatar-img" loading="lazy">'
+            logo_html = f'<img src="{s.logo_url}" alt="{e(s.name)}" class="popular-salon-avatar-img" loading="lazy">'
         else:
-            logo_html = f'<span class="popular-salon-avatar-letter">{s.name[0].upper()}</span>'
+            logo_html = f'<span class="popular-salon-avatar-letter">{e(s.name[0].upper())}</span>'
 
         city = s.address.split(',')[0].strip() if s.address else "Адрес не указан"
 
@@ -53,7 +55,7 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                 <div class="popular-salon-avatar">
                     {logo_html}
                 </div>
-                <h3 class="popular-salon-name">{s.name}</h3>
+                <h3 class="popular-salon-name">{e(s.name)}</h3>
                 <p class="popular-salon-address">
                     {ICON_MAP_PIN} {city}
                 </p>

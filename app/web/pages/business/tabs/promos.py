@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/promos.py
+from app.web.components.escaping import e
 from app.web.components.hint import hint as _hint
 from app.web.components.icons import (
     ICON_PLUS, ICON_TRASH, ICON_EDIT, ICON_SAVE, ICON_COPY,
@@ -28,7 +29,7 @@ def render_promos_tab(
         edit_btn = ""
         if can_manage:
             delete_btn = f'''
-                <button onclick="deletePromo({p.id}, '{p.title}')" class="delete-btn-icon" title="Удалить акцию">
+                <button onclick="deletePromo({p.id}, '{e(p.title)}')" class="delete-btn-icon" title="Удалить акцию">
                     {ICON_TRASH}
                 </button>
             '''
@@ -44,9 +45,9 @@ def render_promos_tab(
         actions_cell = f'<td class="promos-actions-cell">{edit_btn} {delete_btn}</td>' if can_manage else ''
         promos_rows += f"""
         <tr>
-            <td><strong>{p.title}</strong></td>
-            <td><span class="promo-badge">{p.tag}</span></td>
-            <td>{p.description or '—'}</td>
+            <td><strong>{e(p.title)}</strong></td>
+            <td><span class="promo-badge">{e(p.tag)}</span></td>
+            <td>{e(p.description or '—')}</td>
             {actions_cell}
         </tr>
         """
@@ -136,11 +137,11 @@ def render_promos_tab(
             code_str = o.promo_code or "—"
             offers_rows += f"""
             <tr>
-                <td><strong>{o.title}</strong></td>
+                <td><strong>{e(o.title)}</strong></td>
                 <td>{o.discount_percent}%</td>
                 <td><code>{code_str}</code></td>
                 <td>
-                    <button onclick="deleteLoyaltyOffer({o.id}, '{o.title}')" class="delete-btn-icon">{ICON_TRASH}</button>
+                    <button onclick="deleteLoyaltyOffer({o.id}, '{e(o.title)}')" class="delete-btn-icon">{ICON_TRASH}</button>
                 </td>
             </tr>
             """

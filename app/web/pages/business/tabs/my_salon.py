@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/my_salon.py
+from app.web.components.escaping import e
 import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,9 +42,9 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
     reviews = salon.reviews_count or 0
 
     if salon.logo_url:
-        photo_html = f'<img src="{salon.logo_url}" alt="{salon.name}" class="salon-edit-photo" loading="lazy">'
+        photo_html = f'<img src="{salon.logo_url}" alt="{e(salon.name)}" class="salon-edit-photo" loading="lazy">'
     else:
-        photo_html = f'<div class="salon-edit-photo-placeholder">{salon.name[0].upper()}</div>'
+        photo_html = f'<div class="salon-edit-photo-placeholder">{e(salon.name[0].upper())}</div>'
 
     static_html = f"""
         <div class="salon-edit-static">
@@ -51,19 +52,19 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
                 {photo_html}
             </div>
             <div class="salon-edit-info">
-                <h2 class="salon-edit-name" id="salonEditNameDisplay">{salon.name}</h2>
+                <h2 class="salon-edit-name" id="salonEditNameDisplay">{e(salon.name)}</h2>
                 <div class="salon-edit-rating">
                     {ICON_STAR_FILLED}
                     <span>{rating:.1f}</span>
                     <span class="rating-count">({reviews} отзывов)</span>
                 </div>
                 <p class="salon-edit-address">
-                    {ICON_MAP_PIN} <span id="salonEditAddressDisplay">{salon.address or 'Адрес не указан'}</span>
+                    {ICON_MAP_PIN} <span id="salonEditAddressDisplay">{e(salon.address or 'Адрес не указан')}</span>
                 </p>
                 <p class="salon-edit-phone">
-                    {ICON_PHONE} <span id="salonEditPhoneDisplay">{salon.phone or ''}</span>
+                    {ICON_PHONE} <span id="salonEditPhoneDisplay">{e(salon.phone or '')}</span>
                 </p>
-                <p class="salon-edit-desc" id="salonEditDescDisplay">{salon.description or ''}</p>
+                <p class="salon-edit-desc" id="salonEditDescDisplay">{e(salon.description or '')}</p>
             </div>
         </div>
     """
@@ -109,11 +110,11 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
             <div class="salon-edit-fields" style="margin-top: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1.5rem;">
                 <div class="salon-edit-field">
                     <label>Название</label>
-                    <input type="text" id="salonEditNameInput" value="{salon.name}" class="salon-edit-input">
+                    <input type="text" id="salonEditNameInput" value="{e(salon.name)}" class="salon-edit-input">
                 </div>
                 <div class="salon-edit-field">
                     <label>Телефон</label>
-                    <input type="tel" id="salonEditPhoneInput" value="{salon.phone or '+7'}" class="salon-edit-input phone-input">
+                    <input type="tel" id="salonEditPhoneInput" value="{e(salon.phone or '+7')}" class="salon-edit-input phone-input">
                 </div>
                 <div class="salon-edit-field">
                     <label>Город</label>
@@ -123,7 +124,7 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
                 </div>
                 <div class="salon-edit-field">
                     <label>Адрес</label>
-                    <input type="text" id="salonEditAddressInput" value="{salon.address or ''}"
+                    <input type="text" id="salonEditAddressInput" value="{e(salon.address or '')}"
                            class="salon-edit-input{' address-geocode' if yandex_maps_enabled() else ''}"
                            {'data-lat-field="salonEditLat" data-lon-field="salonEditLon" data-map-id="salonEditAddressMap" data-confirmed="1" autocomplete="off"' if yandex_maps_enabled() else ''}>
                     {'<p class="my-salon-card-hint" style="margin-top:0.35rem">Если меняете адрес — выберите новый вариант из подсказок, иначе сохранить не получится.</p>' if yandex_maps_enabled() else ''}
@@ -136,7 +137,7 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
                 </div>
                 <div class="salon-edit-field">
                     <label>Описание</label>
-                    <textarea id="salonEditDescInput" class="salon-edit-input salon-edit-textarea">{salon.description or ''}</textarea>
+                    <textarea id="salonEditDescInput" class="salon-edit-input salon-edit-textarea">{e(salon.description or '')}</textarea>
                 </div>
             </div>
         </div>
@@ -216,7 +217,7 @@ async def _render_chain_section(db: AsyncSession, salon: Salon, is_creator: bool
             select(Salon).where(Salon.chain_id == salon.chain_id, Salon.id != salon.id).order_by(Salon.name)
         )).scalars().all()
         siblings_html = "".join(
-            f'<li>{ICON_MAP_PIN} <a href="/salons/{s.id}" target="_blank" class="text-link">{s.name}</a> — {s.address or "адрес не указан"}</li>'
+            f'<li>{ICON_MAP_PIN} <a href="/salons/{s.id}" target="_blank" class="text-link">{e(s.name)}</a> — {e(s.address or "адрес не указан")}</li>'
             for s in siblings
         ) or '<li class="text-muted">Пока больше никого нет</li>'
         chain_block = f"""
@@ -373,7 +374,7 @@ async def render_my_salon_tab(
             <!-- Заголовок вкладки -->
             <div class="my-salon-header">
                 <div>
-                    <h1>{salon.name}</h1>
+                    <h1>{e(salon.name)}</h1>
                     <p>Редактирование карточки салона</p>
                 </div>
             </div>

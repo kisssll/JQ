@@ -6,6 +6,7 @@
 право модели выбрать реальный свободный слот — оффера как отдельного шага
 нет, цена/длительность уже зафиксированы услугой.
 См. app/services/model_matching_service.py и app/api/v1/endpoints/model_matching.py."""
+from app.web.components.escaping import e
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,14 +50,14 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
             <div class="card" style="padding:1rem;margin-bottom:0.75rem">
                 <div style="display:flex;justify-content:space-between;align-items:start;gap:0.5rem;flex-wrap:wrap">
                     <div>
-                        <strong>{s.name}</strong>
+                        <strong>{e(s.name)}</strong>
                         <span class="badge-tag" style="margin-left:0.4rem;background:#d1fae5;color:#065f46">{responses_count} откликов</span>
                     </div>
                     {status_badge}
                 </div>
-                <p class="text-muted" style="font-size:0.8rem;margin:0.35rem 0">Мастер: {m.specialization}</p>
+                <p class="text-muted" style="font-size:0.8rem;margin:0.35rem 0">Мастер: {e(m.specialization)}</p>
                 {f'<p class="text-muted" style="font-size:0.8rem;margin:0.25rem 0">{ICON_CALENDAR_DAYS} {date_label}</p>' if date_label else ''}
-                <p style="font-size:0.85rem;margin:0.35rem 0">{s.description or ''}</p>
+                <p style="font-size:0.85rem;margin:0.35rem 0">{e(s.description or '')}</p>
                 <p class="text-muted" style="font-size:0.8rem">{s.duration_minutes} мин · {s.price:,} ₽ · набрано {quota_label}</p>
                 <div style="margin-top:0.5rem;display:flex;gap:0.5rem">
                     <button type="button" class="btn-outline" style="font-size:0.75rem;padding:0.3rem 0.7rem" onclick="window.modelsToggleServiceOpen({s.id}, {str(not s.model_seeking_open).lower()}, {s.model_quota if s.model_quota is not None else 'null'})">{toggle_label}</button>
@@ -64,9 +65,9 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
                 </div>
             </div>"""
             if is_open:
-                service_options_swipe += f'<option value="{s.id}">{s.name} — {m.specialization} ({s.price:,} ₽)</option>'
+                service_options_swipe += f'<option value="{s.id}">{e(s.name)} — {e(m.specialization)} ({s.price:,} ₽)</option>'
 
-    master_options_publish = "".join(f'<option value="{m.id}">{m.specialization}</option>' for m in masters)
+    master_options_publish = "".join(f'<option value="{m.id}">{e(m.specialization)}</option>' for m in masters)
 
     return f"""
     <div id="tab-models" class="tab-content">

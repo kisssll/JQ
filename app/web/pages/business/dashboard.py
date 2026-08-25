@@ -1,4 +1,5 @@
 # app/web/pages/business/dashboard.py
+from app.web.components.escaping import e
 import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -300,7 +301,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     switcher_html = ""
     if len(other_memberships) > 1:
         options = "".join(
-            f'<option value="{s.id}"{" selected" if s.id == salon.id else ""}>{s.name}</option>'
+            f'<option value="{s.id}"{" selected" if s.id == salon.id else ""}>{e(s.name)}</option>'
             for _, s in other_memberships
         )
         switcher_html = f"""
@@ -449,7 +450,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         <div class="dashboard-header-inner">
             <div class="header-title">
                 <h1>Панель салона</h1>
-                <p>Салон «{salon.name}» • {salon.address.split(',')[0] if salon.address else 'Адрес не указан'}</p>
+                <p>Салон «{e(salon.name)}» • {salon.address.split(',')[0] if salon.address else 'Адрес не указан'}</p>
             </div>
             <div class="header-controls">
                 {switcher_html}
@@ -466,7 +467,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
 <html lang="ru" class="dashboard-page">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Бизнес-панель — {salon.name} — руми</title>
+    <title>Бизнес-панель — {e(salon.name)} — руми</title>
     {get_base_styles()}
     {render_yandex_maps_script()}
 </head>

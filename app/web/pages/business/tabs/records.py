@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/records.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timedelta
@@ -106,7 +107,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
             <td>{b.start_time.strftime('%d.%m.%Y %H:%M')}</td>
             <td>{clients_by_id.get(b.client_id, '—')}</td>
             <td>{master_user_names.get(b.master_id, '—')}</td>
-            <td>{s.name}</td>
+            <td>{e(s.name)}</td>
             <td><span class="status-badge {status_class}">{label}</span>{badge}</td>
             <td>{price} ₽</td>
             <td class="records-actions">{actions}</td>
@@ -152,7 +153,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
             </div>
             <div class="record-card-body" style="display:none;">
                 <div class="record-card-row"><span class="record-card-label">Мастер:</span> {master_user_names.get(b.master_id, '—')}</div>
-                <div class="record-card-row"><span class="record-card-label">Услуга:</span> {s.name}</div>
+                <div class="record-card-row"><span class="record-card-label">Услуга:</span> {e(s.name)}</div>
                 <div class="record-card-row"><span class="record-card-label">Сумма:</span> {price} ₽</div>
                 <div class="record-card-actions">{actions}</div>
             </div>

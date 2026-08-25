@@ -10,6 +10,7 @@ app.services.tariffs.MODEL_TARIFF_CATALOG, цены — как на /model#plans
 Дальше (is_model=True) — тот же экран показывает текущий статус подписки и
 кнопки «Оплатить»/«Отменить автопродление» вместо выбора тарифа.
 """
+from app.web.components.escaping import e
 from datetime import datetime, timezone
 
 from app.core.config import settings
@@ -85,7 +86,7 @@ def _tariff_selector_html() -> str:
         f"""
         <label class="model-tariff-card" data-plan="{t.plan}">
             <input type="radio" name="model-plan" value="{t.plan}" {"checked" if t.plan == "start" else ""}>
-            <span class="model-tariff-name">{t.name}</span>
+            <span class="model-tariff-name">{e(t.name)}</span>
             <span class="model-tariff-price">{int(t.amount)} ₽<span class="model-tariff-period">/мес</span></span>
         </label>"""
         for t in MODEL_TARIFF_CATALOG.values()

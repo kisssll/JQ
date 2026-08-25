@@ -1,4 +1,5 @@
 # app/web/pages/business/master_dashboard.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta
@@ -80,7 +81,7 @@ async def _render_master_warehouse_card(db: AsyncSession, salon: Salon, master: 
     stock_rows = "".join(
         f'<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;'
         f'border-bottom:1px solid var(--color-border)">'
-        f'<span>{i.name} <span class="text-muted" style="font-size:0.8rem">(остаток {i.quantity:g} {i.unit})</span></span>'
+        f'<span>{e(i.name)} <span class="text-muted" style="font-size:0.8rem">(остаток {i.quantity:g} {i.unit})</span></span>'
         f'<button class="btn-outline" style="font-size:0.75rem;padding:0.3rem 0.7rem" '
         f'onclick="reportWarehouseIssue(\'consumable_low\', {i.id}, null)">{ICON_FLAG} Заканчивается</button>'
         f'</div>'
@@ -89,7 +90,7 @@ async def _render_master_warehouse_card(db: AsyncSession, salon: Salon, master: 
     equipment_rows = "".join(
         f'<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;'
         f'border-bottom:1px solid var(--color-border)">'
-        f'<span>{eq.name} <span class="text-muted" style="font-size:0.8rem">({eq.quantity} шт)</span></span>'
+        f'<span>{e(eq.name)} <span class="text-muted" style="font-size:0.8rem">({eq.quantity} шт)</span></span>'
         f'<button class="btn-outline" style="font-size:0.75rem;padding:0.3rem 0.7rem" '
         f'onclick="reportWarehouseIssue(\'equipment_broken\', null, {eq.id})">{ICON_FLAG} Сломалось</button>'
         f'</div>'
@@ -165,7 +166,7 @@ async def _render_master_schedule(db: AsyncSession, salon: Salon, master: Master
     stock = await InventoryService.get_master_stock(db, master.id)
     stock_options = "".join(
         f'<div class="consumption-line" data-item-id="{i.id}" style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem">'
-        f'<label style="flex:1;font-size:0.875rem">{i.name} <span class="text-muted">(остаток {i.quantity:g} {i.unit})</span></label>'
+        f'<label style="flex:1;font-size:0.875rem">{e(i.name)} <span class="text-muted">(остаток {i.quantity:g} {i.unit})</span></label>'
         f'<input type="number" step="0.01" min="0" class="consumption-qty" placeholder="0" style="width:6rem;padding:0.4rem;border:1px solid var(--color-border);border-radius:0.4rem">'
         f'<span class="text-muted" style="width:2.5rem">{i.unit}</span>'
         f'</div>' for i in stock
@@ -252,7 +253,7 @@ async def render_master_business_dashboard(db: AsyncSession, user, salon: Salon,
 <html lang="ru" class="dashboard-page">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Панель бизнеса — {salon.name} — руми</title>
+    <title>Панель бизнеса — {e(salon.name)} — руми</title>
     {get_base_styles()}
     <style>
         .tab-nav {{ display:flex; gap:0.25rem; border-bottom:1px solid var(--color-border); margin-bottom:2rem; flex-wrap:wrap }}
@@ -279,8 +280,8 @@ async def render_master_business_dashboard(db: AsyncSession, user, salon: Salon,
     <main style="margin-right:16rem;padding-top:2rem">
         <div class="section-container">
             <div style="margin-bottom:1rem">
-                <h1 class="text-display" style="font-size:2rem">{salon.name}</h1>
-                <p class="text-muted">{master.specialization} · Панель мастера</p>
+                <h1 class="text-display" style="font-size:2rem">{e(salon.name)}</h1>
+                <p class="text-muted">{e(master.specialization)} · Панель мастера</p>
             </div>
 
             <div class="tab-nav">

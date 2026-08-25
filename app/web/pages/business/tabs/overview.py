@@ -1,5 +1,6 @@
 # app/web/pages/business/tabs/overview.py
 
+from app.web.components.escaping import e
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -249,9 +250,9 @@ async def render_overview_tab(
             <div class="booking-item">
                 <div class="avatar">{initials}</div>
                 <div class="info">
-                    <div class="name">{client.full_name or client.phone}</div>
+                    <div class="name">{e(client.full_name or client.phone)}</div>
                     <div class="desc">
-                        {ICON_CLOCK} {time_str} • {service_name}
+                        {ICON_CLOCK} {time_str} • {e(service_name)}
                     </div>
                 </div>
                 <div class="price">{price_str} ₽</div>

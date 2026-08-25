@@ -1,4 +1,5 @@
 # app/web/pages/master_detail.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.models import Master, Service, User, MasterPhoto, Review, ReviewPhoto, ReviewTargetType
@@ -40,7 +41,7 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
         services_html += f"""
         <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem;border-bottom:1px solid var(--color-border)">
             <div>
-                <p style="font-weight:600">{srv.name}</p>
+                <p style="font-weight:600">{e(srv.name)}</p>
                 <p style="font-size:0.8rem;color:var(--color-muted)">{srv.duration_minutes} минут</p>
             </div>
             <div style="font-size:1.25rem;font-weight:700;color:var(--color-primary)">{srv.price} ₽</div>
@@ -133,7 +134,7 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
 <html lang="ru">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{master_name} — {master.specialization} — руми</title>
+    <title>{e(master_name)} — {e(master.specialization)} — руми</title>
     {get_base_styles()}
 </head>
 <body>
@@ -150,8 +151,8 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
                         {master_name[0]}
                     </div>
                     <div>
-                        <h1 class="text-display" style="font-size:2rem">{master_name}</h1>
-                        <p style="font-size:1.1rem;color:var(--color-muted)">{master.specialization}</p>
+                        <h1 class="text-display" style="font-size:2rem">{e(master_name)}</h1>
+                        <p style="font-size:1.1rem;color:var(--color-muted)">{e(master.specialization)}</p>
                         <p style="margin-top:0.5rem" title="{verified_count} из {total_reviews_count} отзывов подтверждены реальной записью">{ICON_STAR_FILLED} {master.rating} ({verified_count}/{total_reviews_count} подтверждено) · Опыт {master.experience_years} лет</p>
                         <form action="/api/v1/favorites/toggle-master/{master.id}" method="post" style="display:inline;margin-top:0.5rem">
                             <button type="submit" class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.8rem" title="Добавить мастера в избранное">{ICON_STAR_FILLED} В избранное</button>

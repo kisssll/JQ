@@ -1,4 +1,5 @@
 # app/web/pages/business_dashboard.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta
@@ -177,7 +178,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
         masters_rows += f"""
         <tr>
             <td>{user_name}</td>
-            <td>{m.specialization}</td>
+            <td>{e(m.specialization)}</td>
             <td>{m.experience_years} лет</td>
             <td>{svc_count}</td>
             <td>{ICON_STAR_FILLED} {m.rating}</td>
@@ -189,9 +190,9 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
     for p in promotions:
         promos_rows += f"""
         <tr>
-            <td>{p.title}</td>
-            <td><span class="promo-badge">{p.tag}</span></td>
-            <td>{p.description or '—'}</td>
+            <td>{e(p.title)}</td>
+            <td><span class="promo-badge">{e(p.tag)}</span></td>
+            <td>{e(p.description or '—')}</td>
         </tr>
         """
     
@@ -215,10 +216,10 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
         
         reviews_rows += f"""
         <tr>
-            <td><strong>{client_name}</strong></td>
-            <td>{master_name}</td>
+            <td><strong>{e(client_name)}</strong></td>
+            <td>{e(master_name)}</td>
             <td>{stars}</td>
-            <td style="max-width:300px">{r.comment or 'Без комментария'}</td>
+            <td style="max-width:300px">{e(r.comment or 'Без комментария')}</td>
             <td style="font-size:0.85rem;color:var(--color-muted)">{date_str}</td>
         </tr>
         """
@@ -227,7 +228,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
 <html lang="ru">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Бизнес-панель — {salon.name} — руми</title>
+    <title>Бизнес-панель — {e(salon.name)} — руми</title>
     {get_base_styles()}
     <style>
         .tab-nav {{ display:flex; gap:0.25rem; border-bottom:1px solid var(--color-border); margin-bottom:2rem; flex-wrap:wrap }}
@@ -268,7 +269,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
         <div class="section-container">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
                 <div>
-                    <h1 class="text-display" style="font-size:2rem">{salon.name}</h1>
+                    <h1 class="text-display" style="font-size:2rem">{e(salon.name)}</h1>
                     <p class="text-muted">Панель управления · {ICON_STAR_FILLED} {salon.rating} ({salon.reviews_count} отзывов)</p>
                 </div>
                 <a href="/business/my-salon" class="btn-outline">{ICON_EDIT_PENCIL} Редактировать салон</a>

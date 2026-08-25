@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/chat.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Master, User as UserModel
@@ -77,13 +78,13 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
         online_dot = '<span style="width:8px;height:8px;background:#22c55e;border-radius:50%;position:absolute;bottom:0;right:0;border:2px solid white"></span>' if member["online"] else '<span style="width:8px;height:8px;background:#9ca3af;border-radius:50%;position:absolute;bottom:0;right:0;border:2px solid white"></span>'
         
         chat_list += f"""
-        <div class="chat-item" onclick="openChat({member['id']}, '{member['name']}', '{member['role']}')" data-chat-id="{member['id']}">
+        <div class="chat-item" onclick="openChat({member['id']}, '{e(member['name'])}', '{member['role']}')" data-chat-id="{member['id']}">
             <div class="chat-avatar">
                 {member['avatar']}
                 {online_dot}
             </div>
             <div class="chat-info">
-                <div class="chat-name">{member['name']}</div>
+                <div class="chat-name">{e(member['name'])}</div>
                 <div class="chat-last-msg" style="font-size:0.75rem;color:var(--color-muted)">{member['role']}</div>
             </div>
             <div class="chat-time" style="color:#22c55e">{'● В сети' if member['online'] else '○ Не в сети'}</div>

@@ -1,6 +1,7 @@
 # app/web/pages/admin_panel.py
 """Рендер админ-панели (/admin). Вкладки: обзор, пользователи, салоны, отзывы, аудит.
 Самодостаточная страница в стиле проекта; действия постят на /api/v1/admin/*."""
+from app.web.components.escaping import e
 import html
 from datetime import datetime, timedelta
 
@@ -297,7 +298,7 @@ def _salons_tab(salons, owner_phone_by_id):
     from app.services.tariffs import TARIFF_CATALOG
 
     plan_options = "".join(
-        f'<option value="{t.plan}">{t.name}</option>' for t in TARIFF_CATALOG.values()
+        f'<option value="{t.plan}">{e(t.name)}</option>' for t in TARIFF_CATALOG.values()
     )
 
     cards = ""

@@ -1,4 +1,5 @@
 # app/web/pages/business/tabs/staff.py
+from app.web.components.escaping import e
 import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -100,7 +101,7 @@ async def render_staff_tab(db: AsyncSession, salon, user, membership: SalonMembe
 
         rows += f"""
         <tr>
-            <td><strong>{u.full_name or '—'}</strong>{creator_badge}<div style="font-size:0.8rem;color:var(--color-muted)">{u.phone}</div></td>
+            <td><strong>{e(u.full_name or '—')}</strong>{creator_badge}<div style="font-size:0.8rem;color:var(--color-muted)">{e(u.phone)}</div></td>
             <td>{role_label}</td>
             <td style="font-size:0.8rem;max-width:320px">{perms_summary}</td>
             <td>{actions}</td>

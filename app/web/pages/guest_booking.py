@@ -4,6 +4,7 @@
 Оформлены в брендинг Руми (лого + дизайн-токены приложения), чтобы выглядеть
 как основная запись, а не сырая форма.
 """
+from app.web.components.escaping import e, ejson
 import json
 
 from sqlalchemy import select
@@ -145,10 +146,10 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
     if not data:
         return _notice("Пока нельзя записаться", "У салона нет доступных мастеров или услуг.")
 
-    masters_json = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    masters_json = ejson(data)
 
     inner = f"""
-        <h1 class="gb-title">Запись в «{salon.name}»</h1>
+        <h1 class="gb-title">Запись в «{e(salon.name)}»</h1>
         <p class="gb-sub">Без регистрации — оставьте имя и телефон, салон подтвердит запись.</p>
 
         <div id="guest-book" data-salon-id="{salon.id}" data-masters='{masters_json}'>
@@ -206,7 +207,7 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
             </div>
         </div>
     """
-    return _shell(f"Запись в {salon.name}", inner)
+    return _shell(f"Запись в {e(salon.name)}", inner)
 
 
 async def render_guest_manage_page(db, token: str) -> str:
@@ -240,12 +241,12 @@ async def render_guest_manage_page(db, token: str) -> str:
     inner = f"""
         <div class="gb-panel">
             <h1 class="gb-title">Ваша запись</h1>
-            <p class="gb-sub">«{salon.name if salon else ""}»</p>
+            <p class="gb-sub">«{e(salon.name if salon else "")}»</p>
             <div class="gb-card" style="cursor:default">
-                <div class="gb-ava">{((muser.full_name if muser else "М") or "М")[0]}</div>
+                <div class="gb-ava">{e(((muser.full_name if muser else "М") or "М")[0])}</div>
                 <div class="gb-card-body">
-                    <strong>{(muser.full_name if muser else "") or "Мастер"}</strong>
-                    <small>{service.name if service else ""}</small>
+                    <strong>{e((muser.full_name if muser else "") or "Мастер")}</strong>
+                    <small>{e(service.name if service else "")}</small>
                 </div>
             </div>
             <p style="margin:1rem 0 0.25rem">{ICON_CALENDAR_DAYS} <strong>{when}</strong></p>

@@ -1,4 +1,5 @@
 # app/web/pages/bookings.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
@@ -109,8 +110,8 @@ async def render_bookings_page(db: AsyncSession, user) -> str:
         duration_minutes = int((booking.end_time - booking.start_time).total_seconds() // 60)
 
         salon_link_html = (
-            f'<a href="/salons?highlight={salon_id}" class="booking-salon-link">{salon_name}</a>'
-            if salon_id else f'<span class="booking-salon-link booking-salon-link--plain">{salon_name}</span>'
+            f'<a href="/salons?highlight={salon_id}" class="booking-salon-link">{e(salon_name)}</a>'
+            if salon_id else f'<span class="booking-salon-link booking-salon-link--plain">{e(salon_name)}</span>'
         )
         
         # Проверяем, есть ли уже отзыв на эту запись
@@ -126,7 +127,7 @@ async def render_bookings_page(db: AsyncSession, user) -> str:
                 review_html = f"""
                 <div class="booking-review">
                     <div class="booking-review-stars">{stars}</div>
-                    <div class="booking-review-text">{review.comment or 'Без комментария'}</div>
+                    <div class="booking-review-text">{e(review.comment or 'Без комментария')}</div>
                     <button class="btn-outline booking-review-edit-btn" data-booking-id="{booking.id}" data-review-id="{review.id}">
                         {ICON_EDIT_PENCIL} Редактировать отзыв
                     </button>
@@ -144,7 +145,7 @@ async def render_bookings_page(db: AsyncSession, user) -> str:
         return f"""
         <div class="booking-card" data-booking-id="{booking.id}">
             <div class="booking-header">
-                <span class="service-name">{service_name}</span>
+                <span class="service-name">{e(service_name)}</span>
                 <span class="booking-status {status_tone}">{status_label}</span>
             </div>
             <div class="booking-info-grid">
@@ -154,8 +155,8 @@ async def render_bookings_page(db: AsyncSession, user) -> str:
                     {f'<p class="booking-phone"><span class="booking-icon-wrapper">{ICON_PHONE}</span><span class="label">Телефон:</span> {salon_phone}</p>' if salon_phone else ''}
                 </div>
                 <div class="booking-col booking-col-service">
-                    <p><span class="booking-icon-wrapper">{ICON_USER_BOOKING}</span><span class="label">Мастер:</span> {master_name}</p>
-                    <p><span class="booking-icon-wrapper">{ICON_SCISSORS_SMALL}</span>{service_name}</p>
+                    <p><span class="booking-icon-wrapper">{ICON_USER_BOOKING}</span><span class="label">Мастер:</span> {e(master_name)}</p>
+                    <p><span class="booking-icon-wrapper">{ICON_SCISSORS_SMALL}</span>{e(service_name)}</p>
                     <p><span class="booking-icon-wrapper">{ICON_CALENDAR_BOOKING}</span>{date_str}</p>
                     <p><span class="booking-icon-wrapper">{ICON_CLOCK}</span>{duration_minutes} мин</p>
                 </div>

@@ -1,4 +1,5 @@
 # app/web/register.py
+from app.web.components.escaping import e
 import html
 from fastapi import Request
 from app.core.config import settings
@@ -127,7 +128,7 @@ def render_register_page(request: Request) -> str:
         <form action="/api/v1/auth/register-web" method="post">
             <div class="form-group">
                 <label for="full_name">Имя</label>
-                <input type="text" id="full_name" name="full_name" value="{full_name}" placeholder="Ваше имя">
+                <input type="text" id="full_name" name="full_name" value="{e(full_name)}" placeholder="Ваше имя">
             </div>{phone_group}{verify_blocks}
             <div class="form-group">
                 <label for="password">Пароль</label>

@@ -2,6 +2,7 @@
 """Личный кабинет модели: стат-карточки + 3 саб-таба (Приглашения / Кастинги /
 История) + сайдбар с профилем и чек-листом заполненности. Списки подтягиваются
 JS-ом с /api/v1/model-matching/* — сама страница отдаёт каркас + счётчики."""
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.model_matching_service import get_history_for_model, get_invitations_for_model
@@ -123,7 +124,7 @@ async def render_model_dashboard(db: AsyncSession, user) -> str:
             <div class="card" style="padding:1.25rem;margin-bottom:1rem">
                 <div style="display:flex;align-items:center;gap:0.75rem">
                     {f'<img src="{user.model_photo_url}" alt="" loading="lazy" style="width:56px;height:56px;border-radius:50%;object-fit:cover">' if getattr(user, "model_photo_url", None) else '<div style="width:56px;height:56px;border-radius:50%;background:var(--color-surface-alt,#f3f4f6);display:flex;align-items:center;justify-content:center;color:var(--color-muted)">?</div>'}
-                    <strong>{user.full_name or "Ваше имя"}</strong>
+                    <strong>{e(user.full_name or "Ваше имя")}</strong>
                 </div>
                 <a href="/model/join" class="btn-outline" style="display:block;text-align:center;margin-top:1rem;font-size:0.85rem">Редактировать профиль</a>
             </div>

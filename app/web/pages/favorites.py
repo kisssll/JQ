@@ -1,4 +1,5 @@
 # app/web/pages/favorites.py
+from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Favorite, Salon, Master, User as UserModel
@@ -35,10 +36,10 @@ async def render_favorites_page(db: AsyncSession, user) -> str:
                 salon_cards += f"""
                 <div class="fav-card">
                     <div class="fav-card-header">
-                        <h3>{salon.name}</h3>
+                        <h3>{e(salon.name)}</h3>
                         <span class="fav-rating">{ICON_STAR_FAV} {salon.rating} ({salon.reviews_count})</span>
                     </div>
-                    <p style="color:var(--color-muted);font-size:0.9rem;margin-bottom:0.5rem">{salon.address or 'Адрес не указан'}</p>
+                    <p style="color:var(--color-muted);font-size:0.9rem;margin-bottom:0.5rem">{e(salon.address or 'Адрес не указан')}</p>
                     <div style="display:flex;gap:0.5rem">
                         <a href="/salons/{salon.id}" class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.8rem">Перейти</a>
                         <button class="btn-outline fav-remove-btn" 
@@ -61,11 +62,11 @@ async def render_favorites_page(db: AsyncSession, user) -> str:
                 master_cards += f"""
                 <div class="fav-card">
                     <div class="fav-card-header">
-                        <h3>{master_name}</h3>
+                        <h3>{e(master_name)}</h3>
                         <span class="fav-rating">{ICON_STAR_FAV} {master.rating}</span>
                     </div>
-                    <p style="color:var(--color-muted);font-size:0.9rem;margin-bottom:0.25rem">{master.specialization}</p>
-                    <p style="color:var(--color-muted);font-size:0.85rem;margin-bottom:0.5rem">{ICON_BUILDING2} {salon_name}</p>
+                    <p style="color:var(--color-muted);font-size:0.9rem;margin-bottom:0.25rem">{e(master.specialization)}</p>
+                    <p style="color:var(--color-muted);font-size:0.85rem;margin-bottom:0.5rem">{ICON_BUILDING2} {e(salon_name)}</p>
                     <div style="display:flex;gap:0.5rem">
                         <a href="/masters/{master.id}" class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.8rem">Перейти</a>
                         <button class="btn-outline fav-remove-btn" 

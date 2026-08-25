@@ -1,4 +1,5 @@
 # app/web/pages/salon_detail.py
+from app.web.components.escaping import e, ejson
 import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,12 +73,12 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
         ).order_by(Salon.name))).scalars().all()
         if chain and siblings:
             items = "".join(
-                f'<a class="chain-sibling-link" href="/salons/{s.id}">{ICON_MAP_PIN} {s.address or s.name} →</a>'
+                f'<a class="chain-sibling-link" href="/salons/{s.id}">{ICON_MAP_PIN} {e(s.address or s.name)} →</a>'
                 for s in siblings
             )
             chain_siblings_html = f"""
             <div class="salon-chain-note">
-                <span class="salon-chain-label">Сеть «{chain.name}» — ещё {len(siblings)} адрес(ов):</span>
+                <span class="salon-chain-label">Сеть «{e(chain.name)}» — ещё {len(siblings)} адрес(ов):</span>
                 <div class="salon-chain-links">{items}</div>
             </div>
             """
@@ -182,7 +183,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
     for m in masters_data:
         # Аватар или заглушка
         if m["avatar"]:
-            avatar_html = f'<img src="{m["avatar"]}" alt="{m["name"]}" loading="lazy">'
+            avatar_html = f'<img src="{m["avatar"]}" alt="{e(m["name"])}" loading="lazy">'
         else:
             avatar_html = f'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));color:#fff;font-size:3rem;font-weight:700">{m["name"][0].upper()}</div>'
 
@@ -202,10 +203,10 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                 </div>
                 <div class="master-info-box">
                     <div>
-                        <h3 class="master-name">{m["name"]}</h3>
+                        <h3 class="master-name">{e(m["name"])}</h3>
                         <p class="master-spec">
                             {ICON_MAP_PIN}
-                            {m["specialization"] or 'Специализация не указана'}
+                            {e(m["specialization"] or 'Специализация не указана')}
                         </p>
                     </div>
                     <p class="master-desc" style="min-height:0;"></p>
@@ -231,7 +232,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
             </a>
             <div class="salon-header-grid">
                 <div class="salon-image-wrapper">
-                    {f'<img alt="{salon.name}" src="{salon.logo_url}">' if salon.logo_url else f'<div style="width:100%;height:100%;min-height:200px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));color:#fff;font-size:4rem;font-weight:700;border-radius:1rem">{salon.name[0].upper()}</div>'}
+                    {f'<img alt="{e(salon.name)}" src="{salon.logo_url}">' if salon.logo_url else f'<div style="width:100%;height:100%;min-height:200px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));color:#fff;font-size:4rem;font-weight:700;border-radius:1rem">{salon.name[0].upper()}</div>'}
                     <button class="favorite-btn top-fav-btn salon-top-fav"
                             data-type="salon"
                             data-id="{salon.id}"
@@ -242,7 +243,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                     </button>
                 </div>
                 <div class="salon-info-wrapper">
-                    <h1 class="salon-title">{salon.name}</h1>
+                    <h1 class="salon-title">{e(salon.name)}</h1>
                     <div class="salon-meta">
                         <div class="salon-rating" title="{verified_count} из {salon.reviews_count or 0} отзывов подтверждены реальной записью">
                             {ICON_STAR_FILLED}
@@ -253,11 +254,11 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                             {_get_service_tags(salon)}
                         </div>
                     </div>
-                    <p class="salon-desc">{salon.description or ''}</p>
+                    <p class="salon-desc">{e(salon.description or '')}</p>
                     {loyalty_html}
                     <div class="salon-contacts">
-                        <span class="contact-item">{ICON_MAP_PIN} {salon.address or 'Адрес не указан'}</span>
-                        <span class="contact-item">{ICON_PHONE} {salon.phone or '—'}</span>
+                        <span class="contact-item">{ICON_MAP_PIN} {e(salon.address or 'Адрес не указан')}</span>
+                        <span class="contact-item">{ICON_PHONE} {e(salon.phone or '—')}</span>
                         <span class="contact-item">{ICON_CLOCK} {format_working_hours_summary(salon.working_hours)}</span>
                     </div>
                     {salon_map_html}
@@ -275,9 +276,9 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
         for p in promotions:
             promos_html += f"""
             <div class="promo-card">
-                <span class="promo-badge">{p.tag}</span>
-                <h3 class="promo-title">{p.title}</h3>
-                <p class="promo-desc">{p.description or ''}</p>
+                <span class="promo-badge">{e(p.tag)}</span>
+                <h3 class="promo-title">{e(p.title)}</h3>
+                <p class="promo-desc">{e(p.description or '')}</p>
             </div>
             """
         promos_html += '</div></section>'
@@ -285,7 +286,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
     # Контейнер для пошагового процесса записи
     booking_flow_html = f"""
     <section class="section-container booking-flow">
-        <div id="booking-flow-container" data-masters='{json.dumps(masters_data, ensure_ascii=False)}' data-user='{json.dumps({"id": user.id, "full_name": user.full_name, "phone": user.phone} if user else None, ensure_ascii=False)}'>
+        <div id="booking-flow-container" data-masters='{ejson(masters_data)}' data-user='{ejson({"id": user.id, "full_name": user.full_name, "phone": user.phone} if user else None)}'>
             <!-- Шаг 1: Выбор мастера -->
             <div class="booking-step" id="step-masters" style="display: {masters_display}">
                 <h2 class="step-title">Выберите мастера</h2>
@@ -461,8 +462,8 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                             {ICON_MAP_PIN}
                             <div>
                                 <p class="confirm-label">Салон</p>
-                                <p class="confirm-value">{salon.name}</p>
-                                <p class="confirm-sub">{salon.address or 'Адрес не указан'}</p>
+                                <p class="confirm-value">{e(salon.name)}</p>
+                                <p class="confirm-sub">{e(salon.address or 'Адрес не указан')}</p>
                             </div>
                         </div>
                         <div class="confirm-item">
@@ -476,7 +477,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                     <div class="confirm-user">
                         <p class="confirm-user-label">Ваши данные</p>
                         <div class="confirm-user-info">
-                            <span id="confirm-user-name">{user.full_name if user else 'Гость'}</span>
+                            <span id="confirm-user-name">{e(user.full_name if user else 'Гость')}</span>
                             <span id="confirm-user-phone">{user.phone if user else ''}</span>
                             <a href="/profile" class="confirm-edit-link">изменить</a>
                         </div>
@@ -511,12 +512,12 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                 )
                 mu_row = mu.scalar_one_or_none()
                 if mu_row:
-                    target_label += f": {mu_row.full_name}"
+                    target_label += f": {e(mu_row.full_name)}"
             elif r.target_type == ReviewTargetType.STAFF and r.staff_user_id:
                 su = await db.execute(select(User).where(User.id == r.staff_user_id))
                 su_row = su.scalar_one_or_none()
                 if su_row:
-                    target_label += f": {su_row.full_name}"
+                    target_label += f": {e(su_row.full_name)}"
 
             verified_badge = (
                 '<span class="badge-tag" style="background:#dcfce7;color:#166534" '
@@ -550,7 +551,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
             reviews_html += f"""
             <div class="review-item" data-target-type="{r.target_type.value}" data-verified="{'1' if r.is_verified else '0'}">
                 <div class="review-header">
-                    <strong class="review-author">{client_name}</strong>
+                    <strong class="review-author">{e(client_name)}</strong>
                     <span class="review-date">{date_str}</span>
                 </div>
                 <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:0.35rem 0">
@@ -558,7 +559,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                     {verified_badge}
                 </div>
                 <div class="review-stars">{stars}</div>
-                <p class="review-text">{r.comment or 'Без комментария'}</p>
+                <p class="review-text">{e(r.comment or 'Без комментария')}</p>
                 {photos_html}
             </div>
             """
@@ -607,7 +608,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{salon.name} | руми</title>
+    <title>{e(salon.name)} | руми</title>
     {get_base_styles()}
     {render_yandex_maps_script()}
 </head>

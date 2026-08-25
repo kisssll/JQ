@@ -1,4 +1,5 @@
 # app/web/pages/business/utils.py
+from app.web.components.escaping import e
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -25,7 +26,7 @@ async def get_masters_data(db: AsyncSession, salon_id: int):
         masters_rows += f"""
         <tr>
             <td>{user_name}</td>
-            <td>{m.specialization}</td>
+            <td>{e(m.specialization)}</td>
             <td>{m.experience_years} лет</td>
             <td>{svc_count}</td>
             <td>{ICON_STAR_FILLED} {m.rating}</td>
