@@ -225,3 +225,106 @@ def test_refund_does_not_touch_access_granted_outside_payments():
     target = SimpleNamespace(subscription_expires_at=None, access_until=forever)
     assert revoke_paid_period(target, months=1) == forever
     assert target.access_until == forever
+
+
+# ── Ночная сверка ────────────────────────────────────────────────────────────
+
+class _FakeKassa:
+    """Заглушка кассы: отдаёт заранее заданный статус по PaymentId."""
+
+    def __init__(self, states: dict):
+        self.states = states
+        self.asked: list[str] = []
+
+    async def get_state(self, *, payment_id: str) -> str:
+        self.asked.append(payment_id)
+        return self.states.get(payment_id, "CONFIRMED")
+
+
+def _patch_kassa(monkeypatch, states):
+    fake = _FakeKassa(states)
+    monkeypatch.setattr("app.services.tkassa.TKassaClient", lambda *a, **kw: fake)
+    return fake
+
+
+async def test_reconcile_picks_up_missed_refund(db_session, tkassa_creds, monkeypatch):
+    """Уведомление не дошло — сверка должна заметить возврат сама."""
+    from app.tasks import reconcile_refunds
+
+    async with db_session() as db:
+        salon, payment = await _salon_with_paid_month(db)
+        salon_id, pay_id = salon.id, payment.provider_transaction_id
+
+    fake = _patch_kassa(monkeypatch, {pay_id: "REFUNDED"})
+    result = await reconcile_refunds({})
+
+    assert pay_id in fake.asked
+    assert "refunded:1" in result
+    async with db_session() as db:
+        salon = await db.get(Salon, salon_id)
+        assert not has_access(salon)
+        assert salon.auto_renew is False
+        payment = (await db.execute(
+            select(Payment).where(Payment.provider_transaction_id == pay_id)
+        )).scalar_one()
+        assert payment.status == PaymentStatus.REFUNDED
+
+
+async def test_reconcile_leaves_normal_payments_alone(db_session, tkassa_creds, monkeypatch):
+    from app.tasks import reconcile_refunds
+
+    async with db_session() as db:
+        salon, payment = await _salon_with_paid_month(db)
+        salon_id, pay_id = salon.id, payment.provider_transaction_id
+        before = salon.access_until
+
+    _patch_kassa(monkeypatch, {pay_id: "CONFIRMED"})
+    result = await reconcile_refunds({})
+
+    assert "refunded:0" in result
+    async with db_session() as db:
+        assert (await db.get(Salon, salon_id)).access_until == before
+
+
+async def test_reconcile_does_not_apply_refund_twice(db_session, tkassa_creds, monkeypatch):
+    """После вебхука платёж уже REFUNDED — сверка не должна вычесть срок ещё раз."""
+    from app.tasks import reconcile_refunds
+
+    async with db_session() as db:
+        salon, payment = await _salon_with_paid_month(db)
+        salon_id, pay_id = salon.id, payment.provider_transaction_id
+
+    _patch_kassa(monkeypatch, {pay_id: "REFUNDED"})
+    await reconcile_refunds({})
+    async with db_session() as db:
+        first = (await db.get(Salon, salon_id)).access_until
+
+    await reconcile_refunds({})
+    async with db_session() as db:
+        assert (await db.get(Salon, salon_id)).access_until == first
+
+
+async def test_reconcile_escalates_partial_refund_instead_of_guessing(
+    db_session, tkassa_creds, monkeypatch,
+):
+    """GetState не говорит, сколько вернули — доступ не трогаем, зовём админов."""
+    from app.tasks import reconcile_refunds
+
+    async with db_session() as db:
+        salon, payment = await _salon_with_paid_month(db)
+        salon_id, pay_id = salon.id, payment.provider_transaction_id
+        before = salon.access_until
+
+    alerts = []
+
+    async def _capture(db, subject, body=""):
+        alerts.append(subject)
+
+    monkeypatch.setattr("app.services.notifications.notify_admins", _capture)
+    _patch_kassa(monkeypatch, {pay_id: "PARTIAL_REFUNDED"})
+    await reconcile_refunds({})
+
+    assert alerts, "админам должен уйти алерт"
+    async with db_session() as db:
+        salon = await db.get(Salon, salon_id)
+        assert salon.access_until == before  # наугад не списываем

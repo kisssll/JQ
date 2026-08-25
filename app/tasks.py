@@ -17,6 +17,12 @@ from arq.worker import Retry
 
 logger = logging.getLogger(__name__)
 
+# Сверка возвратов (см. reconcile_refunds): за какой срок назад перепроверяем
+# успешные платежи и сколько берём за один прогон. Месяца подписки с запасом
+# хватает — возврат за более старый платёж уже не отбирает живой доступ.
+RECONCILE_WINDOW_DAYS = 60
+RECONCILE_MAX_PER_RUN = 200
+
 # Задержка перед повтором = RETRY_BASE_DELAY * номер попытки (5с, 10с, 15с…)
 RETRY_BASE_DELAY = 5
 
@@ -644,6 +650,102 @@ async def charge_due_subscriptions(ctx: dict[str, Any]) -> str:
         processed, len(due_salons) + len(due_models),
     )
     return f"processed:{processed}"
+
+
+async def reconcile_refunds(ctx: dict[str, Any]) -> str:
+    """Сверка возвратов с кассой — страховка на случай, если уведомление о
+    возврате до нас не дошло (касса не прислала, вебхук лежал, приложение
+    перезапускалось). Т-Касса ретраит доставку, но полагаться в деньгах
+    только на неё нельзя: незамеченный возврат = бесплатный доступ.
+
+    Раз в сутки берём недавние успешные платежи и спрашиваем GetState. Если
+    касса говорит, что деньги вернули, применяем то же правило, что и вебхук
+    (app/services/refunds.py) — повторно оно не сработает, платёж уже будет
+    помечен REFUNDED.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import Payment, PaymentStatus
+    from app.services.refunds import REFUND_STATUSES, apply_refund
+    from app.services.tkassa import TKassaClient, TKassaError
+
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(days=RECONCILE_WINDOW_DAYS)
+
+    async with AsyncSessionLocal() as db:
+        payments = (await db.execute(
+            select(Payment).where(
+                Payment.status == PaymentStatus.SUCCEEDED,
+                Payment.provider_transaction_id.isnot(None),
+                Payment.paid_at >= since,
+            ).order_by(Payment.paid_at.desc()).limit(RECONCILE_MAX_PER_RUN)
+        )).scalars().all()
+
+        if not payments:
+            return "checked:0"
+
+        try:
+            client = TKassaClient()
+        except TKassaError as exc:
+            logger.error("reconcile_refunds: клиент недоступен: %s", exc)
+            return "rejected"
+
+        from app.api.v1.endpoints.payments import _target_for_payment
+
+        found = 0
+        for payment in payments:
+            # Один сбойный платёж не должен обрывать сверку остальных
+            try:
+                status = await client.get_state(
+                    payment_id=str(payment.provider_transaction_id),
+                )
+            except TKassaError as exc:
+                logger.warning("reconcile_refunds: GetState по платежу id=%s: %s",
+                               payment.id, exc)
+                continue
+
+            if status not in REFUND_STATUSES:
+                continue
+
+            if status == "PARTIAL_REFUNDED":
+                # GetState отдаёт только статус — сколько именно вернули, из
+                # него не узнать, а угадывать долю в деньгах нельзя. Зовём
+                # человека вместо того, чтобы списать наугад.
+                logger.error(
+                    "reconcile_refunds: частичный возврат по платежу id=%s "
+                    "(OrderId=%s) — нужна ручная проверка",
+                    payment.id, payment.invoice_id,
+                )
+                from app.services.notifications import notify_admins
+                await notify_admins(
+                    db, "Частичный возврат не применён",
+                    f"Платёж #{payment.id} (OrderId {payment.invoice_id}) возвращён "
+                    f"частично, уведомление от кассы не дошло. Сумму возврата "
+                    f"надо посмотреть в кабинете Т-Кассы и поправить доступ вручную.",
+                )
+                continue
+
+            target, kind = await _target_for_payment(db, payment)
+            if target is None:
+                continue
+
+            applied = await apply_refund(db, payment, target, kind, 1.0)
+            if applied:
+                found += 1
+                logger.warning(
+                    "reconcile_refunds: возврат замечен только сверкой "
+                    "(платёж id=%s, OrderId=%s): %s",
+                    payment.id, payment.invoice_id, applied,
+                )
+
+        await db.commit()
+
+    logger.info("reconcile_refunds: проверено %d, применено возвратов %d",
+                len(payments), found)
+    return f"checked:{len(payments)};refunded:{found}"
 
 
 async def subscription_reminders(ctx: dict[str, Any]) -> str:

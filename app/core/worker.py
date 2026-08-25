@@ -19,6 +19,7 @@ from arq.connections import ArqRedis, RedisSettings
 from app.core.config import settings
 from app.tasks import (
     charge_due_subscriptions, finalize_tkassa_verification, process_payment_webhook,
+    reconcile_refunds,
     send_booking_reminder, send_email, send_evening_deals_blast, send_max_message, send_sms, send_tg_message,
     subscription_reminders,
 )
@@ -63,6 +64,7 @@ class WorkerSettings:
         subscription_reminders,
         process_payment_webhook, send_evening_deals_blast,
         finalize_tkassa_verification, charge_due_subscriptions,
+        reconcile_refunds,
     ]
     # Ежедневная рассылка «вечерних окон со скидкой» в 18:00 по Томску (UTC+7).
     # arq считает cron по локальному времени процесса; контейнер воркера в UTC,
@@ -75,6 +77,10 @@ class WorkerSettings:
         cron(charge_due_subscriptions, hour={6}, minute={0}, run_at_startup=False),
         # Напоминания по подписке — раз в сутки, 09:00 Томск (02:00 UTC)
         cron(subscription_reminders, hour={2}, minute={0}, run_at_startup=False),
+        # Сверка возвратов с кассой — в 03:00 UTC, после напоминаний и до
+        # автосписаний: если возврат заметили сверкой, автопродление уже
+        # снято и лишнего списания в ту же ночь не будет.
+        cron(reconcile_refunds, hour={3}, minute={0}, run_at_startup=False),
     ]
     redis_settings = REDIS_SETTINGS
     on_startup = _on_startup
