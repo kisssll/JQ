@@ -329,3 +329,31 @@ def start_trial(target, trial_days: int, at: Optional[datetime] = None,
 def trial_available(target) -> bool:
     """Можно ли выдать бесплатный период (один раз на салон/модель)."""
     return getattr(target, "trial_used_at", None) is None
+
+
+# ── Возврат платежа ──────────────────────────────────────────────────────────
+
+def revoke_paid_period(target, months: int, share: float = 1.0,
+                       at: Optional[datetime] = None) -> datetime:
+    """Откатить доступ, который дал возвращённый платёж.
+
+    Деньги вернули (через банк или поддержку) — значит оплаченный период надо
+    забрать, иначе сервисом пользуются бесплатно. Вычитаем ровно тот срок,
+    который этот платёж выдал: 30 × months, для частичного возврата — его долю.
+
+    Если после отката срок уже в прошлом, доступ закрывается сразу: салон
+    уходит из каталога и перестаёт принимать новую запись (созданные брони
+    остаются, как и при обычном истечении).
+    """
+    now = _aware(at) or _now()
+    share = min(max(float(share), 0.0), 1.0)
+    days = 30 * max(1, int(months or 1)) * share
+
+    current = _aware(getattr(target, "subscription_expires_at", None)) or now
+    new_expires = current - timedelta(days=days)
+    if new_expires < now:
+        new_expires = now
+
+    target.subscription_expires_at = new_expires
+    target.access_until = new_expires
+    return new_expires

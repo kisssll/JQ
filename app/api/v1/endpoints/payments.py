@@ -46,6 +46,10 @@ MAX_PREPAY_MONTHS = 120
 
 _SUCCESS_STATUSES = {"CONFIRMED"}
 _FAILURE_STATUSES = {"REJECTED", "DEADLINE_EXPIRED", "CANCELED", "AUTH_FAIL"}
+# Возврат денег: REFUNDED — после расчёта, REVERSED — отмена до него,
+# PARTIAL_REFUNDED — частичный. Раньше эти статусы не обрабатывались вовсе:
+# клиент возвращал деньги в банке, а оплаченный период у него оставался.
+_REFUND_STATUSES = {"REFUNDED", "REVERSED", "PARTIAL_REFUNDED"}
 
 
 def _require_enabled() -> None:
@@ -634,8 +638,15 @@ async def tkassa_notify(request: Request, db: AsyncSession = Depends(get_db)):
         logger.error("tkassa/notify: платёж с OrderId=%r не найден", order_id)
         return PlainTextResponse("OK")  # подтверждаем получение — ретраи не помогут
 
-    if payment.status == PaymentStatus.SUCCEEDED and payment.provider_transaction_id == payment_id:
-        return PlainTextResponse("OK")  # повторная доставка — идемпотентно
+    # Идемпотентность — только для ПОВТОРНОГО подтверждения оплаты. Возврат
+    # приходит по тому же PaymentId уже успешного платежа, и прежняя проверка
+    # молча его проглатывала.
+    if (payment.status == PaymentStatus.SUCCEEDED
+            and payment.provider_transaction_id == payment_id
+            and status not in _REFUND_STATUSES):
+        return PlainTextResponse("OK")
+    if payment.status == PaymentStatus.REFUNDED and status in _REFUND_STATUSES:
+        return PlainTextResponse("OK")  # повтор уведомления о возврате
 
     target, kind = await _target_for_payment(db, payment)
     if target is None:
@@ -686,6 +697,51 @@ async def tkassa_notify(request: Request, db: AsyncSession = Depends(get_db)):
                 target.hidden_reason = None
 
         await db.commit()
+        return PlainTextResponse("OK")
+
+    if status in _REFUND_STATUSES:
+        from app.services.subscription import has_access, revoke_paid_period
+
+        payment.status = PaymentStatus.REFUNDED
+        payment.provider_transaction_id = payment_id
+        payment.raw_payload = payload
+
+        # Верификационный рубль возвращаем сами при привязке карты — доступ
+        # он не выдавал, откатывать нечего.
+        if payment.kind != PaymentKind.VERIFICATION:
+            share = 1.0
+            if status == "PARTIAL_REFUNDED":
+                try:
+                    refunded = Decimal(str(payload.get("Amount", 0))) / 100  # копейки
+                    paid = Decimal(str(payment.amount or 0))
+                    if 0 < refunded < paid:
+                        share = float(refunded / paid)
+                except Exception:
+                    logger.warning("tkassa/notify: не разобрали сумму частичного возврата")
+
+            until = revoke_paid_period(target, payment.months or 1, share)
+            if not has_access(target):
+                target.subscription_status = SalonSubscriptionStatus.CANCELED
+            if share >= 1.0:
+                # Деньги вернули полностью — не списываем снова в следующем месяце
+                target.auto_renew = False
+                target.recurring_token = None
+
+            try:
+                from app.services.notifications import notify_model_subscription, notify_subscription
+                text = (
+                    f"возврат платежа на {int(round(float(payment.amount or 0) * share))} ₽ — "
+                    f"доступ по тарифу теперь до {until:%d.%m.%Y}."
+                )
+                if kind == "business":
+                    await notify_subscription(db, target, text)
+                else:
+                    await notify_model_subscription(db, target, text)
+            except Exception:
+                logger.exception("tkassa/notify: уведомление о возврате не отправлено")
+
+        await db.commit()
+        logger.info("tkassa/notify: возврат по OrderId=%s (%s)", order_id, status)
         return PlainTextResponse("OK")
 
     if status in _FAILURE_STATUSES or not success:
