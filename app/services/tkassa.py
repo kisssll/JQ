@@ -67,7 +67,11 @@ class TKassaError(Exception):
 
 
 def rubles_to_kopecks(amount: Decimal) -> int:
-    return int(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP) * 100)
+    """Рубли → копейки. Округляем ПОСЛЕ перевода: прежний вариант квантовал до
+    целых рублей до умножения, из-за чего доплата за мастеров 137,50 ₽
+    списывалась как 138 ₽ (в базе при этом оставалось 137,50). С чеками это
+    ещё и ломает Init — сумма позиций обязана сходиться с суммой платежа."""
+    return int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 def _sign(fields: dict, password: str) -> str:
@@ -155,12 +159,15 @@ class TKassaClient:
         self, *, order_id: str, amount_rub: Decimal, description: str,
         notification_url: str, success_url: str, fail_url: str,
         recurrent: bool = False, customer_key: Optional[str] = None,
-        client_ip: Optional[str] = None,
+        client_ip: Optional[str] = None, receipt: Optional[dict] = None,
     ) -> InitResult:
         """Создаёт платёж и возвращает ссылку на страницу оплаты (PaymentURL) —
         клиента достаточно туда перенаправить, без всякого JS-виджета.
         recurrent=True + customer_key — регистрирует карту для будущих
-        списаний (первый платёж «родитель», RebillId придёт в уведомлении)."""
+        списаний (первый платёж «родитель», RebillId придёт в уведомлении).
+        receipt — блок фискализации (см. app/services/receipts.py); в подпись
+        Token он не входит, там участвуют только скалярные поля верхнего
+        уровня."""
         amount_kop = rubles_to_kopecks(amount_rub)
         sign_fields = {
             "OrderId": order_id, "IP": client_ip or "", "Description": description,
@@ -174,6 +181,7 @@ class TKassaClient:
             "IP": client_ip, "CustomerKey": customer_key,
             "NotificationURL": notification_url, "SuccessURL": success_url, "FailURL": fail_url,
             "Recurrent": "Y" if recurrent else None,
+            "Receipt": receipt,
         }
         data = await self._call("Init", sign_fields, body_fields)
         return InitResult(
@@ -189,11 +197,14 @@ class TKassaClient:
         data = await self._call("Charge", sign_fields, sign_fields)
         return ChargeResult(payment_id=data["PaymentId"], status=data.get("Status", ""))
 
-    async def cancel(self, *, payment_id: str, amount_rub: Optional[Decimal] = None) -> None:
+    async def cancel(self, *, payment_id: str, amount_rub: Optional[Decimal] = None,
+                     receipt: Optional[dict] = None) -> None:
         """Отмена неподтверждённого платежа или возврат подтверждённого
-        (используем для отмены верификационного 1₽ после привязки карты)."""
+        (используем для отмены верификационного 1₽ после привязки карты).
+        receipt нужен на фискализированном терминале, чтобы касса пробила
+        чек возврата."""
         sign_fields = {"PaymentId": payment_id, "IP": ""}
-        body_fields = {"PaymentId": payment_id}
+        body_fields: dict = {"PaymentId": payment_id, "Receipt": receipt}
         if amount_rub is not None:
             kop = rubles_to_kopecks(amount_rub)
             sign_fields["Amount"] = kop

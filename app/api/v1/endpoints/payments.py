@@ -30,6 +30,7 @@ from app.models.models import (
     Master, Payment, PaymentKind, PaymentStatus, Salon, SalonSubscriptionStatus,
     SubscriptionTier, User,
 )
+from app.services.receipts import subscription_receipt, verification_receipt
 from app.services.tkassa import TKassaClient, TKassaError, verify_notification
 from app.services.tariffs import (
     MODEL_TARIFF_CATALOG, TariffError, compute_amount, resolve_plan_for_employee_count,
@@ -77,10 +78,14 @@ class InitPaymentRequest(BaseModel):
     plan: str
     auto_renew: bool
     employee_count: Optional[int] = None
+    # Почта для кассового чека. Указана — сохраняем в салон и больше не
+    # спрашиваем; пусто — чек уедет SMS-кой на телефон владельца.
+    receipt_email: Optional[str] = None
 
 
 class ManualChargeRequest(BaseModel):
     salon_id: int
+    receipt_email: Optional[str] = None
     # За сколько месяцев платим вперёд. 1 — обычная помесячная оплата;
     # больше — предоплата (доступ продлевается на весь оплаченный срок).
     months: int = 1
@@ -88,6 +93,15 @@ class ManualChargeRequest(BaseModel):
 
 class CancelAutoRenewRequest(BaseModel):
     salon_id: int
+
+
+def _adopt_receipt_email(salon, value: Optional[str]) -> None:
+    """Запомнить почту, указанную на чек-ауте, — чтобы чек приходил туда и
+    дальше, а спрашивать второй раз не приходилось. Пустую строку игнорируем:
+    поле необязательное, и очищать уже сохранённый адрес она не должна."""
+    email = (value or "").strip()
+    if email and "@" in email and email != (salon.email or ""):
+        salon.email = email[:255]
 
 
 @router.post("/business/init")
@@ -154,6 +168,7 @@ async def init_business_payment(
         return {"requires_payment": False, "redirect": "/business/dashboard?trial=1"}
 
     _require_enabled()
+    _adopt_receipt_email(salon, body.receipt_email)
     payment = Payment(
         salon_id=salon.id, plan=body.plan, kind=PaymentKind.VERIFICATION,
         amount=float(VERIFICATION_AMOUNT), target_amount=float(amount),
@@ -163,6 +178,9 @@ async def init_business_payment(
     await db.flush()
 
     notification_url, success_url, fail_url = _notify_urls("business")
+    email, phone = await _receipt_contacts(db, salon, "business")
+    receipt = verification_receipt(amount_rub=VERIFICATION_AMOUNT, email=email, phone=phone)
+    payment.receipt_status = "pending" if receipt else "none"
     try:
         client = TKassaClient()
         result = await client.init(
@@ -171,6 +189,7 @@ async def init_business_payment(
             notification_url=notification_url, success_url=success_url, fail_url=fail_url,
             recurrent=True, customer_key=str(salon.id),
             client_ip=request.client.host if request.client else None,
+            receipt=receipt,
         )
     except TKassaError as exc:
         await db.rollback()
@@ -179,6 +198,29 @@ async def init_business_payment(
     payment.provider_transaction_id = result.payment_id
     await db.commit()
     return {"requires_payment": True, "payment_url": result.payment_url}
+
+
+async def _receipt_contacts(db: AsyncSession, target, kind: str) -> tuple[Optional[str], Optional[str]]:
+    """Куда касса отправит чек: почта салона → почта владельца, телефон —
+    всегда. Телефон есть у каждого (модель телефон-центрична), а почты у
+    салонов сегодня нет почти ни у кого, поэтому он и держит доставку."""
+    if kind == "business":
+        owner = None
+        if getattr(target, "creator_id", None):
+            owner = await db.get(User, target.creator_id)
+        email = (getattr(target, "email", None) or (owner.email if owner else None))
+        phone = owner.phone if owner else None
+        return email, phone
+    return getattr(target, "email", None), getattr(target, "phone", None)
+
+
+def _plan_title(plan: str, catalog=None) -> str:
+    """Человеческое имя тарифа для чека: в Description исторически уходит
+    машинный код (lite/business), а в чеке «тариф "lite"» выглядит дико."""
+    from app.services.tariffs import MODEL_TARIFF_CATALOG, TARIFF_CATALOG
+
+    tariff = (catalog or TARIFF_CATALOG).get(plan) or MODEL_TARIFF_CATALOG.get(plan)
+    return tariff.name if tariff else plan
 
 
 @router.post("/business/manual-charge")
@@ -224,6 +266,7 @@ async def manual_business_charge(
         )
 
     salon.business_tier = plan
+    _adopt_receipt_email(salon, body.receipt_email)
     # Тариф × срок предоплаты + доплата, накопленная за рост штата внутри уже
     # оплаченного месяца (register_headcount): в момент найма денег не берём,
     # они падают в следующий платёж.
@@ -231,6 +274,7 @@ async def manual_business_charge(
     # изменения штата до оплаты) иначе остался бы неоплаченным.
     from app.services.subscription import settle_proration
     pending = Decimal(str(settle_proration(salon)))
+    monthly = amount  # до умножения на срок — нужна для позиции чека
     amount = (amount * months + pending).quantize(Decimal("0.01"))
     payment = Payment(
         salon_id=salon.id, plan=plan, kind=PaymentKind.MANUAL,
@@ -240,13 +284,20 @@ async def manual_business_charge(
     await db.flush()
 
     notification_url, success_url, fail_url = _notify_urls("business")
+    email, phone = await _receipt_contacts(db, salon, "business")
+    receipt = subscription_receipt(
+        total_rub=amount, monthly_rub=monthly, months=months,
+        plan_title=_plan_title(plan), email=email, phone=phone,
+    )
+    payment.receipt_status = "pending" if receipt else "none"
     try:
         client = TKassaClient()
         result = await client.init(
             order_id=payment.invoice_id, amount_rub=amount,
-            description=f"Оплата тарифа «{salon.business_tier}» — Руми",
+            description=f"Оплата тарифа «{_plan_title(plan)}» — Руми",
             notification_url=notification_url, success_url=success_url, fail_url=fail_url,
             client_ip=request.client.host if request.client else None,
+            receipt=receipt,
         )
     except TKassaError as exc:
         await db.rollback()
@@ -374,14 +425,19 @@ async def enable_auto_renew(
     await db.flush()
 
     notification_url, success_url, fail_url = _notify_urls("business")
+    bind_email, bind_phone = await _receipt_contacts(db, salon, "business")
+    payment.receipt_status = "pending" if (bind_email or bind_phone) else "none"
     try:
         client = TKassaClient()
         result = await client.init(
             order_id=payment.invoice_id, amount_rub=VERIFICATION_AMOUNT,
-            description=f"Привязка карты — тариф «{salon.business_tier}» (Руми)",
+            description=f"Привязка карты — тариф «{_plan_title(salon.business_tier)}» (Руми)",
             notification_url=notification_url, success_url=success_url, fail_url=fail_url,
             recurrent=True, customer_key=str(salon.id),
             client_ip=request.client.host if request.client else None,
+            receipt=verification_receipt(
+                amount_rub=VERIFICATION_AMOUNT, email=bind_email, phone=bind_phone,
+            ),
         )
     except TKassaError as exc:
         await db.rollback()
@@ -511,14 +567,19 @@ async def init_model_payment(
     await db.flush()
 
     notification_url, success_url, fail_url = _notify_urls("model")
+    payment.receipt_status = "pending" if (current_user.email or current_user.phone) else "none"
     try:
         client = TKassaClient()
         result = await client.init(
             order_id=payment.invoice_id, amount_rub=VERIFICATION_AMOUNT,
-            description=f"Верификация карты — тариф «{body.plan}» (Руми)",
+            description=f"Верификация карты — тариф «{_plan_title(body.plan, MODEL_TARIFF_CATALOG)}» (Руми)",
             notification_url=notification_url, success_url=success_url, fail_url=fail_url,
             recurrent=True, customer_key=f"user:{current_user.id}",
             client_ip=request.client.host if request.client else None,
+            receipt=verification_receipt(
+                amount_rub=VERIFICATION_AMOUNT,
+                email=current_user.email, phone=current_user.phone,
+            ),
         )
     except TKassaError as exc:
         await db.rollback()
@@ -553,13 +614,19 @@ async def manual_model_charge(
     await db.flush()
 
     notification_url, success_url, fail_url = _notify_urls("model")
+    payment.receipt_status = "pending" if (current_user.email or current_user.phone) else "none"
     try:
         client = TKassaClient()
         result = await client.init(
             order_id=payment.invoice_id, amount_rub=amount,
-            description=f"Оплата тарифа «{plan}» — Руми",
+            description=f"Оплата тарифа «{_plan_title(plan, MODEL_TARIFF_CATALOG)}» — Руми",
             notification_url=notification_url, success_url=success_url, fail_url=fail_url,
             client_ip=request.client.host if request.client else None,
+            receipt=subscription_receipt(
+                total_rub=amount, monthly_rub=amount, months=1,
+                plan_title=_plan_title(plan, MODEL_TARIFF_CATALOG),
+                email=current_user.email, phone=current_user.phone,
+            ),
         )
     except TKassaError as exc:
         await db.rollback()
@@ -599,6 +666,35 @@ def _target_label(target, kind: str) -> str:
         return f"Салон «{target.name}» (id={target.id}), тариф «{target.business_tier}»"
     plan = target.subscription_tier.value if target.subscription_tier else "?"
     return f"Модель {target.full_name or target.id} (id={target.id}), тариф «{plan}»"
+
+
+async def _announce_payment(db: AsyncSession, payment: Payment, target, kind: str) -> None:
+    """Сказать владельцу, что оплата прошла. Раньше система молчала про успех
+    — при автосписании человек узнавал о деньгах только из выписки банка.
+
+    Месячная цена восстанавливается из суммы и срока: доплата за рост штата
+    (pending_proration) уже «зашита» в общую сумму платежа, и без этого
+    вычитания расшифровка врала бы.
+    """
+    from app.services.payment_notice import notify_payment_success
+
+    months = max(1, int(payment.months or 1))
+    total = Decimal(str(payment.amount or 0))
+    # Тариф на момент оплаты знает сам плательщик — сумма подписки без доплаты
+    monthly = Decimal(str(target.subscription_amount or 0))
+    if monthly <= 0 or monthly * months > total:
+        monthly = (total / months).quantize(Decimal("0.01"))
+
+    email, phone = await _receipt_contacts(db, target, kind)
+    catalog = None if kind == "business" else MODEL_TARIFF_CATALOG
+    await notify_payment_success(
+        db, target, kind,
+        plan_title=_plan_title(payment.plan or "", catalog),
+        monthly=monthly, months=months, total=total,
+        access_until=getattr(target, "access_until", None),
+        receipt_to=(email or phone) if payment.receipt_status != "none" else None,
+        salon_email=getattr(target, "email", None) if kind == "business" else None,
+    )
 
 
 @router.post("/tkassa/notify")
@@ -652,6 +748,13 @@ async def tkassa_notify(request: Request, db: AsyncSession = Depends(get_db)):
     if target is None:
         return PlainTextResponse("OK")
 
+    # Фискальные реквизиты приходят в уведомлении, когда касса пробила чек.
+    # Отдельного «чек не удался» Т-Касса не присылает, поэтому провал ловится
+    # не здесь, а ночной проверкой зависших pending (app.tasks.check_pending_receipts).
+    if any(payload.get(k) for k in ("FiscalDocumentNumber", "FiscalDocumentAttribute",
+                                    "ReceiptDatetime", "FnNumber")):
+        payment.receipt_status = "done"
+
     if success and status in _SUCCESS_STATUSES:
         payment.provider_transaction_id = payment_id
         payment.status = PaymentStatus.SUCCEEDED
@@ -695,6 +798,8 @@ async def tkassa_notify(request: Request, db: AsyncSession = Depends(get_db)):
                 # (см. app.tasks.expire_unpaid_salons) — возвращаем в каталог.
                 target.is_hidden = False
                 target.hidden_reason = None
+
+            await _announce_payment(db, payment, target, kind)
 
         await db.commit()
         return PlainTextResponse("OK")

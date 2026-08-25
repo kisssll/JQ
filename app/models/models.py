@@ -580,6 +580,15 @@ class Payment(Base):
     )
     raw_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
+    # Судьба кассового чека (54-ФЗ): none — фискализация не запрашивалась,
+    # pending — Receipt ушёл в кассу, done — чек пробит, failed — касса не
+    # смогла (кончилась смена, недоступен ОФД, кривая позиция). failed = наше
+    # нарушение, о котором иначе никто не узнает, поэтому по нему идёт алерт
+    # админам (см. app/api/v1/endpoints/payments.py).
+    receipt_status: Mapped[str] = mapped_column(
+        String(20), default="none", server_default="none", nullable=False,
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 

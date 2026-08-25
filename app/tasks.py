@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 RECONCILE_WINDOW_DAYS = 60
 RECONCILE_MAX_PER_RUN = 200
 
+# Сколько ждём фискальные реквизиты, прежде чем считать чек непробитым
+# (см. check_pending_receipts): чек пробивается за секунды, час — с запасом.
+RECEIPT_GRACE_HOURS = 1
+
 # Задержка перед повтором = RETRY_BASE_DELAY * номер попытки (5с, 10с, 15с…)
 RETRY_BASE_DELAY = 5
 
@@ -442,8 +446,23 @@ async def finalize_tkassa_verification(
         logger.error("finalize_tkassa_verification(%s): клиент недоступен: %s", payment_id, exc)
         return "rejected"
 
+    from app.db.session import AsyncSessionLocal as _Sessions
+    from app.services.receipts import verification_receipt
+
+    async with _Sessions() as db:
+        model_cls = Salon if kind == "business" else User
+        tgt = await db.get(model_cls, target_id)
+        from app.api.v1.endpoints.payments import _receipt_contacts
+        r_email, r_phone = await _receipt_contacts(db, tgt, kind) if tgt else (None, None)
+
     try:
-        await client.cancel(payment_id=provider_payment_id, amount_rub=Decimal("1.00"))
+        await client.cancel(
+            payment_id=provider_payment_id, amount_rub=Decimal("1.00"),
+            # На фискализированном терминале касса должна пробить чек возврата
+            receipt=verification_receipt(
+                amount_rub=Decimal("1.00"), email=r_email, phone=r_phone,
+            ),
+        )
     except TKassaError:
         logger.exception(
             "finalize_tkassa_verification(%s): возврат 1₽ не удался, продолжаем "
@@ -504,6 +523,7 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
             target.business_tier = plan
             # Доплата за рост штата внутри оплаченного месяца — в этот счёт
             from app.services.subscription import settle_proration
+            monthly = amount  # до доплаты — отдельной строкой в чеке
             amount = (amount + Decimal(str(settle_proration(target)))).quantize(Decimal("0.01"))
             target.subscription_amount = float(amount)
         else:
@@ -512,6 +532,7 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
                 logger.error("charge_due_subscriptions: %s %s без subscription_amount, пропуск", kind, target.id)
                 continue
             plan = target.subscription_tier.value if target.subscription_tier else ""
+            monthly = amount
 
         payment = Payment(
             plan=plan or "", kind=PaymentKind.RECURRENT, amount=float(amount),
@@ -521,11 +542,21 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
         db.add(payment)
         await db.flush()
 
+        from app.api.v1.endpoints.payments import _plan_title, _receipt_contacts
+        from app.services.receipts import subscription_receipt
+
+        plan_title = _plan_title(plan)
+        email, phone = await _receipt_contacts(db, target, kind)
+        payment.receipt_status = "pending" if (email or phone) else "none"
         try:
             init_result = await client.init(
                 order_id=payment.invoice_id, amount_rub=amount,
-                description=f"Автопродление тарифа «{plan}» — Руми",
+                description=f"Автопродление тарифа «{plan_title}» — Руми",
                 notification_url=notification_url, success_url=return_url, fail_url=return_url,
+                receipt=subscription_receipt(
+                    total_rub=amount, monthly_rub=monthly, months=1,
+                    plan_title=plan_title, email=email, phone=phone,
+                ),
             )
             payment.provider_transaction_id = init_result.payment_id
             charge_result = await client.charge(
@@ -650,6 +681,58 @@ async def charge_due_subscriptions(ctx: dict[str, Any]) -> str:
         processed, len(due_salons) + len(due_models),
     )
     return f"processed:{processed}"
+
+
+async def check_pending_receipts(ctx: dict[str, Any]) -> str:
+    """Кассовый чек пробит или нет — ночная проверка (крон).
+
+    Оплата и фискализация — разные вещи: деньги могут списаться, а чек не
+    пробиться (кончилась смена, недоступен ОФД, касса не приняла позицию).
+    Отдельного уведомления «чек не удался» Т-Касса не шлёт, поэтому смотрим
+    с другой стороны: платёж успешен давно, а фискальных реквизитов мы так и
+    не увидели. Это наше нарушение 54-ФЗ, о котором иначе никто не узнает,
+    пока не придёт проверка — поэтому зовём админов.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import Payment, PaymentStatus
+
+    now = datetime.now(timezone.utc)
+    # Час форы: чек пробивается за секунды, но уведомление может задержаться.
+    stale_before = now - timedelta(hours=RECEIPT_GRACE_HOURS)
+
+    async with AsyncSessionLocal() as db:
+        stale = (await db.execute(
+            select(Payment).where(
+                Payment.status == PaymentStatus.SUCCEEDED,
+                Payment.receipt_status == "pending",
+                Payment.paid_at.isnot(None),
+                Payment.paid_at < stale_before,
+                Payment.paid_at > now - timedelta(days=RECONCILE_WINDOW_DAYS),
+            ).order_by(Payment.paid_at.desc()).limit(RECONCILE_MAX_PER_RUN)
+        )).scalars().all()
+
+        if not stale:
+            return "stale:0"
+
+        for payment in stale:
+            payment.receipt_status = "failed"
+
+        from app.services.notifications import notify_admins
+        orders = ", ".join(str(p.invoice_id) for p in stale[:20])
+        await notify_admins(
+            db, f"Кассовый чек не пробит: {len(stale)} платеж(ей)",
+            f"По этим платежам деньги приняты, но фискальных реквизитов от кассы "
+            f"так и не пришло: {orders}. Проверьте в кабинете Т-Кассы состояние "
+            f"кассы и ОФД — по 54-ФЗ чек обязателен.",
+        )
+        await db.commit()
+
+    logger.error("check_pending_receipts: чек не пробит по %d платежам", len(stale))
+    return f"stale:{len(stale)}"
 
 
 async def reconcile_refunds(ctx: dict[str, Any]) -> str:

@@ -160,6 +160,14 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                                         <a href="/privacy" target="_blank" rel="noopener">Политике обработки персональных данных</a>.</p>
                                 </div>
                             </div>
+                            <div class="form-group" style="margin-top: 1rem;">
+                                <label class="form-label" for="receipt-email">Почта для чека</label>
+                                <input type="email" id="receipt-email" class="form-input"
+                                       placeholder="buh@salon.ru" autocomplete="email"
+                                       value="{e(getattr(user, 'email', '') or '')}">
+                                <p class="consent-note">Необязательно — пришлём туда кассовый чек.
+                                    Если не указать, чек придёт на телефон владельца.</p>
+                            </div>
                             <button class="checkout-submit" id="submit-btn">
                                 Подключить салон
                             </button>
@@ -249,6 +257,8 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                     body: JSON.stringify({{
                         salon_id: salonId, plan: plan, auto_renew: autoRenew,
                         employee_count: employeeCount,
+                        receipt_email: (document.getElementById('receipt-email')
+                            || {{}}).value || null,
                     }}),
                 }});
                 const data = await res.json().catch(() => ({{}}));
