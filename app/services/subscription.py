@@ -349,7 +349,12 @@ def revoke_paid_period(target, months: int, share: float = 1.0,
     share = min(max(float(share), 0.0), 1.0)
     days = 30 * max(1, int(months or 1)) * share
 
-    current = _aware(getattr(target, "subscription_expires_at", None)) or now
+    current = _aware(getattr(target, "subscription_expires_at", None))
+    if current is None:
+        # Оплаченного срока в базе нет — доступ выдан не этим платежом (триал,
+        # ручная выдача админом, бессрочный grandfather). Отбирать его нечем.
+        return _aware(getattr(target, "access_until", None)) or now
+
     new_expires = current - timedelta(days=days)
     if new_expires < now:
         new_expires = now

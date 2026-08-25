@@ -216,3 +216,12 @@ async def test_repeated_confirmation_still_ignored(client, db_session, tkassa_cr
     }))).status_code == 200
     async with db_session() as db:
         assert (await db.get(Salon, salon_id)).access_until == before
+
+
+def test_refund_does_not_touch_access_granted_outside_payments():
+    """Бессрочный доступ (grandfather) и ручная выдача админом живут на
+    access_until без subscription_expires_at — возврат их не отбирает."""
+    forever = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    target = SimpleNamespace(subscription_expires_at=None, access_until=forever)
+    assert revoke_paid_period(target, months=1) == forever
+    assert target.access_until == forever
