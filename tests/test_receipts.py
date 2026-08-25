@@ -388,3 +388,56 @@ async def test_fresh_payment_is_not_flagged_yet(db_session, monkeypatch):
         await db.commit()
 
     assert await check_pending_receipts({}) == "stale:0"
+
+
+async def test_fiscal_notification_after_confirmation_is_recorded(
+    client, db_session, monkeypatch,
+):
+    """Чек касса подтверждает ОТДЕЛЬНЫМ уведомлением по уже подтверждённому
+    платежу. Защита от дублей стояла выше этой проверки и глушила его —
+    отметка терялась, и ночной контроль ругался бы на каждый нормальный
+    платёж."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.core.security import get_password_hash
+    from app.models.models import (
+        Payment, PaymentKind, PaymentStatus, User, UserRole,
+    )
+    from app.services.tkassa import _sign
+
+    monkeypatch.setattr(settings, "TKASSA_ENABLED", True, raising=False)
+    monkeypatch.setattr(settings, "TKASSA_TERMINAL_KEY", "T", raising=False)
+    monkeypatch.setattr(settings, "TKASSA_PASSWORD", "P", raising=False)
+
+    async with db_session() as db:
+        payer = User(phone="+79990006789", full_name="П",
+                     hashed_password=get_password_hash("Testpass1"),
+                     role=UserRole.CLIENT, is_active=True)
+        db.add(payer)
+        await db.commit()
+        await db.refresh(payer)
+        db.add(Payment(user_id=payer.id, plan="lite", kind=PaymentKind.MANUAL,
+                       amount=750.0, invoice_id="order-fiscal-1",
+                       provider_transaction_id="pay-f1",
+                       status=PaymentStatus.SUCCEEDED, receipt_status="pending",
+                       paid_at=datetime.now(timezone.utc)))
+        await db.commit()
+
+    fields = {"TerminalKey": "T", "OrderId": "order-fiscal-1", "Success": "true",
+              "Status": "CONFIRMED", "PaymentId": "pay-f1", "ErrorCode": "",
+              "Amount": "75000", "Pan": "", "ExpDate": ""}
+    body = {"TerminalKey": "T", "OrderId": "order-fiscal-1", "Success": True,
+            "Status": "CONFIRMED", "PaymentId": "pay-f1", "Amount": 75000,
+            "FiscalDocumentNumber": 42, "ReceiptDatetime": "2026-08-25T10:00:00+03:00",
+            "Token": _sign(fields, "P")}
+
+    r = await client.post("/api/v1/payments/tkassa/notify", json=body)
+    assert r.status_code == 200
+
+    async with db_session() as db:
+        payment = (await db.execute(
+            select(Payment).where(Payment.invoice_id == "order-fiscal-1")
+        )).scalar_one()
+        assert payment.receipt_status == "done"

@@ -734,6 +734,18 @@ async def tkassa_notify(request: Request, db: AsyncSession = Depends(get_db)):
         logger.error("tkassa/notify: платёж с OrderId=%r не найден", order_id)
         return PlainTextResponse("OK")  # подтверждаем получение — ретраи не помогут
 
+    # Фискальные реквизиты приходят, когда касса пробила чек, — и приходят
+    # ОТДЕЛЬНЫМ уведомлением по уже подтверждённому платежу. Поэтому проверка
+    # стоит выше защиты от дублей: иначе отметка о чеке терялась бы, а ночной
+    # контроль (app.tasks.check_pending_receipts) ругался бы на каждый
+    # нормальный платёж. Отдельного «чек не пробит» Т-Касса не шлёт — провал
+    # виден только по тому, что этих полей так и не пришло.
+    if any(payload.get(k) for k in ("FiscalDocumentNumber", "FiscalDocumentAttribute",
+                                    "ReceiptDatetime", "FnNumber")):
+        if payment.receipt_status != "done":
+            payment.receipt_status = "done"
+            await db.commit()
+
     # Идемпотентность — только для ПОВТОРНОГО подтверждения оплаты. Возврат
     # приходит по тому же PaymentId уже успешного платежа, и прежняя проверка
     # молча его проглатывала.
@@ -747,13 +759,6 @@ async def tkassa_notify(request: Request, db: AsyncSession = Depends(get_db)):
     target, kind = await _target_for_payment(db, payment)
     if target is None:
         return PlainTextResponse("OK")
-
-    # Фискальные реквизиты приходят в уведомлении, когда касса пробила чек.
-    # Отдельного «чек не удался» Т-Касса не присылает, поэтому провал ловится
-    # не здесь, а ночной проверкой зависших pending (app.tasks.check_pending_receipts).
-    if any(payload.get(k) for k in ("FiscalDocumentNumber", "FiscalDocumentAttribute",
-                                    "ReceiptDatetime", "FnNumber")):
-        payment.receipt_status = "done"
 
     if success and status in _SUCCESS_STATUSES:
         payment.provider_transaction_id = payment_id
