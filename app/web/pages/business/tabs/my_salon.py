@@ -168,12 +168,15 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
 
 
 def _render_danger_zone(salon: Salon, can_manage_salon: bool, is_creator: bool) -> str:
-    """Блок «Опасная зона»: скрыть салон (обратимо) / удалить салон (безвозвратно, только создатель)."""
+    """Блок «Видимость и удаление»: скрыть салон (обратимо) / удалить салон (безвозвратно, только создатель)."""
     if salon.is_hidden:
         hide_hint = "Салон скрыт: его не видно в каталоге, поиске и записи. Включите обратно в любой момент."
         hide_btn = f'<button type="button" class="my-salon-btn-primary" id="salonVisibilityBtn" data-salon-id="{salon.id}" data-hidden="1">{ICON_EYE} Показать салон</button>'
     else:
-        hide_hint = "Салон скрыт не будет — он виден клиентам в каталоге, поиске и доступен для записи."
+        hide_hint = (
+            "Сейчас салон не скрыт — он виден клиентам в каталоге, поиске и доступен для записи. "
+            "Если нажмёте «Скрыть салон», он пропадёт из каталога и не будет виден пользователям в общем доступе."
+        )
         hide_btn = f'<button type="button" class="my-salon-btn-outline" id="salonVisibilityBtn" data-salon-id="{salon.id}" data-hidden="0">{ICON_EYE} Скрыть салон</button>'
 
     delete_block = ""
@@ -182,8 +185,10 @@ def _render_danger_zone(salon: Salon, can_manage_salon: bool, is_creator: bool) 
         <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--color-border)">
             <h3 style="margin:0 0 0.5rem;font-size:1rem">Удалить салон</h3>
             <p class="my-salon-card-hint">
-                Салон уйдёт из каталога и записи безвозвратно (для вас — без возможности восстановить самостоятельно).
-                Брони, отзывы и история клиентов сохранятся.
+                В таком случае салон уйдёт из каталога и записи безвозвратно (для вас — без возможности
+                восстановить самостоятельно). Брони, отзывы и история клиентов сохранятся в панели бизнеса —
+                салон можно будет отслеживать, но записаться в него или увидеть его в каталоге больше никто
+                не сможет, и вернуть салон будет нельзя.
             </p>
             <button type="button" class="my-salon-btn-outline" id="salonDeleteBtn" data-salon-id="{salon.id}"
                     style="color:#dc2626;border-color:#dc2626">
@@ -194,7 +199,7 @@ def _render_danger_zone(salon: Salon, can_manage_salon: bool, is_creator: bool) 
 
     return f"""
     <div class="my-salon-card">
-        <h2 class="my-salon-card-title">Опасная зона</h2>
+        <h2 class="my-salon-card-title">Видимость и удаление</h2>
         <h3 style="margin:0 0 0.5rem;font-size:1rem">Скрыть салон</h3>
         <p class="my-salon-card-hint" id="salonVisibilityHint">{hide_hint}</p>
         {hide_btn}
