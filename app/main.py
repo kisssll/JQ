@@ -2,12 +2,9 @@
 
 from contextlib import asynccontextmanager
 
-from geopy.distance import geodesic
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List
+from fastapi.responses import HTMLResponse, JSONResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 
@@ -17,7 +14,6 @@ from app.web.views import router as web_router
 from app.api.v1.endpoints import master as master_endpoints
 
 from fastapi.staticfiles import StaticFiles
-from app.db.session import get_db
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.middleware import SecurityHeadersMiddleware, CSRFOriginMiddleware
@@ -29,20 +25,6 @@ from app.core.observability import setup_logging, init_sentry
 setup_logging()
 init_sentry()
 
-from app.models.models import Salon, Master, User, Service, SalonModerationStatus
-
-# Публичный салон = активен И заявка одобрена (pending/rejected не показываем
-# и не даём записаться — модерация регистрации бизнеса) И опубликован владельцем
-# (published_at не NULL — одобрение само по себе больше не выводит в каталог)
-# И не скрыт владельцем.
-_PUBLIC_SALON = (
-    (Salon.is_active == True)  # noqa: E712
-    & (Salon.moderation_status == SalonModerationStatus.APPROVED)
-    & (Salon.published_at.isnot(None))
-    & (Salon.is_hidden == False)  # noqa: E712
-)
-from app.schemas.salon import SalonResponse, SalonWithDistance
-from app.schemas.master import MasterResponse, ServiceResponse
 from app.api.v1.endpoints import auth
 from app.api.v1.endpoints import guest
 from app.api.v1.endpoints import business
@@ -83,6 +65,46 @@ app = FastAPI(
 # --- Rate limiting (slowapi) ---
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# --- Необработанные исключения ---
+# Без этого пользователь на веб-странице видел голый текст "Internal Server
+# Error" без единого стиля сайта (см. жалобу: сессия долго висела открытой
+# в фоне, при возврате — токен протух, где-то в цепочке зависимостей это
+# уронило запрос необработанным исключением). HTTPException(...) сюда не
+# попадает — для него у FastAPI уже есть более специфичный дефолтный
+# handler, так что осознанные "raise HTTPException(500, ...)" в коде
+# по-прежнему отдают свой JSON как и раньше. Это именно страховка на
+# случай ПОЛНОСТЬЮ неожиданного исключения.
+import logging as _logging
+_error_logger = _logging.getLogger("app.errors")
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request, exc: Exception):
+    _error_logger.exception(
+        "Необработанное исключение: %s %s", request.method, request.url.path,
+    )
+    if settings.SENTRY_DSN:
+        import sentry_sdk
+        sentry_sdk.capture_exception(exc)
+
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(status_code=500, content={"detail": "Внутренняя ошибка сервера"})
+
+    from app.web.views import render_status_page
+    from app.web.components.icons import ICON_REFRESH
+    extra = (
+        f'<button type="button" onclick="location.reload()" class="btn-primary" '
+        f'style="margin-bottom:1.5rem;border:none;cursor:pointer">{ICON_REFRESH} Обновить страницу</button>'
+    )
+    html_content = render_status_page(
+        500, "Что-то пошло не так",
+        "Такое иногда случается — обычно помогает обновить страницу. "
+        "Если ошибка повторяется, напишите нам в поддержку.",
+        extra=extra,
+    )
+    return HTMLResponse(content=html_content, status_code=500)
 
 # --- Middleware безопасности ---
 # CORS: явный список origin'ов (FastAPI не закрывает это по умолчанию)
@@ -139,85 +161,3 @@ async def health_check():
 
 # 3. Веб-роутер (страницы) — ПОСЛЕ API
 app.include_router(web_router, include_in_schema=False)
-
-
-@app.get("/api/v1/salons", response_model=List[SalonResponse])
-async def get_salons(db: AsyncSession = Depends(get_db)):
-    """Получить список всех салонов"""
-    result = await db.execute(select(Salon).where(_PUBLIC_SALON))
-    salons = result.scalars().all()
-    return salons
-
-@app.get("/api/v1/salons/nearby", response_model=List[SalonWithDistance])
-async def get_nearby_salons(
-    lat: float,
-    lon: float,
-    radius: float = 5.0,
-    db: AsyncSession = Depends(get_db)
-):
-    """Получить салоны в радиусе N километров от указанных координат"""
-    
-    result = await db.execute(select(Salon).where(_PUBLIC_SALON))
-    salons = result.scalars().all()
-    
-    user_location = (lat, lon)
-    nearby_salons = []
-    
-    for salon in salons:
-        salon_location = (salon.latitude, salon.longitude)
-        distance = geodesic(user_location, salon_location).kilometers
-        
-        if distance <= radius:
-            salon.distance_km = round(distance, 2)
-            nearby_salons.append(salon)
-    
-    nearby_salons.sort(key=lambda s: s.distance_km)
-    return nearby_salons
-
-@app.get("/api/v1/salons/{salon_id}", response_model=SalonResponse)
-async def get_salon(salon_id: int, db: AsyncSession = Depends(get_db)):
-    """Получить информацию о конкретном салоне"""
-    result = await db.execute(select(Salon).where(Salon.id == salon_id, _PUBLIC_SALON))
-    salon = result.scalar_one_or_none()
-    if not salon:
-        raise HTTPException(status_code=404, detail="Салон не найден")
-    return salon
-
-@app.get("/api/v1/masters", response_model=List[MasterResponse])
-async def get_masters(db: AsyncSession = Depends(get_db)):
-    """Получить список всех мастеров"""
-    result = await db.execute(
-        select(Master)
-        .where(Master.is_active == True)
-        .order_by(Master.rating.desc())
-    )
-    masters = result.scalars().all()
-    
-    for master in masters:
-        user_result = await db.execute(select(User).where(User.id == master.user_id))
-        master.user = user_result.scalar_one_or_none()
-        
-        services_result = await db.execute(
-            select(Service).where(Service.master_id == master.id)
-        )
-        master.services = services_result.scalars().all()
-    
-    return masters
-
-@app.get("/api/v1/masters/{master_id}", response_model=MasterResponse)
-async def get_master(master_id: int, db: AsyncSession = Depends(get_db)):
-    """Получить информацию о конкретном мастере"""
-    result = await db.execute(select(Master).where(Master.id == master_id))
-    master = result.scalar_one_or_none()
-    if not master:
-        raise HTTPException(status_code=404, detail="Мастер не найден")
-    
-    user_result = await db.execute(select(User).where(User.id == master.user_id))
-    master.user = user_result.scalar_one_or_none()
-    
-    services_result = await db.execute(
-        select(Service).where(Service.master_id == master.id)
-    )
-    master.services = services_result.scalars().all()
-    
-    return master
