@@ -681,7 +681,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     this.classList.remove('my-salon-btn-outline');
                     this.classList.add('my-salon-btn-primary');
                 } else {
-                    hint.textContent = 'Салон скрыт не будет — он виден клиентам в каталоге, поиске и доступен для записи.';
+                    hint.textContent = 'Сейчас салон не скрыт — он виден клиентам в каталоге, поиске и доступен для записи. Если нажмёте «Скрыть салон», он пропадёт из каталога и не будет виден пользователям в общем доступе.';
                     this.innerHTML = icon + ' Скрыть салон';
                     this.classList.remove('my-salon-btn-primary');
                     this.classList.add('my-salon-btn-outline');

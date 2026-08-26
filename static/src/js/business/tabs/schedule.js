@@ -87,9 +87,16 @@ import { confirmDialog } from '../../ui-feedback.js';
             dateSpan.textContent = `${d.getDate()} ${month}`;
         }
 
-        // Обновить input date
+        // Обновить input date. Поле — .custom-date, custom-forms.js вешает на
+        // него flatpickr(altInput:true): видимый пользователю инпут — это
+        // ОТДЕЛЬНЫЙ элемент flatpickr'а, а не этот <input> (тот скрыт).
+        // datePicker.value = ... меняет только скрытый инпут напрямую, минуя
+        // flatpickr, — видимое поле остаётся пустым, будто ничего не выбрано.
         const datePicker = document.getElementById('mobileDatePicker');
-        if (datePicker) datePicker.value = dateStr;
+        if (datePicker) {
+            if (datePicker._flatpickr) datePicker._flatpickr.setDate(dateStr, false);
+            else datePicker.value = dateStr;
+        }
 
         // Обновить состояние стрелок
         const prevBtn = document.getElementById('mobilePrevDay');
