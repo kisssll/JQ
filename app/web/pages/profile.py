@@ -4,6 +4,7 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.cities import city_options_html
 from app.web.components.icons import (
     ICON_USER,
     ICON_CAMERA,
@@ -174,6 +175,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
             "password_too_short": "Пароль должен быть не менее 8 символов",
             "phone_exists": "Пользователь с таким телефоном уже зарегистрирован",
             "bad_phone": "Некорректный номер телефона",
+            "bad_city": "Выберите город из списка подсказок",
             "phone_not_verified": "Номер не подтверждён — подтвердите его в Telegram",
             "email_not_verified": "Код неверный или истёк — запросите новый",
             "otp_unavailable": "Сервис подтверждения временно недоступен, попробуйте позже",
@@ -416,7 +418,10 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
                         <form action="/api/v1/users/me/city-form" method="post">
                             <div class="settings-form-group">
                                 <label for="settings-city">Новый город</label>
-                                <input type="text" id="settings-city" name="city" value="{city_value}" placeholder="Москва">
+                                <select id="settings-city" name="city" class="custom-select city-select">
+                                    <option value="">Не указан</option>
+                                    {city_options_html(city_value)}
+                                </select>
                             </div>
                             <button type="submit" class="btn-primary settings-save-btn">Сохранить</button>
                         </form>

@@ -10,7 +10,7 @@ from app.models.models import (
 )
 from app.services.salon_chain_service import pending_requests_for_salon_ids
 from app.web.components.yandex_maps import yandex_maps_enabled
-from app.web.cities import RUSSIAN_CITIES
+from app.web.cities import city_options_html
 
 DAY_KEYS_RU = [
     ("mon", "Понедельник"), ("tue", "Вторник"), ("wed", "Среда"), ("thu", "Четверг"),
@@ -118,8 +118,8 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
                 </div>
                 <div class="salon-edit-field">
                     <label>Город</label>
-                    <select id="salonEditCityInput" class="salon-edit-input custom-select">
-                        {"".join(f'<option value="{c}"{" selected" if c == salon.city else ""}>{c}</option>' for c in RUSSIAN_CITIES)}
+                    <select id="salonEditCityInput" class="salon-edit-input custom-select city-select">
+                        {city_options_html(salon.city or "")}
                     </select>
                 </div>
                 <div class="salon-edit-field">

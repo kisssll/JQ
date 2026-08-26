@@ -57,10 +57,18 @@ class SalonQuery:
     lon: Optional[float] = None
 
 
-def parse_salon_query(request) -> SalonQuery:
+def parse_salon_query(request, default_city: str = "") -> SalonQuery:
     """Разбор query-параметров /salons в SalonQuery. Все значения — из URL
     (GET-форма), координаты — из тела на фронт-этапе; здесь тоже читаем из query,
-    если пришли."""
+    если пришли.
+
+    default_city — город из профиля пользователя (см. вызов в views.py):
+    подставляется, только если в URL параметра city вообще НЕТ (первый заход
+    на страницу, например по ссылке «Салоны» из сайдбара). Если параметр
+    присутствует — даже пустой строкой, т.е. выбрали «Все города» в фильтре —
+    он побеждает: город из профиля не навязывается, когда человек явно смотрит
+    другой город/весь каталог. Сам профиль при этом не трогаем — это разовый
+    просмотр, а не смена города пребывания."""
     qp = request.query_params
 
     def _num(name, default):
@@ -83,9 +91,11 @@ def parse_salon_query(request) -> SalonQuery:
 
     lat = qp.get("lat")
     lon = qp.get("lon")
+    city_param = qp.get("city")
+    city = default_city if city_param is None else city_param.strip()
     return SalonQuery(
         q=(qp.get("q", "") or "").strip(),
-        city=(qp.get("city", "") or "").strip(),
+        city=city,
         categories=categories,
         min_rating=_num("min_rating", 0.0),
         promo_only=qp.get("promo") == "1",
@@ -399,9 +409,15 @@ def _query_string(p: SalonQuery, **overrides) -> str:
 
 
 def _render_filter_bar(p: SalonQuery, cities: list[str]) -> str:
+    # cities — только города, где реально ЕСТЬ салоны (см. _available_cities).
+    # Текущий фильтр (p.city — свежий город из профиля или явный выбор) может
+    # в этот список не попасть, если там пока пусто: без явной подстраховки
+    # <select> тихо показал бы «Все города» вместо настоящего применённого
+    # фильтра — салонов ноль, а выглядит как будто фильтра нет вовсе.
+    all_cities = cities if (not p.city or p.city in cities) else [p.city, *cities]
     city_options = '<option value="">Все города</option>' + "".join(
         f'<option value="{html.escape(c, quote=True)}"{" selected" if c == p.city else ""}>{c}</option>'
-        for c in cities
+        for c in all_cities
     )
     # Категории — мультивыбор; в reload-режиме не сабмитим на каждую галочку,
     # владелец отмечает несколько и жмёт «Применить» (фронт-этап сделает AJAX).

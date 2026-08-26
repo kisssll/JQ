@@ -4,7 +4,7 @@ from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.yandex_maps import render_yandex_maps_script, yandex_maps_enabled
-from app.web.cities import RUSSIAN_CITIES, DEFAULT_CITY
+from app.web.cities import DEFAULT_CITY, city_options_html
 from app.web.pages.legal import LEGAL_VERSION
 
 
@@ -42,9 +42,7 @@ def render_register_salon_page(user=None, error: str = "") -> str:
         if geocoding else ""
     )
 
-    city_options = "".join(
-        f'<option value="{c}"{" selected" if c == DEFAULT_CITY else ""}>{c}</option>' for c in RUSSIAN_CITIES
-    )
+    city_options = city_options_html(DEFAULT_CITY)
 
     html = f"""<!DOCTYPE html>
 <html lang="ru">
@@ -73,7 +71,7 @@ def render_register_salon_page(user=None, error: str = "") -> str:
                     <textarea name="description" rows="3" placeholder="Опишите ваш салон, услуги, особенности..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem; resize: vertical;"></textarea>
                     
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Город *</label>
-                    <select name="city" class="custom-select" required style="margin-bottom: 1.5rem;">
+                    <select name="city" class="custom-select city-select" required style="margin-bottom: 1.5rem;">
                         {city_options}
                     </select>
 

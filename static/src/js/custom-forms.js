@@ -10,8 +10,15 @@ document.querySelectorAll('select.custom-select').forEach(el => {
     // Кладём инстанс на элемент: при программной смене значения (например,
     // сброс сортировки на /salons) нужно обновить и видимую часть — сам по
     // себе скрытый <select> её не двигает.
+    // .city-select (выбор города — салон, регистрация салона, аккаунт):
+    // список на ~1100 городов, без поиска по нему невозможно пользоваться.
+    const isCity = el.classList.contains('city-select');
     el._choices = new Choices(el, {
-        searchEnabled: false,
+        searchEnabled: isCity,
+        searchPlaceholderValue: isCity ? 'Введите название города' : undefined,
+        searchResultLimit: isCity ? 15 : undefined,
+        noResultsText: isCity ? 'Город не найден' : undefined,
+        fuseOptions: isCity ? { threshold: 0.2 } : undefined,
         itemSelectText: '',
         shouldSort: false,
         position: 'auto',
