@@ -2,19 +2,19 @@
 :root {
     --font-heading: "Playfair Display", serif;
     --font-body: "Inter", sans-serif;
-    --color-primary: #c081b8;
+    --color-primary: #F69EBC;
     --color-secondary: #f2e2ee;
     --color-background: #faf7f5;
     --color-surface: #fff;
-    --color-text: #1a1a1f;
-    --color-accent: #c081b8;
+    --color-text: #2a0e16;
+    --color-accent: #F69EBC;
     --color-surface-alt: #f4eef2;
-    --color-heading: #1a1a1f;
+    --color-heading: #2a0e16;
     --color-muted: #6b6470;
     --color-border: #ece4ea;
-    --color-accent-hover: #9e5f96;
+    --color-accent-hover: #D66A94;
     --color-accent-light: #f2e2ee;
-    --color-accent-muted: #c081b84d;
+    --color-accent-muted: #F69EBC4d;
 
     /* Основной текст — на полтона светлее заголовка. Переменная использовалась
        в 10 местах (.text-body в global.css, карточки записей, услуги, профиль,
@@ -45,6 +45,20 @@
     --page-gradient-3: #F28C6F22;
     --page-gradient-2-strong: #F8C8DC44;
     --page-gradient-3-strong: #F28C6F33;
+
+    /* Темизация Choices.js (выпадающие .custom-select) через её же
+       CSS-переменные — сама библиотека их поддерживает, но без явного
+       задания использует свои хардкод-фолбэки (например, подсвеченный при
+       наведении пункт списка был светло-серым #f2f2f2 даже в тёмной теме,
+       потому что мы задавали цвет напрямую классом, а не этой переменной,
+       и специфичность её правила оказалась выше нашего). Раз это ссылки на
+       уже тематизированные токены — отдельного блока под [data-theme="dark"]
+       не нужно, значение само пересчитается. */
+    --choices-highlighted-color: var(--color-surface-alt);
+    --choices-bg-color-dropdown: var(--color-surface);
+    --choices-bg-color: var(--color-surface);
+    --choices-text-color: var(--color-heading);
+    --choices-keyline-color: var(--color-border);
 }
 
 /* Тёмная тема: фон и поверхности — тёплый тёмный (не холодный чёрно-фиолетовый),

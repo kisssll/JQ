@@ -305,10 +305,10 @@
 .popular-salons-section {
     background: linear-gradient(
         to bottom,
-        #ffffff 0%,
+        var(--color-background) 0%,
         var(--color-surface-alt) 40%,
         var(--color-surface-alt) 60%,
-        #ffffff 100%
+        var(--color-background) 100%
     );
 }
 

@@ -96,7 +96,7 @@ def render_footer(user=None) -> str:
             </address>
             <div class="footer-meta footer-meta-flex">
                 <span>© 2026 руми. Все права защищены.</span>
-                <span>4 клика · 30 секунд · 0 звонков</span>
+                <span>30 секунд · 4 клика · 0 звонков</span>
             </div>
         </div>
     </footer>

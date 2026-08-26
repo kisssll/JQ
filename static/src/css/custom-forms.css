@@ -105,6 +105,15 @@
     display: none !important;
 }
 
+/* Поле поиска внутри открытого списка (.city-select и другие с
+   searchEnabled) — у choices.min.css оно захардкожено белым фоном/тёмным
+   текстом без учёта темы, поэтому в тёмном режиме превращалось в белое
+   пятно с текстом почти невидимым на нём. */
+.choices__input {
+    background-color: var(--color-surface-alt) !important;
+    color: var(--color-heading) !important;
+}
+
 /* ---- Стили для выбранного элемента внутри поля ---- */
 .choices__inner .choices__item {
     color: var(--color-heading) !important;
