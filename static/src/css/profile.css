@@ -737,6 +737,14 @@
     overflow: hidden;
     background: var(--color-surface);
 }
+/* overflow:hidden выше — только чтобы скруглить углы шапки-хедера при
+   ховере/закрытом состоянии. В открытом аккордеоне внутри может быть
+   выпадающий список (Choices.js у выбора города и т.п.) — он позиционируется
+   абсолютно внутри .accordion-item, и overflow:hidden его обрезал бы вместо
+   того, чтобы дать всплыть поверх соседних блоков. */
+.accordion-item.active {
+    overflow: visible;
+}
 
 .accordion-header {
     display: flex;

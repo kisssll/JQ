@@ -491,6 +491,13 @@
     color: var(--color-primary);
 }
 
+.sidebar-user .sidebar-user-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 0.1rem;
+}
+
 .sidebar-user .sidebar-username {
     font-size: 0.875rem;
     font-weight: 500;
@@ -498,6 +505,24 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.sidebar-user .sidebar-city {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--color-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-user .sidebar-city svg {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex-shrink: 0;
 }
 
 .sidebar-logout {
@@ -510,7 +535,7 @@
 
 /* components/footer.py */
 .comp-footer {
-    background: linear-gradient(135deg, #1a1315 0%, #3d2530 60%, #a8677e 100%);
+    background: linear-gradient(135deg, #33232a 0%, #3d2530 60%, #a8677e 100%);
     color: var(--color-on-dark-muted);
     position: relative;
     overflow: hidden;

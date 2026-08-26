@@ -19,9 +19,15 @@ import uuid
 from pathlib import Path
 
 from fastapi import UploadFile
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
+from pillow_heif import register_heif_opener
 
 from app.core.config import settings
+
+# Регистрирует HEIF/HEIC-декодер в Pillow (формат по умолчанию для фото с
+# iPhone) — без этого Image.open() на таком файле кидает
+# UnidentifiedImageError, хотя файл абсолютно валиден.
+register_heif_opener()
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 МБ до обработки
 JPEG_QUALITY = 85
@@ -46,7 +52,13 @@ def process_image(data: bytes, kind: str) -> bytes:
         img = Image.open(io.BytesIO(data))
         img.verify()  # структурная проверка формата
         img = Image.open(io.BytesIO(data))  # verify() портит объект — открываем заново
-        img = img.convert("RGB")  # убирает альфу/палитры/EXIF-ориентацию не трогаем
+        # Телефон часто пишет пиксели «как снял сенсор» + EXIF-тег поворота,
+        # а не поворачивает саму картинку. exif_transpose поворачивает пиксели
+        # по этому тегу — ДО convert(), который EXIF всё равно стирает вместе
+        # с остальными метаданными (так и задумано — не оставлять чужие данные
+        # в файле), иначе тег терялся и фото оставалось повёрнутым как есть.
+        img = ImageOps.exif_transpose(img)
+        img = img.convert("RGB")  # убирает альфу/палитры
     except (UnidentifiedImageError, OSError, ValueError) as e:
         raise UploadError("Файл не является изображением") from e
 

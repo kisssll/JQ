@@ -222,12 +222,17 @@ async def update_city_form(
 ):
     """Смена города через веб-форму."""
     from app.web.auth import get_current_user_from_cookie
+    from app.web.cities import RUSSIAN_CITIES
 
     user = await get_current_user_from_cookie(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
 
-    user.city = (city or "").strip() or None
+    city = (city or "").strip()
+    if city and city not in RUSSIAN_CITIES:
+        return RedirectResponse(url="/profile?error=bad_city", status_code=302)
+
+    user.city = city or None
     await db.commit()
 
     return RedirectResponse(url="/profile?success=city_updated", status_code=302)

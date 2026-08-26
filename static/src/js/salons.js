@@ -40,7 +40,11 @@ document.addEventListener('DOMContentLoaded', function () {
     function paramsFromForm() {
         const sp = new URLSearchParams();
         for (const [k, v] of new FormData(form).entries()) {
-            if (v === '' && k !== 'q') continue;
+            // city — особый случай: пустое значение здесь means «Все города»
+            // (явный выбор), а не «параметр не задан» (тогда сервер подставил
+            // бы город из профиля, см. default_city в parse_salon_query) —
+            // отбрасывать его наравне с прочими пустыми полями нельзя.
+            if (v === '' && k !== 'q' && k !== 'city') continue;
             sp.append(k, v);
         }
         const q = (searchInput ? searchInput.value : '').trim();

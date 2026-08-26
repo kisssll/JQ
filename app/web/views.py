@@ -29,6 +29,7 @@ from app.web.components.icons import (
     ICON_CLOCK,
     ICON_HOUSE,
     ICON_MONEY,
+    ICON_REFRESH,
     ICON_SCISSORS,
 )
 
@@ -50,7 +51,7 @@ async def salons_page(request: Request, db: AsyncSession = Depends(get_db)):
     ?partial=1 → только сетка карточек (для AJAX-подмены на фронт-этапе)."""
     user = await get_current_user_from_cookie(request, db)
     from app.web.pages.salons import render_salons_page, parse_salon_query
-    params = parse_salon_query(request)
+    params = parse_salon_query(request, default_city=(getattr(user, "city", "") or ""))
     partial = request.query_params.get("partial") == "1"
     page_html = await render_salons_page(db, user, params, partial)
     return HTMLResponse(content=page_html)
@@ -672,13 +673,16 @@ async def reset_password_page(request: Request):
     return HTMLResponse(content=render_reset_password_page(request))
 
 
-@router.get("/{path:path}", response_class=HTMLResponse)
-async def not_found_page(request: Request, path: str):
-    return HTMLResponse(content=f"""<!DOCTYPE html>
+def render_status_page(code: int, title: str, message: str, extra: str = "") -> str:
+    """Общий каркас для полностраничных ошибок (404, 500 — см. также
+    exception_handler(Exception) в app/main.py). Код/заголовок/текст/доп.
+    блок (кнопка, путь и т.п.) параметризованы, стиль и низ (быстрые
+    ссылки) — общие."""
+    return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Страница не найдена — руми</title>
+    <title>{title} — руми</title>
     {get_base_styles()}
     <style>
         .notfound {{
@@ -733,10 +737,10 @@ async def not_found_page(request: Request, path: str):
 </head>
 <body>
     <div class="notfound">
-        <div class="notfound-code">404</div>
-        <h1>Страница не найдена</h1>
-        <p>Такой страницы не существует. Возможно, она была удалена или вы набрали неправильный адрес.</p>
-        <div class="path">/{path}</div>
+        <div class="notfound-code">{code}</div>
+        <h1>{title}</h1>
+        <p>{message}</p>
+        {extra}
         <div class="quick-links">
             <a href="/" class="btn-primary">{ICON_HOUSE} На главную</a>
             <a href="/salons" class="btn-outline">{ICON_SCISSORS} Найти салон</a>
@@ -744,4 +748,14 @@ async def not_found_page(request: Request, path: str):
         </div>
     </div>
 </body>
-</html>""", status_code=404)
+</html>"""
+
+
+@router.get("/{path:path}", response_class=HTMLResponse)
+async def not_found_page(request: Request, path: str):
+    html_content = render_status_page(
+        404, "Страница не найдена",
+        "Такой страницы не существует. Возможно, она была удалена или вы набрали неправильный адрес.",
+        extra=f'<div class="path">/{e(path)}</div>',
+    )
+    return HTMLResponse(content=html_content, status_code=404)

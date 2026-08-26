@@ -1,4 +1,5 @@
 # app/web/components/sidebar.py
+from app.web.components.escaping import e
 from app.web.components.icons import (
     ICON_HOUSE,
     ICON_BUILDING2,
@@ -10,6 +11,7 @@ from app.web.components.icons import (
     ICON_LOGOUT,
     ICON_CALENDAR_DAYS_SIDEBAR,
     ICON_CREDIT_CARD,
+    ICON_MAP_PIN,
 )
 
 def render_sidebar(current_page: str = "home", user=None) -> str:
@@ -23,12 +25,21 @@ def render_sidebar(current_page: str = "home", user=None) -> str:
             avatar_html = f'<img src="{user.avatar_url}" alt="{name}" class="sidebar-avatar-img">'
         else:
             avatar_html = f'<span class="sidebar-avatar-placeholder">{name[0].upper()}</span>'
+        # Город пребывания — тот же, что фильтрует /salons по умолчанию (см.
+        # default_city в parse_salon_query); ссылка ведёт туда же, где меняется.
+        city = getattr(user, "city", "") or ""
+        city_html = (
+            f'<span class="sidebar-city">{ICON_MAP_PIN} {e(city)}</span>' if city else ""
+        )
         user_block = f"""
         <a class="sidebar-user" href="/profile">
             <div class="sidebar-avatar">
                 {avatar_html}
             </div>
-            <span class="sidebar-username">{name}</span>
+            <div class="sidebar-user-info">
+                <span class="sidebar-username">{name}</span>
+                {city_html}
+            </div>
         </a>
         """
     else:
