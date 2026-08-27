@@ -40,7 +40,7 @@ PERMISSION_LABELS = {
     "manage_reviews": "Отзывы",
     "view_finances": "Финансы",
     "manage_tariff": "Тариф",
-    "view_audit_log": "Лог действий",
+    "view_audit_log": "История действий",
     "manage_inventory": "Склад",
     "manage_payroll": "Зарплаты",
 }
@@ -145,7 +145,7 @@ def _render_master_card(master, user_data, can_manage_masters):
 
 
 async def render_employees_tab(db: AsyncSession, salon, masters, user, membership, perms, query_params=None) -> str:
-    """Объединённая вкладка «Сотрудники»: мастера + участники салона + лог действий."""
+    """Объединённая вкладка «Сотрудники»: мастера + участники салона + история действий."""
     
     query_params = query_params or {}
     notice = {
@@ -502,7 +502,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
 
         audit_section = f"""
         <div class="audit-section">
-            <h2>{ICON_FILE_TEXT} Лог действий</h2>
+            <h2>{ICON_FILE_TEXT} История действий</h2>
             <div class="card table-wrap">
                 <table>
                     <thead><tr><th>Когда</th><th>Действие</th><th>Детали</th></tr></thead>
@@ -523,7 +523,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
         <!-- Секция мастеров -->
         {masters_section}
 
-        <!-- Лог действий -->
+        <!-- История действий -->
         {audit_section}
 
         <!-- Модалки -->

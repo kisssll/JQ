@@ -142,21 +142,6 @@ def _next_charge_block(salon: Salon, active_masters: int) -> str:
 def _selector_html(salon: Salon, active_masters: int, editable: bool) -> str:
     suggested = resolve_plan_for_employee_count(active_masters)
     cards = _tariff_cards(salon.business_tier, suggested)
-    renewal_html = ""
-    if settings.TKASSA_ENABLED and salon.subscription_status == SalonSubscriptionStatus.NONE:
-        renewal_html = """
-        <div class="billing-renewal">
-            <label class="form-label">Продление подписки</label>
-            <label class="checkbox-label">
-                <input type="radio" name="billing-renewal-mode" value="auto" class="checkbox-input" checked>
-                <span class="checkbox-text">Автоматически каждый месяц (можно отменить в любой момент)</span>
-            </label>
-            <label class="checkbox-label">
-                <input type="radio" name="billing-renewal-mode" value="manual" class="checkbox-input">
-                <span class="checkbox-text">Буду продлевать вручную</span>
-            </label>
-        </div>"""
-
     first_time = salon.subscription_status == SalonSubscriptionStatus.NONE
     masters_note = (
         f"Сейчас у вас {active_masters} {'активный мастер' if active_masters == 1 else 'активных мастеров'} — "
@@ -176,7 +161,6 @@ def _selector_html(salon: Salon, active_masters: int, editable: bool) -> str:
             <h3 class="billing-card-title">{'Выберите тариф' if first_time else 'Тариф'}</h3>
             <p class="billing-muted">{masters_note}</p>
             <div class="billing-plan-grid">{cards}</div>
-            {renewal_html}
             <button id="billingSelectPlanBtn" class="btn-primary billing-btn" data-salon-id="{salon.id}"
                     data-active-masters="{active_masters}" data-mode="{'init' if first_time else 'change'}"
                     {'disabled' if not editable else ''}>{button_label}</button>

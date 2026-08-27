@@ -91,20 +91,6 @@ def _tariff_selector_html() -> str:
         </label>"""
         for t in MODEL_TARIFF_CATALOG.values()
     )
-    renewal_html = ""
-    if settings.TKASSA_ENABLED:
-        renewal_html = """
-        <div id="model-renewal-mode-wrap" style="margin-top:1rem">
-            <label class="form-label">Продление подписки</label>
-            <label class="checkbox-label">
-                <input type="radio" name="model-renewal-mode" value="auto" class="checkbox-input" checked>
-                <span class="checkbox-text">Автоматически каждый месяц (можно отменить в любой момент)</span>
-            </label>
-            <label class="checkbox-label">
-                <input type="radio" name="model-renewal-mode" value="manual" class="checkbox-input">
-                <span class="checkbox-text">Буду продлевать вручную</span>
-            </label>
-        </div>"""
     note = (
         "Первые 14 дней — бесплатно. Без выбранного тарифа анкета не появится в подборках у мастеров."
         if settings.TKASSA_ENABLED else
@@ -114,7 +100,6 @@ def _tariff_selector_html() -> str:
     <div class="card" style="padding:1.5rem;margin-top:1rem">
         <h3 style="margin:0 0 0.75rem">Выберите тариф</h3>
         <div class="model-tariff-grid">{cards}</div>
-        {renewal_html}
         <p class="checkout-note" style="margin-top:0.75rem">{note}</p>
     </div>"""
 
@@ -250,7 +235,6 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
         }};
 
         const isModel = {"true" if is_model else "false"};
-        const tkassaEnabled = {"true" if settings.TKASSA_ENABLED else "false"};
 
         document.getElementById('modelJoinForm').addEventListener('submit', async function(e) {{
             e.preventDefault();
@@ -272,12 +256,10 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
                 }}
                 // Первое сохранение — сразу запускаем триал/оплату выбранного тарифа.
                 const plan = document.querySelector('input[name="model-plan"]:checked').value;
-                const renewalInput = document.querySelector('input[name="model-renewal-mode"]:checked');
-                const autoRenew = tkassaEnabled && (!renewalInput || renewalInput.value === 'auto');
                 const initRes = await fetch('/api/v1/payments/model/init', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ plan: plan, auto_renew: autoRenew }}),
+                    body: JSON.stringify({{ plan: plan, auto_renew: false }}),
                 }});
                 const initData = await initRes.json().catch(() => ({{}}));
                 if (!initRes.ok) {{

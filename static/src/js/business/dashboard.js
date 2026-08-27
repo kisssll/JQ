@@ -96,8 +96,7 @@ import { confirmDialog, toastNetworkError } from '../ui-feedback.js';
                 const salonId = parseInt(this.dataset.salonId, 10);
                 const activeMasters = parseInt(this.dataset.activeMasters, 10) || null;
                 const plan = document.querySelector('input[name="billing-plan"]:checked').value;
-                const renewalInput = document.querySelector('input[name="billing-renewal-mode"]:checked');
-                const autoRenew = !!renewalInput && renewalInput.value === 'auto';
+                const autoRenew = false;
                 this.disabled = true;
 
                 // «Индивидуальный» не оплачивается самостоятельно — оставляем заявку

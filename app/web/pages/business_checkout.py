@@ -131,17 +131,6 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                                     <input type="number" id="cx-employees" min="1" max="5" placeholder="От 1 до 5" class="form-input">
                                     <p class="form-hint">Тариф «Лайт» — 250 ₽ за сотрудника/мес, это и есть ваша итоговая сумма.</p>
                                 </div>
-                                <div id="renewal-mode-wrap"{'' if settings.TKASSA_ENABLED else ' style="display:none;"'}>
-                                    <label class="form-label">Продление подписки</label>
-                                    <label class="checkbox-label">
-                                        <input type="radio" name="renewal-mode" value="auto" class="checkbox-input" checked>
-                                        <span class="checkbox-text">Автоматически каждый месяц (можно отменить в любой момент)</span>
-                                    </label>
-                                    <label class="checkbox-label">
-                                        <input type="radio" name="renewal-mode" value="manual" class="checkbox-input">
-                                        <span class="checkbox-text">Буду продлевать вручную</span>
-                                    </label>
-                                </div>
                                 <!-- Ссылки вели на 404, пока страниц документов не
                                      существовало. Плюс согласие на ПДн отделено от
                                      принятия условий: склеивать их нельзя. -->
@@ -314,8 +303,7 @@ def render_business_checkout_page(plan: str = "business", user=None) -> str:
                 }}
             }}
 
-            const renewalInput = document.querySelector('input[name="renewal-mode"]:checked');
-            const autoRenew = paymentsEnabled && (!renewalInput || renewalInput.value === 'auto');
+            const autoRenew = false;
 
             const btn = this;
             btn.disabled = true; btn.style.opacity = '0.7';
