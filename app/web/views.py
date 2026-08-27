@@ -15,7 +15,7 @@ from app.web.pages.register import render_register_page
 from app.web.pages.model_landing import render_model_landing_page
 from app.web.pages.model_join import render_model_join_page
 from app.web.pages.about import render_about_page
-from app.web.pages.legal import render_legal_page
+from app.web.pages.legal import render_legal_index, render_legal_page
 from app.web.pages.business_landing import render_business_landing_page
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
@@ -503,6 +503,13 @@ async def privacy_page(request: Request, db: AsyncSession = Depends(get_db)):
 async def consent_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     return HTMLResponse(content=render_legal_page("consent", user))
+
+
+@router.get("/legal", response_class=HTMLResponse)
+async def legal_index_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Список всех документов. Адрес назван в пп. 1.4 и 10.2 Политики ПДн."""
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_legal_index(user))
 
 
 @router.get("/offer", response_class=HTMLResponse)

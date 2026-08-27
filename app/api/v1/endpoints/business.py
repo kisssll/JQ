@@ -265,7 +265,9 @@ async def apply_business(
     ))
     # Повышаем до BUSINESS: владелец получает кабинет (с баннером «на модерации»),
     # но салон невидим публично и запись закрыта до одобрения.
-    if user.role != UserRole.BUSINESS:
+    # ADMIN не трогаем: это ПОНИЖЕНИЕ, а не повышение — модератор, заведя себе
+    # салон, молча терял доступ в админку (роль одна на пользователя).
+    if user.role not in (UserRole.BUSINESS, UserRole.ADMIN):
         user.role = UserRole.BUSINESS
     await db.commit()
 

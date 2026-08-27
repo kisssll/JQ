@@ -58,3 +58,24 @@ async def test_documents_listed_in_footer(client):
     r = await client.get("/")
     for slug in ("terms", "privacy", "consent", "offer", "license", "cookies"):
         assert f'href="/{slug}"' in r.text, slug
+
+
+async def test_legal_index_lists_every_document(client):
+    """Политика ПДн в пп. 1.4 и 10.2 называет /legal адресом своего размещения
+    — страница обязана существовать и вести на все документы."""
+    r = await client.get("/legal")
+    assert r.status_code == 200
+    for slug in DOCUMENTS:
+        assert f'href="/{slug}"' in r.text, slug
+
+
+async def test_privacy_uses_the_new_wording(client):
+    """Политику заменили на редакцию юриста — проверяем по опорным местам,
+    что на сайте лежит именно она, а не прежний текст."""
+    r = await client.get("/privacy")
+    assert r.status_code == 200
+    assert "Закон № 152-ФЗ" in r.text
+    assert "Оператор направляет в уполномоченный орган" in r.text
+    # незаполненную заглушку даты из файла юриста на сайт не тащим
+    assert "Дата публикации" not in r.text
+    assert "20__" not in r.text
