@@ -34,7 +34,7 @@ DOCUMENTS = {
     "privacy": {
         "slug": "privacy",
         "file": "privacy.html",
-        "title": "Политика обработки персональных данных",
+        "title": "Политика в отношении обработки персональных данных ООО «РУМИ»",
         "description": "Какие данные Руми собирает, зачем, как хранит и как их удалить.",
     },
     "consent": {
@@ -148,6 +148,48 @@ def render_legal_page(slug: str, user=None) -> str:
                     <p><a class="text-link" href="mailto:hello@rrumi.ru">hello@rrumi.ru</a></p>
                 </div>
             </aside>
+        </div>
+        {render_footer(user)}
+    </main>
+</body>
+</html>"""
+
+
+def render_legal_index(user=None) -> str:
+    """Единый список документов по адресу /legal.
+
+    Не украшательство: Политика обработки ПДн в пп. 1.4 и 10.2 прямо называет
+    https://rrumi.ru/legal страницей своего размещения, а такой страницы не
+    было. Проще завести её, чем править текст, согласованный юристом.
+    """
+    cards = "".join(
+        f'<li><a class="legal-nav-link" href="/{d["slug"]}">{e(d["title"])}</a>'
+        f'<span class="legal-index-desc">{e(d["description"])}</span></li>'
+        for d in DOCUMENTS.values()
+    )
+    return f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Документы | руми.</title>
+    <meta name="description" content="Нормативные документы сервиса Руми: соглашение, политики, оферты.">
+    {get_base_styles()}
+</head>
+<body>
+    {render_header("legal")}
+    {render_sidebar("legal", user)}
+
+    <main class="main-content legal-main">
+        <div class="section-container legal-container">
+            <article class="legal-doc">
+                <p class="legal-eyebrow">Документы</p>
+                <h1 class="legal-title">Нормативные документы</h1>
+                <p class="legal-version">Действующая редакция от {LEGAL_VERSION_HUMAN}</p>
+                <div class="legal-body">
+                    <ul class="legal-nav-list legal-index-list">{cards}</ul>
+                </div>
+            </article>
         </div>
         {render_footer(user)}
     </main>

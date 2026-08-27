@@ -312,3 +312,15 @@
 @media (prefers-reduced-motion: reduce) {
     .cookie-notice { animation: none; }
 }
+
+/* Список документов на /legal — адрес назван в самой Политике ПДн (пп. 1.4, 10.2) */
+.legal-index-list li {
+    margin-bottom: 1rem;
+}
+
+.legal-index-desc {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
