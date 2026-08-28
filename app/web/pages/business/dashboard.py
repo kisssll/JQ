@@ -323,7 +323,20 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     # сразу при заходе в панель (один раз за сессию, см. dashboard.js).
     moderation_banner = ""
     show_publish_gate_modal = False
-    if salon.moderation_status == SalonModerationStatus.PENDING:
+    if not salon.is_active:
+        # Мягкое удаление (владельцем из «Мой салон» либо модератором): панель
+        # продолжает работать, а салон исчезает из каталога и записи. Раньше
+        # об этом нигде не говорилось — владелец видел обычный кабинет и не
+        # понимал, почему салона нет в списке.
+        moderation_banner = (
+            '<div style="background:#fee2e2;border:1px solid #ef4444;color:#991b1b;'
+            'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
+            '<b>Салон удалён.</b> Он не отображается в каталоге и поиске, запись '
+            'клиентов закрыта. Настройки, мастера и история сохранены — чтобы '
+            'вернуть салон, напишите в поддержку: '
+            '<a href="mailto:hello@rrumi.ru" style="color:#991b1b">hello@rrumi.ru</a>.</div>'
+        )
+    elif salon.moderation_status == SalonModerationStatus.PENDING:
         moderation_banner = (
             '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;'
             'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
