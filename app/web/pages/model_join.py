@@ -2,6 +2,13 @@
 """«Стать моделью» — форма первичного включения статуса и последующего
 редактирования анкеты (идемпотентно, одна и та же страница/эндпоинт).
 
+Анкета устроена как визард «по одному вопросу за раз» (как в анкетах
+знакомств) — фото, о себе, категории услуг, затем тариф (только при первом
+заполнении). Категории — то же самое поле model_looking_for, что и раньше
+(бэкенд не менялся): чекбоксы на сабмите схлопываются в строку через запятую,
+а при редактировании уже сохранённой строки чекбоксы восстанавливаются
+эвристикой match_category_slugs (как в фильтре /salons).
+
 Первый раз (is_model=False) — форма анкеты + выбор тарифа (см.
 app.services.tariffs.MODEL_TARIFF_CATALOG, цены — как на /model#plans):
 сохранение анкеты создаёт профиль, следом сразу идёт оплата/старт триала
@@ -21,6 +28,7 @@ from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import ICON_CAMERA
+from app.web.service_categories import SERVICE_CATEGORY_GROUPS, match_category_slugs
 
 _STATUS_LABELS = {
     SalonSubscriptionStatus.NONE: ("Тариф не выбран", "var(--color-muted)"),
@@ -34,7 +42,7 @@ _STATUS_LABELS = {
 def _billing_section_html(user) -> str:
     """Статус подписки + «Оплатить»/«Отменить автопродление» — только для
     уже действующих моделей (is_model=True). Первичный выбор тарифа —
-    отдельный блок _tariff_selector_html, показывается ДО первого сохранения."""
+    отдельный шаг визарда _tariff_step_html, показывается ДО первого сохранения."""
     status = user.subscription_status
     label, color = _STATUS_LABELS.get(status, ("—", "var(--color-muted)"))
     tariff = MODEL_TARIFF_CATALOG.get(user.subscription_tier.value) if user.subscription_tier else None
@@ -79,9 +87,10 @@ def _billing_section_html(user) -> str:
     </div>"""
 
 
-def _tariff_selector_html() -> str:
-    """Выбор тарифа при первом заполнении анкеты — компактные карточки,
-    цены синхронизированы с MODEL_TARIFF_CATALOG (те же, что на /model#plans)."""
+def _tariff_step_html(step_num: int, prev_step: str) -> str:
+    """Шаг визарда «Выберите тариф» — только при первом заполнении анкеты,
+    последний шаг перед сохранением. Цены синхронизированы с
+    MODEL_TARIFF_CATALOG (те же, что на /model#plans)."""
     cards = "".join(
         f"""
         <label class="model-tariff-card" data-plan="{t.plan}">
@@ -91,16 +100,20 @@ def _tariff_selector_html() -> str:
         </label>"""
         for t in MODEL_TARIFF_CATALOG.values()
     )
-    note = (
+    hint = (
         "Первые 14 дней — бесплатно. Без выбранного тарифа анкета не появится в подборках у мастеров."
         if settings.TKASSA_ENABLED else
         "Пока тариф активируется сразу на пробный период — оплата картой скоро появится."
     )
     return f"""
-    <div class="card" style="padding:1.5rem;margin-top:1rem">
-        <h3 style="margin:0 0 0.75rem">Выберите тариф</h3>
+    <div class="mj-step" data-step="tariff" style="display:none">
+        <button type="button" class="mj-back-btn mj-back" data-to="{prev_step}">← Назад</button>
+        <div class="mj-step-h"><span class="mj-step-num">{step_num}</span><h2>Выберите тариф</h2></div>
+        <p class="mj-hint">{hint}</p>
         <div class="model-tariff-grid">{cards}</div>
-        <p class="checkout-note" style="margin-top:0.75rem">{note}</p>
+        <div class="mj-step-actions">
+            <button type="submit" class="mj-next-btn">Стать моделью</button>
+        </div>
     </div>"""
 
 
@@ -116,6 +129,7 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
     photo = getattr(user, "model_photo_url", None) or ""
     bio = getattr(user, "model_bio", "") or ""
     looking_for = getattr(user, "model_looking_for", "") or ""
+    selected_slugs = set(match_category_slugs(looking_for)) if looking_for else set()
 
     gallery_cards = "".join(
         f'<div class="model-gallery-item" data-photo-id="{p["id"]}">'
@@ -125,7 +139,22 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
         for p in (photos or [])
     )
 
-    billing_html = _billing_section_html(user) if is_model else _tariff_selector_html()
+    category_options = "".join(
+        f'<label class="category-option mj-category-option" data-slug="{slug}">'
+        f'<input type="checkbox" name="model-category" value="{slug}" data-label="{e(label)}"'
+        f'{" checked" if slug in selected_slugs else ""}> {e(label)}</label>'
+        for slug, label, _kw in SERVICE_CATEGORY_GROUPS
+    )
+
+    # Последний шаг визарда для новых моделей — тариф, для уже действующих —
+    # сами категории (тариф/статус подписки показан отдельной карточкой ниже).
+    categories_button = (
+        '<button type="button" class="mj-next-btn mj-next" data-next="tariff">Далее</button>'
+        if not is_model else
+        f'<button type="submit" class="mj-next-btn">{submit_label}</button>'
+    )
+    tariff_step_html = _tariff_step_html(4, "categories") if not is_model else ""
+    billing_html = _billing_section_html(user) if is_model else ""
 
     return f"""<!DOCTYPE html>
 <html lang="ru">
@@ -139,28 +168,52 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
     {render_header("model")}
     {render_sidebar("model", user)}
 
-    <main class="section-container-sm" style="padding-top:2rem;padding-bottom:3rem">
+    <main class="main-content" style="padding:2rem 1.5rem 3rem;max-width:760px;box-sizing:border-box">
         <h1 style="margin-bottom:0.5rem">{ICON_CAMERA} {title}</h1>
         <p class="text-muted" style="margin-bottom:1.5rem">Мастера ищут моделей, чтобы отработать технику или пополнить портфолио — вы получаете услугу со скидкой или бесплатно.</p>
         {error_html}
 
-        <form id="modelJoinForm" class="card" style="padding:1.5rem;display:flex;flex-direction:column;gap:1rem" enctype="multipart/form-data">
-            <div style="display:flex;align-items:center;gap:1rem">
-                <img id="modelJoinPreview" src="{photo or 'https://placehold.co/96x96'}" alt="" style="width:96px;height:96px;border-radius:50%;object-fit:cover">
-                <div>
-                    <label for="modelJoinPhoto" class="btn-outline" style="cursor:pointer;display:inline-block;padding:0.5rem 1rem">Загрузить фото</label>
-                    <input type="file" id="modelJoinPhoto" name="photo" accept="image/*" style="display:none">
+        <form id="modelJoinForm" class="card" style="padding:1.5rem" enctype="multipart/form-data">
+            <div class="mj-progress-label" id="mjProgressLabel"></div>
+            <div class="mj-progress-track"><div class="mj-progress-fill" id="mjProgressFill"></div></div>
+
+            <div class="mj-step" data-step="photo">
+                <div class="mj-step-h"><span class="mj-step-num">1</span><h2>Ваше фото</h2></div>
+                <p class="mj-hint">Мастера в первую очередь смотрят на фото анкеты — выберите чёткое, где хорошо видно лицо и причёску.</p>
+                <div style="display:flex;align-items:center;gap:1rem">
+                    <img id="modelJoinPreview" src="{photo or 'https://placehold.co/96x96'}" alt="" style="width:96px;height:96px;border-radius:50%;object-fit:cover">
+                    <div>
+                        <label for="modelJoinPhoto" class="btn-outline" style="cursor:pointer;display:inline-block;padding:0.5rem 1rem">Загрузить фото</label>
+                        <input type="file" id="modelJoinPhoto" name="photo" accept="image/*" style="display:none">
+                    </div>
+                </div>
+                <div class="mj-step-actions">
+                    <button type="button" class="mj-next-btn mj-next" data-next="bio">Далее</button>
                 </div>
             </div>
-            <div>
-                <label style="display:block;font-weight:500;margin-bottom:0.4rem">О себе</label>
+
+            <div class="mj-step" data-step="bio" style="display:none">
+                <button type="button" class="mj-back-btn mj-back" data-to="photo">← Назад</button>
+                <div class="mj-step-h"><span class="mj-step-num">2</span><h2>О себе</h2></div>
+                <p class="mj-hint">Расскажите про рост, особенности внешности, опыт съёмок или тестовых работ — это первое, что читают мастера.</p>
                 <textarea name="bio" rows="4" placeholder="Расскажите о себе — рост, особенности внешности, опыт..." style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">{bio}</textarea>
+                <div class="mj-step-actions">
+                    <button type="button" class="mj-next-btn mj-next" data-next="categories">Далее</button>
+                </div>
             </div>
-            <div>
-                <label style="display:block;font-weight:500;margin-bottom:0.4rem">Что вы ищете</label>
-                <textarea name="looking_for" rows="3" placeholder="Например: стрижка, окрашивание, маникюр..." style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">{looking_for}</textarea>
+
+            <div class="mj-step" data-step="categories" style="display:none">
+                <button type="button" class="mj-back-btn mj-back" data-to="bio">← Назад</button>
+                <div class="mj-step-h"><span class="mj-step-num">3</span><h2>Какие услуги вам интересны</h2></div>
+                <p class="mj-hint">Отметьте направления, в которых хотите быть моделью, — мастера чаще приглашают по совпадающим категориям.</p>
+                <div class="mj-category-grid">{category_options}</div>
+                <textarea name="looking_for" id="modelLookingFor" style="display:none">{looking_for}</textarea>
+                <div class="mj-step-actions">
+                    {categories_button}
+                </div>
             </div>
-            <button type="submit" class="btn-primary">{submit_label}</button>
+
+            {tariff_step_html}
         </form>
 
         {billing_html}
@@ -187,6 +240,44 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
         .model-tariff-name {{ font-weight:600 }}
         .model-tariff-price {{ font-size:1.1rem; font-weight:700; color:var(--color-primary) }}
         .model-tariff-period {{ font-size:0.75rem; font-weight:400; color:var(--color-muted) }}
+
+        .mj-progress-label {{ font-size:0.8rem; color:var(--color-muted); margin-bottom:0.5rem }}
+        .mj-progress-track {{ height:4px; background:var(--color-border); border-radius:2px; overflow:hidden; margin-bottom:1.5rem }}
+        .mj-progress-fill {{ height:100%; width:0; background:var(--color-primary); transition:width 0.25s ease }}
+        .mj-step-h {{ display:flex; align-items:center; gap:0.6rem; margin:0 0 0.5rem }}
+        .mj-step-num {{ width:26px; height:26px; border-radius:50%; background:var(--color-primary); color:#fff; font-size:0.8rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0 }}
+        .mj-step-h h2 {{ font-size:1.05rem; margin:0; font-weight:600 }}
+        .mj-hint {{ color:var(--color-muted); font-size:0.85rem; margin:0 0 0.9rem }}
+        .mj-back-btn {{ background:none; border:none; color:var(--color-muted, #888); cursor:pointer; padding:0; margin-bottom:0.75rem; font-size:0.85rem }}
+        .mj-back-btn:hover {{ color:var(--color-primary, #c081b8) }}
+        /* justify-content:flex-end тут нарочно НЕ используем — <main> не
+           резервирует место под фиксированный сайдбар (у него нет ширины
+           #main-content под это, position:fixed сайдбара не участвует в
+           потоке), и кнопка, прижатая к правому краю широкого контейнера,
+           на десктопе уезжает под сайдбар и перекрывается им (z-index выше).
+           Прижимаем к левому краю — там всегда видно, и на мобиле тоже. */
+        .mj-step-actions {{ display:flex; gap:0.75rem; margin-top:1.25rem }}
+        /* Явные inline-подобные значения (с фолбэком у var()) вместо общих
+           .btn-primary/.btn-outline — кнопки шагов визарда не должны зависеть
+           от того, что где-то ещё на странице переопределит эти классы. */
+        .mj-next-btn {{
+            display:inline-flex; align-items:center; justify-content:center;
+            background:linear-gradient(135deg, var(--color-primary, #c081b8), var(--color-accent-hover, #a566a0));
+            color:#fff !important; padding:10px 24px; border-radius:9999px; border:none;
+            font-weight:600; font-size:0.95rem; cursor:pointer; opacity:1; visibility:visible;
+        }}
+        .mj-next-btn:hover {{ opacity:0.92 }}
+        .mj-category-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(11rem,1fr)); gap:0.5rem }}
+        .mj-category-option {{ border:1px solid var(--color-border); border-radius:0.6rem; white-space:normal }}
+        .mj-category-option:has(input:checked) {{ border-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 8%, transparent) }}
+
+        /* На десктопе сайдбар уже даёт всю навигацию, а гамбургер из шапки
+           скрыт (>=1024px) — сама плашка с лого только перекрывает заголовок
+           анкеты (#main-header зафиксирован поверх страницы). На мобиле
+           шапку оставляем — там гамбургер единственный способ открыть меню. */
+        @media (min-width: 1024px) {{
+            #main-header {{ display: none; }}
+        }}
     </style>
 
     <script>
@@ -234,10 +325,36 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
             }}
         }};
 
+        const form = document.getElementById('modelJoinForm');
+        const steps = Array.from(form.querySelectorAll('.mj-step'));
+        const stepIds = steps.map(s => s.dataset.step);
+        const progressFill = document.getElementById('mjProgressFill');
+        const progressLabel = document.getElementById('mjProgressLabel');
+
+        function goToStep(id) {{
+            const idx = stepIds.indexOf(id);
+            if (idx === -1) return;
+            steps.forEach(s => {{ s.style.display = (s.dataset.step === id ? '' : 'none'); }});
+            progressFill.style.width = ((idx + 1) / stepIds.length * 100) + '%';
+            progressLabel.textContent = 'Шаг ' + (idx + 1) + ' из ' + stepIds.length;
+            form.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+        }}
+
+        form.querySelectorAll('.mj-next').forEach(btn => {{
+            btn.addEventListener('click', () => goToStep(btn.dataset.next));
+        }});
+        form.querySelectorAll('.mj-back').forEach(btn => {{
+            btn.addEventListener('click', () => goToStep(btn.dataset.to));
+        }});
+        goToStep(stepIds[0]);
+
         const isModel = {"true" if is_model else "false"};
 
-        document.getElementById('modelJoinForm').addEventListener('submit', async function(e) {{
+        form.addEventListener('submit', async function(e) {{
             e.preventDefault();
+            const checkedCategories = Array.from(form.querySelectorAll('input[name="model-category"]:checked'));
+            document.getElementById('modelLookingFor').value = checkedCategories.map(cb => cb.dataset.label).join(', ');
+
             const btn = e.target.querySelector('button[type="submit"]');
             btn.disabled = true;
             const formData = new FormData(e.target);

@@ -46,7 +46,7 @@ async def upsert_model_profile(
     её на повторную проверку (как и у салонов)."""
     was_model = current_user.is_model
 
-    if photo is not None:
+    if photo is not None and photo.filename:
         try:
             url = await save_image(photo, "models")
         except UploadError as e:
