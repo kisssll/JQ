@@ -17,6 +17,9 @@ from app.web.pages.model_join import render_model_join_page
 from app.web.pages.about import render_about_page
 from app.web.pages.legal import render_legal_page
 from app.web.pages.business_landing import render_business_landing_page
+from app.web.pages.business.tbank_partner import (
+    render_tbank_rko_page, render_tbank_registration_page, render_tbank_credit_page,
+)
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.styles import get_base_styles
@@ -222,6 +225,27 @@ async def business_landing_page(request: Request, db: AsyncSession = Depends(get
     """Страница «Для бизнеса» (лендинг)."""
     user = await get_current_user_from_cookie(request, db)
     return HTMLResponse(content=render_business_landing_page(user))
+
+
+@router.get("/business/tbank/rko", response_class=HTMLResponse)
+async def business_tbank_rko_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Партнёрская страница Т-Банка — расчётный счёт (РКО)."""
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_tbank_rko_page(user))
+
+
+@router.get("/business/tbank/registration", response_class=HTMLResponse)
+async def business_tbank_registration_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Партнёрская страница Т-Банка — регистрация ИП/ООО."""
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_tbank_registration_page(user))
+
+
+@router.get("/business/tbank/credit", response_class=HTMLResponse)
+async def business_tbank_credit_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Партнёрская страница Т-Банка — кредиты для бизнеса."""
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_tbank_credit_page(user))
 
 
 @router.get("/business/dashboard", response_class=HTMLResponse)

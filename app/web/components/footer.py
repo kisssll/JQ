@@ -8,6 +8,13 @@ def render_footer(user=None) -> str:
     client_links = [("Салоны", "/salons")]
     about_links = [("Манифест", "/about")]
 
+    # Партнёрские предложения Т-Банка — видны всем, независимо от роли.
+    tbank_links = [
+        ("Подключение РКО", "/business/tbank/rko"),
+        ("Регистрация бизнеса", "/business/tbank/registration"),
+        ("Кредиты для развития бизнеса", "/business/tbank/credit"),
+    ]
+
     if user is None:
         # Неавторизованный пользователь
         client_links.append(("Стать моделью", "/model"))
@@ -32,6 +39,8 @@ def render_footer(user=None) -> str:
                 business_links.append(("Панель салона", "/business/dashboard"))
 
         # Для админа доступно все
+
+    business_links = business_links + tbank_links
 
     client_items = ''.join(
         f'<li><a class="footer-link" href="{url}">{text}</a></li>'
