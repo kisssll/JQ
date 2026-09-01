@@ -251,9 +251,6 @@ def render_business_landing_page(user=None) -> str:
             </div>
         </section>
 
-        <!-- Партнёрство с Т‑Банком -->
-        {render_tbank_partner_banner()}
-
         <!-- Сравнение -->
         <section class="section-py bl-comparison">
             <div class="section-container">
@@ -372,6 +369,9 @@ def render_business_landing_page(user=None) -> str:
                 </div>
             </div>
         </section>
+
+        <!-- Партнёрство с Т‑Банком -->
+        {render_tbank_partner_banner()}
 
         <!-- Тарифы -->
         <section id="pricing" class="section-py bl-pricing">

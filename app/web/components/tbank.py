@@ -62,17 +62,27 @@ def render_tbank_partner_banner() -> str:
     Пропорции переключает <picture>: широкий креатив на телефоне ужал бы текст
     до нечитаемого, поэтому там квадратный вариант. Маркировка рекламы вшита
     в макет креатива, отдельной строки под баннером не нужно.
+
+    Ширина ограничена в CSS: во всю колонку креатив занимал 428px по высоте
+    плюс 8rem отступов секции — почти 560px под баннер посреди страницы.
     """
     return f"""
-    <section class="section-py tb-banner-section">
+    <section class="tb-banner-section">
         <div class="section-container">
             <a class="tb-banner" href="/about" aria-label="{BANNER_ALT} — подробнее">
                 <picture>
+                    <!-- width/height у каждого source обязательны: без них
+                         браузер резервирует место по атрибутам <img> (900x900)
+                         и, выбрав широкий креатив, перестраивает вёрстку —
+                         на десктопе это скачок в 244px. -->
                     <source media="(min-width: 700px)" type="image/webp"
-                            srcset="{_IMG}/partner-banner-wide.webp">
+                            srcset="{_IMG}/partner-banner-wide.webp"
+                            width="2000" height="894">
                     <source media="(min-width: 700px)"
-                            srcset="{_IMG}/partner-banner-wide.jpg">
-                    <source type="image/webp" srcset="{_IMG}/partner-banner-square.webp">
+                            srcset="{_IMG}/partner-banner-wide.jpg"
+                            width="2000" height="894">
+                    <source type="image/webp" srcset="{_IMG}/partner-banner-square.webp"
+                            width="900" height="900">
                     <img src="{_IMG}/partner-banner-square.jpg" alt="{BANNER_ALT}"
                          width="900" height="900" loading="lazy">
                 </picture>
@@ -117,3 +127,17 @@ def render_tbank_products_block() -> str:
         </div>
         <p class="tb-disclaimer">{TBANK_DISCLAIMER}{erid}</p>
     </section>"""
+
+
+def render_tbank_partner_strip() -> str:
+    """Компактная отметка о партнёрстве — только плашка, ссылкой на манифест.
+
+    Для страниц, где полноразмерный креатив был бы неуместен: занимает одну
+    строку вместо блока в пол-экрана.
+    """
+    return f"""
+    <div class="tb-strip">
+        <a class="tb-strip-link" href="/about" aria-label="{BADGE_ALT} — подробнее">
+            {render_tbank_badge()}
+        </a>
+    </div>"""

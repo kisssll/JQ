@@ -23,6 +23,7 @@ from app.web.components.icons import (
     ICON_FILE_TEXT,
 )
 from app.web.components.guide_diagrams import BOOKING_FLOW, SALON_FLOW
+from app.web.components.tbank import render_tbank_partner_strip
 from app.web.pages.legal import DOCUMENTS, LEGAL_VERSION_HUMAN
 from app.web.tariff_presentation import all_model_plans, all_plans
 
@@ -181,6 +182,8 @@ def render_tariffs_page(user=None) -> str:
                     {SALON_FLOW}
                     <div class="settings-accordion">{_accordion_html(_SITE_INSTRUCTIONS)}</div>
                 </div>
+
+                {render_tbank_partner_strip()}
             </div>
         </section>
 

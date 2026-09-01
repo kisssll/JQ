@@ -27,9 +27,20 @@
     height: auto;
 }
 
-/* ===== Баннер-креатив на лендингах ===== */
+/* ===== Баннер-креатив на лендингах =====
+   Своей секции даём умеренные отступы вместо .section-py (4rem сверху и
+   снизу): вместе с картинкой во всю колонку под баннер уходило почти 560px
+   посреди страницы. */
+.tb-banner-section {
+    padding: 2rem 0;
+}
+
+/* Ширину ограничиваем: в колонку 957px креатив разворачивался на 428px по
+   высоте и забивал соседние блоки. 26rem — заметно, но не в размер экрана. */
 .tb-banner {
     display: block;
+    max-width: 26rem;
+    margin: 0 auto;
     overflow: hidden;
     border-radius: 1.25rem;
     /* Своего фона у ссылки нет — весь вид даёт сам креатив. */
@@ -52,10 +63,40 @@
     outline-offset: 3px;
 }
 
+/* ===== Компактная отметка о партнёрстве =====
+   Только плашка статуса, без креатива: для страниц, где баннер в пол-экрана
+   был бы лишним. */
+.tb-strip {
+    display: flex;
+    justify-content: center;
+    margin: 2.5rem 0 0;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.tb-strip-link {
+    display: block;
+    border-radius: 0.85rem;
+    transition: transform 0.2s ease;
+}
+
+.tb-strip-link:hover {
+    transform: translateY(-2px);
+}
+
+.tb-strip-link:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+}
+
+.tb-strip .tb-badge img {
+    max-width: 17rem;
+}
+
 /* ===== Блок продуктов на манифесте ===== */
 .tb-products {
     margin: 3rem 0 0;
-    padding: 2rem;
+    padding: 1.75rem;
     border-radius: 1.5rem;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
@@ -64,7 +105,13 @@
 .tb-products-inner {
     display: flex;
     align-items: center;
-    gap: 2rem;
+    gap: 1.75rem;
+}
+
+/* Плашка внутри блока — того же размера, что в компактной полоске: в 22.5rem
+   она перетягивала внимание с заголовка и кнопки. */
+.tb-products .tb-badge img {
+    max-width: 17rem;
 }
 
 .tb-products-text {
@@ -175,10 +222,12 @@
 
 @media (prefers-reduced-motion: reduce) {
     .tb-banner,
+    .tb-strip-link,
     .tb-products-btn {
         transition: none;
     }
     .tb-banner:hover,
+    .tb-strip-link:hover,
     .tb-products-btn:hover {
         transform: none;
     }
