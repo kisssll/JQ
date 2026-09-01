@@ -3,6 +3,7 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.components.tbank import render_tbank_products_block
 
 
 def render_about_page(user=None) -> str:
@@ -51,6 +52,8 @@ def render_about_page(user=None) -> str:
                         <a href="/salons" class="about-btn-primary">Найти салон</a>
                     </div>
                 </div>
+
+                {render_tbank_products_block()}
             </div>
         </section>
 

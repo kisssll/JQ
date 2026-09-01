@@ -18,6 +18,7 @@ from app.web.components.icons import (
     ICON_MAP_PIN,
     ICON_STAR_FILLED,
 )
+from app.web.components.tbank import render_tbank_partner_banner
 
 
 async def render_home_page(db: AsyncSession, user=None) -> str:
@@ -173,67 +174,8 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
             </div>
         </section>
 
-        <!-- Партнёр Т‑Банк (временно скрыт) -->
-        <!--
-        <section class="section-py">
-            <div class="section-container">
-                <div class="partner-card">
-                    <div class="partner-inner">
-                        <div class="partner-left">
-                            <div class="partner-badge">Партнёр руми</div>
-                            <div class="partner-logo-wrapper">
-                                <div class="partner-logo-box">
-                                    <span class="partner-logo-letter">Т</span>
-                                </div>
-                                <div>
-                                    <p class="partner-bank-name">Т‑Банк</p>
-                                    <p class="partner-bank-desc">Эквайринг и кешбэк</p>
-                                </div>
-                            </div>
-                            <h3 class="partner-title">Оплаты, касса и кешбэк<br class="partner-br" /> — через Т‑Банк</h3>
-                            <p class="partner-desc">Для клиентов — кешбэк на услуги красоты с Т‑Картой. Для салонов — онлайн‑эквайринг, торговые терминалы и онлайн‑касса. Один партнёр, всё из коробки.</p>
-                            <div class="partner-buttons">
-                                <a href="https://www.tbank.ru" target="_blank" rel="noopener noreferrer" class="partner-btn-primary">
-                                    Оформить Т‑Карту
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-right" aria-hidden="true">
-                                        <path d="M5 12h14"></path>
-                                        <path d="m12 5 7 7-7 7"></path>
-                                    </svg>
-                                </a>
-                                <a href="https://www.tbank.ru/business/" target="_blank" rel="noopener noreferrer" class="partner-btn-secondary">Для салонов</a>
-                            </div>
-                        </div>
-                        <div class="partner-right">
-                            <div class="partner-stat-card">
-                                <div class="partner-stat-icon">
-                                    {ICON_PERCENT}
-                                </div>
-                                <div>
-                                    <p class="partner-stat-value">5%</p>
-                                    <p class="partner-stat-label">кешбэк клиентам</p>
-                                </div>
-                                <p class="partner-stat-desc">На все услуги в салонах руми при оплате Т‑Картой</p>
-                            </div>
-                            <div class="partner-stat-card">
-                                <div class="partner-stat-icon">
-                                    {ICON_STORE}
-                                </div>
-                                <div>
-                                    <p class="partner-stat-value">0 ₽</p>
-                                    <p class="partner-stat-label">подключение салона</p>
-                                </div>
-                                <p class="partner-stat-desc">Эквайринг и онлайн‑касса для салонов руми — без платы за подключение</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="partner-footer">
-                        <span>Реклама • Т‑Банк • tbank.ru</span>
-                        <span>18+</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-        -->
+        <!-- Партнёрство с Т‑Банком -->
+        {render_tbank_partner_banner()}
 
         <!-- Стать моделью -->
         <section class="section-py" id="become-model">

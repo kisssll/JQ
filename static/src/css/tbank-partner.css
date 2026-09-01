@@ -1,0 +1,273 @@
+/* static/src/css/tbank-partner.css
+   Партнёрство с Т‑Банком: баннер на лендингах, плашка статуса и блок с
+   реферальной ссылкой на манифесте (app/web/components/tbank.py).
+
+   Фирменный жёлтый Т‑Банка — не наш бренд, поэтому он задан здесь локальной
+   переменной, а не добавлен в общие токены темы: в палитре руми ему не место,
+   и он не должен случайно попасть в другие компоненты. */
+
+.tb-banner-section,
+.tb-products {
+    --tb-yellow: #ffdd2d;
+    --tb-ink: #1a1a1f;
+}
+
+/* ===== Плашка «Официальный партнёр» ===== */
+.tb-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 1rem;
+    border-radius: 0.75rem;
+    background: var(--tb-yellow, #ffdd2d);
+    color: var(--tb-ink, #1a1a1f);
+}
+
+.tb-badge-logo {
+    display: flex;
+    flex-shrink: 0;
+}
+
+.tb-logo {
+    width: 1.75rem;
+    height: 1.75rem;
+    color: var(--tb-ink, #1a1a1f);
+}
+
+.tb-badge-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.tb-badge-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.tb-badge-sub {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+/* ===== Баннер на лендингах ===== */
+.tb-banner {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.35rem 1.5rem;
+    border-radius: 1.25rem;
+    background: var(--tb-yellow, #ffdd2d);
+    color: var(--tb-ink, #1a1a1f);
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tb-banner:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(255, 221, 45, 0.35);
+}
+
+.tb-banner-logo {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.75rem;
+    background: rgba(26, 26, 31, 0.06);
+}
+
+.tb-banner-logo .tb-logo {
+    width: 2rem;
+    height: 2rem;
+}
+
+.tb-banner-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.tb-banner-title {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.tb-banner-desc {
+    font-size: 0.9rem;
+    line-height: 1.45;
+    /* Не var(--color-muted): на жёлтом фоне серый цвет темы даёт слабый
+       контраст, а сам фон в тёмную тему не переезжает. */
+    color: rgba(26, 26, 31, 0.72);
+}
+
+.tb-banner-arrow {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+
+.tb-banner-arrow svg {
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.tb-banner:hover .tb-banner-arrow {
+    transform: translateX(4px);
+}
+
+@media (max-width: 560px) {
+    .tb-banner {
+        gap: 0.9rem;
+        padding: 1.1rem;
+    }
+    .tb-banner-arrow {
+        display: none;
+    }
+    .tb-banner-title {
+        font-size: 1rem;
+    }
+}
+
+/* ===== Блок продуктов на манифесте ===== */
+.tb-products {
+    margin: 3rem 0 0;
+    padding: 2rem;
+    border-radius: 1.5rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+}
+
+.tb-products-inner {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.tb-products-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.9rem;
+    min-width: 0;
+}
+
+.tb-products-title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-heading);
+}
+
+.tb-products-desc {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--color-muted);
+    max-width: 34rem;
+}
+
+.tb-products-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.6rem;
+    border-radius: 999px;
+    background: var(--tb-yellow, #ffdd2d);
+    color: var(--tb-ink, #1a1a1f);
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tb-products-btn svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.tb-products-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(255, 221, 45, 0.4);
+}
+
+/* QR всегда на белом: код читается по контрасту, и на цветной подложке
+   камера распознаёт его хуже. */
+.tb-qr {
+    flex-shrink: 0;
+    margin: 0;
+    text-align: center;
+}
+
+.tb-qr-link {
+    display: block;
+    padding: 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background: #fff;
+}
+
+/* 61 модуль (ссылка длинная, версия QR 11). При 11.25rem на модуль
+   приходилось 3.1px — камера телефона распознаёт такой код впритык.
+   13.5rem даёт ~3.8px на модуль. */
+.tb-qr-link img {
+    display: block;
+    width: 13.5rem;
+    height: 13.5rem;
+}
+
+.tb-qr-caption {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+
+.tb-disclaimer {
+    margin: 1.5rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-muted);
+}
+
+.tb-erid {
+    margin-left: 0.35rem;
+}
+
+@media (max-width: 760px) {
+    .tb-products {
+        padding: 1.5rem;
+    }
+    .tb-products-inner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.5rem;
+    }
+    .tb-qr {
+        align-self: center;
+    }
+    .tb-products-title {
+        font-size: 1.3rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tb-banner,
+    .tb-banner-arrow,
+    .tb-products-btn {
+        transition: none;
+    }
+    .tb-banner:hover,
+    .tb-products-btn:hover {
+        transform: none;
+    }
+    .tb-banner:hover .tb-banner-arrow {
+        transform: none;
+    }
+}

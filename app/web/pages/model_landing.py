@@ -12,6 +12,7 @@ from app.web.components.icons import (
     ICON_CIRCLE_CHECK,
     ICON_ARROW_RIGHT,
 )
+from app.web.components.tbank import render_tbank_partner_banner
 
 def render_model_landing_page(user=None) -> str:
     """Страница «Стань моделью» (лендинг)."""
@@ -92,36 +93,8 @@ def render_model_landing_page(user=None) -> str:
             </div>
         </section>
 
-        <!-- Партнёр Альфа-Банк — временно скрыт -->
-        <!--
-        <section class="section-py model-partner">
-            <div class="section-container">
-                <div class="partner-horizontal">
-                    <div class="partner-horizontal-inner">
-                        <div class="partner-h-left">
-                            <div class="partner-h-logo">
-                                <span class="partner-h-letter">A</span>
-                            </div>
-                            <div>
-                                <p class="partner-h-name">Альфа-Банк</p>
-                                <span class="partner-h-label">Партнёр руми</span>
-                            </div>
-                        </div>
-                        <p class="partner-h-text">
-                            Оплачивай подписку Альфа‑Картой — <span style="color: #EE3424; font-weight: 600;">кешбэк 5%</span>
-                        </p>
-                        <a href="https://alfabank.ru" target="_blank" rel="noopener noreferrer" class="partner-h-btn">
-                            Оформить карту
-                        </a>
-                    </div>
-                    <div class="partner-h-footer">
-                        <span>Реклама • Альфа-Банк • alfabank.ru</span>
-                        <span>18+</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-        -->
+        <!-- Партнёрство с Т‑Банком -->
+        {render_tbank_partner_banner()}
 
         <!-- Тарифы -->
         <section id="plans" class="section-py model-plans">
