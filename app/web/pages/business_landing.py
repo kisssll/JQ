@@ -20,6 +20,7 @@ from app.web.components.icons import (
     ICON_STORE,
     ICON_SPARKLES,
 )
+from app.web.components.tbank import render_tbank_partner_banner
 
 
 def render_business_landing_page(user=None) -> str:
@@ -250,46 +251,6 @@ def render_business_landing_page(user=None) -> str:
             </div>
         </section>
 
-        <!-- Партнёр Т‑Банк (временно скрыт) -->
-        <!--
-        <section class="section-py bl-partner">
-            <div class="section-container">
-                <div class="bl-partner-block">
-                    <div class="bl-partner-inner">
-                        <div class="bl-partner-left">
-                            <div class="bl-partner-logo">
-                                <span class="bl-partner-letter">Т</span>
-                                <div>
-                                    <p class="bl-partner-name">Т‑Банк</p>
-                                    <p class="bl-partner-label">Официальный партнёр по эквайрингу</p>
-                                </div>
-                            </div>
-                            <h2 class="bl-partner-title">Оплаты и касса — из коробки</h2>
-                            <p class="bl-partner-desc">Онлайн-эквайринг для предоплаты записей, торговые терминалы в зале и онлайн-касса для 54-ФЗ. Один партнёр вместо трёх договоров — подключение за день, без платы за старт.</p>
-                        </div>
-                        <div class="bl-partner-right">
-                            <div class="bl-partner-item">
-                                <div class="bl-partner-item-icon">{ICON_CREDIT_CARD}</div>
-                                <p class="bl-partner-item-value">Онлайн</p>
-                                <p class="bl-partner-item-label">предоплата записей</p>
-                            </div>
-                            <div class="bl-partner-item">
-                                <div class="bl-partner-item-icon">{ICON_STORE}</div>
-                                <p class="bl-partner-item-value">Терминал</p>
-                                <p class="bl-partner-item-label">оплата в зале</p>
-                            </div>
-                            <div class="bl-partner-item">
-                                <div class="bl-partner-item-icon">{ICON_PERCENT}</div>
-                                <p class="bl-partner-item-value">5%</p>
-                                <p class="bl-partner-item-label">кешбэк клиентам</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        -->
-
         <!-- Сравнение -->
         <section class="section-py bl-comparison">
             <div class="section-container">
@@ -408,6 +369,9 @@ def render_business_landing_page(user=None) -> str:
                 </div>
             </div>
         </section>
+
+        <!-- Партнёрство с Т‑Банком -->
+        {render_tbank_partner_banner()}
 
         <!-- Тарифы -->
         <section id="pricing" class="section-py bl-pricing">

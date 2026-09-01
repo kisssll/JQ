@@ -118,6 +118,16 @@ app.add_middleware(
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CSRFOriginMiddleware)
 
+# StaticFiles определяет Content-Type через mimetypes, а тот читает базу
+# системы. В образе она беднее, чем на машине разработчика: .webp уезжал
+# клиенту как application/octet-stream. Браузеры такое обычно распознают по
+# содержимому, но полагаться на угадывание не стоит — регистрируем явно.
+import mimetypes as _mimetypes
+
+for _ext, _type in ((".webp", "image/webp"), (".avif", "image/avif"),
+                    (".svg", "image/svg+xml")):
+    _mimetypes.add_type(_type, _ext)
+
 # 1. Статические файлы — ПЕРВЫМИ!
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

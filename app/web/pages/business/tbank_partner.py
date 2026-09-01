@@ -13,8 +13,10 @@ from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import ICON_CIRCLE_CHECK, ICON_ARROW_RIGHT
 
-# TODO: подставить реальную реферальную ссылку Т-Банка, когда она будет готова.
-TBANK_LINK = "#"
+# Реферальная ссылка — одна на весь сайт (баннеры, QR, эти страницы), лежит в
+# app/web/components/tbank.py. Здесь была заглушка "#", из-за которой все
+# CTA-кнопки на страницах Т-Банка никуда не вели.
+from app.web.components.tbank import TBANK_REFERRAL_URL as TBANK_LINK
 
 TBANK_CONDITION_LINKS = {
     "rko_tariffs": ("Тарифы на обслуживание расчётного счёта в Т-Бизнесе",

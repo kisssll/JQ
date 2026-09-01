@@ -1,0 +1,233 @@
+/* static/src/css/tbank-partner.css
+   Партнёрство с Т‑Банком: баннер-креатив на лендингах, плашка статуса и блок
+   с реферальной ссылкой на манифесте (app/web/components/tbank.py).
+
+   Баннер и плашка теперь — официальные файлы Т‑Банка, поэтому здесь только их
+   размещение. Прежние стили самодельного знака (щит, заголовок, стрелка)
+   удалены вместе с ним: фирменный блок не пересобирают из букв.
+
+   Фирменный жёлтый Т‑Банка — не наш бренд, поэтому он задан локальной
+   переменной, а не добавлен в общие токены темы: в палитре руми ему не место,
+   и он не должен случайно попасть в другие компоненты. */
+
+.tb-products {
+    --tb-yellow: #ffdd2d;
+    --tb-ink: #1a1a1f;
+}
+
+/* ===== Плашка «Официальный партнёр» ===== */
+.tb-badge {
+    display: block;
+}
+
+/* Не меньше 26rem: внутри плашки фирменный щит занимает 13.5% её ширины
+   (измерено по файлу), а гайд Т‑Банка требует минимум 64px на знак — значит
+   сама плашка должна быть не уже 475px. 28rem даёт ровно 64px. Гайд также
+   запрещает мелкий шрифт: в узкой плашке подпись становилась нечитаемой. */
+.tb-badge img {
+    display: block;
+    width: 100%;
+    max-width: 28rem;
+    height: auto;
+}
+
+/* ===== Баннер-креатив на лендингах =====
+   Своей секции даём умеренные отступы вместо .section-py (4rem сверху и
+   снизу): вместе с картинкой во всю колонку под баннер уходило почти 560px
+   посреди страницы. */
+.tb-banner-section {
+    padding: 2rem 0;
+}
+
+/* Во всю ширину блока: гайд Т‑Банка для партнёров требует «крупный баннер»
+   и запрещает мелкий шрифт на изображениях — сжатый креатив делал подписи и
+   обязательный дисклеймер нечитаемыми. Лишним было место ВОКРУГ баннера,
+   его и убрали отступами секции выше. */
+.tb-banner {
+    display: block;
+    overflow: hidden;
+    border-radius: 1.25rem;
+    /* Своего фона у ссылки нет — весь вид даёт сам креатив. */
+    transition: transform 0.2s ease;
+}
+
+.tb-banner img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+/* Только подъём, без тени: гайд Т‑Банка запрещает применять к фирменному
+   знаку эффекты — шэйдинг, свечение, градиент, — а знак есть на креативе. */
+.tb-banner:hover {
+    transform: translateY(-2px);
+}
+
+.tb-banner:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+}
+
+/* ===== Компактная отметка о партнёрстве =====
+   Только плашка статуса, без креатива: для страниц, где баннер в пол-экрана
+   был бы лишним. */
+.tb-strip {
+    display: flex;
+    justify-content: center;
+    margin: 2.5rem 0 0;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.tb-strip-link {
+    display: block;
+    border-radius: 0.85rem;
+    transition: transform 0.2s ease;
+}
+
+.tb-strip-link:hover {
+    transform: translateY(-2px);
+}
+
+.tb-strip-link:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+}
+
+
+/* ===== Блок продуктов на манифесте ===== */
+.tb-products {
+    margin: 3rem 0 0;
+    padding: 1.75rem;
+    border-radius: 1.5rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+}
+
+.tb-products-inner {
+    display: flex;
+    align-items: center;
+    gap: 1.75rem;
+}
+
+
+.tb-products-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.tb-products-title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-heading);
+}
+
+.tb-products-desc {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--color-muted);
+    max-width: 34rem;
+}
+
+.tb-products-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.6rem;
+    border-radius: 999px;
+    background: var(--tb-yellow, #ffdd2d);
+    color: var(--tb-ink, #1a1a1f);
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tb-products-btn svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.tb-products-btn:hover {
+    transform: translateY(-1px);
+    /* Нейтральная тень, а не жёлтое свечение: свечение вокруг фирменного
+       цвета читается как эффект на бренде, а гайд их запрещает. */
+    box-shadow: 0 6px 16px rgba(26, 26, 31, 0.12);
+}
+
+/* QR всегда на белом: код читается по контрасту, и на цветной подложке
+   камера распознаёт его хуже. */
+.tb-qr {
+    flex-shrink: 0;
+    margin: 0;
+    text-align: center;
+}
+
+.tb-qr-link {
+    display: block;
+    padding: 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background: #fff;
+}
+
+/* 61 модуль (ссылка длинная). При 11.25rem на модуль приходилось 3.1px —
+   камера телефона распознаёт такой код впритык. 13.5rem даёт ~3.8px. */
+.tb-qr-link img {
+    display: block;
+    width: 13.5rem;
+    height: 13.5rem;
+}
+
+.tb-qr-caption {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+
+.tb-disclaimer {
+    margin: 1.5rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-muted);
+}
+
+.tb-erid {
+    margin-left: 0.35rem;
+}
+
+@media (max-width: 760px) {
+    .tb-products {
+        padding: 1.5rem;
+    }
+    .tb-products-inner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.5rem;
+    }
+    .tb-qr {
+        align-self: center;
+    }
+    .tb-products-title {
+        font-size: 1.3rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tb-banner,
+    .tb-strip-link,
+    .tb-products-btn {
+        transition: none;
+    }
+    .tb-banner:hover,
+    .tb-strip-link:hover,
+    .tb-products-btn:hover {
+        transform: none;
+    }
+}
