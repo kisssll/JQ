@@ -5,8 +5,6 @@
 Всё, что касается партнёрства, собрано здесь одним модулем: реферальная
 ссылка встречается на нескольких страницах, и держать её копиями в разметке
 опасно — при смене agentId переходы молча перестанут засчитываться.
-
-Логотип — временная отрисовка, см. TBANK_LOGO ниже.
 """
 
 from app.web.components.icons import ICON_ARROW_RIGHT
@@ -22,78 +20,62 @@ TBANK_REFERRAL_URL = (
 )
 
 # Обязательная маркировка рекламы: реквизиты рекламодателя из материалов
-# Т‑Банка для партнёров. Токен erid сюда не входит — его выдаёт рекламная
-# система, и без него интернет-реклама не размечена по ст. 18.1 ФЗ «О
-# рекламе». Если Т‑Банк его пришлёт, добавить в TBANK_ERID ниже.
+# Т‑Банка. Нужна только под блоком продуктов — в баннерах-креативах она уже
+# вшита в сам макет. Токен erid сюда не входит: его выдаёт рекламная система,
+# и без него интернет-реклама не размечена по ст. 18.1 ФЗ «О рекламе».
 TBANK_DISCLAIMER = "Подробнее на tbank.ru. АО «ТБанк», лицензия № 2673. Реклама."
 TBANK_ERID = ""
 
-# ВРЕМЕННАЯ ОТРИСОВКА ЛОГОТИПА.
-# Официальные исходники лежат в Figma «Материалы для партнёров». Забрать их
-# оттуда нельзя: анонимному зрителю Figma даёт только смотреть и двигать
-# холст, а выделение слоя (без него нет ни инспектора, ни экспорта) требует
-# регистрации; сам холст рисуется на WebGL, файлов в разметке страницы нет.
-# Поэтому щит нарисован по снимку официальной плашки: белый щит с тёмной «Т»,
-# скруглённый верх, низ сходится в острие. Когда придёт экспорт из Figma —
-# заменить содержимое этой константы, больше нигде править не нужно.
-TBANK_SHIELD_WHITE = "#ffffff"
-TBANK_LETTER_DARK = "#2b2b2b"
-
-TBANK_LOGO = (
-    '<svg class="tb-logo" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg" '
-    'aria-hidden="true" focusable="false">'
-    # Щит: прямые бока, скруглённая верхняя кромка, острие снизу по центру.
-    f'<path fill="{TBANK_SHIELD_WHITE}" '
-    'd="M2,0 H24 A2,2 0 0 1 26,2 V19.6 L13,26 L0,19.6 V2 A2,2 0 0 1 2,0 Z"/>'
-    # «Т» с лёгким расширением ножки книзу — как в фирменном знаке.
-    f'<path fill="{TBANK_LETTER_DARK}" '
-    'd="M6.2,6 H19.8 V10.4 H15 V16.6 L15.5,17.5 H10.5 L11,16.6 V10.4 H6.2 Z"/>'
-    "</svg>"
-)
-
-_YELLOW_BADGE_TEXT = "Официальный партнёр"
-_YELLOW_BADGE_SUB = "Т‑Банк | Бизнес"
+# Официальные материалы Т‑Банка лежат в static/images/tbank. Исходники —
+# PNG на 1–2 МБ каждый; браузеру отдаём сжатые производные (WebP + запасной
+# JPEG/PNG), они и хранятся в репозитории. Сами исходники не коммитим: они
+# тяжелее лимита pre-commit-хука и на сайте не нужны, см. .gitignore.
+#
+# Раньше щит и плашка были нарисованы мной вручную — фирменный блок так не
+# собирают, теперь стоят официальные файлы.
+_IMG = "/static/images/tbank"
+BADGE_ALT = "Официальный партнёр Т‑Банк | Бизнес"
+BANNER_ALT = "Официальный партнёр Т‑Банка"
 
 
 def render_tbank_badge() -> str:
-    """Жёлтая плашка «Официальный партнёр Т‑Банк | Бизнес».
+    """Плашка «Официальный партнёр Т‑Банк | Бизнес».
 
-    Это статус, а не реклама: она ничего не предлагает и никуда не ведёт,
+    Это статус, а не реклама: плашка ничего не предлагает и никуда не ведёт,
     поэтому маркировки рекламы при ней нет.
     """
     return (
-        '<div class="tb-badge">'
-        f'<span class="tb-badge-logo">{TBANK_LOGO}</span>'
-        '<span class="tb-badge-text">'
-        f'<span class="tb-badge-title">{_YELLOW_BADGE_TEXT}</span>'
-        f'<span class="tb-badge-sub">{_YELLOW_BADGE_SUB}</span>'
-        "</span>"
-        "</div>"
+        '<picture class="tb-badge">'
+        f'<source type="image/webp" srcset="{_IMG}/partner-badge.webp">'
+        f'<img src="{_IMG}/partner-badge.png" alt="{BADGE_ALT}" '
+        'width="360" height="110" loading="lazy">'
+        "</picture>"
     )
 
 
-# Подпись под заголовком баннера зависит от того, кто читает страницу:
-# на лендинге моделей «касса для салона» адресована не тем людям.
-BANNER_DESC_DEFAULT = "Продукты Т‑Банка для бизнеса — на условиях партнёра."
-BANNER_DESC_SALON = "Расчётный счёт, эквайринг и касса для салона — на условиях партнёра."
-
-
-def render_tbank_partner_banner(desc: str = BANNER_DESC_DEFAULT) -> str:
-    """Баннер «Мы стали партнёрами Т‑Банка» со ссылкой на манифест.
+def render_tbank_partner_banner() -> str:
+    """Баннер-креатив Т‑Банка со ссылкой на манифест.
 
     Ведёт внутрь сайта, а не в банк: подробности и сама реферальная ссылка
     живут на манифесте, чтобы не повторять их на каждой странице.
+
+    Пропорции переключает <picture>: широкий креатив на телефоне ужал бы текст
+    до нечитаемого, поэтому там квадратный вариант. Маркировка рекламы вшита
+    в макет креатива, отдельной строки под баннером не нужно.
     """
     return f"""
     <section class="section-py tb-banner-section">
         <div class="section-container">
-            <a class="tb-banner" href="/about">
-                <span class="tb-banner-logo">{TBANK_LOGO}</span>
-                <span class="tb-banner-body">
-                    <span class="tb-banner-title">Мы стали партнёрами Т‑Банка</span>
-                    <span class="tb-banner-desc">{desc}</span>
-                </span>
-                <span class="tb-banner-arrow">{ICON_ARROW_RIGHT}</span>
+            <a class="tb-banner" href="/about" aria-label="{BANNER_ALT} — подробнее">
+                <picture>
+                    <source media="(min-width: 700px)" type="image/webp"
+                            srcset="{_IMG}/partner-banner-wide.webp">
+                    <source media="(min-width: 700px)"
+                            srcset="{_IMG}/partner-banner-wide.jpg">
+                    <source type="image/webp" srcset="{_IMG}/partner-banner-square.webp">
+                    <img src="{_IMG}/partner-banner-square.jpg" alt="{BANNER_ALT}"
+                         width="900" height="900" loading="lazy">
+                </picture>
             </a>
         </div>
     </section>"""
@@ -102,8 +84,9 @@ def render_tbank_partner_banner(desc: str = BANNER_DESC_DEFAULT) -> str:
 def render_tbank_products_block() -> str:
     """Блок на манифесте: кнопка и QR — оба ведут по реферальной ссылке.
 
-    QR лежит отдельным файлом (static/images/tbank-qr.svg) и сгенерирован из
-    той же TBANK_REFERRAL_URL, см. комментарий в модуле.
+    QR собран из той же TBANK_REFERRAL_URL. По содержимому он совпадает с
+    кодом, который выдал Т‑Банк (проверено декодированием его файла), но у
+    нас вектор — он не мылится ни на каком экране.
     """
     erid = f'<span class="tb-erid">{TBANK_ERID}</span>' if TBANK_ERID else ""
     return f"""

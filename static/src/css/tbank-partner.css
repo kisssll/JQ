@@ -1,135 +1,55 @@
 /* static/src/css/tbank-partner.css
-   Партнёрство с Т‑Банком: баннер на лендингах, плашка статуса и блок с
-   реферальной ссылкой на манифесте (app/web/components/tbank.py).
+   Партнёрство с Т‑Банком: баннер-креатив на лендингах, плашка статуса и блок
+   с реферальной ссылкой на манифесте (app/web/components/tbank.py).
 
-   Фирменный жёлтый Т‑Банка — не наш бренд, поэтому он задан здесь локальной
+   Баннер и плашка теперь — официальные файлы Т‑Банка, поэтому здесь только их
+   размещение. Прежние стили самодельного знака (щит, заголовок, стрелка)
+   удалены вместе с ним: фирменный блок не пересобирают из букв.
+
+   Фирменный жёлтый Т‑Банка — не наш бренд, поэтому он задан локальной
    переменной, а не добавлен в общие токены темы: в палитре руми ему не место,
    и он не должен случайно попасть в другие компоненты. */
 
-.tb-banner-section,
 .tb-products {
     --tb-yellow: #ffdd2d;
     --tb-ink: #1a1a1f;
 }
 
-/* ===== Плашка «Официальный партнёр» =====
-   Пропорции сняты с официального макета: щит занимает примерно половину
-   высоты плашки, вокруг заметный воздух, текст в две строки. */
+/* ===== Плашка «Официальный партнёр» ===== */
 .tb-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.85rem;
-    padding: 0.85rem 1.25rem;
-    border-radius: 0.85rem;
-    background: var(--tb-yellow, #ffdd2d);
-    color: var(--tb-ink, #1a1a1f);
+    display: block;
 }
 
-.tb-badge-logo {
-    display: flex;
-    flex-shrink: 0;
+.tb-badge img {
+    display: block;
+    width: 100%;
+    max-width: 22.5rem;
+    height: auto;
 }
 
-/* Цвета заданы внутри самого SVG (белый щит, тёмная «Т»), поэтому color
-   здесь не нужен — знак не должен перекрашиваться вместе с текстом. */
-.tb-logo {
-    width: 2rem;
-    height: 2rem;
-}
-
-.tb-badge-text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.25;
-}
-
-.tb-badge-title,
-.tb-badge-sub {
-    font-size: 0.88rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-}
-
-/* ===== Баннер на лендингах ===== */
+/* ===== Баннер-креатив на лендингах ===== */
 .tb-banner {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    padding: 1.35rem 1.5rem;
+    display: block;
+    overflow: hidden;
     border-radius: 1.25rem;
-    background: var(--tb-yellow, #ffdd2d);
-    color: var(--tb-ink, #1a1a1f);
-    text-decoration: none;
+    /* Своего фона у ссылки нет — весь вид даёт сам креатив. */
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tb-banner img {
+    display: block;
+    width: 100%;
+    height: auto;
 }
 
 .tb-banner:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 28px rgba(255, 221, 45, 0.35);
+    box-shadow: 0 12px 30px rgba(26, 26, 31, 0.15);
 }
 
-/* Без подложки: знак — белый щит, и на светлом квадрате он бы исчез. На
-   жёлтом поле баннера белое читается, как в официальной плашке. */
-.tb-banner-logo {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-}
-
-.tb-banner-logo .tb-logo {
-    width: 2.75rem;
-    height: 2.75rem;
-}
-
-.tb-banner-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    min-width: 0;
-}
-
-.tb-banner-title {
-    font-family: var(--font-heading);
-    font-size: 1.15rem;
-    font-weight: 700;
-}
-
-.tb-banner-desc {
-    font-size: 0.9rem;
-    line-height: 1.45;
-    /* Не var(--color-muted): на жёлтом фоне серый цвет темы даёт слабый
-       контраст, а сам фон в тёмную тему не переезжает. */
-    color: rgba(26, 26, 31, 0.72);
-}
-
-.tb-banner-arrow {
-    display: flex;
-    align-items: center;
-    margin-left: auto;
-    flex-shrink: 0;
-    transition: transform 0.2s ease;
-}
-
-.tb-banner-arrow svg {
-    width: 1.35rem;
-    height: 1.35rem;
-}
-
-.tb-banner:hover .tb-banner-arrow {
-    transform: translateX(4px);
-}
-
-@media (max-width: 560px) {
-    .tb-banner {
-        gap: 0.9rem;
-        padding: 1.1rem;
-    }
-    .tb-banner-arrow {
-        display: none;
-    }
-    .tb-banner-title {
-        font-size: 1rem;
-    }
+.tb-banner:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
 }
 
 /* ===== Блок продуктов на манифесте ===== */
@@ -151,7 +71,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.9rem;
+    gap: 1rem;
     min-width: 0;
 }
 
@@ -211,9 +131,8 @@
     background: #fff;
 }
 
-/* 61 модуль (ссылка длинная, версия QR 11). При 11.25rem на модуль
-   приходилось 3.1px — камера телефона распознаёт такой код впритык.
-   13.5rem даёт ~3.8px на модуль. */
+/* 61 модуль (ссылка длинная). При 11.25rem на модуль приходилось 3.1px —
+   камера телефона распознаёт такой код впритык. 13.5rem даёт ~3.8px. */
 .tb-qr-link img {
     display: block;
     width: 13.5rem;
@@ -256,15 +175,11 @@
 
 @media (prefers-reduced-motion: reduce) {
     .tb-banner,
-    .tb-banner-arrow,
     .tb-products-btn {
         transition: none;
     }
     .tb-banner:hover,
     .tb-products-btn:hover {
-        transform: none;
-    }
-    .tb-banner:hover .tb-banner-arrow {
         transform: none;
     }
 }

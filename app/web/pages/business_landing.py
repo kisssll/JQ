@@ -20,7 +20,7 @@ from app.web.components.icons import (
     ICON_STORE,
     ICON_SPARKLES,
 )
-from app.web.components.tbank import BANNER_DESC_SALON, render_tbank_partner_banner
+from app.web.components.tbank import render_tbank_partner_banner
 
 
 def render_business_landing_page(user=None) -> str:
@@ -252,7 +252,7 @@ def render_business_landing_page(user=None) -> str:
         </section>
 
         <!-- Партнёрство с Т‑Банком -->
-        {render_tbank_partner_banner(BANNER_DESC_SALON)}
+        {render_tbank_partner_banner()}
 
         <!-- Сравнение -->
         <section class="section-py bl-comparison">
