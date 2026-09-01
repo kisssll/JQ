@@ -99,7 +99,7 @@
     display: flex;
     align-items: center;
     height: 60px;
-    padding: 0 2.5rem 0 1.5rem;
+    padding: 0 1.75rem 0 1.25rem;
     z-index: 1;
     pointer-events: auto;
 }
@@ -117,18 +117,31 @@
     box-shadow: 6px 8px 24px rgba(0, 0, 0, 0.15);
 }
 
+/* Логотип теперь картинка, а не текст: начертание рукописное, шрифтом его
+   не набрать. Высота задана, ширина считается от пропорций файла — растягивать
+   фирменный знак нельзя. */
 #header-logo {
-    font-family: var(--font-heading);
-    font-size: 2.625rem;
-    font-weight: 800;
-    color: var(--color-primary);
-    text-decoration: none;
-    letter-spacing: -0.02em;
-    transition: opacity 0.2s;
-    display: inline-block;
+    display: block;
     padding: 0;
     margin: 0;
+    text-decoration: none;
+    transition: opacity 0.2s;
     background: transparent !important;
+}
+
+/* 3rem — почти вся высота шапки (60px): у рукописного начертания высокая
+   пропорция из-за росчерка, и при меньшей высоте само слово выходит слишком
+   узким и нечитаемым. */
+#header-logo img {
+    display: block;
+    height: 3rem;
+    width: auto;
+}
+
+@media (max-width: 1023px) {
+    #header-logo img {
+        height: 2.6rem;
+    }
 }
 
 #header-logo:hover {
