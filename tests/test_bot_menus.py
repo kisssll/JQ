@@ -119,3 +119,56 @@ async def test_max_start_offers_linking_when_not_linked(db_session):
 
     assert bot.sent
     assert "привязать" in bot.sent[0].lower()
+
+
+# ── Быстрое меню команд в MAX ────────────────────────────────────────────────
+
+class _FakeMaxEvent:
+    def __init__(self, chat_id):
+        self._chat_id = chat_id
+        self.bot = _FakeMaxBot()
+
+    def get_ids(self):
+        return self._chat_id, 555
+
+
+async def test_max_menu_commands_open_their_screens(monkeypatch):
+    """Команды из быстрого меню приходят боту обычным текстом «/bookings».
+    Без своих обработчиков их проглотил бы разбор свободного текста и ответил
+    общим меню вместо нужного раздела."""
+    import app.max_bot as mb
+
+    opened = []
+
+    async def _bookings(bot, chat_id):
+        opened.append("bookings")
+
+    async def _prefs(bot, chat_id):
+        opened.append("prefs")
+
+    async def _topics(bot, chat_id):
+        opened.append("support")
+
+    monkeypatch.setattr(mb, "_show_bookings", _bookings)
+    monkeypatch.setattr(mb, "_show_prefs", _prefs)
+    monkeypatch.setattr(mb, "_show_topics", _topics)
+
+    await mb.on_bookings_command(_FakeMaxEvent(991001))
+    await mb.on_prefs_command(_FakeMaxEvent(991001))
+    await mb.on_feedback_command(_FakeMaxEvent(991001))
+
+    assert opened == ["bookings", "prefs", "support"]
+
+
+def test_max_commands_match_handlers():
+    """Список команд в меню и зарегистрированные обработчики не должны
+    разъезжаться: команда без обработчика — кнопка, которая молчит."""
+    import inspect
+
+    import app.max_bot as mb
+
+    src = inspect.getsource(mb.main)
+    for name in ("bookings", "settings", "feedback", "start"):
+        assert f'name="{name}"' in src, f"команда {name} не объявлена"
+    for handler in ("on_bookings_command", "on_prefs_command", "on_feedback_command"):
+        assert f"({handler})" in src, f"обработчик {handler} не зарегистрирован"

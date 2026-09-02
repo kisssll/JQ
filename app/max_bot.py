@@ -16,7 +16,7 @@ import asyncio
 import logging
 
 from maxapi import Bot, Dispatcher
-from maxapi.filters.command import CommandStart
+from maxapi.filters.command import Command, CommandStart
 from maxapi.filters.contact import Contact as ContactFilter
 from maxapi.types.attachments.buttons.callback_button import CallbackButton
 from maxapi.types.attachments.buttons.request_contact import RequestContactButton
@@ -461,6 +461,24 @@ async def _show_topics(bot: Bot, chat_id: int) -> None:
     )
 
 
+async def on_bookings_command(event: MessageCreated) -> None:
+    """/bookings из быстрого меню рядом с полем ввода."""
+    chat_id, _ = event.get_ids()
+    await _show_bookings(event.bot, chat_id)
+
+
+async def on_prefs_command(event: MessageCreated) -> None:
+    """/settings из быстрого меню."""
+    chat_id, _ = event.get_ids()
+    await _show_prefs(event.bot, chat_id)
+
+
+async def on_feedback_command(event: MessageCreated) -> None:
+    """/feedback из быстрого меню."""
+    chat_id, _ = event.get_ids()
+    await _show_topics(event.bot, chat_id)
+
+
 async def on_callback(event: MessageCallback) -> None:
     """Один вход на все кнопки: меню, темы уведомлений, темы обращения."""
     from app.models.models import SupportTopic
@@ -606,10 +624,32 @@ async def main() -> None:
     dp.bot_started()(on_bot_started)
     dp.message_created(ContactFilter())(on_contact)
     dp.message_created(CommandStart())(on_start_command)
+    # Команды быстрого меню. Регистрируем до свободного текста: иначе
+    # on_free_message примет «/bookings» за обычное сообщение.
+    dp.message_created(Command("bookings"))(on_bookings_command)
+    dp.message_created(Command("settings"))(on_prefs_command)
+    dp.message_created(Command("feedback"))(on_feedback_command)
     # Кнопки меню, тем уведомлений и обращения — один обработчик по payload.
     dp.message_callback()(on_callback)
     # Свободный текст регистрируем ПОСЛЕДНИМ: иначе он перехватил бы /start.
     dp.message_created()(on_free_message)
+
+    # Быстрое меню команд рядом с полем ввода — то же, что у tg-бота.
+    # Как и там, это украшение: сбой сети на этом вызове не должен мешать
+    # боту подняться. Метод помечен в библиотеке устаревшим, но платформа
+    # его принимает (PATCH /me), а другого способа задать команды нет.
+    try:
+        from maxapi.types import BotCommand
+
+        await bot.set_my_commands(
+            BotCommand(name="bookings", description="Мои записи"),
+            BotCommand(name="settings", description="Мои уведомления"),
+            BotCommand(name="feedback", description="Написать нам"),
+            BotCommand(name="start", description="Меню и привязка аккаунта"),
+        )
+    except Exception:
+        logger.warning("не удалось обновить меню команд — продолжаем без него",
+                       exc_info=True)
 
     logger.info("MAX-бот подтверждения номера запущен (long polling)")
     await dp.start_polling(bot)
