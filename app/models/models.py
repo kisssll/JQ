@@ -149,6 +149,26 @@ class PhotoReportStatus(str, enum.Enum):
     DISMISSED = "dismissed"  # жалоба отклонена, фото осталось
 
 
+class SupportTopic(str, enum.Enum):
+    """О чём обращение — человек выбирает кнопкой в боте.
+
+    NPS стоит особняком: это не письмо в поддержку, а ответ на наш опрос об
+    удобстве сервиса. Складываем сюда же, чтобы не плодить вторую сущность с
+    тем же жизненным циклом (пришло → прочитали → закрыли).
+    """
+    QUESTION = "question"      # вопрос по работе сервиса
+    BUG = "bug"                # что-то не работает
+    COMPLAINT = "complaint"    # жалоба на салон или мастера
+    IDEA = "idea"              # предложение
+    NPS = "nps"                # оценка сервиса из опроса
+
+
+class SupportStatus(str, enum.Enum):
+    NEW = "new"                # никто ещё не смотрел
+    IN_PROGRESS = "in_progress"
+    CLOSED = "closed"          # ответили либо разобрались без ответа
+
+
 class ModelModerationStatus(str, enum.Enum):
     """Модерация анкеты модели — тот же принцип, что у SalonModerationStatus:
     видна салонам в кандидатах только после APPROVED."""
@@ -855,6 +875,61 @@ class ModelPhoto(Base):
     model_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     url: Mapped[str] = mapped_column(String(500), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+class SupportRequest(Base):
+    """Обращение в поддержку из бота (Telegram или MAX).
+
+    Пишет кто угодно, кто открыл бота, — в том числе НЕ привязанный к
+    аккаунту: самый частый повод обратиться это «не могу войти», и запирать
+    такого человека за авторизацией бессмысленно. Поэтому автор
+    необязателен, а отвечать всегда есть куда: chat_id мессенджера мы знаем
+    в любом случае.
+    """
+    __tablename__ = "support_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    topic: Mapped[SupportTopic] = mapped_column(Enum(SupportTopic), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Автор, если бот сумел узнать его по chat_id. SET NULL: удалённый
+    # пользователь не должен уносить с собой историю обращений.
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
+    # Откуда пришло и куда отвечать, если аккаунта нет.
+    channel: Mapped[NotifyChannel] = mapped_column(Enum(NotifyChannel), nullable=False)
+    chat_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+
+    # Список URL картинок. Отдельной таблицы не заводим: снимки к обращению
+    # нужны только целиком и живут ровно столько же, сколько само обращение
+    # (в отличие от фото портфолио, на которые ссылаются жалобы).
+    photos: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+
+    # Оценка 1–5 — только для topic=NPS, у остальных пусто.
+    rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    status: Mapped[SupportStatus] = mapped_column(
+        Enum(SupportStatus), default=SupportStatus.NEW, server_default="NEW", nullable=False, index=True,
+    )
+    answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    answered_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True,
+    )
+    answered_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True,
+    )
+
+    user: Mapped[Optional["User"]] = relationship(foreign_keys=[user_id])
+    answered_by: Mapped[Optional["User"]] = relationship(foreign_keys=[answered_by_id])
+
+    __table_args__ = (
+        CheckConstraint(
+            "rating IS NULL OR (rating BETWEEN 1 AND 5)",
+            name="check_support_rating_range",
+        ),
+    )
+
 
 class PhotoReport(Base):
     """Жалоба на фото (из портфолио мастера или из отзыва) — модерация."""

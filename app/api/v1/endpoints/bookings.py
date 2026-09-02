@@ -464,6 +464,12 @@ async def complete_booking(
         except LoyaltyError as e:
             raise HTTPException(status_code=e.status, detail=e.message)
 
+    # Визит состоялся — через два часа спросим у клиента отзыв. Отметка
+    # «Пришёл» это единственное доказательство визита, поэтому и вешаемся
+    # на неё: отзыв тогда сразу подтверждённый.
+    from app.services.bot_actions import schedule_review_request
+    await schedule_review_request(booking.id)
+
     return booking
 
 

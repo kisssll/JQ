@@ -427,6 +427,63 @@ def _reports_tab(reports):
     """
 
 
+# ── ВКЛАДКА: ОБРАЩЕНИЯ ───────────────────────────────────────────────────────
+def _support_tab(requests, phone_by_id):
+    """Обращения из ботов. Ответ уходит человеку его же каналом."""
+    from app.services.support import STATUS_LABELS, TOPIC_LABELS
+
+    rows = ""
+    for r in requests:
+        who = phone_by_id.get(r.user_id) if r.user_id else None
+        who_html = _esc(who) if who else '<span class="text-muted">не авторизован</span>'
+        photos = ""
+        for url in (r.photos or []):
+            photos += (f'<a href="{_esc(url)}" target="_blank" rel="noopener">'
+                       f'<img src="{_esc(url)}" loading="lazy" style="width:48px;height:48px;'
+                       f'object-fit:cover;border-radius:0.4rem;margin-right:0.25rem"></a>')
+        rating = f' · оценка {r.rating}/5' if r.rating else ""
+
+        if r.answer:
+            action = (f'<div class="text-muted" style="font-size:0.8rem">Ответ: '
+                      f'{_esc(r.answer[:160])}</div>')
+        else:
+            action = (
+                f'<form method="post" action="/api/v1/admin/support/{r.id}/answer" '
+                f'style="display:flex;gap:0.4rem;align-items:flex-start">'
+                f'<textarea name="answer" rows="2" required minlength="2" '
+                f'placeholder="Ответ человеку…" '
+                f'style="flex:1;min-width:220px;padding:0.4rem;border:1px solid var(--color-border);'
+                f'border-radius:0.4rem;font-family:inherit;font-size:0.85rem"></textarea>'
+                f'<button class="btn-mini">Отправить</button></form>'
+            )
+
+        rows += f"""<tr>
+            <td style="white-space:nowrap">№{r.id}<br>
+                <span class="text-muted" style="font-size:0.75rem">{r.created_at:%d.%m %H:%M}</span></td>
+            <td style="white-space:nowrap">{_esc(TOPIC_LABELS[r.topic])}{rating}<br>
+                <span class="text-muted" style="font-size:0.75rem">{r.channel.value.upper()} · {_esc(STATUS_LABELS[r.status])}</span></td>
+            <td>{who_html}</td>
+            <td style="max-width:340px">{_esc(r.text)}<div style="margin-top:0.3rem">{photos}</div></td>
+            <td>{action}</td>
+        </tr>"""
+
+    if not rows:
+        rows = ('<tr><td colspan="5" class="text-muted" style="padding:1.5rem;text-align:center">'
+                'Обращений нет</td></tr>')
+    return f"""
+    <div class="tab-content" id="tab-support">
+        <h2 style="margin-bottom:1rem">Обращения ({len(requests)})</h2>
+        <p class="text-muted" style="margin-bottom:1rem;font-size:0.85rem">
+            Пришли из ботов Telegram и MAX. Ответ уходит человеку тем же каналом,
+            которым он написал, и закрывает обращение.</p>
+        <div style="overflow-x:auto"><table>
+            <thead><tr><th>Когда</th><th>Тема</th><th>От кого</th><th>Текст</th><th>Ответ</th></tr></thead>
+            <tbody>{rows}</tbody>
+        </table></div>
+    </div>
+    """
+
+
 # ── ВКЛАДКА: ОТЗЫВЫ ──────────────────────────────────────────────────────────
 def _subscription_cell(s) -> str:
     """Тариф, статус и срок доступа салона.
@@ -548,6 +605,15 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
 
     pending = [s for s in salons if s.moderation_status == SalonModerationStatus.PENDING]
 
+    # Обращения из ботов — вкладка доступна ЛЮБОМУ модератору, поэтому данные
+    # грузим до ветки is_senior (иначе у обычного модератора переменных нет).
+    from app.models.models import SupportRequest, SupportStatus
+    support_requests = (await db.execute(
+        select(SupportRequest).order_by(SupportRequest.created_at.desc()).limit(200)
+    )).scalars().all()
+    support_new = [r for r in support_requests if r.status == SupportStatus.NEW]
+    support_tab = _support_tab(support_requests, phone_by_id)
+
     # Доп. данные для карточек заявок: фото + услуги (только по заявкам)
     extra_by_id = {}
     if pending:
@@ -609,8 +675,9 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         audit_tab = _audit_tab(audits, phone_by_id)
 
     allowed_tabs = (
-        {"overview", "users", "applications", "models", "reports", "salons", "reviews", "audit"}
-        if is_senior else {"applications", "models", "reports"}
+        {"overview", "users", "applications", "models", "reports", "salons",
+         "reviews", "audit", "support"}
+        if is_senior else {"applications", "models", "reports", "support"}
     )
     default_tab = "overview" if is_senior else "applications"
     _tab = q.get("tab", default_tab)
@@ -618,6 +685,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     pending_badge = f' <span style="background:#d97706;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(pending)}</span>' if pending else ""
     models_badge = f' <span style="background:#d97706;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(pending_models)}</span>' if pending_models else ""
     reports_badge = f' <span style="background:#dc2626;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(reports_data)}</span>' if reports_data else ""
+    support_badge = f' <span style="background:#2563eb;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(support_new)}</span>' if support_new else ""
 
     tab_nav = ""
     if is_senior:
@@ -626,6 +694,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     tab_nav += f'<button class="tab-btn" data-tab="applications" onclick="switchTab(\'applications\')">{ICON_FILE_TEXT} Заявки{pending_badge}</button>'
     tab_nav += f'<button class="tab-btn" data-tab="models" onclick="switchTab(\'models\')">{ICON_MODEL} Модели{models_badge}</button>'
     tab_nav += f'<button class="tab-btn" data-tab="reports" onclick="switchTab(\'reports\')">{ICON_FLAG} Жалобы{reports_badge}</button>'
+    tab_nav += f'<button class="tab-btn" data-tab="support" onclick="switchTab(\'support\')">{ICON_MESSAGE_CIRCLE} Обращения{support_badge}</button>'
     if is_senior:
         tab_nav += f'<button class="tab-btn" data-tab="salons" onclick="switchTab(\'salons\')">{ICON_BUILDING2} Салоны</button>'
         tab_nav += f'<button class="tab-btn" data-tab="reviews" onclick="switchTab(\'reviews\')">{ICON_MESSAGE_CIRCLE} Отзывы</button>'
@@ -728,6 +797,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         {applications_tab}
         {model_applications_tab}
         {reports_tab}
+        {support_tab}
         {salons_tab}
         {reviews_tab}
         {audit_tab}

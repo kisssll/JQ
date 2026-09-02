@@ -24,7 +24,22 @@ TBANK_REFERRAL_URL = (
 # вшита в сам макет. Токен erid сюда не входит: его выдаёт рекламная система,
 # и без него интернет-реклама не размечена по ст. 18.1 ФЗ «О рекламе».
 TBANK_DISCLAIMER = "Подробнее на tbank.ru. АО «ТБанк», лицензия № 2673. Реклама."
+
+# Токен маркировки. Когда ОРД его выдаст, достаточно вписать сюда: он сам
+# уйдёт и в текст под блоком, и в саму реферальную ссылку — гайд Т‑Банка
+# требует обоих мест. QR после этого пересобрать:
+#     .venv/bin/python scripts/build_tbank_qr.py
 TBANK_ERID = ""
+
+
+def referral_url() -> str:
+    """Реферальная ссылка, при наличии — с токеном маркировки."""
+    return f"{TBANK_REFERRAL_URL}&erid={TBANK_ERID}" if TBANK_ERID else TBANK_REFERRAL_URL
+
+
+def _erid_note() -> str:
+    """Токен текстом. Формат `erid: XXXX` — рекомендация Роскомнадзора."""
+    return f'<span class="tb-erid">erid: {TBANK_ERID}</span>' if TBANK_ERID else ""
 
 # Официальные материалы Т‑Банка лежат в static/images/tbank. Исходники —
 # PNG на 1–2 МБ каждый; браузеру отдаём сжатые производные (WebP + запасной
@@ -98,7 +113,8 @@ def render_tbank_products_block() -> str:
     кодом, который выдал Т‑Банк (проверено декодированием его файла), но у
     нас вектор — он не мылится ни на каком экране.
     """
-    erid = f'<span class="tb-erid">{TBANK_ERID}</span>' if TBANK_ERID else ""
+    erid = _erid_note()
+    url = referral_url()
     return f"""
     <section class="tb-products">
         <div class="tb-products-inner">
@@ -109,14 +125,14 @@ def render_tbank_products_block() -> str:
                     Расчётный счёт, эквайринг, онлайн-касса и зарплатный проект.
                     Открыть можно по нашей партнёрской ссылке.
                 </p>
-                <a class="tb-products-btn" href="{TBANK_REFERRAL_URL}"
+                <a class="tb-products-btn" href="{url}"
                    target="_blank" rel="noopener noreferrer">
                     Выбрать продукт {ICON_ARROW_RIGHT}
                 </a>
             </div>
 
             <figure class="tb-qr">
-                <a class="tb-qr-link" href="{TBANK_REFERRAL_URL}"
+                <a class="tb-qr-link" href="{url}"
                    target="_blank" rel="noopener noreferrer"
                    aria-label="Открыть страницу продуктов Т‑Банка">
                     <img src="/static/images/tbank-qr.svg" alt="QR-код на страницу продуктов Т‑Банка"
