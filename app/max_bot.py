@@ -44,6 +44,19 @@ VERDICT_NOT_FOUND = "not_found"
 VERDICT_FOREIGN_CONTACT = "foreign_contact"
 VERDICT_PHONE_MISMATCH = "phone_mismatch"
 
+# /start без токена (или с протухшим): привязка MAX к уже существующему
+# аккаунту. В tg-боте такой режим был с самого начала, а в MAX его не было —
+# из-за чего кнопка «Подключить» в профиле вела в бота, который отвечал
+# «не вижу активного подтверждения» и ничего привязать не мог.
+LINK_MODE = "link"
+
+_LINK_GREETING = (
+    "Здравствуйте! Чтобы привязать MAX к аккаунту Руми, нажмите кнопку ниже — "
+    "MAX передаст нам ваш номер, и мы найдём по нему ваш аккаунт.\n\n"
+    "Если вы пришли сюда со страницы регистрации, ссылка устарела: вернитесь "
+    "на сайт и нажмите «Подтвердить в MAX» ещё раз."
+)
+
 _GREETING = (
     "Здравствуйте! Это подтверждение номера для Руми.\n\n"
     "Нажмите кнопку ниже — MAX передаст нам ваш номер, и мы сверим его "
@@ -104,15 +117,78 @@ async def _begin(bot: Bot, chat_id: int, user_id: int, token: str) -> None:
     r = get_redis()
     record = await r.hgetall(_key(token)) if token else {}
     if not record or record.get("channel") != "max":
-        await bot.send_message(
-            chat_id=chat_id,
-            text="Ссылка устарела или открыта без сайта. Вернитесь на страницу "
-                 "регистрации Руми и нажмите «Подтвердить в MAX» ещё раз.",
-        )
+        # Раньше здесь был тупик: бот сообщал об устаревшей ссылке и на этом
+        # всё. Теперь предлагаем привязку по номеру — это единственный путь
+        # подключить MAX к уже созданному аккаунту.
+        await r.set(_pending_key(user_id), LINK_MODE,
+                    ex=settings.OTP_TTL_MINUTES * 60)
+        await bot.send_message(chat_id=chat_id, text=_LINK_GREETING,
+                               attachments=_contact_kb())
         return
 
     await r.set(_pending_key(user_id), token, ex=settings.OTP_TTL_MINUTES * 60)
     await bot.send_message(chat_id=chat_id, text=_GREETING, attachments=_contact_kb())
+
+
+async def _link_existing_account(event, chat_id: int, user_id: int,
+                                 contact_user_id, contact_phone: str) -> None:
+    """Привязать MAX к уже существующему аккаунту по номеру из контакта.
+
+    Зеркало _link_existing_account из tg_bot.py. Чужой контакт не принимаем:
+    иначе достаточно переслать боту чей-то контакт, чтобы увести чужие
+    уведомления к себе.
+    """
+    from sqlalchemy import select
+
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel, User
+
+    if contact_user_id is not None and int(contact_user_id) != int(user_id):
+        logger.info("link_foreign_contact: max_user=%s", user_id)
+        await event.bot.send_message(
+            chat_id=chat_id,
+            text="Это чужой контакт — привязать можно только свой. "
+                 "Нажмите кнопку «Поделиться контактом».",
+            attachments=_contact_kb(),
+        )
+        return
+
+    phone = try_normalize_phone(contact_phone)
+    if not phone:
+        logger.info("link_bad_phone: max_user=%s", user_id)
+        await event.bot.send_message(
+            chat_id=chat_id, text="Не удалось разобрать номер из контакта.",
+        )
+        return
+
+    async with AsyncSessionLocal() as db:
+        user = (await db.execute(
+            select(User).where(User.phone == phone)
+        )).scalar_one_or_none()
+        if user is None:
+            logger.info("link_not_registered: max_user=%s phone=%s",
+                        user_id, _mask_phone(phone))
+            await event.bot.send_message(
+                chat_id=chat_id,
+                text="Аккаунт с этим номером не найден. Сначала зарегистрируйтесь "
+                     "на сайте Руми — привязка произойдёт сама при подтверждении номера.",
+            )
+            return
+
+        user.max_chat_id = chat_id
+        # Канала не было вовсе — пусть уведомления пойдут в MAX. Осознанно
+        # выбранный ранее канал не перебиваем: человек его выбирал сам.
+        if (user.notify_channel or NotifyChannel.NONE) == NotifyChannel.NONE:
+            user.notify_channel = NotifyChannel.MAX
+        await db.commit()
+
+    await get_redis().delete(_pending_key(user_id))
+    logger.info("linked: max_user=%s phone=%s", user_id, _mask_phone(phone))
+    await event.bot.send_message(
+        chat_id=chat_id,
+        text="MAX привязан ✅ Теперь уведомления о записях будут приходить сюда.",
+        attachments=_menu_kb(),
+    )
 
 
 async def on_contact(event: MessageCreated, contact) -> None:
@@ -133,6 +209,11 @@ async def on_contact(event: MessageCreated, contact) -> None:
     vcf = getattr(payload, "vcf", None)
     contact_phone = getattr(vcf, "phone", None) or ""
     has_hash = bool(getattr(payload, "hash", None))
+
+    if token == LINK_MODE:
+        await _link_existing_account(event, chat_id, user_id,
+                                     contact_user_id, contact_phone)
+        return
 
     record = await r.hgetall(_key(token))
     verdict = check_max_contact(record, contact_user_id, user_id, contact_phone, has_hash)
@@ -203,11 +284,8 @@ async def _show_bookings(bot: Bot, chat_id: int) -> None:
     async with AsyncSessionLocal() as db:
         user = await _linked_user(db, chat_id)
         if user is None:
-            await bot.send_message(
-                chat_id=chat_id,
-                text="Этот MAX пока не привязан к аккаунту Руми. "
-                     "Подтвердите номер на сайте — и записи появятся здесь.",
-            )
+            await _offer_link(bot, chat_id, chat_id,
+                              "Этот MAX пока не привязан к аккаунту Руми.")
             return
         rows = await upcoming_bookings(db, user.id)
 
@@ -250,6 +328,19 @@ async def _linked_user(db, chat_id: int):
 
 # --- Темы уведомлений ---
 
+async def _offer_link(bot: Bot, chat_id: int, user_id: int, reason: str) -> None:
+    """Единая точка «MAX не привязан»: не просто сообщаем, а сразу предлагаем
+    привязать. Раньше каждый такой тупик заканчивался ничем."""
+    await get_redis().set(_pending_key(user_id), LINK_MODE,
+                          ex=settings.OTP_TTL_MINUTES * 60)
+    await bot.send_message(
+        chat_id=chat_id,
+        text=f"{reason}\n\nНажмите кнопку ниже — привяжем MAX к вашему аккаунту "
+             "по номеру телефона.",
+        attachments=_contact_kb(),
+    )
+
+
 async def _show_prefs(bot: Bot, chat_id: int) -> None:
     from app.db.session import AsyncSessionLocal
     from app.services.notifications import TOPIC_LABELS, wants
@@ -257,11 +348,8 @@ async def _show_prefs(bot: Bot, chat_id: int) -> None:
     async with AsyncSessionLocal() as db:
         user = await _linked_user(db, chat_id)
         if user is None:
-            await bot.send_message(
-                chat_id=chat_id,
-                text="Этот MAX пока не привязан к аккаунту Руми. "
-                     "Подтвердите номер на сайте — и настройки появятся здесь.",
-            )
+            await _offer_link(bot, chat_id, chat_id,
+                              "Этот MAX пока не привязан к аккаунту Руми.")
             return
         from app.tg_bot import _available_topics  # общий список тем, без дубля
 
