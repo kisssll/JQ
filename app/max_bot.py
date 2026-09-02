@@ -117,6 +117,15 @@ async def _begin(bot: Bot, chat_id: int, user_id: int, token: str) -> None:
     r = get_redis()
     record = await r.hgetall(_key(token)) if token else {}
     if not record or record.get("channel") != "max":
+        # Уже привязанному незачем снова слать контакт — показываем меню.
+        from app.db.session import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as db:
+            linked = await _linked_user(db, chat_id)
+        if linked is not None:
+            await _show_main_menu(bot, chat_id, linked)
+            return
+
         # Раньше здесь был тупик: бот сообщал об устаревшей ссылке и на этом
         # всё. Теперь предлагаем привязку по номеру — это единственный путь
         # подключить MAX к уже созданному аккаунту.
@@ -327,6 +336,20 @@ async def _linked_user(db, chat_id: int):
 
 
 # --- Темы уведомлений ---
+
+async def _show_main_menu(bot: Bot, chat_id: int, user) -> None:
+    """Что бот умеет — зеркало главного меню tg-бота."""
+    name = (user.full_name or "").split()[0] if user.full_name else ""
+    hello = f"Здравствуйте, {name}!" if name else "Здравствуйте!"
+    await bot.send_message(
+        chat_id=chat_id,
+        text=f"{hello} Это бот Руми. Отсюда можно:\n\n"
+             f"{MENU_BOOKINGS} — ближайшие записи, можно отменить\n"
+             f"{MENU_PREFS} — какие уведомления присылать\n"
+             f"{MENU_SUPPORT} — вопрос или проблема, ответим сюда же",
+        attachments=_menu_kb(),
+    )
+
 
 async def _offer_link(bot: Bot, chat_id: int, user_id: int, reason: str) -> None:
     """Единая точка «MAX не привязан»: не просто сообщаем, а сразу предлагаем

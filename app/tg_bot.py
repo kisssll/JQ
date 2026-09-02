@@ -519,15 +519,49 @@ async def on_support_message(message: Message) -> None:
     )
 
 
+async def _show_main_menu(message: Message) -> None:
+    """Что бот умеет — при /start без токена.
+
+    Раньше отсюда сразу открывались настройки подписок: тогда бот больше
+    ничего и не умел. Теперь у него три раздела, и вываливать человека в
+    один из них без объяснений — значит прятать остальные два.
+    """
+    from app.db.session import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, message.chat.id)
+
+    if user is None:
+        await message.answer(
+            "Telegram ещё не привязан к аккаунту Руми. Нажмите кнопку ниже, "
+            "чтобы привязать — и уведомления заработают.",
+            reply_markup=_CONTACT_KB,
+        )
+        await get_redis().set(_pending_key(message.from_user.id), LINK_MODE,
+                              ex=settings.OTP_TTL_MINUTES * 60)
+        return
+
+    name = (user.full_name or "").split()[0] if user.full_name else ""
+    hello = f"Здравствуйте, {name}!" if name else "Здравствуйте!"
+    await message.answer(
+        f"{hello} Это бот Руми. Отсюда можно:\n\n"
+        f"{MENU_BTN_BOOKINGS} — ближайшие записи, можно отменить\n"
+        f"{MENU_BTN_PREFS} — какие уведомления присылать\n"
+        f"{MENU_BTN_SUPPORT} — вопрос или проблема, ответим сюда же\n\n"
+        "Выберите кнопку внизу.",
+        reply_markup=_MENU_KB,
+    )
+
+
 async def on_start(message: Message, command: CommandObject) -> None:
     """/start <request_id> из deep link'а, или /start без аргумента — привязка."""
     token = (command.args or "").strip()
     r = get_redis()
 
     if not token:
-        # Без deep link'а: привязанному — меню личных подписок, остальным —
-        # предложение привязать аккаунт (внутри _show_prefs_menu).
-        await _show_prefs_menu(message)
+        # Без deep link'а: привязанному — главное меню, остальным —
+        # предложение привязать аккаунт.
+        await _show_main_menu(message)
         return
 
     record = await r.hgetall(_key(token))
