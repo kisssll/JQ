@@ -93,8 +93,13 @@ _CONTACT_KB = ReplyKeyboardMarkup(
 # не набирая /settings. Ставится после привязки и держится в чате.
 MENU_BTN_PREFS = "⚙️ Мои уведомления"
 MENU_BTN_SUPPORT = "✉️ Написать нам"
+MENU_BTN_BOOKINGS = "📅 Мои записи"
 _MENU_KB = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text=MENU_BTN_PREFS)], [KeyboardButton(text=MENU_BTN_SUPPORT)]],
+    keyboard=[
+        [KeyboardButton(text=MENU_BTN_BOOKINGS)],
+        [KeyboardButton(text=MENU_BTN_PREFS)],
+        [KeyboardButton(text=MENU_BTN_SUPPORT)],
+    ],
     resize_keyboard=True,
 )
 # Непривязанному постоянное меню не ставится (он его просто не видел), но
@@ -228,6 +233,129 @@ async def on_prefs_toggle(callback: CallbackQuery) -> None:
         except Exception:
             pass  # текст/markup не изменились — Telegram кидает ошибку, не страшно
     await callback.answer("Сохранено")
+
+
+# ── Мои записи, отмена, отзыв ────────────────────────────────────────────────
+
+async def on_my_bookings(message: Message) -> None:
+    """Ближайшие записи с кнопкой отмены у каждой."""
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import format_booking, upcoming_bookings
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, message.chat.id)
+        if user is None:
+            await message.answer(
+                "Этот Telegram пока не привязан к аккаунту Руми. "
+                "Подтвердите номер на сайте — и записи появятся здесь."
+            )
+            return
+        rows = await upcoming_bookings(db, user.id)
+
+    if not rows:
+        await message.answer("Ближайших записей нет.")
+        return
+
+    for booking, salon, service, master_name in rows:
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="Отменить запись",
+                                 callback_data=f"cnl:{booking.id}"),
+        ]])
+        await message.answer(format_booking(booking, salon, service, master_name),
+                             reply_markup=kb)
+
+
+async def on_cancel_booking(callback: CallbackQuery) -> None:
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import cancel_booking
+
+    try:
+        booking_id = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, callback.message.chat.id)
+        if user is None:
+            await callback.answer("Telegram не привязан")
+            return
+        ok, text = await cancel_booking(db, user.id, booking_id)
+
+    await callback.answer(text if not ok else "Отменено")
+    if ok:
+        # Кнопку убираем: повторное нажатие уже ничего не изменит.
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+    await callback.message.answer(text)
+
+
+async def on_review_stars(callback: CallbackQuery) -> None:
+    """Оценка визита звёздами. Комментарий не спрашиваем отдельным шагом:
+    одна кнопка — уже отзыв, а дописать можно на сайте."""
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import save_review
+
+    parts = (callback.data or "").split(":")
+    if len(parts) != 3:
+        await callback.answer()
+        return
+    try:
+        booking_id, rating = int(parts[1]), int(parts[2])
+    except ValueError:
+        await callback.answer()
+        return
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, callback.message.chat.id)
+        if user is None:
+            await callback.answer("Telegram не привязан")
+            return
+        ok, text = await save_review(db, user_id=user.id, booking_id=booking_id,
+                                     rating=rating)
+
+    await callback.answer("Спасибо!" if ok else text[:180])
+    try:
+        await callback.message.edit_text(f"{'★' * rating}\n{text}")
+    except Exception:
+        await callback.message.answer(text)
+
+
+async def on_service_rating(callback: CallbackQuery) -> None:
+    """Оценка сервиса из опроса. Складываем как обращение с темой NPS —
+    отдельную сущность с тем же жизненным циклом заводить незачем."""
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel, SupportTopic
+    from app.services.support import create_request
+
+    try:
+        rating = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
+    if not 1 <= rating <= 5:
+        await callback.answer()
+        return
+
+    chat_id = callback.message.chat.id
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, chat_id)
+        await create_request(
+            db, topic=SupportTopic.NPS, text=f"Оценка сервиса: {rating}/5",
+            channel=NotifyChannel.TG, chat_id=chat_id, user=user, rating=rating,
+        )
+
+    await callback.answer("Спасибо!")
+    try:
+        await callback.message.edit_text(
+            f"Ваша оценка: {rating}/5. Спасибо!\n\n"
+            "Если хотите добавить, чего не хватает — напишите нам через "
+            f"«{MENU_BTN_SUPPORT}»."
+        )
+    except Exception:
+        pass
 
 
 # ── Обращение в поддержку ────────────────────────────────────────────────────
@@ -620,6 +748,11 @@ async def main() -> None:
 
     # Обращение в поддержку. Порядок важен: /cancel и кнопки регистрируем ДО
     # «свободного» обработчика, иначе он проглотит их как текст обращения.
+    dp.message.register(on_my_bookings, Command("bookings"))
+    dp.message.register(on_my_bookings, F.text == MENU_BTN_BOOKINGS)
+    dp.callback_query.register(on_cancel_booking, F.data.startswith("cnl:"))
+    dp.callback_query.register(on_review_stars, F.data.startswith("rev:"))
+    dp.callback_query.register(on_service_rating, F.data.startswith("nps:"))
     dp.message.register(on_support_start, Command("feedback"))
     dp.message.register(on_support_start, F.text == MENU_BTN_SUPPORT)
     dp.message.register(on_support_cancel, Command("cancel"))
@@ -630,6 +763,7 @@ async def main() -> None:
     # Пункты в кнопке «Меню» (≡) рядом с полем ввода — тапнуть, а не печатать.
     await bot.set_my_commands([
         BotCommand(command="settings", description="⚙️ Мои уведомления"),
+        BotCommand(command="bookings", description="📅 Мои записи"),
         BotCommand(command="feedback", description="✉️ Написать нам"),
         BotCommand(command="start", description="Меню и привязка аккаунта"),
     ])

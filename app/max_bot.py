@@ -183,14 +183,59 @@ async def on_contact(event: MessageCreated, contact) -> None:
 
 MENU_PREFS = "⚙️ Мои уведомления"
 MENU_SUPPORT = "✉️ Написать нам"
+MENU_BOOKINGS = "📅 Мои записи"
 _SUPPORT_TTL = 1800
 
 
 def _menu_kb() -> list:
     kb = InlineKeyboardBuilder()
+    kb.row(CallbackButton(text=MENU_BOOKINGS, payload="menu:bookings"))
     kb.row(CallbackButton(text=MENU_PREFS, payload="menu:prefs"))
     kb.row(CallbackButton(text=MENU_SUPPORT, payload="menu:support"))
     return [kb.as_markup()]
+
+
+async def _show_bookings(bot: Bot, chat_id: int) -> None:
+    """Ближайшие записи, у каждой — кнопка отмены."""
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import format_booking, upcoming_bookings
+
+    async with AsyncSessionLocal() as db:
+        user = await _linked_user(db, chat_id)
+        if user is None:
+            await bot.send_message(
+                chat_id=chat_id,
+                text="Этот MAX пока не привязан к аккаунту Руми. "
+                     "Подтвердите номер на сайте — и записи появятся здесь.",
+            )
+            return
+        rows = await upcoming_bookings(db, user.id)
+
+    if not rows:
+        await bot.send_message(chat_id=chat_id, text="Ближайших записей нет.")
+        return
+
+    for booking, salon, service, master_name in rows:
+        kb = InlineKeyboardBuilder()
+        kb.row(CallbackButton(text="Отменить запись", payload=f"cnl:{booking.id}"))
+        await bot.send_message(
+            chat_id=chat_id,
+            text=format_booking(booking, salon, service, master_name),
+            attachments=[kb.as_markup()],
+        )
+
+
+async def _cancel_from_bot(event: MessageCallback, booking_id: int) -> None:
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import cancel_booking
+
+    chat_id, _ = event.get_ids()
+    async with AsyncSessionLocal() as db:
+        user = await _linked_user(db, chat_id)
+        if user is None:
+            return
+        _, text = await cancel_booking(db, user.id, booking_id)
+    await event.bot.send_message(chat_id=chat_id, text=text)
 
 
 async def _linked_user(db, chat_id: int):
@@ -313,7 +358,14 @@ async def on_callback(event: MessageCallback) -> None:
     chat_id, _ = event.get_ids()
     payload = (getattr(event.callback, "payload", "") or "").strip()
 
-    if payload == "menu:prefs":
+    if payload == "menu:bookings":
+        await _show_bookings(event.bot, chat_id)
+    elif payload.startswith("cnl:"):
+        try:
+            await _cancel_from_bot(event, int(payload.split(":", 1)[1]))
+        except ValueError:
+            return
+    elif payload == "menu:prefs":
         await _show_prefs(event.bot, chat_id)
     elif payload == "menu:support":
         await _show_topics(event.bot, chat_id)
