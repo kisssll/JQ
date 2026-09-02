@@ -18,8 +18,10 @@ import logging
 from maxapi import Bot, Dispatcher
 from maxapi.filters.command import CommandStart
 from maxapi.filters.contact import Contact as ContactFilter
+from maxapi.types.attachments.buttons.callback_button import CallbackButton
 from maxapi.types.attachments.buttons.request_contact import RequestContactButton
 from maxapi.types.updates.bot_started import BotStarted
+from maxapi.types.updates.message_callback import MessageCallback
 from maxapi.types.updates.message_created import MessageCreated
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
@@ -174,6 +176,257 @@ async def on_contact(event: MessageCreated, contact) -> None:
         )
 
 
+# ── Паритет с Telegram: меню уведомлений и обращение в поддержку ─────────────
+# MAX долго умел только подтверждать номер: человек получал уведомления и не
+# мог ими управлять — отписаться было буквально нечем. Здесь оба недостающих
+# куска, логика та же, что в tg_bot.py, отличается лишь способ рисовать кнопки.
+
+MENU_PREFS = "⚙️ Мои уведомления"
+MENU_SUPPORT = "✉️ Написать нам"
+_SUPPORT_TTL = 1800
+
+
+def _menu_kb() -> list:
+    kb = InlineKeyboardBuilder()
+    kb.row(CallbackButton(text=MENU_PREFS, payload="menu:prefs"))
+    kb.row(CallbackButton(text=MENU_SUPPORT, payload="menu:support"))
+    return [kb.as_markup()]
+
+
+async def _linked_user(db, chat_id: int):
+    from sqlalchemy import select
+
+    from app.models.models import User
+
+    return (
+        await db.execute(select(User).where(User.max_chat_id == chat_id))
+    ).scalar_one_or_none()
+
+
+# --- Темы уведомлений ---
+
+async def _show_prefs(bot: Bot, chat_id: int) -> None:
+    from app.db.session import AsyncSessionLocal
+    from app.services.notifications import TOPIC_LABELS, wants
+
+    async with AsyncSessionLocal() as db:
+        user = await _linked_user(db, chat_id)
+        if user is None:
+            await bot.send_message(
+                chat_id=chat_id,
+                text="Этот MAX пока не привязан к аккаунту Руми. "
+                     "Подтвердите номер на сайте — и настройки появятся здесь.",
+            )
+            return
+        from app.tg_bot import _available_topics  # общий список тем, без дубля
+
+        topics = await _available_topics(db, user)
+        kb = InlineKeyboardBuilder()
+        for topic in topics:
+            mark = "✅" if wants(user, topic) else "☐"
+            kb.row(CallbackButton(
+                text=f"{mark} {TOPIC_LABELS.get(topic, topic)}",
+                payload=f"ntf:{topic}",
+            ))
+        await bot.send_message(
+            chat_id=chat_id,
+            text="Что присылать вам в MAX? Нажмите, чтобы включить или выключить.",
+            attachments=[kb.as_markup()],
+        )
+
+
+async def _toggle_topic(event: MessageCallback, topic: str) -> None:
+    from app.db.session import AsyncSessionLocal
+    from app.services.notifications import TOPIC_LABELS, wants
+
+    if topic not in TOPIC_LABELS:
+        return
+
+    chat_id, _ = event.get_ids()
+    async with AsyncSessionLocal() as db:
+        user = await _linked_user(db, chat_id)
+        if user is None:
+            return
+        # JSON-колонку меняем пересозданием словаря: мутацию на месте
+        # SQLAlchemy не заметит и ничего не сохранит (как в tg_bot.py).
+        prefs = dict(user.tg_notify_prefs or {})
+        new_value = not wants(user, topic)
+        prefs[topic] = new_value
+        user.tg_notify_prefs = prefs
+        await db.commit()
+
+    state = "включены" if new_value else "выключены"
+    await event.bot.send_message(
+        chat_id=chat_id,
+        text=f"{TOPIC_LABELS.get(topic, topic)}: {state}.",
+    )
+    await _show_prefs(event.bot, chat_id)
+
+
+# --- Обращение в поддержку ---
+
+def _support_key(chat_id: int) -> str:
+    return f"support:draft:max:{chat_id}"
+
+
+async def _draft_get(chat_id: int) -> dict | None:
+    import json
+
+    raw = await get_redis().get(_support_key(chat_id))
+    if not raw:
+        return None
+    return json.loads(raw if isinstance(raw, str) else raw.decode())
+
+
+async def _draft_set(chat_id: int, draft: dict) -> None:
+    import json
+
+    await get_redis().set(_support_key(chat_id), json.dumps(draft), ex=_SUPPORT_TTL)
+
+
+async def _draft_clear(chat_id: int) -> None:
+    await get_redis().delete(_support_key(chat_id))
+
+
+async def _show_topics(bot: Bot, chat_id: int) -> None:
+    from app.models.models import SupportTopic
+    from app.services.support import TOPIC_LABELS as SUPPORT_LABELS
+
+    await _draft_clear(chat_id)
+    kb = InlineKeyboardBuilder()
+    for topic in (SupportTopic.QUESTION, SupportTopic.BUG,
+                  SupportTopic.COMPLAINT, SupportTopic.IDEA):
+        kb.row(CallbackButton(text=SUPPORT_LABELS[topic], payload=f"sup:{topic.value}"))
+    await bot.send_message(
+        chat_id=chat_id,
+        text="О чём хотите написать? Выберите тему — так мы быстрее поймём, "
+             "кому передать обращение.",
+        attachments=[kb.as_markup()],
+    )
+
+
+async def on_callback(event: MessageCallback) -> None:
+    """Один вход на все кнопки: меню, темы уведомлений, темы обращения."""
+    from app.models.models import SupportTopic
+    from app.services.support import MAX_PHOTOS, TOPIC_LABELS as SUPPORT_LABELS
+
+    chat_id, _ = event.get_ids()
+    payload = (getattr(event.callback, "payload", "") or "").strip()
+
+    if payload == "menu:prefs":
+        await _show_prefs(event.bot, chat_id)
+    elif payload == "menu:support":
+        await _show_topics(event.bot, chat_id)
+    elif payload.startswith("ntf:"):
+        await _toggle_topic(event, payload.split(":", 1)[1])
+    elif payload.startswith("sup:"):
+        try:
+            topic = SupportTopic(payload.split(":", 1)[1])
+        except ValueError:
+            return
+        await _draft_set(chat_id, {"topic": topic.value, "photos": []})
+        await event.bot.send_message(
+            chat_id=chat_id,
+            text=f"Тема: {SUPPORT_LABELS[topic]}\n\n"
+                 "Опишите, что случилось — одним сообщением. "
+                 f"Можно приложить фото (до {MAX_PHOTOS}).\n\n"
+                 "Отменить — напишите «отмена».",
+        )
+
+
+async def _photo_bytes(event: MessageCreated) -> bytes | None:
+    """Первое изображение из вложений сообщения → байты."""
+    import httpx
+
+    try:
+        for att in (event.message.body.attachments or []):
+            url = getattr(getattr(att, "payload", None), "url", None)
+            if not url:
+                continue
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url)
+            if resp.status_code == 200:
+                return resp.content
+    except Exception:
+        logger.warning("support: фото из MAX не скачано", exc_info=True)
+    return None
+
+
+async def on_free_message(event: MessageCreated) -> None:
+    """Текст вне сценариев: либо продолжение обращения, либо показ меню."""
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel, SupportTopic
+    from app.services.support import (
+        MAX_PHOTOS, RateLimited, check_rate_limit, create_request,
+        store_photo, validate_text,
+    )
+
+    chat_id, _ = event.get_ids()
+    text = (getattr(event.message.body, "text", None) or "").strip()
+
+    draft = await _draft_get(chat_id)
+    if draft is None:
+        # Не в сценарии — показываем, что бот вообще умеет.
+        if text:
+            await event.bot.send_message(
+                chat_id=chat_id,
+                text="Чем помочь?", attachments=_menu_kb(),
+            )
+        return
+
+    if text.lower() in ("отмена", "/cancel"):
+        await _draft_clear(chat_id)
+        await event.bot.send_message(chat_id=chat_id, text="Обращение отменено.")
+        return
+
+    has_photo = bool(getattr(event.message.body, "attachments", None))
+    if has_photo and len(draft["photos"]) < MAX_PHOTOS:
+        data = await _photo_bytes(event)
+        url = store_photo(data) if data else None
+        if url:
+            draft["photos"].append(url)
+            await _draft_set(chat_id, draft)
+        if not text:
+            await event.bot.send_message(
+                chat_id=chat_id,
+                text=f"Фото принято ({len(draft['photos'])}). "
+                     "Теперь опишите проблему текстом.",
+            )
+            return
+
+    error = validate_text(text)
+    if error:
+        await event.bot.send_message(chat_id=chat_id, text=error)
+        return
+
+    try:
+        await check_rate_limit(NotifyChannel.MAX, chat_id)
+    except RateLimited:
+        await _draft_clear(chat_id)
+        await event.bot.send_message(
+            chat_id=chat_id,
+            text="Вы уже отправили несколько обращений за последний час — "
+                 "мы ответим на них в ближайшее время.",
+        )
+        return
+
+    async with AsyncSessionLocal() as db:
+        user = await _linked_user(db, chat_id)
+        request = await create_request(
+            db, topic=SupportTopic(draft["topic"]), text=text,
+            channel=NotifyChannel.MAX, chat_id=chat_id, user=user,
+            photos=draft["photos"],
+        )
+
+    await _draft_clear(chat_id)
+    await event.bot.send_message(
+        chat_id=chat_id,
+        text=f"Обращение №{request.id} принято — спасибо.\n"
+             "Ответим сюда же, в этот чат.",
+        attachments=_menu_kb(),
+    )
+
+
 async def main() -> None:
     if not settings.MAX_BOT_TOKEN:
         # Как и tg-бот: без токена спим, а не крашлупим (restart: unless-stopped)
@@ -190,6 +443,10 @@ async def main() -> None:
     dp.bot_started()(on_bot_started)
     dp.message_created(ContactFilter())(on_contact)
     dp.message_created(CommandStart())(on_start_command)
+    # Кнопки меню, тем уведомлений и обращения — один обработчик по payload.
+    dp.message_callback()(on_callback)
+    # Свободный текст регистрируем ПОСЛЕДНИМ: иначе он перехватил бы /start.
+    dp.message_created()(on_free_message)
 
     logger.info("MAX-бот подтверждения номера запущен (long polling)")
     await dp.start_polling(bot)
