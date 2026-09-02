@@ -761,12 +761,20 @@ async def main() -> None:
     dp.message.register(on_support_message, F.text | F.photo)
 
     # Пункты в кнопке «Меню» (≡) рядом с полем ввода — тапнуть, а не печатать.
-    await bot.set_my_commands([
-        BotCommand(command="settings", description="⚙️ Мои уведомления"),
-        BotCommand(command="bookings", description="📅 Мои записи"),
-        BotCommand(command="feedback", description="✉️ Написать нам"),
-        BotCommand(command="start", description="Меню и привязка аккаунта"),
-    ])
+    # Список команд — украшение меню, а не условие работы. Раньше сбой этого
+    # вызова убивал процесс ДО старта опроса: связь с api.telegram.org с
+    # нашего хоста периодически рвётся, и бот уходил в цикл перезапусков,
+    # ни разу не начав принимать сообщения. Опрос переживает разрывы сам.
+    try:
+        await bot.set_my_commands([
+            BotCommand(command="settings", description="⚙️ Мои уведомления"),
+            BotCommand(command="bookings", description="📅 Мои записи"),
+            BotCommand(command="feedback", description="✉️ Написать нам"),
+            BotCommand(command="start", description="Меню и привязка аккаунта"),
+        ])
+    except Exception:
+        logger.warning("не удалось обновить меню команд — продолжаем без него",
+                       exc_info=True)
 
     logger.info("Бот подтверждения номера запущен (long polling)")
     await dp.start_polling(bot)
