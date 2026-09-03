@@ -466,6 +466,43 @@ async def report_dismiss(rid: int, request: Request, db: AsyncSession = Depends(
     return _back("reports", ok="Жалоба отклонена, фото оставлено")
 
 
+# ── ОБРАЩЕНИЯ ────────────────────────────────────────────────────────────────
+@router.post("/support/{sid}/answer")
+async def support_answer(sid: int, request: Request, answer: str = Form(""),
+                         db: AsyncSession = Depends(get_db)):
+    """Ответить на обращение из бота — доступно любому модератору.
+
+    Разбор обращений это дежурная работа, а не привилегия старшего: запирать
+    её значило бы копить непрочитанное, пока старший в отпуске.
+    """
+    from app.models.models import SupportRequest
+    from app.services.support import send_answer
+
+    admin = await _get_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    text = answer.strip()
+    if not text:
+        return _back("support", err="Пустой ответ не отправляем")
+
+    req = (await db.execute(
+        select(SupportRequest).where(SupportRequest.id == sid)
+    )).scalar_one_or_none()
+    if req is None:
+        return _back("support", err="Обращение не найдено")
+    if req.answer:
+        return _back("support", err=f"На обращение №{sid} уже отвечали")
+
+    delivered = await send_answer(db, req, text, admin)
+    _audit(db, admin.id, "support_answer", "support_request", sid, text[:200])
+    await db.commit()
+
+    if not delivered:
+        return _back("support", err=f"№{sid}: ответ сохранён, но доставить не удалось")
+    return _back("support", ok=f"Ответ на обращение №{sid} отправлен")
+
+
 # ── САЛОНЫ ───────────────────────────────────────────────────────────────────
 @router.post("/salons/{sid}/approve")
 async def salon_approve(sid: int, request: Request, db: AsyncSession = Depends(get_db)):

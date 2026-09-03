@@ -3,8 +3,9 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
-from app.web.components.icons import ICON_CIRCLE_CHECK, ICON_ARROW_RIGHT
-from app.web.pages.business.tbank_partner import TBANK_LINK, TBANK_CONDITION_LINKS
+from app.web.components.tbank import render_tbank_products_block
+from app.web.components.icons import ICON_CIRCLE_CHECK
+from app.web.pages.business.tbank_partner import TBANK_CONDITION_LINKS
 
 # Новость о партнёрстве с Т-Банком — полная версия текста (см. также короткие
 # версии на отдельных страницах app/web/pages/business/tbank_partner.py).
@@ -93,9 +94,7 @@ def _render_tbank_news() -> str:
                     <p class="tb-note">{_TBANK_NEWS_TRUST}</p>
 
                     <p class="news-tbank-cta-lead">Чтобы открыть счёт, свяжитесь с нами или перейдите по ссылке.</p>
-                    <a class="tb-cta" href="{TBANK_LINK}" target="_blank" rel="noopener noreferrer">
-                        Оставить заявку {ICON_ARROW_RIGHT}
-                    </a>
+                    {render_tbank_products_block()}
 
                     <div class="tb-conditions">
                         <h3>Условия использования продуктов</h3>
@@ -178,6 +177,7 @@ def render_about_page(user=None) -> str:
                         <a href="/salons" class="about-btn-primary">Найти салон</a>
                     </div>
                 </div>
+
             </div>
         </section>
 

@@ -32,6 +32,9 @@ def get_base_styles() -> str:
     <script type="module" src="/static/dist/main.js?v={_JS_V}"></script>
     <link rel="manifest" href="/manifest.webmanifest">
     <meta name="theme-color" content="#c081b8">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/static/icons/favicon-96.png">
     <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">

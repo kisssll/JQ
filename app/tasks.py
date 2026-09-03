@@ -27,6 +27,10 @@ RECONCILE_MAX_PER_RUN = 200
 # (см. check_pending_receipts): чек пробивается за секунды, час — с запасом.
 RECEIPT_GRACE_HOURS = 1
 
+# Через сколько дней после публикации салона спрашиваем владельца об удобстве
+# сервиса (см. ask_service_rating): раньше человек ещё не успел поработать.
+SERVICE_RATING_AFTER_DAYS = 14
+
 # Задержка перед повтором = RETRY_BASE_DELAY * номер попытки (5с, 10с, 15с…)
 RETRY_BASE_DELAY = 5
 
@@ -76,7 +80,7 @@ async def send_sms(ctx: dict[str, Any], phone: str, message: str) -> str:
 # ── Telegram-уведомления (бот @rumi_beauty_bot) ──────────────────
 
 
-async def _send_via_telegram(chat_id: int, text: str) -> None:
+async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None = None) -> None:
     """Отправка сообщения ботом через Bot API (без aiogram: воркеру не нужен
     polling, достаточно одного HTTPS-вызова; конфликтов с процессом бота нет).
 
@@ -94,7 +98,10 @@ async def _send_via_telegram(chat_id: int, text: str) -> None:
     url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/sendMessage"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json={"chat_id": chat_id, "text": text})
+            payload = {"chat_id": chat_id, "text": text}
+            if reply_markup:
+                payload["reply_markup"] = reply_markup
+            resp = await client.post(url, json=payload)
     except httpx.HTTPError as exc:
         raise TransientTaskError(f"сеть: {exc}") from exc
 
@@ -733,6 +740,171 @@ async def check_pending_receipts(ctx: dict[str, Any]) -> str:
 
     logger.error("check_pending_receipts: чек не пробит по %d платежам", len(stale))
     return f"stale:{len(stale)}"
+
+
+async def send_review_request_tg(ctx: dict[str, Any], chat_id: int,
+                                 booking_id: int, question: str) -> str:
+    """Вопрос об отзыве со звёздами-кнопками. Нажатие ловит tg-бот (rev:*)."""
+    stars = [
+        {"text": "★" * n, "callback_data": f"rev:{booking_id}:{n}"}
+        for n in range(1, 6)
+    ]
+    markup = {"inline_keyboard": [stars[:3], stars[3:]]}
+    try:
+        await _send_via_telegram(chat_id, f"⭐ {question}", reply_markup=markup)
+    except TransientTaskError as exc:
+        logger.warning("send_review_request_tg %s: временный сбой: %s", chat_id, exc)
+        raise Retry(defer=ctx["job_try"] * 30)
+    return "sent"
+
+
+async def ask_service_rating(ctx: dict[str, Any]) -> str:
+    """Раз в сутки спросить владельцев салонов, как им сам сервис.
+
+    Спрашиваем один раз и не сразу: через SERVICE_RATING_AFTER_DAYS после
+    подключения, когда человек уже успел поработать в панели. Повторно не
+    беспокоим — признак «уже спрашивали» это наличие NPS-обращения от него.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from app.core.worker import get_arq_pool
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import (
+        NotifyChannel, Salon, SalonModerationStatus, SupportRequest, SupportTopic, User,
+    )
+    from app.services.notify_channel import resolve
+
+    now = datetime.now(timezone.utc)
+    ripe_before = now - timedelta(days=SERVICE_RATING_AFTER_DAYS)
+
+    async with AsyncSessionLocal() as db:
+        salons = (await db.execute(
+            select(Salon).where(
+                Salon.moderation_status == SalonModerationStatus.APPROVED,
+                Salon.is_active == True,  # noqa: E712
+                Salon.published_at.isnot(None),
+                Salon.published_at <= ripe_before,
+            )
+        )).scalars().all()
+        if not salons:
+            return "asked:0"
+
+        asked_ids = set((await db.execute(
+            select(SupportRequest.user_id).where(SupportRequest.topic == SupportTopic.NPS)
+        )).scalars().all())
+
+        pool = await get_arq_pool()
+        asked = 0
+        seen: set[int] = set()
+        for salon in salons:
+            owner_id = salon.creator_id
+            if not owner_id or owner_id in asked_ids or owner_id in seen:
+                continue
+            seen.add(owner_id)
+
+            owner = await db.get(User, owner_id)
+            if owner is None:
+                continue
+            channel, address = resolve(owner)
+            if channel != NotifyChannel.TG or not address:
+                # Кнопки с оценкой умеет только tg-бот. Остальным не пишем
+                # вовсе: опрос без способа ответить — просто спам.
+                continue
+
+            await pool.enqueue_job(
+                "send_service_rating_tg", int(address),
+                _job_id=f"nps:{owner_id}",
+            )
+            asked += 1
+
+    logger.info("ask_service_rating: опрошено владельцев %d", asked)
+    return f"asked:{asked}"
+
+
+async def send_service_rating_tg(ctx: dict[str, Any], chat_id: int) -> str:
+    """Вопрос об оценке сервиса. Нажатие ловит tg-бот (nps:*)."""
+    buttons = [
+        {"text": str(n), "callback_data": f"nps:{n}"} for n in range(1, 6)
+    ]
+    markup = {"inline_keyboard": [buttons]}
+    try:
+        await _send_via_telegram(
+            chat_id,
+            "Вы уже пару недель с Руми. Насколько вам удобно работать в сервисе?\n"
+            "1 — совсем неудобно, 5 — всё отлично. После оценки можно дописать, "
+            "чего не хватает.",
+            reply_markup=markup,
+        )
+    except TransientTaskError as exc:
+        logger.warning("send_service_rating_tg %s: временный сбой: %s", chat_id, exc)
+        raise Retry(defer=ctx["job_try"] * 60)
+    return "sent"
+
+
+async def ask_for_review(ctx: dict[str, Any], booking_id: int) -> str:
+    """Через два часа после визита спросить у клиента отзыв.
+
+    Отзывы у нас были, а просить их было некому — оттого у салонов и висело
+    «0 отзывов». Спрашиваем только по факту отметки «Пришёл»: такой отзыв
+    сразу идёт как подтверждённый визитом.
+
+    Кнопки со звёздами понимает только Telegram — в MAX и на почту уходит
+    ссылка на страницу салона: рисовать там свой сценарий оценки ради одного
+    вопроса не стоит.
+    """
+    from sqlalchemy import select
+
+    from app.core.config import settings
+    from app.core.worker import get_arq_pool
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import (
+        Booking, BookingStatus, Master, NotifyChannel, Salon, User,
+    )
+    from app.services.bot_actions import review_already_left
+    from app.services.notify_channel import resolve
+
+    async with AsyncSessionLocal() as db:
+        booking = (await db.execute(
+            select(Booking).where(Booking.id == booking_id)
+        )).scalar_one_or_none()
+        if booking is None or booking.status != BookingStatus.COMPLETED:
+            return "skipped"  # запись отменили или переотметили
+        if await review_already_left(db, booking.client_id, booking_id):
+            return "already"
+
+        client = await db.get(User, booking.client_id)
+        if client is None:
+            return "skipped"
+
+        master = (await db.execute(
+            select(Master).where(Master.id == booking.master_id)
+        )).scalar_one_or_none()
+        salon = await db.get(Salon, master.salon_id) if master else None
+        salon_name = salon.name if salon else "салоне"
+
+        channel, address = resolve(client)
+        if channel == NotifyChannel.NONE or not address:
+            return "no_channel"
+
+        question = f"Как всё прошло в «{salon_name}»? Оцените визит — это займёт секунду."
+
+        pool = await get_arq_pool()
+        if channel == NotifyChannel.TG:
+            # Звёзды кнопками умеет только tg-бот (у него свой polling с
+            # колбэками), поэтому просим его нарисовать клавиатуру.
+            await pool.enqueue_job("send_review_request_tg", int(address), booking_id, question)
+        else:
+            base = settings.PUBLIC_BASE_URL.rstrip("/")
+            link = f"{base}/salons/{salon.id}" if salon else base
+            from app.services.notifications import deliver
+
+            await deliver(
+                client, f"⭐ {question}\nОставить отзыв: {link}",
+                subject="Как прошёл визит? — Руми",
+            )
+        return "asked"
 
 
 async def reconcile_refunds(ctx: dict[str, Any]) -> str:

@@ -92,8 +92,21 @@ _CONTACT_KB = ReplyKeyboardMarkup(
 # Постоянная кнопка внизу у привязанного пользователя: открыть меню подписок,
 # не набирая /settings. Ставится после привязки и держится в чате.
 MENU_BTN_PREFS = "⚙️ Мои уведомления"
+MENU_BTN_SUPPORT = "✉️ Написать нам"
+MENU_BTN_BOOKINGS = "📅 Мои записи"
 _MENU_KB = ReplyKeyboardMarkup(
-    keyboard=[[KeyboardButton(text=MENU_BTN_PREFS)]],
+    keyboard=[
+        [KeyboardButton(text=MENU_BTN_BOOKINGS)],
+        [KeyboardButton(text=MENU_BTN_PREFS)],
+        [KeyboardButton(text=MENU_BTN_SUPPORT)],
+    ],
+    resize_keyboard=True,
+)
+# Непривязанному постоянное меню не ставится (он его просто не видел), но
+# написать в поддержку он должен мочь — именно у него чаще всего и проблема
+# со входом. Поэтому у обращения свой вход через /feedback и кнопку.
+_SUPPORT_ONLY_KB = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text=MENU_BTN_SUPPORT)]],
     resize_keyboard=True,
 )
 
@@ -222,15 +235,333 @@ async def on_prefs_toggle(callback: CallbackQuery) -> None:
     await callback.answer("Сохранено")
 
 
+# ── Мои записи, отмена, отзыв ────────────────────────────────────────────────
+
+async def on_my_bookings(message: Message) -> None:
+    """Ближайшие записи с кнопкой отмены у каждой."""
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import format_booking, upcoming_bookings
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, message.chat.id)
+        if user is None:
+            await message.answer(
+                "Этот Telegram пока не привязан к аккаунту Руми. "
+                "Подтвердите номер на сайте — и записи появятся здесь."
+            )
+            return
+        rows = await upcoming_bookings(db, user.id)
+
+    if not rows:
+        await message.answer("Ближайших записей нет.")
+        return
+
+    for booking, salon, service, master_name in rows:
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="Отменить запись",
+                                 callback_data=f"cnl:{booking.id}"),
+        ]])
+        await message.answer(format_booking(booking, salon, service, master_name),
+                             reply_markup=kb)
+
+
+async def on_cancel_booking(callback: CallbackQuery) -> None:
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import cancel_booking
+
+    try:
+        booking_id = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, callback.message.chat.id)
+        if user is None:
+            await callback.answer("Telegram не привязан")
+            return
+        ok, text = await cancel_booking(db, user.id, booking_id)
+
+    await callback.answer(text if not ok else "Отменено")
+    if ok:
+        # Кнопку убираем: повторное нажатие уже ничего не изменит.
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+    await callback.message.answer(text)
+
+
+async def on_review_stars(callback: CallbackQuery) -> None:
+    """Оценка визита звёздами. Комментарий не спрашиваем отдельным шагом:
+    одна кнопка — уже отзыв, а дописать можно на сайте."""
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import save_review
+
+    parts = (callback.data or "").split(":")
+    if len(parts) != 3:
+        await callback.answer()
+        return
+    try:
+        booking_id, rating = int(parts[1]), int(parts[2])
+    except ValueError:
+        await callback.answer()
+        return
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, callback.message.chat.id)
+        if user is None:
+            await callback.answer("Telegram не привязан")
+            return
+        ok, text = await save_review(db, user_id=user.id, booking_id=booking_id,
+                                     rating=rating)
+
+    await callback.answer("Спасибо!" if ok else text[:180])
+    try:
+        await callback.message.edit_text(f"{'★' * rating}\n{text}")
+    except Exception:
+        await callback.message.answer(text)
+
+
+async def on_service_rating(callback: CallbackQuery) -> None:
+    """Оценка сервиса из опроса. Складываем как обращение с темой NPS —
+    отдельную сущность с тем же жизненным циклом заводить незачем."""
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel, SupportTopic
+    from app.services.support import create_request
+
+    try:
+        rating = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
+    if not 1 <= rating <= 5:
+        await callback.answer()
+        return
+
+    chat_id = callback.message.chat.id
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, chat_id)
+        await create_request(
+            db, topic=SupportTopic.NPS, text=f"Оценка сервиса: {rating}/5",
+            channel=NotifyChannel.TG, chat_id=chat_id, user=user, rating=rating,
+        )
+
+    await callback.answer("Спасибо!")
+    try:
+        await callback.message.edit_text(
+            f"Ваша оценка: {rating}/5. Спасибо!\n\n"
+            "Если хотите добавить, чего не хватает — напишите нам через "
+            f"«{MENU_BTN_SUPPORT}»."
+        )
+    except Exception:
+        pass
+
+
+# ── Обращение в поддержку ────────────────────────────────────────────────────
+# Состояние диалога держим в Redis, а не в памяти процесса: бот перезапускается
+# вместе со стеком, и незаконченное обращение не должно ломаться от деплоя.
+_SUPPORT_TTL = 1800  # 30 минут на то, чтобы дописать обращение
+
+
+def _support_key(chat_id: int) -> str:
+    return f"support:draft:tg:{chat_id}"
+
+
+async def _support_draft(chat_id: int) -> dict | None:
+    import json
+
+    raw = await get_redis().get(_support_key(chat_id))
+    if not raw:
+        return None
+    return json.loads(raw if isinstance(raw, str) else raw.decode())
+
+
+async def _support_save(chat_id: int, draft: dict) -> None:
+    import json
+
+    await get_redis().set(_support_key(chat_id), json.dumps(draft), ex=_SUPPORT_TTL)
+
+
+async def _support_clear(chat_id: int) -> None:
+    await get_redis().delete(_support_key(chat_id))
+
+
+def _topics_keyboard() -> InlineKeyboardMarkup:
+    from app.models.models import SupportTopic
+    from app.services.support import TOPIC_LABELS
+
+    order = [SupportTopic.QUESTION, SupportTopic.BUG,
+             SupportTopic.COMPLAINT, SupportTopic.IDEA]
+    rows, pair = [], []
+    for topic in order:
+        pair.append(InlineKeyboardButton(
+            text=TOPIC_LABELS[topic], callback_data=f"sup:{topic.value}",
+        ))
+        if len(pair) == 2:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def on_support_start(message: Message) -> None:
+    """«Написать нам» — выбор темы. Доступно всем, даже без аккаунта."""
+    await _support_clear(message.chat.id)
+    await message.answer(
+        "О чём хотите написать?\n\n"
+        "Выберите тему — так мы быстрее поймём, кому передать обращение.",
+        reply_markup=_topics_keyboard(),
+    )
+
+
+async def on_support_topic(callback: CallbackQuery) -> None:
+    from app.models.models import SupportTopic
+    from app.services.support import MAX_PHOTOS, TOPIC_LABELS
+
+    value = (callback.data or "").split(":", 1)[1]
+    try:
+        topic = SupportTopic(value)
+    except ValueError:
+        await callback.answer()
+        return
+
+    await _support_save(callback.message.chat.id, {"topic": topic.value, "photos": []})
+    await callback.message.edit_text(
+        f"Тема: {TOPIC_LABELS[topic]}\n\n"
+        "Опишите, что случилось — одним сообщением. "
+        f"Можно приложить фото (до {MAX_PHOTOS}), если так понятнее.\n\n"
+        "Отменить — /cancel"
+    )
+    await callback.answer()
+
+
+async def on_support_cancel(message: Message) -> None:
+    if await _support_draft(message.chat.id) is None:
+        return
+    await _support_clear(message.chat.id)
+    await message.answer("Обращение отменено.")
+
+
+async def _download_photo(message: Message) -> bytes | None:
+    """Самый крупный вариант присланного фото → байты."""
+    try:
+        file = await message.bot.get_file(message.photo[-1].file_id)
+        buf = await message.bot.download_file(file.file_path)
+        return buf.read()
+    except Exception:
+        logger.exception("support: не удалось скачать фото")
+        return None
+
+
+async def on_support_message(message: Message) -> None:
+    """Текст (и/или фото) для начатого обращения."""
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel, SupportTopic
+    from app.services.support import (
+        MAX_PHOTOS, RateLimited, check_rate_limit, create_request,
+        store_photo, validate_text,
+    )
+
+    chat_id = message.chat.id
+    draft = await _support_draft(chat_id)
+    if draft is None:
+        return  # обращение не начиналось — сообщение не наше
+
+    # Фото без подписи: копим и ждём текст. Так человек может прислать
+    # несколько снимков подряд, а описание дописать следом.
+    caption = message.caption or message.text or ""
+    if message.photo:
+        if len(draft["photos"]) >= MAX_PHOTOS:
+            await message.answer(f"Больше {MAX_PHOTOS} фото не приложить — опишите словами.")
+            return
+        data = await _download_photo(message)
+        url = store_photo(data) if data else None
+        if url:
+            draft["photos"].append(url)
+            await _support_save(chat_id, draft)
+        if not caption:
+            await message.answer(
+                f"Фото принято ({len(draft['photos'])}). "
+                "Теперь опишите проблему текстом — или пришлите ещё фото."
+            )
+            return
+
+    error = validate_text(caption)
+    if error:
+        await message.answer(error)
+        return
+
+    try:
+        await check_rate_limit(NotifyChannel.TG, chat_id)
+    except RateLimited:
+        await _support_clear(chat_id)
+        await message.answer(
+            "Вы уже отправили несколько обращений за последний час — "
+            "мы ответим на них в ближайшее время."
+        )
+        return
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, chat_id)
+        request = await create_request(
+            db, topic=SupportTopic(draft["topic"]), text=caption,
+            channel=NotifyChannel.TG, chat_id=chat_id, user=user,
+            photos=draft["photos"],
+        )
+
+    await _support_clear(chat_id)
+    await message.answer(
+        f"Обращение №{request.id} принято — спасибо.\n"
+        "Ответим сюда же, в этот чат.",
+        reply_markup=_MENU_KB if user else _SUPPORT_ONLY_KB,
+    )
+
+
+async def _show_main_menu(message: Message) -> None:
+    """Что бот умеет — при /start без токена.
+
+    Раньше отсюда сразу открывались настройки подписок: тогда бот больше
+    ничего и не умел. Теперь у него три раздела, и вываливать человека в
+    один из них без объяснений — значит прятать остальные два.
+    """
+    from app.db.session import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, message.chat.id)
+
+    if user is None:
+        await message.answer(
+            "Telegram ещё не привязан к аккаунту Руми. Нажмите кнопку ниже, "
+            "чтобы привязать — и уведомления заработают.",
+            reply_markup=_CONTACT_KB,
+        )
+        await get_redis().set(_pending_key(message.from_user.id), LINK_MODE,
+                              ex=settings.OTP_TTL_MINUTES * 60)
+        return
+
+    name = (user.full_name or "").split()[0] if user.full_name else ""
+    hello = f"Здравствуйте, {name}!" if name else "Здравствуйте!"
+    await message.answer(
+        f"{hello} Это бот Руми. Отсюда можно:\n\n"
+        f"{MENU_BTN_BOOKINGS} — ближайшие записи, можно отменить\n"
+        f"{MENU_BTN_PREFS} — какие уведомления присылать\n"
+        f"{MENU_BTN_SUPPORT} — вопрос или проблема, ответим сюда же\n\n"
+        "Выберите кнопку внизу.",
+        reply_markup=_MENU_KB,
+    )
+
+
 async def on_start(message: Message, command: CommandObject) -> None:
     """/start <request_id> из deep link'а, или /start без аргумента — привязка."""
     token = (command.args or "").strip()
     r = get_redis()
 
     if not token:
-        # Без deep link'а: привязанному — меню личных подписок, остальным —
-        # предложение привязать аккаунт (внутри _show_prefs_menu).
-        await _show_prefs_menu(message)
+        # Без deep link'а: привязанному — главное меню, остальным —
+        # предложение привязать аккаунт.
+        await _show_main_menu(message)
         return
 
     record = await r.hgetall(_key(token))
@@ -449,11 +780,35 @@ async def main() -> None:
     dp.message.register(on_contact, F.contact)
     dp.callback_query.register(on_prefs_toggle, F.data.startswith("ntf:"))
 
+    # Обращение в поддержку. Порядок важен: /cancel и кнопки регистрируем ДО
+    # «свободного» обработчика, иначе он проглотит их как текст обращения.
+    dp.message.register(on_my_bookings, Command("bookings"))
+    dp.message.register(on_my_bookings, F.text == MENU_BTN_BOOKINGS)
+    dp.callback_query.register(on_cancel_booking, F.data.startswith("cnl:"))
+    dp.callback_query.register(on_review_stars, F.data.startswith("rev:"))
+    dp.callback_query.register(on_service_rating, F.data.startswith("nps:"))
+    dp.message.register(on_support_start, Command("feedback"))
+    dp.message.register(on_support_start, F.text == MENU_BTN_SUPPORT)
+    dp.message.register(on_support_cancel, Command("cancel"))
+    dp.callback_query.register(on_support_topic, F.data.startswith("sup:"))
+    # Ловим только когда обращение начато — внутри проверяется черновик.
+    dp.message.register(on_support_message, F.text | F.photo)
+
     # Пункты в кнопке «Меню» (≡) рядом с полем ввода — тапнуть, а не печатать.
-    await bot.set_my_commands([
-        BotCommand(command="settings", description="⚙️ Мои уведомления"),
-        BotCommand(command="start", description="Меню и привязка аккаунта"),
-    ])
+    # Список команд — украшение меню, а не условие работы. Раньше сбой этого
+    # вызова убивал процесс ДО старта опроса: связь с api.telegram.org с
+    # нашего хоста периодически рвётся, и бот уходил в цикл перезапусков,
+    # ни разу не начав принимать сообщения. Опрос переживает разрывы сам.
+    try:
+        await bot.set_my_commands([
+            BotCommand(command="settings", description="⚙️ Мои уведомления"),
+            BotCommand(command="bookings", description="📅 Мои записи"),
+            BotCommand(command="feedback", description="✉️ Написать нам"),
+            BotCommand(command="start", description="Меню и привязка аккаунта"),
+        ])
+    except Exception:
+        logger.warning("не удалось обновить меню команд — продолжаем без него",
+                       exc_info=True)
 
     logger.info("Бот подтверждения номера запущен (long polling)")
     await dp.start_polling(bot)
