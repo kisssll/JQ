@@ -890,9 +890,16 @@
 .settings-delete-form {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    /* stretch, а не flex-start: иначе группа с полем ужималась по содержимому
+       и поле выходило 232px. Ширину ограничивает собственный max-width
+       группы (24rem), а кнопку прижимаем к левому краю отдельно. */
+    align-items: stretch;
     align-self: stretch;
     gap: 1rem;
+}
+
+.settings-delete-form .settings-delete-btn {
+    align-self: flex-start;
 }
 
 .settings-delete-warning {
