@@ -83,7 +83,7 @@ def render_login_page(request: Request) -> str:
         <div class="auth-logo">руми.</div>
         <h1 class="auth-title">Вход</h1>
         {banner}{success}
-        <form action="/api/v1/auth/login-web" method="post">
+        <form action="/api/v1/auth/login-web" method="post" data-submit-lock>
             <input type="hidden" name="redirect" value="{redirect}">
             <div class="form-group">
                 <label for="phone">Телефон</label>

@@ -12,6 +12,7 @@ import './password-toggle.js';
 
 import './sidebar.js';
 import './password-validator.js';
+import './submit-lock.js';
 import './phone-mask.js';
 import './profile.js';
 import './salons.js';

@@ -42,16 +42,19 @@ def render_forgot_password_page(request: Request) -> str:
         </p>"""
         return _shell("Сброс пароля", body)
 
-    body = """
+    # Номер подставляем из ссылки: сюда приходят со страницы входа и с
+    # регистрации («телефон уже зарегистрирован»), где он уже введён.
+    phone = html.escape(q.get("phone") or "+7", quote=True)
+    body = f"""
         <h1 class="auth-title">Забыли пароль?</h1>
         <p style="color:var(--color-muted);font-size:0.9rem;margin-bottom:1rem">
             Укажите телефон аккаунта — пришлём ссылку для смены пароля
             в привязанный Telegram и на почту.
         </p>
-        <form action="/api/v1/auth/forgot-password" method="post">
+        <form action="/api/v1/auth/forgot-password" method="post" data-submit-lock>
             <div class="form-group">
                 <label for="phone">Телефон</label>
-                <input type="tel" id="phone" name="phone" value="+7" placeholder="+7 (___) ___-__-__" class="phone-input" required>
+                <input type="tel" id="phone" name="phone" value="{phone}" placeholder="+7 (___) ___-__-__" class="phone-input" required>
             </div>
             <button type="submit" class="btn-primary auth-btn">Отправить ссылку</button>
         </form>"""
@@ -83,7 +86,7 @@ def render_reset_password_page(request: Request) -> str:
     body = f"""
         <h1 class="auth-title">Новый пароль</h1>
         {banner}
-        <form action="/api/v1/auth/reset-password" method="post">
+        <form action="/api/v1/auth/reset-password" method="post" data-submit-lock>
             <input type="hidden" name="token" value="{token}">
             <div class="form-group">
                 <label for="password">Придумайте новый пароль</label>
