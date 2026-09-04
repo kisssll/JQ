@@ -1,6 +1,7 @@
 # app/web/register.py
 from app.web.components.escaping import e
 import html
+from urllib.parse import quote
 from fastapi import Request
 from app.core.config import settings
 from app.web.components.styles import get_base_styles
@@ -68,7 +69,23 @@ def render_register_page(request: Request) -> str:
         "yandex_no_phone": "Яндекс не поделился вашим номером — зарегистрируйтесь по телефону, это пара минут",
         "vk_no_phone": "VK не поделился вашим номером — зарегистрируйтесь по телефону, это пара минут",
     }
-    banner = _alert(errors.get(q.get("error", ""), ""))
+    error_code = q.get("error", "")
+    if error_code == "phone_exists":
+        # Чаще всего это не «номер занял кто-то чужой», а повторная отправка
+        # своей же формы: первый запрос успел создать аккаунт, второй увидел
+        # номер занятым (инцидент 04.09.2026). Поэтому не тупик, а выходы.
+        back = html.escape(quote(q.get("phone") or "", safe=""), quote=True)
+        link = 'color:#991B1B;font-weight:600;text-decoration:underline'
+        banner = _alert(
+            "Пользователь с таким телефоном уже зарегистрирован. "
+            f'<a href="/login?phone={back}" style="{link}">Войти</a> · '
+            f'<a href="/forgot-password?phone={back}" style="{link}">Забыли пароль?</a>'
+            '<div style="margin-top:0.375rem;font-size:0.8125rem">Если вы только что '
+            'заполняли эту форму — аккаунт уже создан, войдите с тем паролем, '
+            'который придумали.</div>'
+        )
+    else:
+        banner = _alert(errors.get(error_code, ""))
 
     otp_enabled = settings.OTP_ENABLED
     # Каналы подтверждения. СМС в production с mock-провайдером — не канал
@@ -125,7 +142,7 @@ def render_register_page(request: Request) -> str:
         <div class="auth-logo">руми.</div>
         <h1 class="auth-title">Регистрация</h1>
         {banner}
-        <form action="/api/v1/auth/register-web" method="post">
+        <form action="/api/v1/auth/register-web" method="post" data-submit-lock>
             <div class="form-group">
                 <label for="full_name">Имя</label>
                 <input type="text" id="full_name" name="full_name" value="{e(full_name)}" placeholder="Ваше имя">

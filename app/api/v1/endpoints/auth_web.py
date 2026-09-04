@@ -104,6 +104,10 @@ async def login_web(
 
 
 @router.post("/register-web")
+# Лимит по IP: у формы регистрации его не было вовсе, и двойное нажатие
+# обрабатывалось дважды в полную силу (инцидент 04.09.2026). Порог
+# щадящий — за одним IP может сидеть целый салон.
+@limiter.limit("10/minute")
 async def register_web(
     request: Request,
     phone: str = Form(...),
