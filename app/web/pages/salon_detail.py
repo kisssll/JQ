@@ -227,7 +227,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
     top_block = f"""
     <section class="salon-top-section">
         <div class="section-container">
-            <a class="back-link" href="/salons/">
+            <a class="back-link" href="/salons">
                 {ICON_ARROW_LEFT} Все салоны
             </a>
             <div class="salon-header-grid">
@@ -604,7 +604,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
     """
 
     page_html = f"""<!DOCTYPE html>
-<html lang="ru" data-theme="light">
+<html lang="ru">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

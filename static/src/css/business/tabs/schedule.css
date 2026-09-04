@@ -196,12 +196,14 @@
 
 .dashboard-page .schedule-booking-wrapper.pending {
     border-left-color: #f59e0b;
-    background: #fffbeb;
+    /* Полупрозрачный тон вместо плотного светлого: так подсветка статуса
+       читается и на светлом, и на тёмном фоне. */
+    background: rgba(245, 158, 11, 0.12);
 }
 
 .dashboard-page .schedule-booking-wrapper.confirmed {
     border-left-color: #10b981;
-    background: #ecfdf5;
+    background: rgba(16, 185, 129, 0.12);
 }
 
 .dashboard-page .schedule-booking-header {
@@ -460,7 +462,7 @@
 }
 
 .dashboard-page .record-card-body {
-    background: #f9fafb;
+    background: var(--color-surface-2);
     padding: 0.75rem;
     font-size: 0.85rem;
     border-top: 1px solid var(--color-border);
@@ -662,7 +664,7 @@
     gap: 0.75rem;
     padding: 0.4rem 0.6rem;
     border-radius: 0.5rem;
-    background: var(--color-surface-2, #f6f6f8);
+    background: var(--color-surface-2);
 }
 
 .dashboard-page .mschedule-day {

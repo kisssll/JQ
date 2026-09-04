@@ -66,16 +66,16 @@ async def render_cost_tab(db: AsyncSession, salon, masters, master_ids, date_fro
 
     return f"""
     <div id="tab-cost" class="tab-content">
-        <form method="get" action="/business/dashboard" style="display:flex;gap:0.75rem;align-items:flex-end;margin-bottom:1.5rem">
+        <form method="get" action="/business/dashboard" class="period-form">
             <input type="hidden" name="salon_id" value="{salon.id}">
             <input type="hidden" name="tab" value="cost">
             <div>
-                <label class="text-muted" style="display:block;font-size:0.75rem;margin-bottom:0.25rem">Период: с</label>
-                <input type="month" name="date_from" class="custom-date" value="{from_str}" max="{to_str}" style="padding:0.5rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                <label class="period-label">Период: с</label>
+                <input type="month" name="date_from" class="period-input custom-date" value="{from_str}" max="{to_str}">
             </div>
             <div>
-                <label class="text-muted" style="display:block;font-size:0.75rem;margin-bottom:0.25rem">по</label>
-                <input type="month" name="date_to" class="custom-date" value="{to_str}" min="{from_str}" style="padding:0.5rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                <label class="period-label">по</label>
+                <input type="month" name="date_to" class="period-input custom-date" value="{to_str}" min="{from_str}">
             </div>
             <button type="submit" class="btn-outline">Показать</button>
         </form>

@@ -354,8 +354,11 @@
     opacity: 0.95;
 }
 
+/* align-self обязателен: кнопка лежит во flex-колонке, а inline-flex в ней
+   растягивается на всю ширину — выходила полоса на 746px вместо кнопки. */
 .profile-btn-secondary {
     display: inline-flex;
+    align-self: flex-start;
     align-items: center;
     gap: 0.5rem;
     padding: 0.6rem 1.5rem;
@@ -952,4 +955,39 @@
     .settings-delete-section {
         padding: 1rem 1.25rem;
     }
+}
+
+/* ===== Единая высота кнопок профиля =====
+   На странице соседствовали кнопки семи разных высот: 29, 34, 35, 36, 38, 44
+   и 48px. Причина — у каждого блока свои падинги, а высота нигде не задана.
+   Приводим к одной шкале; padding оставляем прежним, он влияет только на
+   ширину. */
+.profile-main .profile-btn-secondary,
+.profile-main .settings-save-btn,
+.profile-main .settings-delete-btn,
+.profile-main .theme-btn,
+.profile-main .profile-edit-toggle,
+.profile-main .notify-actions .btn-outline,
+.profile-main .settings-card .btn-outline {
+    min-height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+/* Отступ до кнопки — не меньше, чем между полями: раньше кнопка прилегала
+   к подсказке вплотную. */
+.profile-main .settings-card-hint + .settings-save-btn {
+    margin-top: 1rem;
+}
+
+/* Кнопки подтверждения канала — в строку, с тем же отступом сверху, что и
+   у «Сохранить»: раньше ряд задавался инлайновым стилем без отступа и
+   прилипал к подсказке. */
+.settings-verify-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
 }

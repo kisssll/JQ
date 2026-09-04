@@ -762,7 +762,8 @@
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    background: rgba(255, 255, 255, 0.8);
+    /* Токен вместо белого: в тёмной теме контраст текста падал до 1.4:1. */
+    background: var(--color-surface-alt);
     border-radius: 0.75rem;
     padding: 0.7rem 0.85rem;
     transition: transform 0.2s;
@@ -827,7 +828,7 @@
 }
 
 .salon-promo-mobile .promo-item {
-    background: rgba(255, 255, 255, 0.6);
+    background: var(--color-surface-alt);
     margin-bottom: 0.5rem;
 }
 

@@ -5,43 +5,9 @@
     margin-bottom: 6rem; /* увеличен отступ до футера (было 0) */
 }
 
-/* ===== Форма периода ===== */
-.payroll-period-form {
-    display: flex;
-    gap: 0.75rem;
-    align-items: flex-end;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-}
-.payroll-period-form .period-label {
-    display: block;
-    font-size: 0.75rem;
-    color: var(--color-muted);
-    margin-bottom: 0.25rem;
-}
-.payroll-period-form .period-input {
-    padding: 0.5rem;
-    border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
-    font-size: 0.9rem;
-    background: var(--color-surface);
-    color: var(--color-heading);
-    height: 2.5rem; /* фиксированная высота */
-    box-sizing: border-box;
-}
-.payroll-period-form .period-input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-}
-.payroll-period-form .period-submit {
-    height: 2.5rem; 
-    padding: 0 1.5rem;
-    font-size: 0.9rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-}
+/* Форма периода переехала в общий .period-form (business/dashboard.css):
+   тот же блок был в трёх вкладках с разными размерами. */
+
 
 /* ===== KPI карточки ===== */
 .payroll-kpi {
@@ -321,11 +287,6 @@
     }
     .payroll-mobile {
         display: block;
-    }
-
-    .payroll-period-form .period-submit {
-        height: 2.5rem;
-        padding: 0 1.5rem;
     }
 }
 

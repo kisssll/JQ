@@ -350,8 +350,11 @@
     color: inherit;
 }
 
+/* Токен, а не полупрозрачный белый: на тёмной теме белая заливка давала
+   светлую плашку, а текст оставался темовым (почти белым) — контраст
+   заголовка падал до 2.1:1 при норме 4.5. */
 .popular-salon-card {
-    background: rgba(255, 255, 255, 0.65);
+    background: var(--color-surface);
     backdrop-filter: blur(4px);
     border: 1px solid var(--color-border);
     border-radius: 1rem;

@@ -117,7 +117,7 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, date_
     return f"""
     <div id="tab-payroll" class="tab-content">
         <!-- Форма выбора периода -->
-        <form method="get" action="/business/dashboard" class="payroll-period-form">
+        <form method="get" action="/business/dashboard" class="period-form">
             <input type="hidden" name="salon_id" value="{salon.id}">
             <input type="hidden" name="tab" value="payroll">
             <div>

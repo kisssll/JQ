@@ -150,10 +150,13 @@
 }
 
 /* ===== Бейдж ===== */
+/* Правый отступ больше остальных: следом идёт кнопка бургера, и плашка
+   прилипала к ней вплотную. */
 .dashboard-badge {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    margin-right: 0.75rem;
     padding: 0 0.75rem;
     border-radius: 2rem;
     background: rgba(255, 255, 255, 0.15);
@@ -828,4 +831,58 @@
     font-size: 0.75rem;
     font-weight: 400;
     color: var(--color-muted);
+}
+/* ===== Форма выбора периода =====
+   Один и тот же элемент («Период: с … по … [Показать]») был собран в трёх
+   вкладках по-разному: в «Зарплатах» своим классом, в «Себестоимости» и
+   «Аналитике» — инлайновыми стилями. Отсюда разнобой: кнопка «Показать» была
+   123x43 в одной вкладке и 94x29 в другой, поля 179 и 199px при одинаковом
+   содержимом, а подписи прилипали к полям.
+
+   Ширина полей — под содержимое: «Сентябрь 2026» это самый длинный вариант,
+   9rem хватает с запасом. */
+.dashboard-page .period-form {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.dashboard-page .period-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--color-muted);
+}
+
+.dashboard-page .period-input {
+    width: 9rem;
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    font-size: 0.9rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.dashboard-page .period-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+}
+
+/* Высота как у полей — иначе кнопка «висит» ниже линии ввода. */
+.dashboard-page .period-form .btn-outline,
+.dashboard-page .period-form .btn-primary {
+    height: 2.5rem;
+    padding: 0 1.25rem;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
 }

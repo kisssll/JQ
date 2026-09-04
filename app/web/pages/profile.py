@@ -356,8 +356,11 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
                                 <input type="tel" id="settings-phone" name="phone" value="{phone}" placeholder="+7XXXXXXXXXX" required>
                             </div>
                             <input type="hidden" id="phone-request-id" name="request_id" value="">
-                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{''.join(verify_buttons)}</div>
+                            <!-- Подсказка идёт за полем, а не между кнопками: объяснение,
+                                 что делать, попадалось на глаза уже после первого действия.
+                                 Так же устроен блок смены email. -->
                             <p class="settings-card-hint" id="phone-verify-hint">Введите новый номер и подтвердите владение им в {channels_text}.</p>
+                            <div class="settings-verify-row">{''.join(verify_buttons)}</div>
                             <button type="submit" id="phone-save-btn" class="btn-primary settings-save-btn" disabled>Сохранить</button>
                         </form>"""
     else:

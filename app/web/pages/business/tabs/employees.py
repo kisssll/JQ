@@ -99,7 +99,9 @@ def _render_master_card(master, user_data, can_manage_masters):
     user_name = user_data.full_name if user_data else "—"
     phone = user_data.phone if user_data else "—"
     status_class = "on" if master.is_active else "off"
-    status_text = "На смене" if master.is_active else "Отключён"
+    # Это флаг активности учётки, а не смена: мастер, который сегодня не
+    # работает, всё равно попадал в «На смене».
+    status_text = "Активен" if master.is_active else "Отключён"
 
     actions = f"""
         <button class="action-btn edit-btn" onclick="editEmployee({master.id}, '{user_name}', '{e(master.specialization)}', {master.experience_years})" title="Редактировать">{ICON_EDIT}</button>
@@ -336,7 +338,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
         phone = master_user.phone if master_user else "—"
 
         status_class = "on" if m.is_active else "off"
-        status_text = "На смене" if m.is_active else "Отключён"
+        status_text = "Активен" if m.is_active else "Отключён"
 
         actions = f"""
             <button class="action-btn edit-btn" onclick="editEmployee({m.id}, '{user_name}', '{e(m.specialization)}', {m.experience_years})" title="Редактировать">{ICON_EDIT}</button>
