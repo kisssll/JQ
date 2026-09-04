@@ -38,7 +38,13 @@
     background-color: var(--color-accent-hover);
 }
 
-.btn-outline {
+/* Ограничено страницей салона (.page-body есть только здесь).
+   Раньше это правило переопределяло .btn-outline глобально: файл
+   импортируется после дизайн-системы, специфичность та же, поэтому побеждало
+   оно — и по всему сайту кнопки выходили 0.75rem с рамкой 1px вместо
+   задуманных 0.875rem и 2px. Здесь компактный розовый вид уместен (чипы
+   выбора времени и мастера), в остальных местах — нет. */
+.page-body .btn-outline {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -53,8 +59,8 @@
     transition: all 0.2s ease;
 }
 
-.btn-outline:hover,
-.btn-outline.selected {
+.page-body .btn-outline:hover,
+.page-body .btn-outline.selected {
     background-color: var(--color-primary);
     color: var(--color-btn-text);
 }
