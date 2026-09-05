@@ -36,6 +36,38 @@ www.{$DOMAIN:localhost} {
     encode gzip
     reverse_proxy rumi-prod-app:8000
 
+    # Журнал запросов. Его не было вовсе: клиентские IP проходили через прокси
+    # и нигде не оседали, а логи приложения (без адресов) стираются при каждом
+    # пересоздании контейнера — на вопрос «сколько было трафика за три дня»
+    # ответить было нечем.
+    #
+    # Из адресной строки вырезаны параметры, которые нельзя хранить: телефон
+    # ходит в query у /register и /login, а token — это одноразовая ссылка
+    # сброса пароля, то есть в логе она была бы готовым ключом от аккаунта.
+    # Заголовки Cookie и Authorization Caddy вычищает сам.
+    #
+    # Логи содержат IP — это персональные данные; п. 1.2 Политики cookie прямо
+    # относит к ним «файлы журналов сервера», поэтому срок хранения ограничен.
+    log {
+        output file /var/log/caddy/prod-access.log {
+            roll_size 20MiB
+            roll_keep 10
+            roll_keep_for 2160h
+        }
+        format filter {
+            wrap json
+            fields {
+                request>uri query {
+                    delete phone
+                    delete token
+                    delete code
+                    delete request_id
+                    delete full_name
+                }
+            }
+        }
+    }
+
     # Доп. защита заголовками на уровне прокси (в приложении они тоже есть)
     header {
         -Server

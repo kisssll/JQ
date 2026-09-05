@@ -1,6 +1,9 @@
 # app/web/components/styles.py
 import hashlib
+import html
 import os
+
+from app.core.config import settings
 
 # Vite собирает бандл с ФИКСИРОВАННЫМИ именами (main.js/main.css, см. vite.config.js),
 # а StaticFiles не шлёт Cache-Control → браузеры эвристически кэшируют старый файл
@@ -23,11 +26,26 @@ _CSS_V = _asset_version("main.css")
 _JS_V = _asset_version("main.js")
 
 
+def _metrika_meta() -> str:
+    """Номер счётчика Метрики — тегом meta, а не самим счётчиком.
+
+    Сам тег Метрики в разметку не попадает никогда: п. 2.3 Политики cookie
+    разрешает аналитику только после согласия, поэтому скрипт подставляет
+    cookie-notice.js, и только когда человек выбрал «Принять». Здесь мы лишь
+    сообщаем фронтенду номер — если он вообще задан.
+    """
+    counter = (settings.YANDEX_METRIKA_ID or "").strip()
+    if not counter:
+        return ""
+    return f'<meta name="ym-counter" content="{html.escape(counter, quote=True)}">'
+
+
 def get_base_styles() -> str:
     """HTML-теги подключения собранного CSS/JS-бандла (с cache-busting по хэшу)
     + PWA-теги (manifest, тема, apple-touch) для установки на экран смартфона."""
     return f"""
     <script>(function(){{try{{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}}catch(e){{}}}})();</script>
+    {_metrika_meta()}
     <link rel="stylesheet" href="/static/dist/main.css?v={_CSS_V}">
     <script type="module" src="/static/dist/main.js?v={_JS_V}"></script>
     <link rel="manifest" href="/manifest.webmanifest">

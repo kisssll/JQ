@@ -40,12 +40,30 @@ def _img_src_extra() -> str:
     return (" " + " ".join(hosts)) if hosts else ""
 
 
+# Хосты Яндекс.Метрики. Добавляются в CSP ТОЛЬКО когда счётчик настроен: без
+# номера счётчика политика остаётся прежней, узкой. connect-src нужен отдельной
+# директивой — сам по себе он наследует default-src 'self', и отчёты счётчика
+# молча блокировались бы.
+_METRIKA_HOSTS = "https://mc.yandex.ru https://mc.yandex.com"
+
+
+def _csp() -> str:
+    img = f"'self' data:{_img_src_extra()}"
+    script = "'self' 'unsafe-inline'"
+    connect = "'self'"
+    if settings.YANDEX_METRIKA_ID:
+        img += f" {_METRIKA_HOSTS}"
+        script += f" {_METRIKA_HOSTS}"
+        connect += f" {_METRIKA_HOSTS}"
+    return (
+        f"default-src 'self'; img-src {img}; "
+        f"style-src 'self' 'unsafe-inline'; script-src {script}; "
+        f"connect-src {connect}; frame-ancestors 'none'"
+    )
+
+
 # CSP собираем один раз на старте: img-src = 'self' data: + публичный S3 (если задан).
-_CSP = (
-    f"default-src 'self'; img-src 'self' data:{_img_src_extra()}; "
-    "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
-    "frame-ancestors 'none'"
-)
+_CSP = _csp()
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

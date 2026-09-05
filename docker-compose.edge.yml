@@ -35,6 +35,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+      # Журнал запросов переживает пересоздание контейнера — ради этого он и
+      # заводится: логи приложения обнуляются на каждом выкате.
+      - caddy_logs:/var/log/caddy
     networks:
       - edge
     restart: unless-stopped
@@ -44,5 +47,6 @@ networks:
     external: true
 
 volumes:
+  caddy_logs:
   caddy_data:
   caddy_config:

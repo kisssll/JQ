@@ -296,11 +296,41 @@
     filter: brightness(.95);
 }
 
+/* Два ответа вместо одного: «Только необходимые» и «Принять». Кнопки в своей
+   обёртке — иначе на узком экране .cookie-notice растягивал бы каждую на всю
+   ширину отдельной строкой. */
+.cookie-notice-actions {
+    flex-shrink: 0;
+    display: flex;
+    gap: .5rem;
+}
+
+/* Отказ от аналитики — равноправный ответ, а не «серая» кнопка: делать его
+   незаметным значит подталкивать к согласию. Отличается только заливкой. */
+.cookie-notice-btn-secondary {
+    background: transparent;
+    border-color: var(--color-border);
+    color: var(--color-body);
+}
+
+.cookie-notice-btn-secondary:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent-hover);
+    filter: none;
+}
+
 @media (max-width: 640px) {
     .cookie-notice {
         flex-direction: column;
         align-items: stretch;
         gap: .75rem;
+    }
+
+    /* На узком экране кнопки делят строку поровну — иначе «Только необходимые»
+       вдвое шире «Принять» и выглядит как основное действие. */
+    .cookie-notice-actions .cookie-notice-btn {
+        flex: 1;
+        padding-inline: .5rem;
     }
 }
 
