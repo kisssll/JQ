@@ -664,6 +664,45 @@ async def robots_txt():
     )
 
 
+# Файлы подтверждения прав на сайт для панелей вебмастеров. Токен публичный
+# по назначению: панель проверяет, что мы можем положить файл в корень домена.
+# Держим в коде, а не в окружении, намеренно — файл должен пережить любой
+# пересброс .env: пропадёт он, и Яндекс снимет подтверждение прав.
+_SITE_VERIFICATION = {
+    # Яндекс.Вебмастер, аккаунт Руми
+    "yandex_dc164c9587b875b2.html": (
+        "<html>\n"
+        "    <head>\n"
+        '        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">\n'
+        "    </head>\n"
+        "    <body>Verification: dc164c9587b875b2</body>\n"
+        "</html>\n"
+    ),
+}
+
+
+@router.get("/{filename}.html", include_in_schema=False)
+async def site_verification(filename: str):
+    """Отдаёт файл подтверждения прав. Всё остальное — обычная 404-страница.
+
+    Маршрут объявлен ДО catch-all `/{path:path}`, иначе файл забрала бы
+    страница «не найдено» и панель вебмастера не увидела бы подтверждения.
+    """
+    from fastapi.responses import HTMLResponse as _HTML, PlainTextResponse
+
+    body = _SITE_VERIFICATION.get(f"{filename}.html")
+    if body is None:
+        return _HTML(
+            content=render_status_page(
+                404, "Страница не найдена",
+                "Такой страницы не существует. Возможно, она была удалена или вы набрали неправильный адрес.",
+                extra=f'<div class="path">/{e(filename)}.html</div>',
+            ),
+            status_code=404,
+        )
+    return PlainTextResponse(content=body, media_type="text/html; charset=utf-8")
+
+
 @router.get("/sitemap.xml", include_in_schema=False)
 async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     from fastapi.responses import Response
