@@ -512,21 +512,28 @@
 
 @media (min-width: 1024px) {
     .step-num {
-        font-size: 3.75rem;
+        font-size: 3rem;
     }
 }
 
 .step-headline {
     font-family: var(--font-heading);
-    font-size: 1.5rem;
-    font-weight: 600;
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1;
     color: var(--color-heading);
-    margin-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+    .step-headline {
+        font-size: 2.5rem;
+    }
 }
 
 .step-desc {
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: 1rem;
     line-height: 1.625;
     color: var(--color-muted);
     margin: 0;
@@ -1124,7 +1131,7 @@
 
 @media (min-width: 1024px) {
     .business-item {
-        padding: 2.5rem;
+        padding: 2rem;
     }
 }
 
@@ -1134,7 +1141,7 @@
 
 .business-number {
     font-family: var(--font-heading);
-    font-size: 1.875rem;
+    font-size: 1.8rem;
     font-weight: 700;
     line-height: 1.2;
     color: var(--color-primary);
@@ -1143,13 +1150,13 @@
 
 @media (min-width: 1024px) {
     .business-number {
-        font-size: 2.25rem;
+        font-size: 2rem;
     }
 }
 
 .business-item-title {
     font-family: var(--font-heading);
-    font-size: 1.25rem;
+    font-size: 1.8rem;
     font-weight: 600;
     color: var(--color-heading);
     margin-bottom: 0.5rem;
@@ -1157,7 +1164,7 @@
 
 .business-item-desc {
     font-family: var(--font-body);
-    font-size: 0.875rem;
+    font-size: 1rem;
     line-height: 1.5;
     color: var(--color-muted);
     margin: 0;

@@ -135,23 +135,24 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                 <!-- Блок с 4 шагами -->
                 <div class="steps-grid">
                     <div class="step-item">
-                        <span class="step-num">1</span>
-                        <h3 class="step-headline">Салон</h3>
+                        <span class="step-num" style="display: inline-block; vertical-align: middle;">1</span> 
+                        <h3 class="step-headline" style="display: inline-block; vertical-align: middle; margin-left: 14px;">Салон</h3>
                         <p class="step-desc">Выберите подходящий салон с нужным мастером.</p>
                     </div>
                     <div class="step-item">
-                        <span class="step-num">2</span>
-                        <h3 class="step-headline">Услуга</h3>
+                        <span class="step-num" style="display: inline-block; vertical-align: middle;">2</span> 
+                        <h3 class="step-headline" style="display: inline-block; vertical-align: middle; margin-left: 14px;">Услуга</h3>
+
                         <p class="step-desc">Выберите что нужно сделать.</p>
                     </div>
                     <div class="step-item">
-                        <span class="step-num">3</span>
-                        <h3 class="step-headline">Время</h3>
+                        <span class="step-num" style="display: inline-block; vertical-align: middle;">3</span> 
+                        <h3 class="step-headline" style="display: inline-block; vertical-align: middle; margin-left: 14px;">Время</h3>
                         <p class="step-desc">Возьмите свободное окно.</p>
                     </div>
                     <div class="step-item">
-                        <span class="step-num">4</span>
-                        <h3 class="step-headline">Готово</h3>
+                        <span class="step-num" style="display: inline-block; vertical-align: middle;">4</span>
+                        <h3 class="step-headline" style="display: inline-block; vertical-align: middle; margin-left: 14px;">Готово</h3>
                         <p class="step-desc">Приходите. Напоминание придёт само.</p>
                     </div>
                 </div>
@@ -222,23 +223,23 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                 </div>
                 <div class="business-grid">
                     <div class="business-item">
-                        <div class="business-number">1</div>
-                        <h3 class="business-item-title">Расписание</h3>
+                        <span class="business-number" style="display: inline-block; vertical-align: middle;">1</span>
+                        <h3 class="business-item-title" style="display: inline-block; vertical-align: middle; margin-left: 10px;">Расписание</h3>
                         <p class="business-item-desc">Записи мастеров — в одном окне.</p>
                     </div>
                     <div class="business-item">
-                        <div class="business-number">2</div>
-                        <h3 class="business-item-title">Клиенты</h3>
+                        <span class="business-number" style="display: inline-block; vertical-align: middle;">2</span>
+                        <h3 class="business-item-title" style="display: inline-block; vertical-align: middle; margin-left: 10px;">Клиенты</h3>
                         <p class="business-item-desc">История, заметки, повторные визиты.</p>
                     </div>
                     <div class="business-item">
-                        <div class="business-number">3</div>
-                        <h3 class="business-item-title">Оплата</h3>
+                        <span class="business-number" style="display: inline-block; vertical-align: middle;">3</span>
+                        <h3 class="business-item-title" style="display: inline-block; vertical-align: middle; margin-left: 10px;">Оплата</h3>
                         <p class="business-item-desc">Касса, чаевые, отчёты — внутри.</p>
                     </div>
                     <div class="business-item">
-                        <div class="business-number">4</div>
-                        <h3 class="business-item-title">Аналитика</h3>
+                        <span class="business-number" style="display: inline-block; vertical-align: middle;">4</span>
+                        <h3 class="business-item-title" style="display: inline-block; vertical-align: middle; margin-left: 10px;">Аналитика</h3>
                         <p class="business-item-desc">Выручка, загрузка, эффективность.</p>
                     </div>
                 </div>

@@ -10,7 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 
 from app.api.v1.endpoints import users
 from app.api.v1.endpoints import bookings
-from app.web.views import router as web_router
+from app.web.views import router as web_router, sitemap_xml
 from app.api.v1.endpoints import master as master_endpoints
 
 from fastapi.staticfiles import StaticFiles
@@ -167,6 +167,10 @@ app.include_router(payments.router, prefix="/api/v1/payments", tags=["payments"]
 @app.get("/health", include_in_schema=False)
 async def health_check():
     return {"status": "ok"}
+
+# Sitemap must be registered directly on the application before the web
+# catch-all route, so it cannot be turned into the generic 404 page.
+app.add_api_route("/sitemap.xml", sitemap_xml, methods=["GET"], include_in_schema=False)
 
 
 # 3. Веб-роутер (страницы) — ПОСЛЕ API

@@ -6,7 +6,7 @@
     --color-secondary: #f2e2ee;
     --color-background: #faf7f5;
     --color-surface: #fff;
-    --color-text: #2a0e16;
+    --color-text: #590127;
     --color-accent: #F69EBC;
     --color-surface-alt: #f4eef2;
     /* Вторая поверхность — для вложенных плашек (строки графика мастера,
@@ -14,7 +14,9 @@
        #f6f6f8), но токена не существовало: всегда брался светлый запасной
        цвет, и в тёмной теме выходил белый текст на белом. */
     --color-surface-2: #f6f6f8;
-    --color-heading: #2a0e16;
+    /* #3a0019 — правка лендинга от 04.09, уже на проде. Фронт-сессия ветвилась
+       раньше неё и держала прежний #2a0e16; при слиянии оставлен живой цвет. */
+    --color-heading: #3a0019;
     --color-muted: #6b6470;
     --color-border: #ece4ea;
     --color-accent-hover: #D66A94;
@@ -40,7 +42,7 @@
     --color-btn-text: #fff;
     --color-on-dark: #fff;
     --color-on-dark-muted: #fffc;
-    --color-dark: #1a1a2e;
+    --color-dark: #260816;
 
     /* Фирменный тёплый градиент-подложка страниц (home/profile/settings/
        bookings/favorites/checkout/business-landing) — раньше был захардкожен
