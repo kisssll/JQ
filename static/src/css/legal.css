@@ -247,6 +247,24 @@
     outline-offset: 2px;
 }
 
+/* Отзыв согласия на аналитику — п. 5.3 Политики cookie. Живёт под текстом
+   документа, показывается только на /cookies (см. legal.py::_consent_reset). */
+.legal-consent-reset {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.legal-consent-current {
+    margin: 0;
+    font-size: .85rem;
+    color: var(--color-muted);
+}
+
 /* ===== Уведомление о cookie (static/src/js/cookie-notice.js) ===== */
 .cookie-notice {
     position: fixed;

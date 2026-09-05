@@ -103,9 +103,37 @@ function render(text, buttons) {
     document.body.appendChild(box);
 }
 
+// Кнопка «Изменить выбор» на /cookies (п. 5.3 Политики). Стирает сохранённый
+// ответ и перезагружает страницу — баннер спросит заново. Отзыв согласия
+// должен быть не сложнее, чем его дача, иначе он существует только на бумаге.
+function wireResetButton(store) {
+    const btn = document.getElementById('cookieResetChoice');
+    const label = document.getElementById('cookieCurrentChoice');
+    if (!btn) return;
+
+    if (label) {
+        const current = readConsent(store);
+        label.textContent = current === ACCEPT_ALL
+            ? 'Сейчас: аналитические cookie разрешены.'
+            : current === NECESSARY_ONLY
+                ? 'Сейчас: только строго необходимые и функциональные cookie.'
+                : 'Выбор пока не сделан.';
+    }
+
+    btn.addEventListener('click', function () {
+        try {
+            store.removeItem(CONSENT_KEY);
+            store.removeItem(NOTICE_KEY);
+        } catch (e) { /* хранилище недоступно — перезагрузка всё равно уместна */ }
+        location.reload();
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const store = storage();
     if (!store) return;
+
+    wireResetButton(store);
 
     const id = counterId();
 

@@ -14,7 +14,9 @@ async def test_document_page_opens(client, slug):
     r = await client.get(f"/{slug}")
     assert r.status_code == 200, slug
     assert DOCUMENTS[slug]["title"] in r.text
-    assert LEGAL_VERSION_HUMAN in r.text
+    # У документа может быть своя дата редакции (её правили отдельно от
+    # остальных), тогда общая LEGAL_VERSION_HUMAN на странице и не должна быть.
+    assert DOCUMENTS[slug].get("version_human", LEGAL_VERSION_HUMAN) in r.text
 
 
 def test_all_documents_have_a_file():

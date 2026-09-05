@@ -100,3 +100,60 @@ def test_webvisor_stays_off():
 def test_banner_offers_a_real_choice():
     assert "Только необходимые" in JS
     assert "Принять" in JS
+
+
+# ── Политика cookie должна описывать то, что сайт делает на самом деле ──────
+
+COOKIES_DOC = (pathlib.Path(__file__).resolve().parents[1]
+               / "app" / "web" / "legal" / "cookies.html").read_text(encoding="utf-8")
+
+
+def test_policy_no_longer_denies_analytics():
+    """Прежняя редакция в трёх местах заявляла, что аналитики нет. Включить
+    счётчик, не тронув документ, значило бы опубликовать неправду."""
+    for stale in (
+        "Аналитические и рекламные файлы cookie на дату настоящей редакции на Сайте не применяются",
+        "Аналитические и рекламные файлы cookie на Сайте не устанавливаются",
+        "не установлено сторонних сервисов",
+    ):
+        assert stale not in COOKIES_DOC, stale
+
+
+def test_policy_names_metrika_and_its_cookies():
+    assert "Яндекс.Метрика" in COOKIES_DOC
+    assert "yandex.ru/legal/confidential" in COOKIES_DOC
+    for name in ("_ym_uid", "_ym_d", "_ym_isad"):
+        assert name in COOKIES_DOC, name
+    assert "Вебвизор) не ведётся" in COOKIES_DOC
+
+
+def test_policy_matches_the_storage_keys_we_actually_use():
+    """Таблица раздела 3 называет ключи хранения — они менялись вместе
+    с баннером, и разойтись с кодом не должны."""
+    assert "cookieConsent" in COOKIES_DOC and "cookieNoticeAccepted" in COOKIES_DOC
+    assert "cookieConsent" in JS and "cookieNoticeAccepted" in JS
+
+
+async def test_cookies_page_has_its_own_edition_date(client):
+    """У Политики cookie своя дата: общую LEGAL_VERSION не двигаем, она уходит
+    в журнал согласий, а текст Согласия не менялся."""
+    from app.web.pages.legal import LEGAL_VERSION, LEGAL_VERSION_HUMAN
+    r = await client.get("/cookies")
+    assert r.status_code == 200
+    assert "Редакция от 5 сентября 2026" in r.text
+    assert LEGAL_VERSION == "2026-08-18"
+
+    other = await client.get("/privacy")
+    assert f"Редакция от {LEGAL_VERSION_HUMAN}" in other.text
+
+
+async def test_consent_can_be_withdrawn_from_the_policy_page(client):
+    """П. 5.3 обещает кнопку «Изменить выбор» — она должна быть на странице,
+    и только на ней."""
+    r = await client.get("/cookies")
+    assert 'id="cookieResetChoice"' in r.text
+    assert "Изменить выбор" in r.text
+    assert "cookieResetChoice" in JS
+
+    other = await client.get("/terms")
+    assert "cookieResetChoice" not in other.text

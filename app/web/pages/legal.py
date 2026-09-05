@@ -60,6 +60,11 @@ DOCUMENTS = {
         "file": "cookies.html",
         "title": "Политика использования файлов cookie на сайте rrumi.ru",
         "description": "Какие файлы cookie ставит сайт, зачем они нужны и как ими управлять.",
+        # Своя дата: 05.09.2026 подключена Яндекс.Метрика, и разделы 2-4
+        # переписаны. Общую LEGAL_VERSION при этом не двигаем — она уходит
+        # в журнал согласий, а текст Согласия не менялся: датировать его
+        # задним числом новой редакцией было бы неправдой.
+        "version_human": "5 сентября 2026",
     },
 }
 
@@ -111,6 +116,24 @@ def _other_links(current: str) -> str:
     return f'<ul class="legal-nav-list">{items}</ul>'
 
 
+def _consent_reset(slug: str) -> str:
+    """Кнопка «Изменить выбор» под текстом Политики cookie (её п. 5.3).
+
+    Без неё отозвать согласие на аналитику можно было только чисткой данных
+    сайта в браузере — формально способ есть, практически им никто не
+    воспользуется. Кнопка стирает сохранённый ответ, и баннер спрашивает
+    заново; обработчик — в static/src/js/cookie-notice.js.
+    """
+    if slug != "cookies":
+        return ""
+    return (
+        '<div class="legal-consent-reset">'
+        '<button type="button" id="cookieResetChoice" class="btn-outline">Изменить выбор</button>'
+        '<p class="legal-consent-current" id="cookieCurrentChoice"></p>'
+        "</div>"
+    )
+
+
 def render_legal_page(slug: str, user=None) -> str:
     doc = DOCUMENTS[slug]
     return f"""<!DOCTYPE html>
@@ -131,10 +154,11 @@ def render_legal_page(slug: str, user=None) -> str:
             <article class="legal-doc">
                 <p class="legal-eyebrow">Документы</p>
                 <h1 class="legal-title">{e(doc['title'])}</h1>
-                <p class="legal-version">Редакция от {LEGAL_VERSION_HUMAN}</p>
+                <p class="legal-version">Редакция от {doc.get('version_human', LEGAL_VERSION_HUMAN)}</p>
                 <div class="legal-body">
 {_body(slug)}
                 </div>
+                {_consent_reset(slug)}
             </article>
 
             <aside class="legal-aside">
