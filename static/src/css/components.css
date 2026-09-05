@@ -40,19 +40,79 @@
 .btn-outline {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     border: 2px solid var(--color-border);
+    /* Обязательно: без явного фона <button> берёт системную подложку и
+       выглядит серой системной кнопкой. Раньше это маскировало глобальное
+       переопределение из salon-detail.css, где фон был задан. */
+    background: transparent;
     color: var(--color-heading);
     padding: 10px 24px;
     border-radius: 9999px;
     font-weight: 600;
     font-size: 0.875rem;
+    font-family: inherit;
     text-decoration: none;
+    cursor: pointer;
     transition: background 0.2s;
 }
 
 .btn-outline:hover {
     background: var(--color-surface);
+}
+
+/* Недоступную кнопку браузер иначе красит по-своему — серой заливкой,
+   неотличимой от поломки. */
+.btn-primary:disabled,
+.btn-outline:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.btn-primary:disabled:hover,
+.btn-outline:disabled:hover {
+    transform: none;
+    background: transparent;
+}
+
+/* ===== Мелкая кнопка =====
+   Класс .btn-mini использовался в профиле и админке, но объявлен был только
+   внутри инлайнового <style> админки. На профиле стиль не подключался, и
+   «Отвязать» рисовалась голой системной кнопкой, а «Подключить» — обычной
+   подчёркнутой ссылкой. Переносим в дизайн-систему. */
+.btn-mini {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.btn-mini:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.btn-mini:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-mini.btn-danger:hover {
+    border-color: var(--color-danger, #dc2626);
+    color: var(--color-danger, #dc2626);
 }
 
 .card {

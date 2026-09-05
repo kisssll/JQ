@@ -773,10 +773,10 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         table {{ width:100%; border-collapse:collapse; font-size:0.875rem }}
         th {{ text-align:left; padding:0.6rem; border-bottom:2px solid var(--color-border); font-weight:600; color:var(--color-heading); white-space:nowrap }}
         td {{ padding:0.6rem; border-bottom:1px solid var(--color-border); vertical-align:middle }}
-        select, .btn-mini {{ font-size:0.8rem; padding:0.3rem 0.55rem; border:1px solid var(--color-border); border-radius:0.4rem; background:var(--color-surface); color:var(--color-heading); cursor:pointer }}
-        .btn-mini:hover {{ border-color:var(--color-primary); color:var(--color-primary) }}
-        .btn-mini:disabled {{ opacity:0.4; cursor:not-allowed }}
-        .btn-danger:hover {{ border-color:#dc2626; color:#dc2626 }}
+        /* .btn-mini переехал в дизайн-систему (components.css): тот же класс
+           использует профиль, а этот блок там не подключается — кнопки
+           «Отвязать» и «Подключить» рисовались голыми системными. */
+        select {{ font-size:0.8rem; padding:0.3rem 0.55rem; border:1px solid var(--color-border); border-radius:0.4rem; background:var(--color-surface); color:var(--color-heading); cursor:pointer }}
         .alert {{ padding:0.75rem 1rem; border-radius:0.5rem; margin-bottom:0.75rem; font-size:0.875rem }}
         .alert-ok {{ background:#dcfce7; color:#166534; border:1px solid #86efac }}
         .alert-err {{ background:#fee2e2; color:#991b1b; border:1px solid #fca5a5 }}
