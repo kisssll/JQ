@@ -8,6 +8,7 @@ from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
+from app.web.components.structured_data import render_site_schema
 from app.web.components.icons import (
     ICON_SEARCH,
     ICON_SCISSORS,
@@ -78,7 +79,9 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Руми — мастера и салоны красоты рядом</title>
-    <meta name="description" content="Платформа для клиентов и бизнеса: находите лучших мастеров, становитесь моделью или управляйте своим салоном.">
+    <meta name="description" content="Руми — онлайн-запись в салоны красоты и к частным мастерам без звонков. Найдите мастера рядом, выберите время и получите напоминание.">
+    <link rel="canonical" href="https://rrumi.ru/">
+    {render_site_schema()}
     {get_base_styles()}
 </head>
 <body>

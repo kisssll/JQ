@@ -669,6 +669,10 @@ async def robots_txt():
 # Держим в коде, а не в окружении, намеренно — файл должен пережить любой
 # пересброс .env: пропадёт он, и Яндекс снимет подтверждение прав.
 _SITE_VERIFICATION = {
+    # Google Search Console, аккаунт Руми. Тело — ровно одна строка, как в
+    # файле из панели: Google сверяет её посимвольно.
+    "googledd17747d1df164d9.html":
+        "google-site-verification: googledd17747d1df164d9.html\n",
     # Яндекс.Вебмастер, аккаунт Руми
     "yandex_dc164c9587b875b2.html": (
         "<html>\n"
@@ -707,22 +711,62 @@ async def site_verification(filename: str):
 async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     from fastapi.responses import Response
 
-    static_pages = ["", "salons", "business", "model", "login", "register"]
-    urls = [f"https://rrumi.ru/{p}" for p in static_pages]
+    # Приоритет — подсказка роботу, что здесь главное. Формы входа и
+    # регистрации из карты убраны: индексировать в них нечего, а «пустые»
+    # страницы в карте разбавляют её и тратят краулинговый бюджет.
+    static_pages = [
+        ("", "1.0"),
+        ("salons", "0.9"),
+        ("evening-deals", "0.8"),
+        ("business", "0.8"),
+        ("model", "0.7"),
+        ("tariffs", "0.6"),
+        ("about", "0.5"),
+        ("legal", "0.3"),
+    ]
+    # Нормативные документы: их ищут по названию, и они должны находиться.
+    from app.web.pages.legal import DOCUMENTS
+    static_pages += [(slug, "0.2") for slug in sorted(DOCUMENTS)]
+
+    urls = [(f"{settings.PUBLIC_BASE_URL}/{path}", prio, None)
+            for path, prio in static_pages]
 
     # В карту сайта — только реально публичные салоны: одобрены, опубликованы
     # владельцем и не скрыты (иначе ссылки вели бы на 404 карточки).
     from app.models.models import SalonModerationStatus
-    salons = (await db.execute(select(Salon.id).where(
+    public_salon = (
         Salon.is_active == True,  # noqa: E712
         Salon.moderation_status == SalonModerationStatus.APPROVED,
         Salon.published_at.isnot(None),
         access_clause(Salon),  # тариф: доступ открыт
         Salon.is_hidden == False,  # noqa: E712
-    ))).scalars().all()
-    urls += [f"https://rrumi.ru/salons/{sid}" for sid in salons]
+    )
+    # lastmod берём от published_at: у салона нет updated_at, а дата выхода
+    # в публикацию — ближайшее по смыслу «когда страница стала такой».
+    salons = (await db.execute(
+        select(Salon.id, Salon.published_at).where(*public_salon)
+    )).all()
+    urls += [(f"{settings.PUBLIC_BASE_URL}/salons/{sid}", "0.8", updated)
+             for sid, updated in salons]
 
-    body = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
+    # Страницы мастеров — самостоятельные точки входа («мастер маникюра
+    # Томск»), но только из публичных салонов: иначе карта повела бы робота
+    # на карточки, которых для гостя не существует.
+    masters = (await db.execute(
+        select(Master.id)
+        .join(Salon, Master.salon_id == Salon.id)
+        .where(Master.is_active == True, *public_salon)  # noqa: E712
+    )).scalars().all()
+    urls += [(f"{settings.PUBLIC_BASE_URL}/masters/{mid}", "0.6", None)
+             for mid in masters]
+
+    def entry(loc: str, priority: str, updated) -> str:
+        lastmod = ""
+        if updated is not None:
+            lastmod = f"<lastmod>{updated.date().isoformat()}</lastmod>"
+        return f"<url><loc>{html.escape(loc)}</loc>{lastmod}<priority>{priority}</priority></url>"
+
+    body = "".join(entry(*u) for u in urls)
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
