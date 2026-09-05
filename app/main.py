@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.middleware import SecurityHeadersMiddleware, CSRFOriginMiddleware
+from app.web.seo_middleware import SeoTagsMiddleware, HeadRequestMiddleware
 from app.core.worker import close_arq_pool
 from app.core.observability import setup_logging, init_sentry
 
@@ -115,8 +116,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SeoTagsMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CSRFOriginMiddleware)
+# HEAD — самым внешним слоем: тело обрезаем уже после того, как
+# остальные middleware посчитали заголовки (в т. ч. Content-Length).
+app.add_middleware(HeadRequestMiddleware)
 
 # StaticFiles определяет Content-Type через mimetypes, а тот читает базу
 # системы. В образе она беднее, чем на машине разработчика: .webp уезжал

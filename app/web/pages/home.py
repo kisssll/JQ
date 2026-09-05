@@ -80,7 +80,6 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Руми — мастера и салоны красоты рядом</title>
     <meta name="description" content="Руми — онлайн-запись в салоны красоты и к частным мастерам без звонков. Найдите мастера рядом, выберите время и получите напоминание.">
-    <link rel="canonical" href="https://rrumi.ru/">
     {render_site_schema()}
     {get_base_styles()}
 </head>

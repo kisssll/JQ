@@ -56,6 +56,7 @@ async def test_home_page_carries_the_schema_and_canonical(client):
     r = await client.get("/")
     assert r.status_code == 200
     assert _schema(r.text)["@graph"]
+    # canonical проставляет middleware (см. test_seo_tags), а не сама страница.
     assert '<link rel="canonical" href="https://rrumi.ru/">' in r.text
     assert "Руми" in re.search(r'<meta name="description" content="(.*?)"', r.text).group(1)
 
