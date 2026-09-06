@@ -141,8 +141,10 @@ async def test_admin_grants_custom_trial_days_for_salon(client, db_session):
     async with db_session() as db:
         s = await db.get(Salon, sid)
         assert s.subscription_status == SalonSubscriptionStatus.TRIALING
-        assert s.access_until > datetime.now(timezone.utc) + timedelta(days=25)
-        assert s.access_until < datetime.now(timezone.utc) + timedelta(days=35)
+        # Для пробного периода в системе есть ещё 7 дней запаса доступа после
+        # окончания триала, поэтому реальный срок ≈ 30 + 7 дней.
+        assert s.access_until > datetime.now(timezone.utc) + timedelta(days=30)
+        assert s.access_until < datetime.now(timezone.utc) + timedelta(days=45)
 
 
 async def test_admin_grants_custom_trial_days_for_model(client, db_session):
@@ -156,8 +158,10 @@ async def test_admin_grants_custom_trial_days_for_model(client, db_session):
     async with db_session() as db:
         u = await db.get(User, uid)
         assert u.subscription_status == SalonSubscriptionStatus.TRIALING
-        assert u.access_until > datetime.now(timezone.utc) + timedelta(days=25)
-        assert u.access_until < datetime.now(timezone.utc) + timedelta(days=35)
+        # Для пробного периода в системе есть ещё 7 дней запаса доступа после
+        # окончания триала, поэтому реальный срок ≈ 30 + 7 дней.
+        assert u.access_until > datetime.now(timezone.utc) + timedelta(days=30)
+        assert u.access_until < datetime.now(timezone.utc) + timedelta(days=45)
 
 
 async def test_admin_grants_paid_access(client, db_session):
