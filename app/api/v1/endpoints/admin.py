@@ -127,12 +127,12 @@ async def change_role(uid: int, request: Request, role: str = Form(...), db: Asy
 
 
 @router.post("/salons/{sid}/grant-trial")
-async def grant_trial(sid: int, request: Request, db: AsyncSession = Depends(get_db)):
-    """Выдать салону повторный бесплатный период.
+async def grant_trial(sid: int, request: Request, days: int = Form(30),
+                    db: AsyncSession = Depends(get_db)):
+    """Выдать салону ручной бесплатный период.
 
-    Обычным путём триал даётся один раз (см. payments.py: trial_available) —
-    это единственная лазейка, и она намеренно только у старшего модератора,
-    с записью в аудит.
+    Для первого клиента и отдельных договорённостей можно выдавать не только
+    стандартные 14 дней, но и любой произвольный срок (например, 30 дней).
     """
     from app.models.models import Salon, SalonSubscriptionStatus
     from app.services.subscription import start_trial
@@ -145,19 +145,48 @@ async def grant_trial(sid: int, request: Request, db: AsyncSession = Depends(get
     if not salon:
         return _back("salons", err="Салон не найден")
 
+    days = max(1, min(int(days or 30), 3650))
     active_masters = (await db.execute(
         select(func.count(Master.id)).where(
-            Master.salon_id == salon.id, Master.is_active == True,  # noqa: E712
+           Master.salon_id == salon.id, Master.is_active == True,  # noqa: E712
         )
     )).scalar() or 0
     salon.subscription_status = SalonSubscriptionStatus.TRIALING
     salon.trial_used_at = None  # снимаем отметку, чтобы start_trial проставил свежую
-    ends = start_trial(salon, 14, active_masters=active_masters)
+    ends = start_trial(salon, days, active_masters=active_masters)
     _audit(db, admin.id, "grant_trial", "salon", salon.id,
-           f"«{salon.name}»: выдан повторный пробный период до {ends:%d.%m.%Y}",
+           f"«{salon.name}»: выдан пробный период {days} дн. до {ends:%d.%m.%Y}",
            salon_id=salon.id)
     await db.commit()
     return _back("salons", ok=f"«{salon.name}»: пробный период до {ends:%d.%m.%Y}")
+
+
+@router.post("/users/{uid}/grant-trial")
+async def grant_user_trial(uid: int, request: Request, days: int = Form(30),
+                         db: AsyncSession = Depends(get_db)):
+    """Выдать модели ручной бесплатный период. Позволяет отдельно продлить
+    подписку конкретной модели без привязки к стандартным 14 дням."""
+    from app.models.models import SalonSubscriptionStatus
+    from app.services.subscription import start_trial
+
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    target = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+    if not target:
+        return _back("users", err="Пользователь не найден")
+    if not target.is_model:
+        return _back("users", err="Пробный период выдаётся только модели")
+
+    days = max(1, min(int(days or 30), 3650))
+    target.subscription_status = SalonSubscriptionStatus.TRIALING
+    target.trial_used_at = None
+    ends = start_trial(target, days)
+    _audit(db, admin.id, "grant_trial", "user", target.id,
+           f"«{target.full_name or target.phone}»: выдан пробный период {days} дн. до {ends:%d.%m.%Y}")
+    await db.commit()
+    return _back("users", ok=f"«{target.full_name or target.phone}»: пробный период до {ends:%d.%m.%Y}")
 
 
 @router.post("/salons/{sid}/grant-access")

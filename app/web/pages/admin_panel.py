@@ -245,6 +245,14 @@ def _users_tab(users, me_id):
             f'<form method="post" action="/api/v1/admin/users/{u.id}/toggle-active" style="display:inline">'
             f'<button class="btn-mini" {"disabled" if is_self else ""}>{"Разблок." if not u.is_active else "Блок."}</button></form>'
         )
+        trial_form = ""
+        if u.is_model:
+            trial_form = (
+                f'<form method="post" action="/api/v1/admin/users/{u.id}/grant-trial" style="display:inline-flex;gap:0.25rem;align-items:flex-end">'
+                f'<label class="adm-field" style="margin:0"><span class="adm-field-label">Дней</span>'
+                f'<input name="days" type="number" min="1" max="365" value="30" class="adm-input is-num" style="width:4.5rem"></label>'
+                f'<button class="btn-mini">+trial</button></form>'
+            )
         reset = (
             f'<form method="post" action="/api/v1/admin/users/{u.id}/reset-password" style="display:inline">'
             f'<button class="btn-mini">Сброс пароля</button></form>'
@@ -269,7 +277,7 @@ def _users_tab(users, me_id):
             <td>{_esc(u.full_name) or "—"}</td>
             <td>{role_form}{senior_badge}</td>
             <td>{_active_badge(u.is_active)}</td>
-            <td style="white-space:nowrap">{toggle} {senior_toggle} {reset} {delete}</td>
+            <td style="white-space:nowrap">{trial_form} {toggle} {senior_toggle} {reset} {delete}</td>
         </tr>"""
     return f"""
     <div class="tab-content" id="tab-users">
@@ -351,8 +359,13 @@ def _salons_tab(salons, owner_phone_by_id):
                 <section class="adm-group">
                     <h4 class="adm-group-title">Подписка</h4>
                     <div class="adm-group-actions">
-                        <form method="post" action="/api/v1/admin/salons/{s.id}/grant-trial">
-                            <button class="btn-mini">Дать 14 дней триала</button>
+                        <form method="post" action="/api/v1/admin/salons/{s.id}/grant-trial" class="adm-inline-form">
+                            <label class="adm-field">
+                                <span class="adm-field-label">Дней</span>
+                                <input name="days" type="number" min="1" max="365" value="30"
+                                       class="adm-input is-num" aria-label="Сколько дней бесплатного периода выдать">
+                            </label>
+                            <button class="btn-mini">Дать бесплатно</button>
                         </form>
                         <form method="post" action="/api/v1/admin/salons/{s.id}/grant-access" class="adm-inline-form">
                             <label class="adm-field">

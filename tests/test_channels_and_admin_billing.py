@@ -128,6 +128,38 @@ async def _mk_salon(db_session, owner_id, name, **kw):
         return s.id
 
 
+async def test_admin_grants_custom_trial_days_for_salon(client, db_session):
+    await _mk_senior_admin(db_session, "+79994440020")
+    owner = await _mk_user(db_session, "+79994440021")
+    sid = await _mk_salon(db_session, owner, "ВыдачаТриалаZZ",
+                          subscription_status=SalonSubscriptionStatus.NONE)
+    await _login(client, "+79994440020", pw="Adminpass1")
+
+    r = await client.post(f"/api/v1/admin/salons/{sid}/grant-trial", data={"days": "30"},
+                          follow_redirects=False)
+    assert r.status_code == 302, r.text
+    async with db_session() as db:
+        s = await db.get(Salon, sid)
+        assert s.subscription_status == SalonSubscriptionStatus.TRIALING
+        assert s.access_until > datetime.now(timezone.utc) + timedelta(days=25)
+        assert s.access_until < datetime.now(timezone.utc) + timedelta(days=35)
+
+
+async def test_admin_grants_custom_trial_days_for_model(client, db_session):
+    await _mk_senior_admin(db_session, "+79994440026")
+    uid = await _mk_user(db_session, "+79994440027", is_model=True)
+    await _login(client, "+79994440026", pw="Adminpass1")
+
+    r = await client.post(f"/api/v1/admin/users/{uid}/grant-trial", data={"days": "30"},
+                          follow_redirects=False)
+    assert r.status_code == 302, r.text
+    async with db_session() as db:
+        u = await db.get(User, uid)
+        assert u.subscription_status == SalonSubscriptionStatus.TRIALING
+        assert u.access_until > datetime.now(timezone.utc) + timedelta(days=25)
+        assert u.access_until < datetime.now(timezone.utc) + timedelta(days=35)
+
+
 async def test_admin_grants_paid_access(client, db_session):
     await _mk_senior_admin(db_session, "+79994440020")
     owner = await _mk_user(db_session, "+79994440021")
