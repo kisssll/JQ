@@ -1,4 +1,50 @@
 # app/web/components/footer.py
+import html
+
+from app.core.config import settings
+
+SUPPORT_EMAIL = "hello@rrumi.ru"
+
+
+def _support_block() -> str:
+    """Три способа задать вопрос: почта и оба бота.
+
+    Ссылки на ботов ведут не на их главное меню, а сразу на выбор темы
+    обращения (?start=support): человек идёт по ним с вопросом, лишний шаг
+    здесь — потерянный вопрос. Обработчики этой метки есть в обоих ботах.
+
+    Бот показывается, только если его имя задано в окружении: иначе ссылка
+    вела бы на несуществующий адрес мессенджера.
+    """
+    options = [(
+        "Почта", f"mailto:{SUPPORT_EMAIL}", SUPPORT_EMAIL, "",
+    )]
+    tg = (settings.TG_BOT_USERNAME or "").strip().lstrip("@")
+    if tg:
+        options.append((
+            "Telegram", f"https://t.me/{html.escape(tg, quote=True)}?start=support",
+            f"@{tg}", ' target="_blank" rel="noopener"',
+        ))
+    mx = (settings.MAX_BOT_USERNAME or "").strip().lstrip("@")
+    if mx:
+        options.append((
+            "MAX", f"https://max.ru/{html.escape(mx, quote=True)}?start=support",
+            f"@{mx}", ' target="_blank" rel="noopener"',
+        ))
+
+    links = "".join(
+        f'<a class="footer-support-link" href="{href}"{attrs}>'
+        f'<span class="footer-support-name">{name}</span>'
+        f'<span class="footer-support-addr">{html.escape(addr)}</span></a>'
+        for name, href, addr, attrs in options
+    )
+    return f"""
+            <div class="footer-support">
+                <p class="footer-support-title">Есть вопрос?</p>
+                <div class="footer-support-links">{links}</div>
+                <p class="footer-support-hint">В Telegram и MAX ответим в том же чате — регистрация не нужна.</p>
+            </div>"""
+
 
 def render_footer(user=None) -> str:
     """
@@ -94,6 +140,8 @@ def render_footer(user=None) -> str:
                     </ul>
                 </div>
             </div>
+
+            {_support_block()}
 
             <!-- Контакты оператора. Статья 10 149-ФЗ обязывает владельца сайта
                  разместить наименование, место нахождения с адресом и адрес

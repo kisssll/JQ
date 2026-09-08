@@ -692,6 +692,72 @@
 
 /* Колонок стало пять (добавились «Документы»), поэтому фиксированная сетка
    2fr 1fr 1fr 1fr заменена на auto-fit — иначе пятая уезжала на второй ряд. */
+/* Три способа задать вопрос: почта, Telegram, MAX (footer.py::_support_block) */
+.footer-support {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.footer-support-title {
+    margin: 0 0 0.75rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--color-on-dark);
+}
+
+.footer-support-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Все три варианта выглядят одинаково: выделять один значит подталкивать
+   к нему, а удобство канала человек выбирает сам. */
+.footer-support-link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 0.6rem;
+    text-decoration: none;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.footer-support-link:hover {
+    border-color: rgba(255, 255, 255, 0.45);
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.footer-support-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-on-dark);
+}
+
+.footer-support-addr {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.footer-support-hint {
+    margin: 0.75rem 0 0;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+@media (max-width: 480px) {
+    /* Три плитки в строку на узком экране нечитаемы. Сетка в две колонки, а
+       не перенос флексом: при переносе третья плитка оставалась одна в строке
+       и растягивалась на всю ширину — выглядело как главный вариант, хотя все
+       три равнозначны. */
+    .footer-support-links {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 /* Контакты оператора в подвале (ст. 10 149-ФЗ) */
 .footer-contacts {
     margin-top: 2rem;

@@ -93,6 +93,8 @@ _CONTACT_KB = ReplyKeyboardMarkup(
 # не набирая /settings. Ставится после привязки и держится в чате.
 MENU_BTN_PREFS = "⚙️ Мои уведомления"
 MENU_BTN_SUPPORT = "✉️ Написать нам"
+# Полезная нагрузка deep link'а: t.me/<бот>?start=support
+SUPPORT_DEEP_LINK = "support"
 MENU_BTN_BOOKINGS = "📅 Мои записи"
 _MENU_KB = ReplyKeyboardMarkup(
     keyboard=[
@@ -557,6 +559,14 @@ async def on_start(message: Message, command: CommandObject) -> None:
     """/start <request_id> из deep link'а, или /start без аргумента — привязка."""
     token = (command.args or "").strip()
     r = get_redis()
+
+    if token == SUPPORT_DEEP_LINK:
+        # Ссылка «Написать в Telegram» из подвала сайта. Открываем сразу выбор
+        # темы: человек шёл с вопросом, а не изучать меню. Проверка стоит ДО
+        # разбора токена — иначе «support» уйдёт в поиск записи подтверждения
+        # и человек получит «ссылка устарела» на исправную ссылку.
+        await on_support_start(message)
+        return
 
     if not token:
         # Без deep link'а: привязанному — главное меню, остальным —
