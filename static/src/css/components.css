@@ -713,21 +713,51 @@
 }
 
 /* Все три варианта выглядят одинаково: выделять один значит подталкивать
-   к нему, а удобство канала человек выбирает сам. */
+   к нему, а удобство канала человек выбирает сам.
+
+   Жёсткая рамка со всех сторон делала плитки похожими на поля формы. Здесь
+   мягкая подложка вместо рамки; рамка появляется только при наведении и
+   всегда занимает место (прозрачная в покое), иначе плитка на hover
+   подпрыгивала бы на пиксель. */
 .footer-support-link {
     display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    padding: 0.5rem 0.9rem;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 0.6rem;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 10.5rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+    background-color: rgba(255, 255, 255, 0.07);
     text-decoration: none;
     transition: border-color 0.2s, background-color 0.2s;
 }
 
 .footer-support-link:hover {
-    border-color: rgba(255, 255, 255, 0.45);
-    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.28);
+    background-color: rgba(255, 255, 255, 0.13);
+}
+
+.footer-support-link:focus-visible {
+    outline: 2px solid var(--color-on-dark);
+    outline-offset: 2px;
+}
+
+.footer-support-icon {
+    display: flex;
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.footer-support-icon svg {
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+.footer-support-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
 }
 
 .footer-support-name {
@@ -739,6 +769,10 @@
 .footer-support-addr {
     font-size: 0.75rem;
     color: rgba(255, 255, 255, 0.55);
+    /* Длинное имя бота не должно расталкивать плитку. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .footer-support-hint {
@@ -755,6 +789,13 @@
     .footer-support-links {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* min-width плитки (10.5rem) больше колонки сетки на узком экране:
+       при 375px колонка выходит около 159px, и плитка вылезала бы за неё.
+       Ширину здесь задаёт сетка, поэтому ограничение снимаем. */
+    .footer-support-link {
+        min-width: 0;
     }
 }
 

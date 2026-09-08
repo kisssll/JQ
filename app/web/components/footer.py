@@ -2,6 +2,7 @@
 import html
 
 from app.core.config import settings
+from app.web.components.icons import ICON_MAIL, ICON_MESSAGE_CIRCLE
 
 SUPPORT_EMAIL = "hello@rrumi.ru"
 
@@ -17,32 +18,45 @@ def _support_block() -> str:
     вела бы на несуществующий адрес мессенджера.
     """
     options = [(
-        "Почта", f"mailto:{SUPPORT_EMAIL}", SUPPORT_EMAIL, "",
+        "Почта", f"mailto:{SUPPORT_EMAIL}", SUPPORT_EMAIL, "", ICON_MAIL,
     )]
     tg = (settings.TG_BOT_USERNAME or "").strip().lstrip("@")
     if tg:
         options.append((
             "Telegram", f"https://t.me/{html.escape(tg, quote=True)}?start=support",
-            f"@{tg}", ' target="_blank" rel="noopener"',
+            f"@{tg}", ' target="_blank" rel="noopener"', ICON_MESSAGE_CIRCLE,
         ))
     mx = (settings.MAX_BOT_USERNAME or "").strip().lstrip("@")
     if mx:
         options.append((
             "MAX", f"https://max.ru/{html.escape(mx, quote=True)}?start=support",
-            f"@{mx}", ' target="_blank" rel="noopener"',
+            f"@{mx}", ' target="_blank" rel="noopener"', ICON_MESSAGE_CIRCLE,
         ))
 
+    # Иконка есть у каждого варианта — это опознавательный знак, а не выделение
+    # одного из них: у обоих ботов она одна и та же.
     links = "".join(
         f'<a class="footer-support-link" href="{href}"{attrs}>'
+        f'<span class="footer-support-icon" aria-hidden="true">{icon}</span>'
+        f'<span class="footer-support-text">'
         f'<span class="footer-support-name">{name}</span>'
-        f'<span class="footer-support-addr">{html.escape(addr)}</span></a>'
-        for name, href, addr, attrs in options
+        f'<span class="footer-support-addr">{html.escape(addr)}</span>'
+        f'</span></a>'
+        for name, href, addr, attrs, icon in options
     )
+    # Подсказка про чат — только если чат вообще предложен: без ботов она
+    # обещала ответ в мессенджере, которого на экране нет.
+    bots = [name for name, *_ in options if name != "Почта"]
+    hint = (
+        f'<p class="footer-support-hint">В {" и ".join(bots)} ответим в том же '
+        f'чате — регистрация не нужна.</p>'
+    ) if bots else ""
+
     return f"""
             <div class="footer-support">
                 <p class="footer-support-title">Есть вопрос?</p>
                 <div class="footer-support-links">{links}</div>
-                <p class="footer-support-hint">В Telegram и MAX ответим в том же чате — регистрация не нужна.</p>
+                {hint}
             </div>"""
 
 
