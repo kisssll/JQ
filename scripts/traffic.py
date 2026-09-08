@@ -59,8 +59,10 @@ def read_log(path: str | None) -> list[dict]:
         raw = open(path, encoding="utf-8", errors="replace").read()
     else:
         # *.log — текущий и провёрнутые; *.gz — сжатые старые.
+        # `; true` обязателен: пока сжатых файлов нет, zcat завершается
+        # ошибкой и роняет всю команду, хотя основной журнал уже прочитан.
         cmd = ["docker", "exec", CONTAINER, "sh", "-c",
-               f"cat {LOG_GLOB}/*.log 2>/dev/null; zcat {LOG_GLOB}/*.gz 2>/dev/null"]
+               f"cat {LOG_GLOB}/*.log 2>/dev/null; zcat {LOG_GLOB}/*.gz 2>/dev/null; true"]
         try:
             raw = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
         except FileNotFoundError:
