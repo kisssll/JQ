@@ -1073,6 +1073,10 @@
     padding-bottom: 0.5rem;
 }
 
+/* color и font-family обязательны: это <button>, а он не наследует их от
+   родителя — берёт системные (чёрный текст, шрифт браузера). Фон при этом
+   тематизирован, поэтому в тёмной теме выходил чёрный текст на тёмной
+   карточке, контраст 1.24:1. */
 .date-btn {
     display: flex;
     flex-direction: column;
@@ -1082,6 +1086,8 @@
     border: 1px solid var(--color-border);
     border-radius: 0.75rem;
     background: var(--color-surface);
+    color: var(--color-heading);
+    font-family: inherit;
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -1105,9 +1111,12 @@
     color: rgba(255, 255, 255, 0.8);
 }
 
+/* Цвет наследуется от кнопки (у той он теперь задан явно) — отдельного
+   правила не нужно, но фиксируем, чтобы не появился системный. */
 .date-btn .day-number {
     font-size: 1.2rem;
     font-weight: 700;
+    color: inherit;
 }
 
 .date-btn .month-label {
@@ -1126,11 +1135,15 @@
     gap: 0.5rem;
 }
 
+/* Тот же случай, что и у .date-btn: без явных color/font-family <button>
+   рисуется системным чёрным поверх тематизированного фона. */
 .time-btn {
     padding: 0.5rem;
     border: 1px solid var(--color-border);
     border-radius: 0.75rem;
     background: var(--color-surface);
+    color: var(--color-heading);
+    font-family: inherit;
     text-align: center;
     font-size: 0.9rem;
     cursor: pointer;
