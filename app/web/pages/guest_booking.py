@@ -24,58 +24,74 @@ from app.web.pages.legal import LEGAL_VERSION
 
 _STYLE = """
 <style>
-    .gb-body{background:var(--color-bg,#f6f5f8);min-height:100vh}
+    .gb-body{background:var(--color-background);color:var(--color-body);min-height:100vh}
     .gb-header{display:flex;align-items:center;justify-content:space-between;
-        padding:0.9rem 1.25rem;background:var(--color-surface,#fff);
-        border-bottom:1px solid var(--color-border,#ececec);position:sticky;top:0;z-index:5}
-    .gb-header a#header-logo{font-size:1.4rem;font-weight:700;text-decoration:none;color:var(--color-primary,#7c3aed)}
-    .gb-header .gb-login{font-size:0.9rem;color:var(--color-muted,#888);text-decoration:none}
+        padding:0.9rem 1.25rem;background:var(--color-surface);
+        border-bottom:1px solid var(--color-border);position:sticky;top:0;z-index:5}
+    .gb-header a#header-logo{font-size:1.4rem;font-weight:700;text-decoration:none;color:var(--color-primary)}
+    .gb-header .gb-login{font-size:0.9rem;color:var(--color-muted);text-decoration:none}
     .gb-wrap{max-width:560px;margin:1.5rem auto;padding:0 1rem}
-    .gb-panel{background:var(--color-surface,#fff);border:1px solid var(--color-border,#ececec);
+    .gb-panel{background:var(--color-surface);border:1px solid var(--color-border);
         border-radius:18px;padding:1.5rem;box-shadow:0 2px 14px rgba(20,10,40,0.04)}
     .gb-title{font-size:1.5rem;font-weight:700;margin:0 0 0.25rem}
-    .gb-sub{color:var(--color-muted,#888);margin:0 0 1.25rem;font-size:0.95rem}
+    .gb-sub{color:var(--color-muted);margin:0 0 1.25rem;font-size:0.95rem}
     .gb-step-h{display:flex;align-items:center;gap:0.6rem;margin:0 0 1rem}
-    .gb-step-num{width:26px;height:26px;border-radius:50%;background:var(--color-primary,#7c3aed);
+    .gb-step-num{width:26px;height:26px;border-radius:50%;background:var(--color-primary);
         color:#fff;font-size:0.85rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
     .gb-step-h h2{font-size:1.1rem;margin:0;font-weight:600}
     .gb-list{display:flex;flex-direction:column;gap:0.6rem}
     .gb-card{display:flex;align-items:center;gap:0.85rem;text-align:left;padding:0.9rem 1rem;
-        border:1px solid var(--color-border,#ececec);border-radius:14px;background:var(--color-surface,#fff);
+        border:1px solid var(--color-border);border-radius:14px;background:var(--color-surface);
+        color:var(--color-heading);font-family:inherit;
         cursor:pointer;width:100%;transition:border-color .15s,box-shadow .15s}
-    .gb-card:hover{border-color:var(--color-primary,#7c3aed);box-shadow:0 2px 10px rgba(124,58,237,0.08)}
+    .gb-card:hover{border-color:var(--color-primary);box-shadow:0 2px 10px rgba(124,58,237,0.08)}
     .gb-ava{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#a78bfa,#7c3aed);
         color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1rem}
     .gb-card-body{flex:1;min-width:0}
     .gb-card-body strong{display:block;font-size:0.98rem}
-    .gb-card-body small{color:var(--color-muted,#888);font-size:0.85rem}
-    .gb-card-price{font-weight:700;color:var(--color-primary,#7c3aed);white-space:nowrap}
+    .gb-card-body small{color:var(--color-muted);font-size:0.85rem}
+    .gb-card-price{font-weight:700;color:var(--color-primary);white-space:nowrap}
     .gb-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:0.5rem}
-    .gb-slot{padding:0.55rem 0;border:1px solid var(--color-border,#ececec);border-radius:10px;
-        background:var(--color-surface,#fff);cursor:pointer;font-size:0.95rem;transition:.15s}
-    .gb-slot:hover{border-color:var(--color-primary,#7c3aed);background:rgba(124,58,237,0.05)}
-    .gb-back{background:none;border:none;color:var(--color-muted,#888);cursor:pointer;
-        padding:0;margin-bottom:0.9rem;font-size:0.9rem}
-    .gb-back:hover{color:var(--color-primary,#7c3aed)}
+    /* Сообщение «Нет свободных окон» кладётся в ту же сетку, что и слоты,
+       и становилось ячейкой в 90px — текст сыпался по слову в строку.
+       Растягиваем на всю строку. */
+    .gb-slots > p{grid-column:1/-1;margin:0;color:var(--color-muted)}
+    .gb-slot{padding:0.55rem 0;border:1px solid var(--color-border);border-radius:10px;
+        background:var(--color-surface);color:var(--color-heading);font-family:inherit;
+        cursor:pointer;font-size:0.95rem;transition:.15s}
+    .gb-slot:hover{border-color:var(--color-primary);background:rgba(124,58,237,0.05)}
+    .gb-back{background:none;border:none;color:var(--color-muted);font-family:inherit;
+        cursor:pointer;padding:0;margin-bottom:0.9rem;font-size:0.9rem}
+    .gb-back:hover{color:var(--color-primary)}
     .gb-field{margin-bottom:0.85rem}
-    .gb-field label{display:block;font-size:0.85rem;color:var(--color-muted,#888);margin-bottom:0.3rem}
-    .gb-input{width:100%;padding:0.7rem 0.85rem;border:1px solid var(--color-border,#ddd);
-        border-radius:11px;font-size:1rem;background:var(--color-surface,#fff);box-sizing:border-box}
-    .gb-input:focus{outline:none;border-color:var(--color-primary,#7c3aed)}
+    .gb-field label{display:block;font-size:0.85rem;color:var(--color-muted);margin-bottom:0.3rem}
+    .gb-input{width:100%;padding:0.7rem 0.85rem;border:1px solid var(--color-border);
+        border-radius:11px;font-size:1rem;background:var(--color-surface);
+        color:var(--color-heading);font-family:inherit;box-sizing:border-box;
+        /* min-width:0 обязателен: у input своя минимальная внутренняя ширина,
+           и width:100% её не перебивает — поле вылезает из колонки. */
+        min-width:0}
+    .gb-input:focus{outline:none;border-color:var(--color-primary)}
     .gb-summary{background:rgba(124,58,237,0.06);border-radius:12px;padding:0.8rem 1rem;
         margin-bottom:1rem;font-size:0.92rem}
-    .gb-primary{width:100%;padding:0.85rem;border:none;border-radius:12px;background:var(--color-primary,#7c3aed);
-        color:#fff;font-size:1rem;font-weight:600;cursor:pointer;transition:.15s}
+    .gb-primary{width:100%;padding:0.85rem;border:none;border-radius:12px;background:var(--color-primary);
+        color:#fff;font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;transition:.15s}
     .gb-primary:hover{filter:brightness(1.05)}
     .gb-primary:disabled{opacity:.5;cursor:not-allowed}
     .gb-error{color:#c0392b;font-size:0.9rem;min-height:1.2em;margin:0.3rem 0 0.6rem}
-    .gb-date{margin-bottom:0.9rem}
+    /* input[type=date] в Safari/iOS имеет собственную минимальную ширину и
+       не сжимается по width:100% — поле «съезжает» за пределы карточки.
+       appearance:none снимает нативный размер, ::-webkit-date-and-time-value
+       прижимает значение влево (иначе оно центрируется и прыгает). */
+    .gb-date{margin-bottom:0.9rem;-webkit-appearance:none;appearance:none;max-width:100%}
+    .gb-date::-webkit-date-and-time-value{text-align:left;margin:0}
+    .gb-date::-webkit-calendar-picker-indicator{cursor:pointer}
     .gb-done{text-align:center;padding:1.5rem 0.5rem}
     .gb-done-check{width:64px;height:64px;border-radius:50%;background:rgba(39,174,96,0.12);
         color:#27ae60;font-size:2rem;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
-    .gb-manage-link{display:inline-block;margin-top:0.75rem;padding:0.6rem 1rem;border:1px solid var(--color-border,#ececec);
-        border-radius:10px;word-break:break-all;font-size:0.85rem;color:var(--color-primary,#7c3aed);text-decoration:none}
-    .gb-muted{color:var(--color-muted,#888)}
+    .gb-manage-link{display:inline-block;margin-top:0.75rem;padding:0.6rem 1rem;border:1px solid var(--color-border);
+        border-radius:10px;word-break:break-all;font-size:0.85rem;color:var(--color-primary);text-decoration:none}
+    .gb-muted{color:var(--color-muted)}
 </style>
 """
 

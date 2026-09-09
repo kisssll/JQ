@@ -48,6 +48,9 @@ VERDICT_PHONE_MISMATCH = "phone_mismatch"
 # аккаунту. В tg-боте такой режим был с самого начала, а в MAX его не было —
 # из-за чего кнопка «Подключить» в профиле вела в бота, который отвечал
 # «не вижу активного подтверждения» и ничего привязать не мог.
+# Полезная нагрузка deep link'а: max.ru/<бот>?start=support
+SUPPORT_DEEP_LINK = "support"
+
 LINK_MODE = "link"
 
 _LINK_GREETING = (
@@ -114,6 +117,13 @@ async def on_start_command(event: MessageCreated) -> None:
 
 
 async def _begin(bot: Bot, chat_id: int, user_id: int, token: str) -> None:
+    if token == SUPPORT_DEEP_LINK:
+        # Ссылка «Написать в MAX» из подвала сайта: сразу выбор темы, а не
+        # общее меню — человек шёл с вопросом. Проверка до разбора токена,
+        # иначе «support» ушёл бы в поиск записи подтверждения.
+        await _show_topics(bot, chat_id)
+        return
+
     r = get_redis()
     record = await r.hgetall(_key(token)) if token else {}
     if not record or record.get("channel") != "max":

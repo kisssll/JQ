@@ -794,9 +794,11 @@
     transform: rotate(180deg);
 }
 
+/* Верхний отступ был нулевой, и первая подпись стояла в пиксель от границы
+   шапки. Снизу отступ уже был — рытма не было только сверху. */
 .accordion-body {
     display: none;
-    padding: 0 1.25rem 1.25rem;
+    padding: 1.25rem;
     border-top: 1px solid var(--color-border);
 }
 .accordion-item.active .accordion-body {
@@ -1007,7 +1009,18 @@
    прилипал к подсказке. */
 .settings-verify-row {
     display: flex;
+    align-items: center;
     gap: 0.5rem;
     flex-wrap: wrap;
     margin-top: 1rem;
+}
+
+/* Отступ .settings-save-btn (margin-top: 1rem) нужен только когда кнопка
+   стоит в столбце под полем. В горизонтальных рядах он ломал выравнивание:
+   в «Способе получения» кнопка «Сохранить» висела на 9px ниже выпадающего
+   списка, а ряд «Подтвердить в…» раздувался с 43 до 60px, потому что обе
+   кнопки внутри тянули этот отступ. */
+.settings-select-group .settings-save-btn,
+.settings-verify-row .settings-save-btn {
+    margin-top: 0;
 }
