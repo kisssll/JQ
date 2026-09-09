@@ -12,6 +12,7 @@ from app.api.v1.endpoints import users
 from app.api.v1.endpoints import bookings
 from app.web.views import router as web_router, sitemap_xml
 from app.api.v1.endpoints import master as master_endpoints
+from app.api.v1.endpoints import outreach
 
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
@@ -153,6 +154,9 @@ app.include_router(reviews.router, prefix="/api/v1", tags=["reviews"])
 app.include_router(services.router, prefix="/api/v1", tags=["services"])
 app.include_router(favorites.router, prefix="/api/v1", tags=["favorites"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
+# Сверка холодной базы аутрича с базой Руми по хешам телефонов —
+# внутренний инструмент продаж, наружу торчит один метод под админкой.
+app.include_router(outreach.router, prefix="/api/v1/admin/outreach", tags=["outreach"])
 app.include_router(staff.router, prefix="/api/v1/business/staff", tags=["staff"])
 app.include_router(salon_chains.router, prefix="/api/v1/business/chain", tags=["salon-chains"])
 app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["inventory"])
