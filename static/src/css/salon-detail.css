@@ -998,6 +998,15 @@
     gap: 0.75rem;
 }
 
+/* Кнопки в пошаговой записи. <button> НЕ наследует ни шрифт, ни размер, ни
+   цвет — браузер подставляет свои: Arial 13px и чёрный текст. В тёмной теме
+   список услуг из-за этого был чёрным по тёмному и вдвое мельче остального
+   текста. Цвет и шрифт задаём явно; ни один из этих трёх параметров нельзя
+   опустить, иначе вернётся значение браузера. */
+.booking-flow button {
+    font-family: inherit;
+}
+
 .service-btn {
     display: flex;
     justify-content: space-between;
@@ -1006,6 +1015,8 @@
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 12px;
+    color: var(--color-heading);
+    font-size: 1rem;
     cursor: pointer;
     transition: all 0.2s;
     width: 100%;
@@ -1154,6 +1165,13 @@
     border-color: var(--color-primary);
 }
 
+/* «Нет свободных окон» / «Ошибка загрузки» кладутся в ту же сетку, что и
+   слоты, и становились ячейкой в 80px — текст сыпался по слову в строку. */
+.times-grid > p {
+    grid-column: 1 / -1;
+    margin: 0;
+}
+
 .time-btn.active {
     border-color: var(--color-primary);
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
@@ -1241,6 +1259,9 @@
     border: 1px solid var(--color-border);
     border-radius: 2rem;
     background: transparent;
+    /* Та же болезнь, что у .service-btn: без явного цвета <button> получает
+       чёрный от браузера и в тёмной теме пропадает. У .active цвет задан. */
+    color: var(--color-body);
     font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s;

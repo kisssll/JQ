@@ -52,6 +52,10 @@ _STYLE = """
     .gb-card-body small{color:var(--color-muted);font-size:0.85rem}
     .gb-card-price{font-weight:700;color:var(--color-primary);white-space:nowrap}
     .gb-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:0.5rem}
+    /* Сообщение «Нет свободных окон» кладётся в ту же сетку, что и слоты,
+       и становилось ячейкой в 90px — текст сыпался по слову в строку.
+       Растягиваем на всю строку. */
+    .gb-slots > p{grid-column:1/-1;margin:0;color:var(--color-muted)}
     .gb-slot{padding:0.55rem 0;border:1px solid var(--color-border);border-radius:10px;
         background:var(--color-surface);color:var(--color-heading);font-family:inherit;
         cursor:pointer;font-size:0.95rem;transition:.15s}
