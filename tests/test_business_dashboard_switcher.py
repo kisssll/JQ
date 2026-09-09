@@ -137,3 +137,56 @@ async def test_add_salon_link_hidden_for_hired_admin(client, db_session):
     r = await client.get("/business/dashboard")
     assert r.status_code == 200
     assert 'class="salon-switcher-add"' not in r.text
+
+
+async def test_creating_second_salon_opens_new_salon_for_editing(client, db_session):
+    """Новая заявка не должна возвращать панель к салону из last_salon_id."""
+    async with db_session() as db:
+        owner = User(phone="+79996660005", full_name="Owner4",
+                     hashed_password=get_password_hash("Testpass1"), role=UserRole.BUSINESS)
+        db.add(owner)
+        await db.commit()
+        await db.refresh(owner)
+
+        old_salon = Salon(
+            name="Старый салон", address="old", phone="+70000000420",
+            latitude=1.0, longitude=1.0, timezone="Europe/Moscow",
+            moderation_status=SalonModerationStatus.APPROVED, is_active=True,
+            creator_id=owner.id,
+        )
+        db.add(old_salon)
+        await db.commit()
+        await db.refresh(old_salon)
+        db.add(SalonMember(
+            salon_id=old_salon.id, user_id=owner.id, role=SalonRole.OWNER,
+            is_creator=True, permissions={"manage_salon": True}, is_active=True,
+        ))
+        await db.commit()
+        old_salon_id = old_salon.id
+
+    await _login(client, owner.phone)
+    await client.get(f"/business/dashboard?salon_id={old_salon_id}")
+    response = await client.post(
+        "/api/v1/business/my-salon",
+        data={
+            "name": "Новый салон",
+            "description": "Отдельный",
+            "city": "Новосибирск",
+            "address": "new",
+            "phone": "+70000000421",
+            "offer_accepted": "1",
+            "pd_consent": "1",
+            "consent_version": "test",
+        },
+    )
+
+    assert response.status_code == 302
+    location = response.headers["location"]
+    assert "salon_id=" in location
+    new_salon_id = int(location.rsplit("salon_id=", 1)[1])
+    assert new_salon_id != old_salon_id
+
+    dashboard = await client.get(location)
+    assert dashboard.status_code == 200
+    assert "<title>Бизнес-панель — Новый салон —" in dashboard.text
+    assert f'<input type="hidden" name="salon_id" value="{new_salon_id}">' in dashboard.text

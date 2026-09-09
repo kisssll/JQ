@@ -2,6 +2,8 @@
 from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from fastapi import HTTPException
+from app.api.deps import check_salon_permission
 from app.models.models import Master, Service, User, MasterPhoto, Review, ReviewPhoto, ReviewTargetType
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
@@ -50,6 +52,13 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
 
     # ----- Портфолио: свои фото мастера + фото из отзывов про него -----
     is_own_page = bool(user and master_user and user.id == master_user.id)
+    can_manage_photos = is_own_page
+    if user and not can_manage_photos:
+        try:
+            await check_salon_permission(db, user, master.salon_id, "manage_masters")
+            can_manage_photos = True
+        except HTTPException:
+            pass
 
     own_photos = (await db.execute(
         select(MasterPhoto).where(MasterPhoto.master_id == master.id).order_by(MasterPhoto.id.desc())
@@ -62,6 +71,7 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
         .order_by(ReviewPhoto.id.desc())
     )
     client_photos = review_photos_result.scalars().all()
+    master_avatar = master_user.avatar_url if master_user else ""
 
     verified_count = (await db.execute(
         select(func.count(Review.id)).where(
@@ -81,34 +91,54 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
         )
         return (
             f'<div style="position:relative;display:inline-block">'
-            f'<img src="{url}" alt="" loading="lazy" style="width:140px;height:140px;object-fit:cover;'
+            f'<img src="{e(url)}" alt="Работа мастера" loading="lazy" data-lightbox-src="{e(url)}" '
+            f'data-lightbox-alt="Работа мастера" style="width:140px;height:140px;object-fit:cover;'
             f'border-radius:0.75rem;margin:0.25rem">{delete_btn}</div>'
         )
 
-    own_photos_html = "".join(_photo_tile(p.url, f"/api/v1/upload/master/photo/{p.id}/delete" if is_own_page else None) for p in own_photos)
+    own_photos_html = "".join(
+        _photo_tile(p.url, f"/api/v1/upload/master/photo/{p.id}/delete" if can_manage_photos else None)
+        for p in own_photos
+    )
     client_photos_html = "".join(_photo_tile(p.url, None) for p in client_photos)
 
     upload_block = ""
-    if is_own_page:
+    if can_manage_photos:
         upload_block = f"""
         <div style="margin:1rem 0">
+            <input type="file" id="masterAvatarInput" accept="image/*" style="display:none">
+            <button class="btn-outline" onclick="document.getElementById('masterAvatarInput').click()">Изменить фото мастера</button>
             <input type="file" id="portfolioFileInput" accept="image/*" multiple style="display:none">
             <button class="btn-outline" onclick="document.getElementById('portfolioFileInput').click()">+ Добавить фото ({len(own_photos)}/20)</button>
         </div>
         <script>
+            document.getElementById('masterAvatarInput').addEventListener('change', async (e) => {{
+                const file = e.target.files[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('master_id', '{master.id}');
+                const res = await fetch('/api/v1/upload/avatar', {{ method: 'POST', body: formData }});
+                if (res.ok) location.reload();
+                else {{ const d = await res.json().catch(() => ({{}})); alert(d.detail || 'Не удалось загрузить фото'); }}
+            }});
             document.getElementById('portfolioFileInput').addEventListener('change', async (e) => {{
                 const files = e.target.files;
                 if (!files.length) return;
                 const formData = new FormData();
                 for (const f of files) formData.append('files', f);
+                formData.append('master_id', '{master.id}');
                 const res = await fetch('/api/v1/upload/master/photo', {{ method: 'POST', body: formData }});
                 if (res.ok) {{ location.reload(); }}
                 else {{ const d = await res.json().catch(() => ({{}})); alert(d.detail || 'Не удалось загрузить фото'); }}
             }});
             document.addEventListener('click', async (e) => {{
-                if (e.target.classList.contains('portfolio-photo-delete')) {{
+                const deleteButton = e.target.closest('.portfolio-photo-delete');
+                if (deleteButton) {{
                     if (!confirm('Удалить это фото?')) return;
-                    const res = await fetch(e.target.dataset.url, {{ method: 'POST' }});
+                    const formData = new FormData();
+                    formData.append('master_id', '{master.id}');
+                    const res = await fetch(deleteButton.dataset.url, {{ method: 'POST', body: formData }});
                     if (res.ok) location.reload(); else alert('Не удалось удалить фото');
                 }}
             }});
@@ -147,8 +177,8 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
             
             <div class="card" style="margin-bottom:2rem">
                 <div style="display:flex;gap:2rem;align-items:center;margin-bottom:1.5rem">
-                    <div style="width:8rem;height:8rem;border-radius:50%;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));display:flex;align-items:center;justify-content:center;font-size:3rem;color:white">
-                        {master_name[0]}
+                    <div style="width:8rem;height:8rem;border-radius:50%;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));display:flex;align-items:center;justify-content:center;font-size:3rem;color:white;overflow:hidden">
+                        {f'<img src="{e(master_avatar)}" alt="{e(master_name)}" data-lightbox-src="{e(master_avatar)}" data-lightbox-alt="{e(master_name)}" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in">' if master_avatar else master_name[0]}
                     </div>
                     <div>
                         <h1 class="text-display" style="font-size:2rem">{e(master_name)}</h1>

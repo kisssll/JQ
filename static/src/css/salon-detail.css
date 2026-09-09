@@ -201,6 +201,7 @@
     height: 100%;
     object-fit: cover;
     border-radius: 1rem;
+    cursor: zoom-in;
 }
 
 .top-fav-btn {
@@ -498,6 +499,22 @@
     height: 180px;
     border-radius: 0.75rem;
     flex-shrink: 0;
+    cursor: zoom-in;
+}
+
+.master-portfolio-preview {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+    overflow: hidden;
+}
+
+.master-portfolio-preview img {
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 0.45rem;
+    object-fit: cover;
+    cursor: zoom-in;
 }
 
 /* --- Заглушка для логотипа салона --- */
@@ -998,6 +1015,15 @@
     gap: 0.75rem;
 }
 
+/* Кнопки в пошаговой записи. <button> НЕ наследует ни шрифт, ни размер, ни
+   цвет — браузер подставляет свои: Arial 13px и чёрный текст. В тёмной теме
+   список услуг из-за этого был чёрным по тёмному и вдвое мельче остального
+   текста. Цвет и шрифт задаём явно; ни один из этих трёх параметров нельзя
+   опустить, иначе вернётся значение браузера. */
+.booking-flow button {
+    font-family: inherit;
+}
+
 .service-btn {
     display: flex;
     justify-content: space-between;
@@ -1006,6 +1032,8 @@
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 12px;
+    color: var(--color-heading);
+    font-size: 1rem;
     cursor: pointer;
     transition: all 0.2s;
     width: 100%;
@@ -1073,6 +1101,10 @@
     padding-bottom: 0.5rem;
 }
 
+/* color и font-family обязательны: это <button>, а он не наследует их от
+   родителя — берёт системные (чёрный текст, шрифт браузера). Фон при этом
+   тематизирован, поэтому в тёмной теме выходил чёрный текст на тёмной
+   карточке, контраст 1.24:1. */
 .date-btn {
     display: flex;
     flex-direction: column;
@@ -1082,6 +1114,8 @@
     border: 1px solid var(--color-border);
     border-radius: 0.75rem;
     background: var(--color-surface);
+    color: var(--color-heading);
+    font-family: inherit;
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -1105,9 +1139,12 @@
     color: rgba(255, 255, 255, 0.8);
 }
 
+/* Цвет наследуется от кнопки (у той он теперь задан явно) — отдельного
+   правила не нужно, но фиксируем, чтобы не появился системный. */
 .date-btn .day-number {
     font-size: 1.2rem;
     font-weight: 700;
+    color: inherit;
 }
 
 .date-btn .month-label {
@@ -1126,11 +1163,15 @@
     gap: 0.5rem;
 }
 
+/* Тот же случай, что и у .date-btn: без явных color/font-family <button>
+   рисуется системным чёрным поверх тематизированного фона. */
 .time-btn {
     padding: 0.5rem;
     border: 1px solid var(--color-border);
     border-radius: 0.75rem;
     background: var(--color-surface);
+    color: var(--color-heading);
+    font-family: inherit;
     text-align: center;
     font-size: 0.9rem;
     cursor: pointer;
@@ -1139,6 +1180,13 @@
 
 .time-btn:hover {
     border-color: var(--color-primary);
+}
+
+/* «Нет свободных окон» / «Ошибка загрузки» кладутся в ту же сетку, что и
+   слоты, и становились ячейкой в 80px — текст сыпался по слову в строку. */
+.times-grid > p {
+    grid-column: 1 / -1;
+    margin: 0;
 }
 
 .time-btn.active {
@@ -1228,6 +1276,9 @@
     border: 1px solid var(--color-border);
     border-radius: 2rem;
     background: transparent;
+    /* Та же болезнь, что у .service-btn: без явного цвета <button> получает
+       чёрный от браузера и в тёмной теме пропадает. У .active цвет задан. */
+    color: var(--color-body);
     font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s;

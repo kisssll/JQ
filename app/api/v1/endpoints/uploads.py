@@ -31,21 +31,35 @@ def _safe_next(target: str, fallback: str) -> str:
 @router.post("/avatar")
 async def upload_avatar(
     file: UploadFile = File(...),
+    master_id: int | None = Form(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Аватар текущего пользователя (клиент/мастер/модель/бизнес — любой).
+    """Аватар текущего пользователя или мастера, если есть manage_masters.
 
     Отдаёт JSON: зовётся fetch'ем из profile.js, страница обновляет картинку
     без перезагрузки. Старый файл удаляется — мусор не копится.
     """
+    target_user = current_user
+    if master_id is not None:
+        target_master = (await db.execute(
+            select(Master).where(Master.id == master_id)
+        )).scalar_one_or_none()
+        if target_master is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Мастер не найден")
+        if target_master.user_id != current_user.id:
+            await check_salon_permission(db, current_user, target_master.salon_id, "manage_masters")
+        target_user = (await db.execute(
+            select(User).where(User.id == target_master.user_id)
+        )).scalar_one()
+
     try:
         url = await save_image(file, "avatars")
     except UploadError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    old = current_user.avatar_url
-    current_user.avatar_url = url
+    old = target_user.avatar_url
+    target_user.avatar_url = url
     await db.commit()
     if old and old.startswith("/uploads/"):
         delete_stored(old)
@@ -161,17 +175,28 @@ async def delete_salon_photo(
 @router.post("/master/photo")
 async def upload_master_photos(
     files: list[UploadFile] = File(...),
+    master_id: int | None = Form(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Портфолио мастера — свои фото работ, до MAX_MASTER_PHOTOS штук.
+    """Портфолио мастера — своё или мастера своего салона при manage_masters.
 
     Проверка через реальную запись Master (не через User.role — оно не
     всегда синхронизировано, см. has_master_profile в app/web/auth.py).
     """
-    master = (await db.execute(select(Master).where(Master.user_id == current_user.id))).scalar_one_or_none()
+    own_master_request = master_id is None
+    if own_master_request:
+        master = (await db.execute(select(Master).where(Master.user_id == current_user.id))).scalar_one_or_none()
+    else:
+        master = (await db.execute(select(Master).where(Master.id == master_id))).scalar_one_or_none()
     if master is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="У вас нет профиля мастера")
+        detail = "У вас нет профиля мастера" if own_master_request else "Мастер не найден"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN if own_master_request else status.HTTP_404_NOT_FOUND,
+            detail=detail,
+        )
+    if master.user_id != current_user.id:
+        await check_salon_permission(db, current_user, master.salon_id, "manage_masters")
 
     existing_count = (await db.execute(
         select(func.count(MasterPhoto.id)).where(MasterPhoto.master_id == master.id)
@@ -200,13 +225,24 @@ async def upload_master_photos(
 @router.post("/master/photo/{photo_id}/delete")
 async def delete_master_photo(
     photo_id: int,
+    master_id: int | None = Form(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Мастер удаляет своё фото портфолио."""
-    master = (await db.execute(select(Master).where(Master.user_id == current_user.id))).scalar_one_or_none()
+    """Мастер удаляет своё фото, либо менеджер — фото мастера своего салона."""
+    own_master_request = master_id is None
+    if own_master_request:
+        master = (await db.execute(select(Master).where(Master.user_id == current_user.id))).scalar_one_or_none()
+    else:
+        master = (await db.execute(select(Master).where(Master.id == master_id))).scalar_one_or_none()
     if master is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="У вас нет профиля мастера")
+        detail = "У вас нет профиля мастера" if own_master_request else "Мастер не найден"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN if own_master_request else status.HTTP_404_NOT_FOUND,
+            detail=detail,
+        )
+    if master.user_id != current_user.id:
+        await check_salon_permission(db, current_user, master.salon_id, "manage_masters")
 
     photo = (await db.execute(
         select(MasterPhoto).where(MasterPhoto.id == photo_id, MasterPhoto.master_id == master.id)

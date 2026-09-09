@@ -25,6 +25,7 @@ import './info-hint.js';
 import './guest-booking.js';
 import './verify-messenger.js';
 import './salon-photos.js';
+import './lightbox.js';
 import './info-hint.js';
 import './guest-booking.js';
 import './pwa.js';

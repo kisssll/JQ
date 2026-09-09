@@ -212,7 +212,10 @@ async def create_or_update_salon(
         user_id=_uid, phone=_uphone, request=request,
     )
 
-    return RedirectResponse(url="/business/dashboard?success=1", status_code=302)
+    return RedirectResponse(
+        url=f"/business/dashboard?success=1&salon_id={salon.id}",
+        status_code=302,
+    )
 
 
 @router.post("/apply")
@@ -284,7 +287,11 @@ async def apply_business(
     )
     # salon_id — чек-ауту нужен, чтобы следующим шагом дёрнуть
     # /api/v1/payments/business/init (выбор автопродления, запуск триала/оплаты).
-    return {"ok": True, "redirect": "/business/dashboard?submitted=1", "salon_id": salon.id}
+    return {
+        "ok": True,
+        "redirect": f"/business/dashboard?submitted=1&salon_id={salon.id}",
+        "salon_id": salon.id,
+    }
 
 
 @router.delete("/my-salon")

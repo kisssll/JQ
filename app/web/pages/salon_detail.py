@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta
 from app.models.models import (
-    Salon, SalonPhoto, Master, Service, Promotion, User,
+    Salon, SalonPhoto, Master, MasterPhoto, Service, Promotion, User,
     Review, ReviewPhoto, ReviewTargetType, SalonModerationStatus, SalonChain,
 )
 from app.services.subscription import access_clause
@@ -145,7 +145,8 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
         photos_strip = (
             '<div class="salon-photos">'
             + "".join(
-                f'<img src="{p.url}" alt="" loading="lazy">'
+                f'<img src="{e(p.url)}" alt="Фото салона" loading="lazy" '
+                f'data-lightbox-src="{e(p.url)}" data-lightbox-alt="Фото салона">'
                 for p in salon_photos
             )
             + "</div>"
@@ -159,6 +160,9 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
     for m in masters:
         user_result = await db.execute(select(User).where(User.id == m.user_id))
         master_user = user_result.scalar_one_or_none()
+        master_photos = (await db.execute(
+            select(MasterPhoto).where(MasterPhoto.master_id == m.id).order_by(MasterPhoto.id.desc())
+        )).scalars().all()
         services_result = await db.execute(select(Service).where(
             Service.master_id == m.id, Service.is_active == True, Service.is_model_practice == False,
         ))
@@ -169,7 +173,8 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
             "specialization": m.specialization,
             "experience": m.experience_years,
             "rating": m.rating,
-            "avatar": master_user.avatar_url or "",
+            "avatar": master_user.avatar_url or "" if master_user else "",
+            "portfolio": [photo.url for photo in master_photos],
             "services": [
                 {"id": s.id, "name": s.name, "price": s.price, "duration": s.duration_minutes}
                 for s in services
@@ -183,10 +188,18 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
     for m in masters_data:
         # Аватар или заглушка
         if m["avatar"]:
-            avatar_html = f'<img src="{m["avatar"]}" alt="{e(m["name"])}" loading="lazy">'
+            avatar_html = (
+                f'<img src="{e(m["avatar"])}" alt="{e(m["name"])}" loading="lazy" '
+                f'data-lightbox-src="{e(m["avatar"])}" data-lightbox-alt="{e(m["name"])}">'
+            )
         else:
             avatar_html = f'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));color:#fff;font-size:3rem;font-weight:700">{m["name"][0].upper()}</div>'
 
+        portfolio_html = "".join(
+            f'<img src="{e(url)}" alt="Работа мастера" loading="lazy" '
+            f'data-lightbox-src="{e(url)}" data-lightbox-alt="Работа мастера">'
+            for url in m["portfolio"]
+        )
         masters_list_html += f"""
         <div class="master-card" data-master-id="{m["id"]}">
             <div class="master-card-inner">
@@ -209,6 +222,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                             {e(m["specialization"] or 'Специализация не указана')}
                         </p>
                     </div>
+                    {f'<div class="master-portfolio-preview">{portfolio_html}</div>' if portfolio_html else ''}
                     <p class="master-desc" style="min-height:0;"></p>
                     <div class="master-stats-chips">
                         <span class="chip">{ICON_STAR_FILLED} {m["rating"]:.1f}</span>
@@ -232,7 +246,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
             </a>
             <div class="salon-header-grid">
                 <div class="salon-image-wrapper">
-                    {f'<img alt="{e(salon.name)}" src="{salon.logo_url}">' if salon.logo_url else f'<div style="width:100%;height:100%;min-height:200px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));color:#fff;font-size:4rem;font-weight:700;border-radius:1rem">{salon.name[0].upper()}</div>'}
+                    {f'<img alt="{e(salon.name)}" src="{e(salon.logo_url)}" data-lightbox-src="{e(salon.logo_url)}" data-lightbox-alt="{e(salon.name)}">' if salon.logo_url else f'<div style="width:100%;height:100%;min-height:200px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));color:#fff;font-size:4rem;font-weight:700;border-radius:1rem">{salon.name[0].upper()}</div>'}
                     <button class="favorite-btn top-fav-btn salon-top-fav"
                             data-type="salon"
                             data-id="{salon.id}"

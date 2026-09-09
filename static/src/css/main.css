@@ -52,3 +52,46 @@
 @import 'flatpickr/dist/flatpickr.min.css';
 @import 'flatpickr/dist/plugins/monthSelect/style.css';
 @import './custom-forms.css';
+
+/* Полноэкранный просмотр фотографий */
+.photo-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: rgba(10, 10, 18, 0.92);
+}
+
+.photo-lightbox.active {
+    display: flex;
+}
+
+.photo-lightbox-image {
+    max-width: min(96vw, 1400px);
+    max-height: 92vh;
+    object-fit: contain;
+    border-radius: 0.5rem;
+    box-shadow: 0 1rem 4rem rgba(0, 0, 0, 0.45);
+}
+
+.photo-lightbox-close {
+    position: absolute;
+    top: 1rem;
+    right: 1.25rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+body.lightbox-open {
+    overflow: hidden;
+}

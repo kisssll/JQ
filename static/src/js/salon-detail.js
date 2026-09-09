@@ -49,7 +49,8 @@ import { toastNetworkError } from './ui-feedback.js';
             });
         });
         document.querySelectorAll('.master-card').forEach(card => {
-            card.addEventListener('click', function () {
+            card.addEventListener('click', function (event) {
+                if (event.target.closest('[data-lightbox-src]')) return;
                 const id = parseInt(this.dataset.masterId);
                 selectMaster(id);
             });

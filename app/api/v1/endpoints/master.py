@@ -1,5 +1,4 @@
 # app/api/v1/endpoints/master.py
-from typing import Optional
 from urllib.parse import quote
 import logging
 
@@ -12,7 +11,7 @@ import secrets
 from app.db.session import get_db
 from app.models.models import User, Master, Booking, Salon, UserRole, BookingStatus, Review, ReviewTargetType
 from app.api.deps import (
-    get_current_user, require_role, check_salon_permission, get_user_primary_salon_id,
+    get_current_user, require_role, check_salon_permission,
 )
 from app.core.security import get_password_hash
 from app.schemas.user import try_normalize_phone
@@ -107,7 +106,7 @@ async def create_master_web(
     phone: str = Form(...),
     specialization: str = Form(...),
     experience_years: int = Form(0),
-    salon_id: Optional[int] = Form(None),
+    salon_id: int = Form(...),
     db: AsyncSession = Depends(get_db)
 ):
     """Добавление мастера владельцем/админом. Возвращает JSON; при создании
@@ -118,14 +117,11 @@ async def create_master_web(
     if not user:
         return JSONResponse({"status": "error", "detail": "Требуется вход"}, status_code=401)
 
-    resolved_id = await get_user_primary_salon_id(db, user.id, salon_id)
-    if resolved_id is None:
-        return JSONResponse({"status": "error", "detail": "Салон не найден"}, status_code=404)
     try:
-        await check_salon_permission(db, user, resolved_id, "manage_masters")
+        await check_salon_permission(db, user, salon_id, "manage_masters")
     except HTTPException:
         return JSONResponse({"status": "error", "detail": "Недостаточно прав для управления мастерами"}, status_code=403)
-    salon = (await db.execute(select(Salon).where(Salon.id == resolved_id))).scalar_one_or_none()
+    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
     if salon is None:
         return JSONResponse({"status": "error", "detail": "Салон не найден"}, status_code=404)
 

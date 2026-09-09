@@ -251,6 +251,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
                     </div>
                 </div>
                 {f'<div class="profile-master-bio">{bio}</div>' if bio else ''}
+                <a href="/masters/{master_profile.id}" class="profile-btn-secondary">Моё портфолио →</a>
                 <a href="/master/schedule" class="profile-btn-secondary">Моё расписание →</a>
             </div>
         </div>

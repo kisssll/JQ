@@ -108,6 +108,7 @@ def _render_master_card(master, user_data, can_manage_masters):
         <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({master.id}, '{user_name}', {str(master.is_active).lower()})" title="{'Отключить' if master.is_active else 'Включить'}">{ICON_POWER}</button>
     """
     if can_manage_masters:
+        actions += f'<a class="action-btn" href="/masters/{master.id}" title="Фото и портфолио">Фото</a>'
         actions += f'<button class="action-btn" onclick="resetMasterPassword({master.id})" title="Сбросить пароль">{ICON_LOCK_MINI}</button>'
         actions += f'<button class="action-btn delete-btn" onclick="deleteEmployee({master.id}, \'{user_name}\')" title="Удалить">{ICON_TRASH}</button>'
 
@@ -345,6 +346,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({m.id}, '{user_name}', {str(m.is_active).lower()})" title="{'Отключить' if m.is_active else 'Включить'}">{ICON_POWER}</button>
         """
         if can_manage_masters:
+            actions += f'<a class="action-btn" href="/masters/{m.id}" title="Фото и портфолио">Фото</a>'
             actions += f'<button class="action-btn" onclick="resetMasterPassword({m.id})" title="Сбросить пароль">{ICON_LOCK_MINI}</button>'
             actions += f'<button class="action-btn delete-btn" onclick="deleteEmployee({m.id}, \'{user_name}\')" title="Удалить">{ICON_TRASH}</button>'
 
@@ -436,6 +438,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             <button class="modal-close" onclick="document.getElementById('addEmployeeModal').classList.remove('active')">&times;</button>
             <h2>Добавить мастера</h2>
             <form id="employeeForm" action="/api/v1/master/create-web" method="post">
+                <input type="hidden" name="salon_id" value="{salon.id}">
                 <input type="hidden" name="master_id" id="employeeId">
                 <div class="form-group">
                     <label for="employeeName">Имя *</label>
