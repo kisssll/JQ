@@ -186,7 +186,7 @@ async def test_creating_second_salon_opens_new_salon_for_editing(client, db_sess
     new_salon_id = int(location.rsplit("salon_id=", 1)[1])
     assert new_salon_id != old_salon_id
 
-    dashboard = await client.get(location)
+    dashboard = await client.get(f"{location}&tab=employees")
     assert dashboard.status_code == 200
     assert "<title>Бизнес-панель — Новый салон —" in dashboard.text
     assert f'<input type="hidden" name="salon_id" value="{new_salon_id}">' in dashboard.text
