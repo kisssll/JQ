@@ -2,7 +2,7 @@
 from app.web.components.escaping import e
 from app.services.price import format_service_price
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, or_, func
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from app.api.deps import check_salon_permission
@@ -34,7 +34,10 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
     # Получаем услуги мастера
     services_result = await db.execute(
         select(Service).options(selectinload(Service.photos)).where(
-            Service.assigned_masters.any(Master.id == master.id),
+            or_(
+                Service.master_id == master.id,
+                Service.assigned_masters.any(Master.id == master.id),
+            ),
             Service.is_active == True, Service.is_model_practice == False,
         ).order_by(Service.price)
     )

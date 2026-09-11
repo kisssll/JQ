@@ -7,7 +7,7 @@
 from app.web.components.escaping import e, ejson
 import json
 
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 
 from app.models.models import (
@@ -148,7 +148,10 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
         muser = (await db.execute(select(User).where(User.id == m.user_id))).scalar_one_or_none()
         services = (await db.execute(
             select(Service).options(selectinload(Service.photos)).where(
-                Service.assigned_masters.any(Master.id == m.id),
+                or_(
+                    Service.master_id == m.id,
+                    Service.assigned_masters.any(Master.id == m.id),
+                ),
                 Service.is_active == True, Service.is_model_practice == False,
             ).order_by(Service.price)
         )).scalars().all()

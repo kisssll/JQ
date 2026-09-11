@@ -3,7 +3,7 @@ from app.web.components.escaping import e, ejson
 import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
 from app.models.models import (
@@ -167,7 +167,10 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
         services_result = await db.execute(select(Service).options(
             selectinload(Service.photos)
         ).where(
-            Service.assigned_masters.any(Master.id == m.id),
+            or_(
+                Service.master_id == m.id,
+                Service.assigned_masters.any(Master.id == m.id),
+            ),
             Service.is_active == True, Service.is_model_practice == False,
         ))
         services = services_result.scalars().all()
