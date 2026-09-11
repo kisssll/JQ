@@ -12,7 +12,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -80,7 +80,12 @@ async def create_guest_booking(
             Service.id == data.service_id, Service.is_active == True, Service.is_model_practice == False,
         )
     )).scalar_one_or_none()
-    if not service or service.master_id != data.master_id:
+    if not service or not await db.scalar(
+        select(or_(
+            Service.master_id == data.master_id,
+            Service.assigned_masters.any(Master.id == data.master_id),
+        )).where(Service.id == data.service_id)
+    ):
         raise HTTPException(status_code=400, detail="Услуга недоступна")
 
     master = (await db.execute(

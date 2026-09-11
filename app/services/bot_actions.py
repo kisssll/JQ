@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+from app.services.price import format_service_price
 
 # Сколько ближайших записей показываем в боте: список должен помещаться в
 # одно сообщение и оставаться обозримым.
@@ -56,7 +57,7 @@ async def upcoming_bookings(db, user_id: int, limit: int = UPCOMING_LIMIT) -> li
 def format_booking(booking, salon, service, master_name: Optional[str]) -> str:
     who = f" · {master_name}" if master_name else ""
     return (f"📅 {booking.start_time:%d.%m в %H:%M} — «{salon.name}»\n"
-            f"{service.name}{who} · {service.price:,} ₽".replace(",", " "))
+            f"{service.name}{who} · {format_service_price(service.price, service.price_max)}")
 
 
 async def cancel_booking(db, user_id: int, booking_id: int) -> tuple[bool, str]:

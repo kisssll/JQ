@@ -98,7 +98,9 @@ async def render_dashboard_tab(
         services_count = 0
         if master_ids:
             services_count = (await db.execute(
-                select(func.count(Service.id)).where(Service.master_id.in_(master_ids))
+                select(func.count(Service.id)).where(
+                    Service.assigned_masters.any(Master.id.in_(master_ids))
+                )
             )).scalar() or 0
         promotions = (await db.execute(
             select(Promotion).where(Promotion.salon_id == salon.id)

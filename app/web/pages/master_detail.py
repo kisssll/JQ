@@ -1,7 +1,9 @@
 # app/web/pages/master_detail.py
 from app.web.components.escaping import e
+from app.services.price import format_service_price
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, or_, func
+from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from app.api.deps import check_salon_permission
 from app.models.models import Master, Service, User, MasterPhoto, Review, ReviewPhoto, ReviewTargetType
@@ -31,8 +33,12 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
     
     # Получаем услуги мастера
     services_result = await db.execute(
-        select(Service).where(
-            Service.master_id == master.id, Service.is_active == True, Service.is_model_practice == False,
+        select(Service).options(selectinload(Service.photos)).where(
+            or_(
+                Service.master_id == master.id,
+                Service.assigned_masters.any(Master.id == master.id),
+            ),
+            Service.is_active == True, Service.is_model_practice == False,
         ).order_by(Service.price)
     )
     services = services_result.scalars().all()
@@ -40,13 +46,19 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None) -> s
     # Карточки услуг
     services_html = ""
     for srv in services:
+        photos_html = "".join(
+            f'<img src="{e(photo.url)}" alt="{e(srv.name)}" loading="lazy" '
+            'style="width:72px;height:72px;object-fit:cover;border-radius:0.5rem">'
+            for photo in srv.photos[:4]
+        )
         services_html += f"""
         <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem;border-bottom:1px solid var(--color-border)">
             <div>
+                <div style="display:flex;gap:0.35rem;margin-bottom:0.5rem">{photos_html}</div>
                 <p style="font-weight:600">{e(srv.name)}</p>
                 <p style="font-size:0.8rem;color:var(--color-muted)">{srv.duration_minutes} минут</p>
             </div>
-            <div style="font-size:1.25rem;font-weight:700;color:var(--color-primary)">{srv.price} ₽</div>
+            <div style="font-size:1.25rem;font-weight:700;color:var(--color-primary)">{e(format_service_price(srv.price, srv.price_max))}</div>
         </div>
         """
 

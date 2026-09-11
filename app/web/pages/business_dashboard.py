@@ -36,7 +36,9 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
     # Услуги
     services_count = 0
     if master_ids:
-        svc = await db.execute(select(func.count(Service.id)).where(Service.master_id.in_(master_ids)))
+        svc = await db.execute(select(func.count(Service.id)).where(
+            Service.assigned_masters.any(Master.id.in_(master_ids))
+        ))
         services_count = svc.scalar() or 0
     
     # Акции
@@ -172,7 +174,9 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
         master_user = user_result.scalar_one_or_none()
         user_name = master_user.full_name if master_user else "—"
         
-        svc_result = await db.execute(select(func.count(Service.id)).where(Service.master_id == m.id))
+        svc_result = await db.execute(select(func.count(Service.id)).where(
+            Service.assigned_masters.any(Master.id == m.id)
+        ))
         svc_count = svc_result.scalar() or 0
         
         masters_rows += f"""

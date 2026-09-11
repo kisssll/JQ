@@ -3,6 +3,13 @@ import { esc } from './escape-html.js';
 import { toastNetworkError } from './ui-feedback.js';
 
 (function () {
+    function formatServicePrice(service) {
+        const lower = service.price.toLocaleString('ru-RU');
+        return service.price_max === null || service.price_max === undefined
+            ? `${lower} ₽`
+            : `от ${lower} до ${service.price_max.toLocaleString('ru-RU')} ₽`;
+    }
+
     const container = document.getElementById('booking-flow-container');
     if (!container) return;
 
@@ -80,12 +87,16 @@ import { toastNetworkError } from './ui-feedback.js';
             const btn = document.createElement('button');
             btn.className = 'service-btn';
             btn.dataset.serviceId = service.id;
+            const photos = (service.photos || []).map(url =>
+                `<img src="${esc(url)}" alt="${esc(service.name)}" loading="lazy" data-lightbox-src="${esc(url)}" data-lightbox-alt="${esc(service.name)}" data-lightbox-group="service-${service.id}" style="width:88px;height:88px;object-fit:cover;border-radius:0.6rem;cursor:zoom-in">`
+            ).join('');
             btn.innerHTML = `
+                ${photos ? `<div style="display:flex;gap:0.25rem;margin-right:0.5rem">${photos}</div>` : ''}
                 <div class="service-info">
                     <span class="service-name">${esc(service.name)}</span>
                     <span class="service-duration">${esc(service.duration)} мин</span>
                 </div>
-                <div class="service-price">${service.price.toLocaleString()} ₽</div>
+                <div class="service-price">${formatServicePrice(service)}</div>
                 <span class="chevron">${getIcon('chevron-right')}</span>
             `;
             btn.addEventListener('click', () => selectService(service.id));
@@ -113,7 +124,7 @@ import { toastNetworkError } from './ui-feedback.js';
         const avatar = document.getElementById('selected-master-avatar-2');
         avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
         document.getElementById('selected-service-summary').textContent = service.name;
-        document.getElementById('selected-service-price').textContent = `${service.price.toLocaleString()} ₽`;
+        document.getElementById('selected-service-price').textContent = formatServicePrice(service);
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -173,7 +184,7 @@ import { toastNetworkError } from './ui-feedback.js';
         const avatar = document.getElementById('selected-master-avatar-3');
         avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
         document.getElementById('selected-service-summary-2').textContent = service.name;
-        document.getElementById('selected-service-price-2').textContent = `${service.price.toLocaleString()} ₽`;
+        document.getElementById('selected-service-price-2').textContent = formatServicePrice(service);
         document.getElementById('selected-date-summary').textContent = dateStr;
 
         const grid = document.getElementById('times-grid');
@@ -229,7 +240,7 @@ import { toastNetworkError } from './ui-feedback.js';
         const avatar = document.getElementById('selected-master-avatar-4');
         avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
         document.getElementById('selected-service-summary-3').textContent = service.name;
-        document.getElementById('selected-service-price-3').textContent = `${service.price.toLocaleString()} ₽`;
+        document.getElementById('selected-service-price-3').textContent = formatServicePrice(service);
         document.getElementById('selected-date-summary-2').textContent = dateStr;
         document.getElementById('selected-time-summary').textContent = timeStr;
 
@@ -272,7 +283,7 @@ import { toastNetworkError } from './ui-feedback.js';
         document.getElementById('confirm-master-spec').textContent = master.specialization;
         document.getElementById('confirm-service').textContent = service.name;
         document.getElementById('confirm-duration').textContent = `${service.duration} мин`;
-        document.getElementById('confirm-price').textContent = `${service.price.toLocaleString()} ₽`;
+        document.getElementById('confirm-price').textContent = formatServicePrice(service);
         document.getElementById('confirm-datetime').textContent = datetimeStr;
         document.getElementById('confirm-reminder').textContent = reminderLabel;
 

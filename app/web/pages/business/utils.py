@@ -20,7 +20,9 @@ async def get_masters_data(db: AsyncSession, salon_id: int):
         master_user = user_result.scalar_one_or_none()
         user_name = master_user.full_name if master_user else "—"
         
-        svc_result = await db.execute(select(func.count(Service.id)).where(Service.master_id == m.id))
+        svc_result = await db.execute(select(func.count(Service.id)).where(
+            Service.assigned_masters.any(Master.id == m.id)
+        ))
         svc_count = svc_result.scalar() or 0
         
         masters_rows += f"""

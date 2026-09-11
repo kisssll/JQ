@@ -3,7 +3,8 @@ from app.web.components.escaping import e, ejson
 import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
 from app.models.models import (
     Salon, SalonPhoto, Master, MasterPhoto, Service, Promotion, User,
@@ -163,8 +164,14 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
         master_photos = (await db.execute(
             select(MasterPhoto).where(MasterPhoto.master_id == m.id).order_by(MasterPhoto.id.desc())
         )).scalars().all()
-        services_result = await db.execute(select(Service).where(
-            Service.master_id == m.id, Service.is_active == True, Service.is_model_practice == False,
+        services_result = await db.execute(select(Service).options(
+            selectinload(Service.photos)
+        ).where(
+            or_(
+                Service.master_id == m.id,
+                Service.assigned_masters.any(Master.id == m.id),
+            ),
+            Service.is_active == True, Service.is_model_practice == False,
         ))
         services = services_result.scalars().all()
         masters_data.append({
@@ -176,7 +183,11 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
             "avatar": master_user.avatar_url or "" if master_user else "",
             "portfolio": [photo.url for photo in master_photos],
             "services": [
-                {"id": s.id, "name": s.name, "price": s.price, "duration": s.duration_minutes}
+                {
+                    "id": s.id, "name": s.name, "price": s.price, "price_max": s.price_max,
+                    "duration": s.duration_minutes,
+                    "photos": [photo.url for photo in s.photos],
+                }
                 for s in services
             ]
         })

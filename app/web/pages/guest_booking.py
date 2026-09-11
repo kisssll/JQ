@@ -7,7 +7,8 @@
 from app.web.components.escaping import e, ejson
 import json
 
-from sqlalchemy import select
+from sqlalchemy import select, or_
+from sqlalchemy.orm import selectinload
 
 from app.models.models import (
     Salon, Master, Service, User, Booking,
@@ -146,8 +147,12 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
     for m in masters:
         muser = (await db.execute(select(User).where(User.id == m.user_id))).scalar_one_or_none()
         services = (await db.execute(
-            select(Service).where(
-                Service.master_id == m.id, Service.is_active == True, Service.is_model_practice == False,
+            select(Service).options(selectinload(Service.photos)).where(
+                or_(
+                    Service.master_id == m.id,
+                    Service.assigned_masters.any(Master.id == m.id),
+                ),
+                Service.is_active == True, Service.is_model_practice == False,
             ).order_by(Service.price)
         )).scalars().all()
         if not services:
@@ -156,7 +161,13 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
             "id": m.id,
             "name": (muser.full_name if muser else None) or "Мастер",
             "spec": m.specialization or "",
-            "services": [{"id": s.id, "name": s.name, "price": s.price, "duration": s.duration_minutes} for s in services],
+            "services": [
+                {
+                    "id": s.id, "name": s.name, "price": s.price, "price_max": s.price_max,
+                    "duration": s.duration_minutes, "photos": [photo.url for photo in s.photos],
+                }
+                for s in services
+            ],
         })
 
     if not data:

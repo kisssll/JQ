@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Form, Body, stat
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from datetime import timedelta, datetime, timezone as tz
 from types import SimpleNamespace
 from typing import List
@@ -63,7 +63,14 @@ async def create_booking(
     if not service:
         raise HTTPException(status_code=404, detail="Услуга не найдена")
     
-    if service.master_id != booking_data.master_id:
+    is_assigned = await db.scalar(
+        select(or_(
+            Service.master_id == booking_data.master_id,
+            Service.assigned_masters.any(Master.id == booking_data.master_id),
+        ))
+        .where(Service.id == booking_data.service_id)
+    )
+    if not is_assigned:
         raise HTTPException(status_code=400, detail="Услуга не принадлежит этому мастеру")
 
     if not await _salon_bookable(db, booking_data.master_id):
@@ -280,7 +287,11 @@ async def create_booking_web(
     if not await _salon_bookable(db, master_id):
         return HTMLResponse(content="<h1>Салон ещё не подтверждён — запись недоступна</h1>", status_code=403)
     svc_result = await db.execute(select(Service).where(
-        Service.master_id == master_id, Service.is_active == True, Service.is_model_practice == False,
+        or_(
+            Service.master_id == master_id,
+            Service.assigned_masters.any(Master.id == master_id),
+        ),
+        Service.is_active == True, Service.is_model_practice == False,
     ).limit(1))
     service = svc_result.scalar_one_or_none()
     if not service:
@@ -321,6 +332,11 @@ async def confirm_booking_web(
     ))).scalar_one_or_none()
     if not service:
         return HTMLResponse(content="<h1>Услуга не найдена</h1>", status_code=404)
+    if not await db.scalar(select(or_(
+        Service.master_id == master_id,
+        Service.assigned_masters.any(Master.id == master_id),
+    )).where(Service.id == service_id)):
+        return HTMLResponse(content="<h1>Эта услуга недоступна у выбранного мастера</h1>", status_code=400)
     
     try:
         start = datetime.strptime(start_time, "%Y-%m-%dT%H:%M")
@@ -571,4 +587,3 @@ async def reject_booking(
     )
     await notify_booking_cancelled(db, booking)
     return booking
-
