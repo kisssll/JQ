@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import check_salon_permission, get_current_user
 from app.db.session import get_db
-from app.models.models import Master, MasterPhoto, ModelPhoto, Review, ReviewPhoto, Salon, SalonPhoto, User
+from app.models.models import Master, MasterPhoto, ModelPhoto, Review, ReviewPhoto, Salon, SalonPhoto, User, Service, ServicePhoto
 from app.services.uploads import UploadError, delete_stored, save_image
 
 router = APIRouter()
@@ -19,6 +19,7 @@ router = APIRouter()
 MAX_MASTER_PHOTOS = 20
 MAX_REVIEW_PHOTOS = 5
 MAX_MODEL_PHOTOS = 6
+MAX_SERVICE_PHOTOS = 20
 
 
 def _safe_next(target: str, fallback: str) -> str:
@@ -220,6 +221,61 @@ async def upload_master_photos(
     if not saved and errors:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=errors[0]["detail"])
     return {"saved": saved, "errors": errors}
+
+
+@router.post("/service/{service_id}/photo")
+async def upload_service_photos(
+    service_id: int,
+    files: list[UploadFile] = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Фото услуги, доступное владельцу/администратору салона."""
+    service = (await db.execute(select(Service).where(Service.id == service_id))).scalar_one_or_none()
+    if service is None:
+        raise HTTPException(status_code=404, detail="Услуга не найдена")
+    master = (await db.execute(select(Master).where(Master.id == service.master_id))).scalar_one()
+    await check_salon_permission(db, current_user, master.salon_id, "manage_masters")
+    existing_count = (await db.execute(
+        select(func.count(ServicePhoto.id)).where(ServicePhoto.service_id == service_id)
+    )).scalar() or 0
+    saved, errors = [], []
+    for file in files:
+        if existing_count + len(saved) >= MAX_SERVICE_PHOTOS:
+            errors.append({"file": file.filename or "файл", "detail": f"Максимум {MAX_SERVICE_PHOTOS} фото у услуги"})
+            continue
+        try:
+            url = await save_image(file, "services")
+        except UploadError as e:
+            errors.append({"file": file.filename or "файл", "detail": str(e)})
+            continue
+        db.add(ServicePhoto(service_id=service_id, url=url))
+        saved.append(url)
+    if saved:
+        await db.commit()
+    if not saved and errors:
+        raise HTTPException(status_code=400, detail=errors[0]["detail"])
+    return {"saved": saved, "errors": errors}
+
+
+@router.post("/service/photo/{photo_id}/delete")
+async def delete_service_photo(
+    photo_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    photo = (await db.execute(select(ServicePhoto).where(ServicePhoto.id == photo_id))).scalar_one_or_none()
+    if photo is None:
+        raise HTTPException(status_code=404, detail="Фото не найдено")
+    service = (await db.execute(select(Service).where(Service.id == photo.service_id))).scalar_one()
+    master = (await db.execute(select(Master).where(Master.id == service.master_id))).scalar_one()
+    await check_salon_permission(db, current_user, master.salon_id, "manage_masters")
+    url = photo.url
+    await db.delete(photo)
+    await db.commit()
+    if url.startswith("/uploads/"):
+        delete_stored(url)
+    return {"status": "deleted"}
 
 
 @router.post("/master/photo/{photo_id}/delete")

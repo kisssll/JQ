@@ -8,6 +8,7 @@ class ServiceResponse(BaseModel):
     name: str
     price: int
     duration_minutes: int
+    price_max: Optional[int] = None
     description: Optional[str] = None
     
     class Config:

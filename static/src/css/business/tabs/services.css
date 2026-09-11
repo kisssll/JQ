@@ -468,6 +468,59 @@
     box-shadow: 0 4px 12px rgba(192, 129, 184, 0.3);
 }
 
+.services-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    cursor: pointer;
+    color: var(--color-primary);
+}
+
+.services-upload-btn input {
+    display: none;
+}
+
+.service-photos-settings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+}
+
+.service-photo-preview {
+    position: relative;
+    display: inline-flex;
+}
+
+.service-photo-preview img {
+    width: 6rem;
+    height: 6rem;
+    object-fit: cover;
+    border-radius: 0.5rem;
+}
+
+.service-photo-delete {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.35rem;
+    width: 1.2rem;
+    height: 1.2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.services-no-photos {
+    color: var(--color-muted);
+    font-size: 0.8rem;
+}
+
 /* === Адаптив === */
 @media (max-width: 768px) {
     .services-filters-desktop {

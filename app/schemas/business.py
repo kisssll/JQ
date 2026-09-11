@@ -57,6 +57,7 @@ class ServiceResponse(BaseModel):
     name: str
     price: int
     duration_minutes: int
+    price_max: Optional[int] = None
 
     class Config:
         from_attributes = True

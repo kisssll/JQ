@@ -5,12 +5,19 @@ from typing import Optional, List, Dict
 
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, ForeignKey, BigInteger,
-    Text, DateTime, Date, Time, Enum, CheckConstraint, Index, UniqueConstraint, JSON, text
+    Text, DateTime, Date, Time, Enum, CheckConstraint, Index, UniqueConstraint, JSON, text, Table
 )
 from sqlalchemy.orm import relationship, declarative_base, Mapped, mapped_column
 from sqlalchemy.sql import func
 
 Base = declarative_base()
+
+service_masters = Table(
+    "service_masters",
+    Base.metadata,
+    Column("service_id", ForeignKey("services.id", ondelete="CASCADE"), primary_key=True),
+    Column("master_id", ForeignKey("masters.id", ondelete="CASCADE"), primary_key=True),
+)
 
 # --- Enums ---
 class UserRole(str, enum.Enum):
@@ -698,6 +705,9 @@ class Master(Base):
     user: Mapped["User"] = relationship(back_populates="master_profile")
     salon: Mapped["Salon"] = relationship(back_populates="masters")
     services: Mapped[List["Service"]] = relationship(back_populates="master")
+    assigned_services: Mapped[List["Service"]] = relationship(
+        secondary=service_masters, back_populates="assigned_masters"
+    )
     schedule: Mapped[List["Schedule"]] = relationship(back_populates="master")
     reviews: Mapped[List["Review"]] = relationship(back_populates="master")
 
@@ -710,6 +720,7 @@ class Service(Base):
     master_id: Mapped[int] = mapped_column(ForeignKey("masters.id"))
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     price: Mapped[int] = mapped_column(Integer, nullable=False)
+    price_max: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Категория услуги (слаг из service_categories.SERVICE_CATEGORY_GROUPS).
@@ -736,6 +747,24 @@ class Service(Base):
     model_desired_date: Mapped[Optional[date_]] = mapped_column(Date, nullable=True)
 
     master: Mapped["Master"] = relationship(back_populates="services")
+    assigned_masters: Mapped[List["Master"]] = relationship(
+        secondary=service_masters, back_populates="assigned_services"
+    )
+    photos: Mapped[List["ServicePhoto"]] = relationship(
+        back_populates="service", cascade="all, delete-orphan"
+    )
+
+
+class ServicePhoto(Base):
+    """Фото конкретной услуги, которую выполняет салон."""
+    __tablename__ = "service_photos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    service_id: Mapped[int] = mapped_column(ForeignKey("services.id", ondelete="CASCADE"))
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    service: Mapped["Service"] = relationship(back_populates="photos")
 
 class Schedule(Base):
     __tablename__ = "schedule"

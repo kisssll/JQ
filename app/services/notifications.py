@@ -445,7 +445,8 @@ async def notify_model_match(db: AsyncSession, match: ModelMatch) -> None:
         master_name = (master_user.full_name if master_user and master_user.full_name else "мастер")
         model_name = (model_user.full_name if model_user and model_user.full_name else "модель")
         service_name = service.name if service else "услугу"
-        price_str = "бесплатно" if not service or not service.price else f"{service.price} ₽"
+        from app.services.price import format_service_price
+        price_str = "бесплатно" if not service or not service.price else format_service_price(service.price, service.price_max)
 
         fanout = _Fanout()
         await fanout.send(

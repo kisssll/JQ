@@ -89,8 +89,12 @@ import { confirmDialog } from './ui-feedback.js';
         state.master.services.forEach(s => {
             const b = document.createElement('button');
             b.className = 'gb-card';
+            const photos = (s.photos || []).map(url =>
+                `<img src="${esc(url)}" alt="${esc(s.name)}" loading="lazy" data-lightbox-src="${esc(url)}" data-lightbox-alt="${esc(s.name)}" data-lightbox-group="service-${s.id}" style="width:88px;height:88px;object-fit:cover;border-radius:0.6rem;cursor:zoom-in">`
+            ).join('');
             b.innerHTML = `<div class="gb-card-body"><strong>${esc(s.name)}</strong><small>${esc(s.duration)} мин</small></div>` +
-                `<div class="gb-card-price">${s.price.toLocaleString('ru-RU')} ₽</div>`;
+                (photos ? `<div style="display:flex;gap:0.25rem;margin-right:0.5rem">${photos}</div>` : '') +
+                `<div class="gb-card-price">${s.price_max == null ? s.price.toLocaleString('ru-RU') : `от ${s.price.toLocaleString('ru-RU')} до ${s.price_max.toLocaleString('ru-RU')}`} ₽</div>`;
             b.addEventListener('click', () => { state.service = s; setupDate(); show('slot'); });
             el.appendChild(b);
         });

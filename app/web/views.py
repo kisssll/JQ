@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.core.config import settings
 from app.models.models import Salon, User, Master, Service as ServiceModel
 from app.services.subscription import access_clause
+from app.services.price import format_service_price
 from app.web.pages.home import render_home_page
 from app.web.pages.login import render_login_page         
 from app.web.pages.register import render_register_page
@@ -455,7 +456,10 @@ async def book_service_page(salon_id: int, request: Request, db: AsyncSession = 
                 
                 serviceSelect.innerHTML = '<option value="">Выберите услугу</option>';
                 services.forEach(service => {{
-                    serviceSelect.innerHTML += `<option value="${{service.id}}" data-price="${{service.price}}" data-duration="${{service.duration_minutes}}">${{e(service.name)}} — ${{service.price}} ₽ (${{service.duration_minutes}} мин)</option>`;
+                    const price = service.price_max == null
+                        ? `${{service.price.toLocaleString('ru-RU')}} ₽`
+                        : `от ${{service.price.toLocaleString('ru-RU')}} до ${{service.price_max.toLocaleString('ru-RU')}} ₽`;
+                    serviceSelect.innerHTML += `<option value="${{service.id}}" data-price="${{service.price}}" data-duration="${{service.duration_minutes}}">${{e(service.name)}} — ${{price}} (${{service.duration_minutes}} мин)</option>`;
                 }});
             }} catch (error) {{
                 console.error('Ошибка загрузки услуг:', error);
@@ -630,7 +634,7 @@ async def book_page(request: Request, db: AsyncSession = Depends(get_db)):
         <p><strong>{ICON_SCISSORS} Услуга:</strong> {e(service.name)}</p>
         <p><strong>{ICON_CLOCK} Длительность:</strong> {service.duration_minutes} мин</p>
         <p><strong>{ICON_CALENDAR_DAYS} Время:</strong> {time_str.replace('T', ' ')}</p>
-        <p><strong>{ICON_MONEY} Цена:</strong> <span style="font-size:1.25rem;font-weight:700;color:var(--color-primary)">{service.price} ₽</span></p>
+        <p><strong>{ICON_MONEY} Цена:</strong> <span style="font-size:1.25rem;font-weight:700;color:var(--color-primary)">{e(format_service_price(service.price, service.price_max))}</span></p>
     </div>
     
     <form action="/api/v1/bookings/confirm" method="post">

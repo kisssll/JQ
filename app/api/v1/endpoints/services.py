@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
 from app.models.models import Service, Master
@@ -26,9 +27,11 @@ def _resolve_category(chosen: str, name: str) -> str | None:
 @router.post("/services/create")
 async def create_service_web(
     request: Request,
-    master_id: int = Form(...),
+    master_ids: list[int] = Form(...),
     name: str = Form(...),
     price: int = Form(...),
+    price_max: str = Form(""),
+    price_mode: str = Form("fixed"),
     duration_minutes: int = Form(...),
     description: str = Form(""),
     category: str = Form(""),
@@ -51,9 +54,11 @@ async def create_service_web(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
 
-    master = (await db.execute(select(Master).where(Master.id == master_id))).scalar_one_or_none()
-    if not master:
-        return HTMLResponse(content="Мастер не найден", status_code=404)
+    masters_result = await db.execute(select(Master).where(Master.id.in_(master_ids)))
+    selected_masters = masters_result.scalars().all()
+    if not selected_masters or len(selected_masters) != len(set(master_ids)):
+        return HTMLResponse(content="Один или несколько мастеров не найдены", status_code=404)
+    master = selected_masters[0]
 
     try:
         await check_salon_permission(db, user, master.salon_id, "manage_masters")
@@ -66,10 +71,25 @@ async def create_service_web(
     except ValueError:
         return HTMLResponse(content="Некорректный формат квоты моделей или желаемой даты отработки", status_code=400)
 
+    if price < 0:
+        return HTMLResponse(content="Цена не может быть отрицательной", status_code=400)
+    if price_mode == "range" and not price_max.strip():
+        return HTMLResponse(content="Для диапазона укажите верхнюю границу цены", status_code=400)
+    try:
+        parsed_price_max = int(price_max) if price_mode == "range" else None
+    except ValueError:
+        return HTMLResponse(content="Некорректная верхняя граница цены", status_code=400)
+    if parsed_price_max is not None and (parsed_price_max < 0 or parsed_price_max < price):
+        return HTMLResponse(content="Верхняя граница цены не может быть меньше нижней", status_code=400)
+
+    if any(item.salon_id != master.salon_id for item in selected_masters):
+        return HTMLResponse(content="Все мастера услуги должны быть из одного салона", status_code=403)
+
     service = Service(
-        master_id=master_id,
+        master_id=master.id,
         name=name,
         price=price,
+        price_max=parsed_price_max,
         duration_minutes=duration_minutes,
         description=description,
         category=_resolve_category(category, name),
@@ -78,6 +98,8 @@ async def create_service_web(
         model_desired_date=parsed_desired_date,
     )
     db.add(service)
+    await db.flush()
+    service.assigned_masters = selected_masters
     await db.commit()
 
     return RedirectResponse(url="/business/dashboard?tab=services&added=1", status_code=302)
@@ -87,9 +109,11 @@ async def create_service_web(
 async def update_service_web(
     service_id: int,
     request: Request,
-    master_id: int = Form(...),
+    master_ids: list[int] = Form(...),
     name: str = Form(...),
     price: int = Form(...),
+    price_max: str = Form(""),
+    price_mode: str = Form("fixed"),
     duration_minutes: int = Form(...),
     description: str = Form(""),
     category: str = Form(""),
@@ -102,7 +126,9 @@ async def update_service_web(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
 
-    service = (await db.execute(select(Service).where(Service.id == service_id))).scalar_one_or_none()
+    service = (await db.execute(
+        select(Service).options(selectinload(Service.assigned_masters)).where(Service.id == service_id)
+    )).scalar_one_or_none()
     if not service:
         return HTMLResponse(content="Услуга не найдена", status_code=404)
 
@@ -115,15 +141,30 @@ async def update_service_web(
     except HTTPException:
         return HTMLResponse(content="Недостаточно прав для управления услугами", status_code=403)
 
-    # Новый мастер услуги (если поменяли) должен принадлежать тому же салону
-    if master_id != service.master_id:
-        new_master = (await db.execute(select(Master).where(Master.id == master_id))).scalar_one_or_none()
-        if not new_master or new_master.salon_id != master.salon_id:
-            return HTMLResponse(content="Нет доступа", status_code=403)
+    selected_masters = (await db.execute(
+        select(Master).where(Master.id.in_(master_ids))
+    )).scalars().all()
+    if not selected_masters or len(selected_masters) != len(set(master_ids)):
+        return HTMLResponse(content="Один или несколько мастеров не найдены", status_code=404)
+    if any(item.salon_id != master.salon_id for item in selected_masters):
+        return HTMLResponse(content="Все мастера услуги должны быть из одного салона", status_code=403)
 
-    service.master_id = master_id
+    if price < 0:
+        return HTMLResponse(content="Цена не может быть отрицательной", status_code=400)
+    if price_mode == "range" and not price_max.strip():
+        return HTMLResponse(content="Для диапазона укажите верхнюю границу цены", status_code=400)
+    try:
+        parsed_price_max = int(price_max) if price_mode == "range" else None
+    except ValueError:
+        return HTMLResponse(content="Некорректная верхняя граница цены", status_code=400)
+    if parsed_price_max is not None and (parsed_price_max < 0 or parsed_price_max < price):
+        return HTMLResponse(content="Верхняя граница цены не может быть меньше нижней", status_code=400)
+
+    service.master_id = selected_masters[0].id
+    service.assigned_masters = selected_masters
     service.name = name
     service.price = price
+    service.price_max = parsed_price_max
     service.duration_minutes = duration_minutes
     service.description = description
     service.category = _resolve_category(category, name)
