@@ -92,6 +92,42 @@
     cursor: pointer;
 }
 
+.photo-lightbox-nav {
+    position: absolute;
+    top: 50%;
+    width: 3rem;
+    height: 3rem;
+    border: 0;
+    border-radius: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    font-size: 2.5rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.photo-lightbox-nav[hidden] {
+    display: none;
+}
+
+.photo-lightbox-prev {
+    left: 1.25rem;
+}
+
+.photo-lightbox-next {
+    right: 1.25rem;
+}
+
+.photo-lightbox-counter {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #fff;
+    font-size: 0.9rem;
+}
+
 body.lightbox-open {
     overflow: hidden;
 }
