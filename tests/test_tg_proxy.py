@@ -29,6 +29,16 @@ def test_direct_by_default():
     assert settings.tg_proxy is None
 
 
+def test_proxy_dependency_is_installed():
+    """aiogram строит ЛЮБОЙ прокси через aiohttp_socks, даже обычный HTTP.
+    Без пакета бот падает на старте с RuntimeError — что и случилось на
+    проде 11.09.2026, потому что зависимость забыли."""
+    from aiogram.client.session.aiohttp import AiohttpSession
+
+    session = AiohttpSession(proxy="http://user:pass@10.0.0.1:3128")
+    assert session is not None
+
+
 def test_bot_polling_uses_the_shared_decision():
     import app.tg_bot as tg_bot
 
