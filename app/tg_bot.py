@@ -781,7 +781,17 @@ async def main() -> None:
         await asyncio.Event().wait()
         return
 
-    bot = Bot(token=settings.TG_BOT_TOKEN)
+    # Прокси нужен там, где хостинг не пропускает TCP до Телеграма. Ставим
+    # его только боту: остальной трафик сервера (Яндекс, Т-Касса, MAX) ходит
+    # напрямую и прекрасно, лишний посредник там — только точка отказа.
+    if settings.tg_proxy:
+        from aiogram.client.session.aiohttp import AiohttpSession
+
+        bot = Bot(token=settings.TG_BOT_TOKEN,
+                  session=AiohttpSession(proxy=settings.tg_proxy))
+        logger.info("Telegram: ходим через прокси")
+    else:
+        bot = Bot(token=settings.TG_BOT_TOKEN)
     dp = Dispatcher()
     dp.message.register(on_start, CommandStart())
     dp.message.register(_show_prefs_menu, Command("settings"))

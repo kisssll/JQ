@@ -96,8 +96,10 @@ async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None 
         return
 
     url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/sendMessage"
+    # Тот же прокси, что у бота: уведомления идут мимо aiogram, и без этого
+    # они молча не доходили бы даже при живом боте.
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=10, proxy=settings.tg_proxy) as client:
             payload = {"chat_id": chat_id, "text": text}
             if reply_markup:
                 payload["reply_markup"] = reply_markup

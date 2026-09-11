@@ -95,6 +95,12 @@ class Settings(BaseSettings):
     TG_VERIFY_ENABLED: bool = False
     TG_BOT_TOKEN: str = ""
     TG_BOT_USERNAME: str = ""
+    # Прокси для ВСЕГО трафика к api.telegram.org: и опроса ботом, и отправки
+    # уведомлений из воркера. С сентября 2026 хостинг не пропускает TCP до
+    # Телеграма (ping проходит, соединение на 443 и 80 дропается), и бот
+    # умирает в бесконечных ретраях. Пусто = ходим напрямую.
+    # Формат: http://логин:пароль@хост:порт
+    TG_PROXY_URL: str = ""
 
     # Публичный базовый URL сайта — для абсолютных ссылок из фоновых задач без
     # HTTP-контекста (напр. ежедневная рассылка вечерних окон). На стейдже
@@ -262,6 +268,16 @@ class Settings(BaseSettings):
         if info.data.get("ENVIRONMENT") == "production":
             return True
         return v
+
+    @property
+    def tg_proxy(self) -> str | None:
+        """Единственное место, где решается «через прокси или напрямую».
+
+        Нужен и опросу бота (aiogram), и отправке уведомлений (httpx мимо
+        aiogram). Разъедутся эти два места — получим живого бота, который
+        молчит, и искать причину будем долго.
+        """
+        return self.TG_PROXY_URL.strip() or None
 
     @property
     def DATABASE_URL(self) -> str:
