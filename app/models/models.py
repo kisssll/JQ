@@ -445,6 +445,9 @@ class Salon(Base):
     reviews: Mapped[List["Review"]] = relationship(back_populates="salon")
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Администраторское soft-delete: запись остаётся доступной для истории и
+    # аудита, но полностью исключается из публичных сценариев.
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     # Владелец сам скрывает салон с платформы (обратимо, кнопка в настройках) —
     # отдельно от is_active (необратимое для владельца soft-delete). Салон и все
     # его данные остаются нетронутыми, просто не показывается в каталоге/поиске

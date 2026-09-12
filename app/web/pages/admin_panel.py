@@ -54,6 +54,10 @@ def _active_badge(is_active):
     return _badge("активен", "#16a34a") if is_active else _badge("заблокирован", "#dc2626")
 
 
+def _deleted_badge():
+    return _badge("удален", "#6b7280")
+
+
 def _moderation_badge(status):
     m = {
         SalonModerationStatus.PENDING: ("на модерации", "#d97706"),
@@ -309,12 +313,29 @@ def _salons_tab(salons, owner_phone_by_id):
         f'<option value="{t.plan}">{e(t.name)}</option>' for t in TARIFF_CATALOG.values()
     )
 
-    cards = ""
-    for s in salons:
-        owner = owner_phone_by_id.get(s.creator_id, "—") if s.creator_id else "нет"
-        toggle_label = "Деактивировать" if s.is_active else "Активировать"
+    def render_cards(group):
+        cards = ""
+        for s in group:
+            owner = owner_phone_by_id.get(s.creator_id, "—") if s.creator_id else "нет"
+            toggle_label = "Деактивировать" if s.is_active else "Активировать"
+            status_badges = _deleted_badge() if s.is_deleted else _active_badge(s.is_active)
+            salon_action = (
+                f'''<form method="post" action="/api/v1/admin/salons/{s.id}/restore"
+                    data-confirm="Восстановить салон «{_esc(s.name)}»?" data-confirm-label="Восстановить">
+                    <button class="btn-mini">Восстановить</button>
+                </form>'''
+                if s.is_deleted else
+                f'''<form method="post" action="/api/v1/admin/salons/{s.id}/toggle-active"
+                    data-confirm="{toggle_label} салон «{_esc(s.name)}»?" data-confirm-label="{toggle_label}">
+                    <button class="btn-mini">{toggle_label}</button>
+                </form>
+                <form method="post" action="/api/v1/admin/salons/{s.id}/delete"
+                    data-confirm="Удалить салон «{_esc(s.name)}»?" data-confirm-label="Удалить">
+                    <button class="btn-mini btn-danger">Удалить салон</button>
+                </form>'''
+            )
 
-        cards += f"""
+            cards += f"""
         <article class="adm-salon">
             <header class="adm-salon-head">
                 <div class="adm-salon-title">
@@ -322,7 +343,7 @@ def _salons_tab(salons, owner_phone_by_id):
                     <span class="adm-salon-id">#{s.id}</span>
                 </div>
                 <div class="adm-salon-badges">
-                    {_active_badge(s.is_active)} {_moderation_badge(s.moderation_status)}
+                    {status_badges} {_moderation_badge(s.moderation_status)}
                 </div>
             </header>
 
@@ -345,14 +366,7 @@ def _salons_tab(salons, owner_phone_by_id):
                         <span class="adm-hint">Пустое поле снимает владельца</span>
                     </form>
                     <div class="adm-group-actions">
-                        <form method="post" action="/api/v1/admin/salons/{s.id}/toggle-active"
-                              data-confirm="{toggle_label} салон «{_esc(s.name)}»?" data-confirm-label="{toggle_label}">
-                            <button class="btn-mini">{toggle_label}</button>
-                        </form>
-                        <form method="post" action="/api/v1/admin/salons/{s.id}/delete"
-                              data-confirm="Удалить салон «{_esc(s.name)}»?" data-confirm-label="Удалить">
-                            <button class="btn-mini btn-danger">Удалить салон</button>
-                        </form>
+                        {salon_action}
                     </div>
                 </section>
 
@@ -391,15 +405,26 @@ def _salons_tab(salons, owner_phone_by_id):
                     </div>
                 </section>
             </div>
-        </article>"""
+            </article>"""
+        return cards or '<p class="adm-empty">Салонов нет</p>'
 
-    if not cards:
-        cards = '<p class="adm-empty">Салонов пока нет</p>'
+    active = [s for s in salons if not s.is_deleted and s.is_active]
+    blocked = [s for s in salons if not s.is_deleted and not s.is_active]
+    deleted = [s for s in salons if s.is_deleted]
+    sections = (
+        ("Действующие", active),
+        ("Заблокированные", blocked),
+        ("Удаленные", deleted),
+    )
+    groups_html = "".join(
+        f'<section class="adm-salon-section"><h3>{title} ({len(group)})</h3>{render_cards(group)}</section>'
+        for title, group in sections
+    )
 
     return f"""
     <div class="tab-content" id="tab-salons">
         <h2 class="adm-tab-title">Салоны ({len(salons)})</h2>
-        <div class="adm-salon-list">{cards}</div>
+        {groups_html}
     </div>
     """
 
@@ -745,6 +770,8 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
            В строке было десять контролов в одной ячейке на 620px, разделённых
            голым <br>, и таблица уезжала вбок. */
         .adm-tab-title {{ margin-bottom:1rem }}
+        .adm-salon-section {{ margin-bottom:1.75rem }}
+        .adm-salon-section h3 {{ margin:0 0 0.75rem; font-size:1rem }}
         .adm-salon-list {{ display:flex; flex-direction:column; gap:1rem }}
         .adm-salon {{ background:var(--color-surface); border:1px solid var(--color-border);
                       border-radius:1rem; padding:1.25rem }}
