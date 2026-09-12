@@ -96,10 +96,10 @@ async def create_service_web(
         is_model_practice=is_model_practice,
         model_quota=parsed_quota,
         model_desired_date=parsed_desired_date,
+        assigned_masters=selected_masters,
     )
     db.add(service)
     await db.flush()
-    service.assigned_masters = selected_masters
     await db.commit()
 
     return RedirectResponse(url="/business/dashboard?tab=services&added=1", status_code=302)
