@@ -321,6 +321,7 @@ async def delete_salon(
     # уходит, но брони/отзывы/мастера целы. Hard-delete владельцем ронял 500
     # (ORM обнулял master.salon_id NOT NULL) и снёс бы всю историю салона.
     salon.is_active = False
+    salon.is_deleted = True
     await db.commit()
     return {"status": "deleted"}
 

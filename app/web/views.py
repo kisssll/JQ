@@ -740,6 +740,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     from app.models.models import SalonModerationStatus
     public_salon = (
         Salon.is_active == True,  # noqa: E712
+        Salon.is_deleted == False,  # noqa: E712
         Salon.moderation_status == SalonModerationStatus.APPROVED,
         Salon.published_at.isnot(None),
         access_clause(Salon),  # тариф: доступ открыт

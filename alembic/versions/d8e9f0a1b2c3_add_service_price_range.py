@@ -18,7 +18,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("services", sa.Column("price_max", sa.Integer(), nullable=True))
+    # Some installations were initialized with Base.metadata.create_all and
+    # then stamped as current. Keep the migration safe for that schema too.
+    bind = op.get_bind()
+    columns = {column["name"] for column in sa.inspect(bind).get_columns("services")}
+    if "price_max" not in columns:
+        op.add_column("services", sa.Column("price_max", sa.Integer(), nullable=True))
 
 
 def downgrade() -> None:
