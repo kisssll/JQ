@@ -38,11 +38,17 @@ SECRET_KEY=x POSTGRES_PASSWORD=x /tmp/genkeys/bin/python -m app.scripts.gen_keys
 ```
 
 ### Первые миграции (блок 04)
-Живая БД создавалась через `Base.metadata.create_all` — Alembic в ней не инициализирован. Если разворачиваем **существующую** прод-БД: разово
+Живая БД создавалась через `Base.metadata.create_all` — Alembic в ней не инициализирован. Если разворачиваем **существующую** прод-БД, сначала проверьте, что схема содержит все поля текущей модели, и только затем один раз выполните:
 ```bash
 docker compose -p rumi-prod -f docker-compose.prod.yml run --rm app alembic stamp head
 ```
-Для **чистой** БД ничего не нужно — `deploy.sh` сам прогонит `alembic upgrade head`.
+Нельзя использовать `stamp head`, если в базе отсутствуют новые поля: эта команда только записывает номер ревизии и не меняет таблицы. Для базы, на которой уже был выполнен такой stamp до миграции диапазона цен, восстановите поле и повторите деплой:
+```bash
+docker compose -p rumi-prod -f docker-compose.prod.yml exec -T db \
+  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "ALTER TABLE services ADD COLUMN IF NOT EXISTS price_max INTEGER"'
+```
+После этого создание услуг с фиксированной ценой и диапазоном использует актуальную схему. Для **чистой** БД ничего не нужно — `deploy.sh` сам прогонит `alembic upgrade head`.
 
 ### Запуск
 ```bash
