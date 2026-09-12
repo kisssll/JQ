@@ -145,7 +145,7 @@ async def test_delete_ex_owner_inactive_membership_ok(client, db_session):
 
 
 async def test_salon_delete_with_favorite_ok(client, db_session):
-    """Раньше давало 500: Favorite салона (RESTRICT-FK) не чистился."""
+    """Удаление салона с избранным сохраняет историю и не даёт 500."""
     from app.models.models import Favorite
 
     salon_id = await _make_salon(db_session)
@@ -162,5 +162,6 @@ async def test_salon_delete_with_favorite_ok(client, db_session):
     r = await client.post(f"/api/v1/admin/salons/{salon_id}/delete")
     assert r.status_code == 302 and "ok=" in r.headers["location"], r.headers["location"]
     async with db_session() as db:
-        assert (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none() is None
-        assert (await db.execute(select(Favorite).where(Favorite.salon_id == salon_id))).scalar_one_or_none() is None
+        salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one()
+        assert salon.is_deleted is True and salon.is_active is False
+        assert (await db.execute(select(Favorite).where(Favorite.salon_id == salon_id))).scalar_one_or_none() is not None
