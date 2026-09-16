@@ -77,12 +77,25 @@ TOPIC_LABELS = {
 }
 
 
+#: Темы, которые приходят ТОЛЬКО по явному согласию. Вечерние окна со скидкой —
+#: реклама: по ч. 1 ст. 18 закона «О рекламе» её рассылка допускается лишь с
+#: предварительного согласия получателя. Включить тему можно только через
+#: app/services/ad_consent.py — он пишет согласие в журнал, без которого его
+#: не доказать.
+OPT_IN_TOPICS = frozenset({TOPIC_EVENING_DEALS})
+
+
 def wants(user: User | None, topic: str) -> bool:
-    """Личная подписка: нет настройки — включено (opt-out, не opt-in)."""
+    """Личная подписка.
+
+    Сервисные темы (записи, напоминания, отзывы) — «включено, пока не
+    выключишь»: это не реклама, а исполнение услуги. Рекламные темы из
+    OPT_IN_TOPICS — наоборот, выключены, пока человек сам не согласился.
+    """
     if user is None:
         return False
     prefs = user.tg_notify_prefs or {}
-    return bool(prefs.get(topic, True))
+    return bool(prefs.get(topic, topic not in OPT_IN_TOPICS))
 
 
 async def _members_with_permission(

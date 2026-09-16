@@ -413,13 +413,24 @@ async def _toggle_topic(event: MessageCallback, topic: str) -> None:
         user = await _linked_user(db, chat_id)
         if user is None:
             return
-        # JSON-колонку меняем пересозданием словаря: мутацию на месте
-        # SQLAlchemy не заметит и ничего не сохранит (как в tg_bot.py).
-        prefs = dict(user.tg_notify_prefs or {})
+        from app.services import ad_consent
+        from app.services.notifications import OPT_IN_TOPICS
+
         new_value = not wants(user, topic)
-        prefs[topic] = new_value
-        user.tg_notify_prefs = prefs
-        await db.commit()
+        if topic in OPT_IN_TOPICS:
+            # Рекламная тема: включение — только с записью согласия в журнал
+            # (ч. 1 ст. 18 закона «О рекламе»), как в tg_bot.py.
+            if new_value:
+                await ad_consent.grant(db, user_id=user.id, source="max_prefs")
+            else:
+                await ad_consent.revoke(db, user_id=user.id)
+        else:
+            # JSON-колонку меняем пересозданием словаря: мутацию на месте
+            # SQLAlchemy не заметит и ничего не сохранит (как в tg_bot.py).
+            prefs = dict(user.tg_notify_prefs or {})
+            prefs[topic] = new_value
+            user.tg_notify_prefs = prefs
+            await db.commit()
 
     state = "включены" if new_value else "выключены"
     await event.bot.send_message(
@@ -489,6 +500,21 @@ async def on_feedback_command(event: MessageCreated) -> None:
     await _show_topics(event.bot, chat_id)
 
 
+async def _grant_evening_deals(event: MessageCallback) -> None:
+    """«Да, присылать подборку» из разового вопроса о согласии на рекламу."""
+    from app.db.session import AsyncSessionLocal
+    from app.services import ad_consent
+
+    chat_id, _ = event.get_ids()
+    async with AsyncSessionLocal() as db:
+        user = await _linked_user(db, chat_id)
+        if user is None:
+            await event.bot.send_message(chat_id=chat_id, text="MAX не привязан к аккаунту Руми.")
+            return
+        await ad_consent.grant(db, user_id=user.id, source="max_question")
+    await event.bot.send_message(chat_id=chat_id, text=ad_consent.THANKS_TEXT)
+
+
 async def on_callback(event: MessageCallback) -> None:
     """Один вход на все кнопки: меню, темы уведомлений, темы обращения."""
     from app.models.models import SupportTopic
@@ -510,6 +536,8 @@ async def on_callback(event: MessageCallback) -> None:
         await _show_topics(event.bot, chat_id)
     elif payload.startswith("ntf:"):
         await _toggle_topic(event, payload.split(":", 1)[1])
+    elif payload == "edc:yes":
+        await _grant_evening_deals(event)
     elif payload.startswith("sup:"):
         try:
             topic = SupportTopic(payload.split(":", 1)[1])

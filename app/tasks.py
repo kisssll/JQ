@@ -115,7 +115,7 @@ async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None 
                        chat_id, resp.status_code, resp.text[:120])
 
 
-async def _send_via_max(chat_id: int, text: str) -> None:
+async def _send_via_max(chat_id: int, text: str, attachments: list | None = None) -> None:
     """Отправка сообщения ботом MAX. В отличие от Telegram публичного HTTP-API
     под рукой нет — пользуемся клиентом maxapi (это разовый вызов, polling не
     поднимаем, конфликта с процессом бота нет).
@@ -132,7 +132,7 @@ async def _send_via_max(chat_id: int, text: str) -> None:
 
     bot = Bot(settings.MAX_BOT_TOKEN)
     try:
-        await bot.send_message(chat_id=chat_id, text=text)
+        await bot.send_message(chat_id=chat_id, text=text, attachments=attachments)
     except Exception as exc:  # библиотека не разделяет сетевые/логические ошибки
         raise TransientTaskError(f"MAX: {exc}") from exc
     finally:
@@ -156,6 +156,69 @@ async def _deliver(channel, address, text: str, subject: str = "Руми") -> No
         await _send_via_max(address, text)
     else:
         await _send_via_telegram(address, text)
+
+
+async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
+    """Разовый вопрос: присылать ли дальше рекламную подборку вечерних окон.
+
+    Отметку «спрашивали» ставим ДО отправки: договорились спросить один раз и
+    не повторять — каждое следующее «ну так что?» превращается в назойливость,
+    от которой жмут «спам». Если отправка упала по временной причине, отметку
+    снимаем, чтобы повтор задачи всё-таки спросил. Постоянный отказ (человек
+    заблокировал бота) отметку оставляет: спросить его нельзя, и не нужно.
+    """
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel, User
+    from app.services import ad_consent
+    from app.services.notify_channel import resolve
+
+    async with AsyncSessionLocal() as db:
+        user = await db.get(User, user_id)
+        if user is None or user.is_guest:
+            return "skipped:no-user"
+        if ad_consent.was_asked(user):
+            return "skipped:already-asked"
+        if ad_consent.is_consented(user):
+            return "skipped:already-consented"
+        channel, address = resolve(user)
+        if address is None:
+            return "skipped:no-channel"
+
+        ad_consent.mark_asked(user)
+        await db.commit()
+
+        try:
+            if channel == NotifyChannel.TG:
+                await _send_via_telegram(address, ad_consent.QUESTION_TEXT, reply_markup={
+                    "inline_keyboard": [[{"text": ad_consent.OPT_IN_LABEL, "callback_data": "edc:yes"}]],
+                })
+            elif channel == NotifyChannel.MAX:
+                from maxapi.types.attachments.buttons.callback_button import CallbackButton
+                from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
+
+                kb = InlineKeyboardBuilder()
+                kb.row(CallbackButton(text=ad_consent.OPT_IN_LABEL, payload="edc:yes"))
+                await _send_via_max(address, ad_consent.QUESTION_TEXT, attachments=[kb.as_markup()])
+            elif channel == NotifyChannel.EMAIL:
+                from app.core.config import settings
+
+                link = (f"{settings.PUBLIC_BASE_URL.rstrip('/')}/consent/evening-deals"
+                        f"?t={ad_consent.make_token(user.id)}")
+                # Ссылка открывает страницу с кнопкой, а не записывает согласие
+                # по переходу: почтовые сканеры открывают ссылки из писем сами.
+                body = (f"{ad_consent.QUESTION_TEXT}\n\n"
+                        f"Чтобы получать подборку, откройте страницу и нажмите кнопку:\n{link}")
+                await _send_via_smtp(address, "Подборка вечерних окон — Руми", body)
+            else:
+                return "skipped:unknown-channel"
+        except TransientTaskError as exc:
+            ad_consent.unmark_asked(user)
+            await db.commit()
+            logger.warning("ask_evening_deals_consent user=%s: временный сбой: %s", user_id, exc)
+            raise _retry(ctx, exc) from exc
+
+    logger.info("ask_evening_deals_consent user=%s: спросили через %s", user_id, channel.value)
+    return f"asked:{channel.value}"
 
 
 async def send_max_message(ctx: dict[str, Any], chat_id: int, text: str) -> str:

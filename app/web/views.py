@@ -780,6 +780,34 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     return Response(content=xml, media_type="application/xml")
 
 
+@router.get("/consent/evening-deals", response_class=HTMLResponse, include_in_schema=False)
+async def evening_deals_consent_page(t: str = ""):
+    """Открыта ссылкой из письма. Только показывает вопрос — не записывает."""
+    from app.services import ad_consent
+    from app.web.pages import ad_consent as page
+
+    if ad_consent.read_token(t) is None:
+        return HTMLResponse(content=page.render_bad_link(), status_code=400)
+    return HTMLResponse(content=page.render_question(t))
+
+
+@router.post("/consent/evening-deals", response_class=HTMLResponse, include_in_schema=False)
+async def evening_deals_consent_submit(request: Request, db: AsyncSession = Depends(get_db)):
+    """Нажатие кнопки — единственное, что записывает согласие."""
+    from app.services import ad_consent
+    from app.web.pages import ad_consent as page
+
+    form = await request.form()
+    user_id = ad_consent.read_token(str(form.get("t") or ""))
+    if user_id is None:
+        return HTMLResponse(content=page.render_bad_link(), status_code=400)
+    try:
+        await ad_consent.grant(db, user_id=user_id, source="email_question", request=request)
+    except ValueError:
+        return HTMLResponse(content=page.render_bad_link(), status_code=400)
+    return HTMLResponse(content=page.render_done())
+
+
 @router.get("/forgot-password", response_class=HTMLResponse)
 async def forgot_password_page(request: Request):
     from app.web.pages.password_reset import render_forgot_password_page

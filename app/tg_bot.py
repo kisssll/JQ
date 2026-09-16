@@ -221,12 +221,26 @@ async def on_prefs_toggle(callback: CallbackQuery) -> None:
         if user is None:
             await callback.answer("Telegram не привязан")
             return
-        # JSON-колонку меняем пересозданием словаря — иначе SQLAlchemy
-        # не заметит мутацию и ничего не сохранит
-        prefs = dict(user.tg_notify_prefs or {})
-        prefs[topic] = not wants(user, topic)
-        user.tg_notify_prefs = prefs
-        await db.commit()
+        from app.models.models import User
+        from app.services import ad_consent
+        from app.services.notifications import OPT_IN_TOPICS
+
+        if topic in OPT_IN_TOPICS:
+            # Рекламная тема: включение — только с записью согласия в журнал,
+            # иначе его нечем будет доказать (ч. 1 ст. 18 закона «О рекламе»).
+            user_id = user.id
+            if wants(user, topic):
+                await ad_consent.revoke(db, user_id=user_id)
+            else:
+                await ad_consent.grant(db, user_id=user_id, source="tg_prefs")
+            user = await db.get(User, user_id)
+        else:
+            # JSON-колонку меняем пересозданием словаря — иначе SQLAlchemy
+            # не заметит мутацию и ничего не сохранит
+            prefs = dict(user.tg_notify_prefs or {})
+            prefs[topic] = not wants(user, topic)
+            user.tg_notify_prefs = prefs
+            await db.commit()
         topics = await _available_topics(db, user)
         try:
             await callback.message.edit_reply_markup(
@@ -234,6 +248,27 @@ async def on_prefs_toggle(callback: CallbackQuery) -> None:
             )
         except Exception:
             pass  # текст/markup не изменились — Telegram кидает ошибку, не страшно
+    await callback.answer("Сохранено")
+
+
+async def on_evening_deals_consent(callback: CallbackQuery) -> None:
+    """«Да, присылать подборку» из разового вопроса о согласии на рекламу."""
+    from app.db.session import AsyncSessionLocal
+    from app.services import ad_consent
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, callback.message.chat.id)
+        if user is None:
+            await callback.answer("Telegram не привязан к аккаунту")
+            return
+        await ad_consent.grant(db, user_id=user.id, source="tg_question")
+    try:
+        # Кнопку убираем: повторное нажатие ничего не меняет, а висящая кнопка
+        # выглядит как вопрос, на который ещё не ответили.
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await callback.message.answer(ad_consent.THANKS_TEXT)
     await callback.answer("Сохранено")
 
 
@@ -807,6 +842,7 @@ async def main() -> None:
     dp.callback_query.register(on_cancel_booking, F.data.startswith("cnl:"))
     dp.callback_query.register(on_review_stars, F.data.startswith("rev:"))
     dp.callback_query.register(on_service_rating, F.data.startswith("nps:"))
+    dp.callback_query.register(on_evening_deals_consent, F.data == "edc:yes")
     dp.message.register(on_support_start, Command("feedback"))
     dp.message.register(on_support_start, F.text == MENU_BTN_SUPPORT)
     dp.message.register(on_support_cancel, Command("cancel"))

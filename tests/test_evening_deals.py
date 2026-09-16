@@ -247,19 +247,30 @@ async def test_blast_enqueues_for_opted_in(client, db_session, monkeypatch):
     monkeypatch.setattr(worker_mod, "get_arq_pool", _fake_pool)
 
     await _mk_salon_deal(db_session, owner_phone="+79995554060")
-    # клиент с привязанным ТГ, хочет рассылку; и второй — отключил.
+    # Подборка — реклама, и приходит ТОЛЬКО согласившимся (ч. 1 ст. 18 закона
+    # «О рекламе»). Раньше здесь К1 получал её, ничего не включая, — тест
+    # закреплял «включено по умолчанию», то есть рассылку без согласия.
+    #   К1 — согласился через журнал; К2 — отключил; К3 — ничего не трогал.
+    from app.services import ad_consent
+
     async with db_session() as db:
-        db.add(User(phone="+79995554061", full_name="К1", tg_chat_id=111,
-                    hashed_password=get_password_hash("x"), role=UserRole.CLIENT))
+        k1 = User(phone="+79995554061", full_name="К1", tg_chat_id=111,
+                  hashed_password=get_password_hash("x"), role=UserRole.CLIENT)
+        db.add(k1)
         db.add(User(phone="+79995554062", full_name="К2", tg_chat_id=222,
                     tg_notify_prefs={"evening_deals": False},
                     hashed_password=get_password_hash("x"), role=UserRole.CLIENT))
+        db.add(User(phone="+79995554063", full_name="К3", tg_chat_id=333,
+                    hashed_password=get_password_hash("x"), role=UserRole.CLIENT))
         await db.commit()
+        k1_id = k1.id
+    async with db_session() as db:
+        await ad_consent.grant(db, user_id=k1_id, source="test")
 
     res = await tasks.send_evening_deals_blast({"job_try": 1})
     assert res == "queued:1", res
     chat_ids = {args[0] for name, args in jobs if name == "send_tg_message"}
-    assert chat_ids == {111}
+    assert chat_ids == {111}, "подборка ушла тому, кто не соглашался"
 
 
 async def test_blast_skipped_when_no_windows(client, db_session, monkeypatch):
