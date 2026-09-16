@@ -39,6 +39,17 @@ class TransientTaskError(Exception):
     """Временный сбой (сеть/провайдер/БД) — задачу нужно повторить."""
 
 
+class RecipientGone(Exception):
+    """Мессенджер отказал доставлять ЭТОМУ человеку насовсем: бот заблокирован,
+    чат удалён, аккаунт удалён. Повтор не поможет, пока человек сам не
+    вернётся к боту.
+
+    Отдельно от «сообщение отклонено» (return False): слишком длинный текст или
+    кривая разметка — наша ошибка, и уводить из-за неё человека с канала нельзя.
+    Отдельно и от неверного токена бота — это сломались мы, а не он.
+    """
+
+
 def _retry(ctx: dict[str, Any], exc: Exception) -> Retry:
     """Retry с линейным backoff по номеру текущей попытки."""
     return Retry(defer=RETRY_BASE_DELAY * ctx["job_try"])
@@ -115,38 +126,63 @@ async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None 
     if resp.status_code >= 500 or resp.status_code == 429:
         raise TransientTaskError(f"Bot API {resp.status_code}")
     if resp.status_code != 200:
-        # 403 = пользователь заблокировал бота и т.п. — ретрай не поможет
+        try:
+            description = str(resp.json().get("description", ""))
+        except ValueError:
+            description = resp.text[:200]
+        # 403 — бот заблокирован / аккаунт удалён; 400 «chat not found» — чата
+        # с ботом нет. Это про человека. Остальные 400 (длина, разметка) и
+        # 401/404 (токен) — про нас: канал человека не трогаем.
+        if resp.status_code == 403 or (
+            resp.status_code == 400 and "chat not found" in description.lower()
+        ):
+            logger.warning("telegram chat=%s: получатель недоступен: %s",
+                           chat_id, description[:120])
+            raise RecipientGone(description)
         logger.warning("telegram chat=%s: постоянный отказ %s %s",
-                       chat_id, resp.status_code, resp.text[:120])
+                       chat_id, resp.status_code, description[:120])
         return False
     return True
 
 
-async def _send_via_max(chat_id: int, text: str, attachments: list | None = None) -> None:
+async def _send_via_max(chat_id: int, text: str, attachments: list | None = None) -> bool:
     """Отправка сообщения ботом MAX. В отличие от Telegram публичного HTTP-API
     под рукой нет — пользуемся клиентом maxapi (это разовый вызов, polling не
     поднимаем, конфликта с процессом бота нет).
 
-    Сетевые сбои — TransientTaskError (ретрай); остальное считаем постоянным.
+    Возвращает, дошло ли. 403/404 — получатель недоступен (RecipientGone);
+    прочие 4xx — сообщение отклонено (False); сеть, 429, 5xx и всё
+    нераспознанное — TransientTaskError (ретрай). Раньше ЛЮБАЯ ошибка считалась
+    временной: заблокировавшему бота слали повторы до исчерпания попыток.
     """
     from app.core.config import settings
 
     if not settings.MAX_BOT_TOKEN:
         logger.info("[dev-заглушка MAX] chat=%s: %s", chat_id, text[:60])
-        return
+        return True
 
     from maxapi import Bot
+    from maxapi.exceptions.max import MaxApiError
 
     bot = Bot(settings.MAX_BOT_TOKEN)
     try:
         await bot.send_message(chat_id=chat_id, text=text, attachments=attachments)
-    except Exception as exc:  # библиотека не разделяет сетевые/логические ошибки
+    except MaxApiError as exc:
+        if exc.code in (403, 404):
+            logger.warning("max chat=%s: получатель недоступен: %s", chat_id, exc.raw)
+            raise RecipientGone(str(exc.raw)) from exc
+        if exc.code == 429 or exc.code >= 500:
+            raise TransientTaskError(f"MAX {exc.code}") from exc
+        logger.warning("max chat=%s: постоянный отказ %s %s", chat_id, exc.code, exc.raw)
+        return False
+    except Exception as exc:  # сеть, неверный токен — не вина получателя
         raise TransientTaskError(f"MAX: {exc}") from exc
     finally:
         try:
             await bot.close_session()
         except Exception:  # закрытие сессии не должно ронять задачу
             logger.debug("max chat=%s: сессия не закрылась", chat_id, exc_info=True)
+    return True
 
 
 async def _deliver(channel, address, text: str, subject: str = "Руми") -> None:
@@ -157,12 +193,77 @@ async def _deliver(channel, address, text: str, subject: str = "Руми") -> No
 
     if address is None:
         return
-    if channel == NotifyChannel.EMAIL:
-        await _send_via_smtp(address, subject, text)
-    elif channel == NotifyChannel.MAX:
-        await _send_via_max(address, text)
-    else:
-        await _send_via_telegram(address, text)
+    try:
+        if channel == NotifyChannel.EMAIL:
+            await _send_via_smtp(address, subject, text)
+        elif channel == NotifyChannel.MAX:
+            await _send_via_max(address, text)
+        else:
+            await _send_via_telegram(address, text)
+    except RecipientGone:
+        await _reroute_after_refusal(channel, address, text, subject)
+
+
+async def _mark_channel_broken(channel_value: str, address) -> None:
+    """Только отметка, без досылки — для сообщений, которым запасной канал
+    не подходит (кнопки-звёзды есть лишь в Telegram). Сбой базы не роняем:
+    сообщение всё равно не дойдёт, а отметку поставит следующий отказ."""
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel
+    from app.services.notify_channel import mark_broken
+
+    try:
+        async with AsyncSessionLocal() as db:
+            await mark_broken(db, NotifyChannel(channel_value), address)
+    except Exception:
+        logger.exception("%s chat=%s: не удалось пометить отказ", channel_value, address)
+
+
+async def _reroute_after_refusal(channel, address, text: str, subject: str = "Руми") -> str:
+    """Мессенджер отказал насовсем: пометить его сломанным у всех, кто к нему
+    привязан, и сразу дослать ЭТО уведомление запасным каналом.
+
+    Раньше отказ уходил в журнал, канал оставался прежним, и человек молча
+    переставал получать напоминания — ни он, ни мы об этом не знали. Привязку не
+    стираем: разблокирует бота — и доставка вернётся сама (clear_broken).
+
+    Досылка идёт через очередь, а не напрямую: у запасного канала свои ретраи.
+    Ошибка базы — TransientTaskError: повтор задачи снова получит отказ и
+    снова попробует пометить, так что отказ не потеряется.
+    """
+    from app.core.worker import get_arq_pool
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel
+    from app.services.notify_channel import mark_broken, resolve, task_for
+
+    try:
+        async with AsyncSessionLocal() as db:
+            users = await mark_broken(db, channel, address)
+            targets = [(u.id, *resolve(u)) for u in users]
+    except Exception as exc:
+        raise TransientTaskError(f"отметка отказа: {exc}") from exc
+
+    if not targets:
+        # Чат ни к кому не привязан (ответ поддержки в непривязанный чат) —
+        # помечать и досылать некому.
+        logger.info("%s chat=%s: отказ, но аккаунтов с этим чатом нет", channel.value, address)
+        return "gone:unlinked"
+
+    pool = await get_arq_pool()
+    rerouted = 0
+    for user_id, fallback, fallback_address in targets:
+        if fallback_address is None:
+            logger.warning("user=%s: %s отказал, запасного канала нет — уведомление потеряно",
+                           user_id, channel.value)
+            continue
+        if fallback == NotifyChannel.EMAIL:
+            await pool.enqueue_job("send_email", fallback_address, subject, text)
+        else:
+            await pool.enqueue_job(task_for(fallback), fallback_address, text)
+        rerouted += 1
+        logger.info("user=%s: %s отказал, уведомление ушло через %s",
+                    user_id, channel.value, fallback.value)
+    return f"gone:rerouted:{rerouted}"
 
 
 async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
@@ -212,7 +313,7 @@ async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
 
                 kb = InlineKeyboardBuilder()
                 kb.row(CallbackButton(text=ad_consent.OPT_IN_LABEL, payload="edc:yes"))
-                await _send_via_max(address, ad_consent.QUESTION_TEXT, attachments=[kb.as_markup()])
+                delivered = await _send_via_max(address, ad_consent.QUESTION_TEXT, attachments=[kb.as_markup()])
             elif channel == NotifyChannel.EMAIL:
                 from app.core.config import settings
 
@@ -230,6 +331,18 @@ async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
             await db.commit()
             logger.warning("ask_evening_deals_consent user=%s: временный сбой: %s", user_id, exc)
             raise _retry(ctx, exc) from exc
+        except RecipientGone:
+            # Помечаем канал, но вопрос о рекламе запасным каналом НЕ дошлём:
+            # это не уведомление, которое человек ждёт. Следующий запуск задачи
+            # сам спросит через рабочий канал — отметку «спрашивали» снимаем.
+            ad_consent.unmark_asked(user)
+            await db.commit()
+            from app.services.notify_channel import mark_broken
+
+            await mark_broken(db, channel, address)
+            logger.warning("ask_evening_deals_consent user=%s: %s недоступен",
+                           user_id, channel.value)
+            return f"undelivered:{channel.value}"
 
         if not delivered:
             ad_consent.unmark_asked(user)
@@ -246,8 +359,15 @@ async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
 
 async def send_max_message(ctx: dict[str, Any], chat_id: int, text: str) -> str:
     """Уведомление в MAX вне запроса — зеркало send_tg_message."""
+    from app.models.models import NotifyChannel
+
     try:
         await _send_via_max(chat_id, text)
+    except RecipientGone:
+        try:
+            return await _reroute_after_refusal(NotifyChannel.MAX, chat_id, text)
+        except TransientTaskError as exc:
+            raise _retry(ctx, exc) from exc
     except TransientTaskError as exc:
         logger.warning(
             "send_max_message chat=%s: временный сбой (попытка %d): %s",
@@ -260,8 +380,15 @@ async def send_max_message(ctx: dict[str, Any], chat_id: int, text: str) -> str:
 
 async def send_tg_message(ctx: dict[str, Any], chat_id: int, text: str) -> str:
     """Уведомление в Telegram вне запроса (записи, напоминания)."""
+    from app.models.models import NotifyChannel
+
     try:
         await _send_via_telegram(chat_id, text)
+    except RecipientGone:
+        try:
+            return await _reroute_after_refusal(NotifyChannel.TG, chat_id, text)
+        except TransientTaskError as exc:
+            raise _retry(ctx, exc) from exc
     except TransientTaskError as exc:
         logger.warning(
             "send_tg_message chat=%s: временный сбой (попытка %d): %s",
@@ -842,6 +969,11 @@ async def send_review_request_tg(ctx: dict[str, Any], chat_id: int,
     markup = {"inline_keyboard": [stars[:3], stars[3:]]}
     try:
         await _send_via_telegram(chat_id, f"⭐ {question}", reply_markup=markup)
+    except RecipientGone:
+        # Звёзды-кнопки есть только в Telegram, дослать их некуда — но канал
+        # помечаем, чтобы следующие уведомления шли запасным.
+        await _mark_channel_broken("tg", chat_id)
+        return "gone"
     except TransientTaskError as exc:
         logger.warning("send_review_request_tg %s: временный сбой: %s", chat_id, exc)
         raise Retry(defer=ctx["job_try"] * 30)
@@ -927,6 +1059,9 @@ async def send_service_rating_tg(ctx: dict[str, Any], chat_id: int) -> str:
             "чего не хватает.",
             reply_markup=markup,
         )
+    except RecipientGone:
+        await _mark_channel_broken("tg", chat_id)
+        return "gone"
     except TransientTaskError as exc:
         logger.warning("send_service_rating_tg %s: временный сбой: %s", chat_id, exc)
         raise Retry(defer=ctx["job_try"] * 60)

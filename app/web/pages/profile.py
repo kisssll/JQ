@@ -49,6 +49,8 @@ def _channels_overview(user, available) -> str:
     phone = getattr(user, "phone", "") or "—"
     rows.append(("Телефон", phone, "подтверждён", "#22c55e", ""))
 
+    from app.services.notify_channel import is_broken
+
     def _messenger_row(channel, title, username, url_tpl):
         connected = channel in available
         if connected:
@@ -57,6 +59,10 @@ def _channels_overview(user, available) -> str:
                 f'<input type="hidden" name="channel" value="{channel.value}">'
                 f'<button class="btn-mini" type="submit">Отвязать</button></form>'
             )
+            if is_broken(user, channel):
+                reconnect = (f'<a class="btn-mini" href="{url_tpl.format(username)}" target="_blank" '
+                             f'rel="noopener">Переподключить</a> ') if username else ""
+                return (title, "не доставляется", "не доставляется", "#ef4444", reconnect + action)
             return (title, "подключён", "подключён", "#22c55e", action)
         link = (f'<a class="btn-mini" href="{url_tpl.format(username)}" target="_blank" '
                 f'rel="noopener">Подключить</a>') if username else ""
@@ -85,6 +91,46 @@ def _channels_overview(user, available) -> str:
             f'Телефон и почта меняются ниже, в разделе «Смена данных».</p></div>')
 
 
+def _broken_banner(user, broken, channel) -> str:
+    """Плашка «мессенджер перестал принимать сообщения».
+
+    Без неё человек не узнал бы, что напоминания перестали приходить туда, где
+    он их ждёт. Говорим, куда они идут сейчас и как вернуть: достаточно открыть
+    бота и нажать «Начать» — привязка сохранилась.
+    """
+    from app.core.config import settings
+    from app.models.models import NotifyChannel
+    from app.services.notify_channel import CHANNEL_LABELS
+
+    if not broken:
+        return ""
+    links = {
+        NotifyChannel.TG: ("https://t.me/{}", settings.TG_BOT_USERNAME),
+        NotifyChannel.MAX: ("https://max.ru/{}", settings.MAX_BOT_USERNAME),
+    }
+    names = " и ".join(CHANNEL_LABELS[c] for c in broken)
+    buttons = "".join(
+        f'<a class="btn-outline" href="{e(tpl.format(username))}" target="_blank" '
+        f'rel="noopener">Открыть бота в {CHANNEL_LABELS[c]}</a>'
+        for c in broken
+        for tpl, username in [links[c]] if username
+    )
+    if channel == NotifyChannel.NONE:
+        now = "Сейчас уведомления не приходят никуда."
+    else:
+        now = f"Пока уведомления приходят: <strong>{CHANNEL_LABELS[channel]}</strong>."
+    return f"""
+            <div role="alert" style="border:1px solid #ef4444;border-radius:0.75rem;padding:0.75rem 1rem;margin:0 0 1rem">
+                <p style="margin:0 0 0.5rem"><strong>{names} не принимает наши сообщения.</strong>
+                    Похоже, бот заблокирован или чат с ним удалён. {now}</p>
+                <p class="settings-card-hint" style="margin:0 0 0.5rem">
+                    Чтобы вернуть: откройте бота и нажмите «Начать» (или «Перезапустить»).
+                    Заново привязывать ничего не нужно.
+                </p>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{buttons}</div>
+            </div>"""
+
+
 def _notify_channel_block(user) -> str:
     """Реальное управление каналом уведомлений.
 
@@ -95,7 +141,7 @@ def _notify_channel_block(user) -> str:
     """
     from app.core.config import settings
     from app.models.models import NotifyChannel
-    from app.services.notify_channel import CHANNEL_LABELS, resolve
+    from app.services.notify_channel import CHANNEL_LABELS, broken_channels, resolve
 
     if user is None:
         return ""
@@ -149,6 +195,7 @@ def _notify_channel_block(user) -> str:
     )
 
     return f"""
+            {_broken_banner(user, broken_channels(user), channel)}
             {_channels_overview(user, available)}
             <form method="post" action="/api/v1/users/me/notify-channel" class="settings-select-group">
                 <label for="notify-method">Способ получения:</label>

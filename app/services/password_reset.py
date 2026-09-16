@@ -66,7 +66,9 @@ async def deliver(user: User, token: str, host: str) -> None:
     link = f"https://{host}/reset-password?token={token}"
     try:
         pool = await get_arq_pool()
-        if user.tg_chat_id:
+        # Сломанный Telegram пропускаем: ссылка и так уйдёт письмом, а отказ
+        # переслал бы её на почту второй раз.
+        if user.tg_chat_id and not user.tg_broken_at:
             await pool.enqueue_job(
                 "send_tg_message",
                 user.tg_chat_id,

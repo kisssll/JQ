@@ -590,8 +590,28 @@ async def _show_main_menu(message: Message) -> None:
     )
 
 
+async def _revive_channel(chat_id: int) -> None:
+    """Человек нажал «Начать» — значит, бот ему снова доступен.
+
+    Заблокировавший бота, разблокировав его, первым делом жмёт «Перезапустить»
+    = /start. Снимаем отметку «Telegram отказал», и уведомления возвращаются
+    в Telegram без повторной привязки. Сбой базы не должен мешать ответу бота.
+    """
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel
+    from app.services.notify_channel import clear_broken
+
+    try:
+        async with AsyncSessionLocal() as db:
+            if await clear_broken(db, NotifyChannel.TG, chat_id):
+                logger.info("tg chat=%s: доставка снова доступна", chat_id)
+    except Exception:
+        logger.exception("tg chat=%s: не удалось снять отметку отказа", chat_id)
+
+
 async def on_start(message: Message, command: CommandObject) -> None:
     """/start <request_id> из deep link'а, или /start без аргумента — привязка."""
+    await _revive_channel(message.chat.id)
     token = (command.args or "").strip()
     r = get_redis()
 
@@ -721,6 +741,7 @@ async def _link_existing_account(message: Message) -> None:
             )
             return
         user.tg_chat_id = message.chat.id
+        user.tg_broken_at = None
         await db.commit()
 
     await r.delete(_pending_key(message.from_user.id))

@@ -437,7 +437,9 @@ async def _notify_owner_moderation(db, salon, approved: bool):
     try:
         from app.core.worker import get_arq_pool
         pool = await get_arq_pool()
-        if owner.tg_chat_id:
+        # Сломанный Telegram пропускаем: письмо и так уходит, а отказ
+        # переслал бы то же самое на почту второй раз.
+        if owner.tg_chat_id and not owner.tg_broken_at:
             await pool.enqueue_job("send_tg_message", owner.tg_chat_id, tg)
         if owner.email:
             await pool.enqueue_job("send_email", owner.email, subj, body)

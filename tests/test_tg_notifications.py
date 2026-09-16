@@ -87,7 +87,7 @@ async def test_send_tg_message_retries_on_transient(monkeypatch):
 
 
 async def test_transport_maps_status_codes(monkeypatch):
-    """5xx/429 → транзиентная ошибка (ретрай); 403 — постоянный отказ, молча."""
+    """5xx/429 → транзиентная ошибка (ретрай); 403 — получатель недоступен."""
     # _send_via_telegram берёт settings импортом в момент вызова — патчим
     # АКТУАЛЬНЫЙ объект app.core.config.settings (test_config_guards мог
     # пересоздать модуль reload'ом, и наш module-level settings уже не тот)
@@ -106,7 +106,10 @@ async def test_transport_maps_status_codes(monkeypatch):
     with pytest.raises(tasks.TransientTaskError):
         await tasks._send_via_telegram(1, "hi")
     set_status(403)
-    await tasks._send_via_telegram(1, "hi")  # не бросает — просто лог
+    with pytest.raises(tasks.RecipientGone):   # бот заблокирован — канал помечается
+        await tasks._send_via_telegram(1, "hi")
+    set_status(400)
+    assert await tasks._send_via_telegram(1, "hi") is False   # отклонено сообщение, не человек
 
 
 # ── Привязка chat_id при регистрации через бота ─────────────────────────────

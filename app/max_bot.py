@@ -116,7 +116,23 @@ async def on_start_command(event: MessageCreated) -> None:
     await _begin(event.bot, chat_id, user_id, token)
 
 
+async def _revive_channel(chat_id: int) -> None:
+    """Человек снова открыл бота — значит, MAX ему опять доставляет.
+    Зеркало tg_bot._revive_channel. Сбой базы не мешает ответу бота."""
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel
+    from app.services.notify_channel import clear_broken
+
+    try:
+        async with AsyncSessionLocal() as db:
+            if await clear_broken(db, NotifyChannel.MAX, chat_id):
+                logger.info("max chat=%s: доставка снова доступна", chat_id)
+    except Exception:
+        logger.exception("max chat=%s: не удалось снять отметку отказа", chat_id)
+
+
 async def _begin(bot: Bot, chat_id: int, user_id: int, token: str) -> None:
+    await _revive_channel(chat_id)
     if token == SUPPORT_DEEP_LINK:
         # Ссылка «Написать в MAX» из подвала сайта: сразу выбор темы, а не
         # общее меню — человек шёл с вопросом. Проверка до разбора токена,
@@ -195,6 +211,7 @@ async def _link_existing_account(event, chat_id: int, user_id: int,
             return
 
         user.max_chat_id = chat_id
+        user.max_broken_at = None
         # Канала не было вовсе — пусть уведомления пойдут в MAX. Осознанно
         # выбранный ранее канал не перебиваем: человек его выбирал сам.
         if (user.notify_channel or NotifyChannel.NONE) == NotifyChannel.NONE:

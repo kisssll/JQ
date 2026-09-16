@@ -14,12 +14,19 @@
 
 Правило деградации: нет мессенджера → пробуем email → иначе доставки нет
 (вызывающий код это НЕ роняет, просто уведомление не уходит).
+
+Правило отказа: мессенджер, который отказал насовсем (бот заблокирован, чат
+удалён), помечается сломанным (mark_broken) и в resolve() пропускается —
+доставка идёт следующим каналом. Привязка при этом остаётся: человек снова
+написал боту (clear_broken) — и канал вернулся без повторного подключения.
 """
 from __future__ import annotations
 
 from typing import Optional
 
-from sqlalchemy import or_
+from datetime import datetime, timezone
+
+from sqlalchemy import and_, or_, select, update
 
 from app.models.models import NotifyChannel, User
 
@@ -37,6 +44,31 @@ CHANNEL_LABELS = {
 }
 
 
+# Колонка отметки «отказал насовсем» для каждого мессенджера. У почты её нет:
+# это последний запасной канал, и уводить с неё некуда.
+_BROKEN_FIELD = {
+    NotifyChannel.TG: "tg_broken_at",
+    NotifyChannel.MAX: "max_broken_at",
+}
+_ADDRESS_FIELD = {
+    NotifyChannel.TG: "tg_chat_id",
+    NotifyChannel.MAX: "max_chat_id",
+}
+
+
+def is_broken(user: Optional[User], channel: NotifyChannel) -> bool:
+    field = _BROKEN_FIELD.get(channel)
+    return bool(user is not None and field and getattr(user, field, None))
+
+
+def broken_channels(user: Optional[User]) -> list[NotifyChannel]:
+    """Привязанные мессенджеры, которые отказали в доставке, — для плашки."""
+    return [
+        channel for channel in _BROKEN_FIELD
+        if _address(user, channel) and is_broken(user, channel)
+    ] if user is not None else []
+
+
 def _address(user: User, channel: NotifyChannel):
     if channel == NotifyChannel.TG:
         return user.tg_chat_id
@@ -49,8 +81,9 @@ def _address(user: User, channel: NotifyChannel):
 
 def resolve(user: Optional[User]) -> tuple[NotifyChannel, Optional[object]]:
     """(канал, адрес) для доставки. Выбранный канал уважаем, но если адрес в
-    нём пропал (отвязали бота, стёрли почту) — деградируем: мессенджеры →
-    email. Возвращает (NONE, None), если достучаться некуда."""
+    нём пропал (отвязали бота, стёрли почту) или мессенджер отказал насовсем —
+    деградируем: мессенджеры → email. Возвращает (NONE, None), если
+    достучаться некуда."""
     if user is None:
         return NotifyChannel.NONE, None
 
@@ -59,7 +92,7 @@ def resolve(user: Optional[User]) -> tuple[NotifyChannel, Optional[object]]:
         if channel == NotifyChannel.NONE:
             continue
         address = _address(user, channel)
-        if address:
+        if address and not is_broken(user, channel):
             return channel, address
     return NotifyChannel.NONE, None
 
@@ -76,10 +109,48 @@ def has_channel_clause():
     иначе адресаты с MAX/почтой молча выпадали из рассылок.
     """
     return or_(
-        User.tg_chat_id.isnot(None),
-        User.max_chat_id.isnot(None),
+        and_(User.tg_chat_id.isnot(None), User.tg_broken_at.is_(None)),
+        and_(User.max_chat_id.isnot(None), User.max_broken_at.is_(None)),
         User.email.isnot(None),
     )
+
+
+async def mark_broken(db, channel: NotifyChannel, address) -> list[User]:
+    """Пометить мессенджер сломанным у всех, кто привязан к этому чату.
+
+    Отказ приходит на адрес, а не на человека: задачи отправки знают только
+    chat_id. Возвращает затронутых пользователей — им нужно дослать
+    недошедшее уведомление запасным каналом. Отметку, поставленную раньше, не
+    двигаем: дата первого отказа полезнее последней.
+    """
+    field = _BROKEN_FIELD.get(channel)
+    if field is None or address is None:
+        return []
+    users = (await db.execute(
+        select(User).where(getattr(User, _ADDRESS_FIELD[channel]) == address)
+    )).scalars().all()
+    now = datetime.now(timezone.utc)
+    for user in users:
+        if getattr(user, field) is None:
+            setattr(user, field, now)
+    if users:
+        await db.commit()
+    return list(users)
+
+
+async def clear_broken(db, channel: NotifyChannel, address) -> int:
+    """Человек снова написал боту — значит, бот больше не заблокирован."""
+    field = _BROKEN_FIELD.get(channel)
+    if field is None or address is None:
+        return 0
+    result = await db.execute(
+        update(User)
+        .where(getattr(User, _ADDRESS_FIELD[channel]) == address,
+               getattr(User, field).isnot(None))
+        .values({field: None})
+    )
+    await db.commit()
+    return result.rowcount or 0
 
 
 def task_for(channel: NotifyChannel) -> Optional[str]:
@@ -104,10 +175,12 @@ async def bind_after_verification(db, user: User, phone: str) -> None:
     changed = False
     if tg_chat_id:
         user.tg_chat_id = tg_chat_id
+        user.tg_broken_at = None   # только что прошёл через бота — значит, доставляется
         user.notify_channel = NotifyChannel.TG
         changed = True
     elif max_chat_id:
         user.max_chat_id = max_chat_id
+        user.max_broken_at = None
         user.notify_channel = NotifyChannel.MAX
         changed = True
     elif (user.notify_channel or NotifyChannel.NONE) == NotifyChannel.NONE:

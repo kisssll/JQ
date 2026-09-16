@@ -260,7 +260,11 @@ async def test_telegram_sender_reports_permanent_refusal(monkeypatch):
         real_init(self, *a, **kw)
 
     monkeypatch.setattr(httpx.AsyncClient, "__init__", mocked)
-    assert await tasks._send_via_telegram(1, "привет") is False
+    # «chat not found» — про человека: не просто False, а «получатель недоступен»,
+    # чтобы канал пометился сломанным (см. test_delivery_refusal.py)
+    import pytest
+    with pytest.raises(tasks.RecipientGone):
+        await tasks._send_via_telegram(1, "привет")
     monkeypatch.undo()
 
 
