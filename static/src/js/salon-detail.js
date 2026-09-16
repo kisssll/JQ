@@ -31,7 +31,6 @@ import { toastNetworkError } from './ui-feedback.js';
         masters: document.getElementById('step-masters'),
         services: document.getElementById('step-services'),
         date: document.getElementById('step-date'),
-        time: document.getElementById('step-time'),
         reminder: document.getElementById('step-reminder'),
         confirm: document.getElementById('step-confirm'),
     };
@@ -159,39 +158,56 @@ import { toastNetworkError } from './ui-feedback.js';
             btn.addEventListener('click', () => selectDate(btn.dataset.date));
             grid.appendChild(btn);
         });
+        // Вернулись с напоминания «Назад» — выбранный день и окна остаются на месте.
+        markActiveDate();
+        renderTimeSelection();
     }
 
     function selectDate(dateStr) {
         state.date = dateStr;
-        document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector(`.date-btn[data-date="${dateStr}"]`)?.classList.add('active');
-        goToStep('time');
+        state.time = null;
+        markActiveDate();
         renderTimeSelection();
+        // Окна появляются под сеткой дат — подтягиваем их в поле зрения, иначе
+        // на телефоне после длинной сетки дат человек не заметит, что они есть.
+        document.getElementById('date-times').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // ---- Шаг 4: Время ----
+    function markActiveDate() {
+        document.querySelectorAll('.date-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.date === state.date);
+        });
+    }
+
+    // ---- Время: под датами, на том же шаге ----
+    // Раньше время было отдельным шагом, и чтобы сравнить окна разных дней,
+    // приходилось каждый раз возвращаться «Назад к дате». Теперь выбор даты
+    // просто подменяет список окон ниже.
+    let slotsRequest = 0;
+
     function renderTimeSelection() {
         const master = state.master;
         const service = state.service;
         const date = state.date;
-        document.getElementById('breadcrumb-master-3').textContent = master.name;
-        document.getElementById('breadcrumb-service-2').textContent = service.name;
+        const box = document.getElementById('date-times');
+        if (!date) {
+            box.hidden = true;
+            return;
+        }
+        box.hidden = false;
         const dateObj = new Date(date + 'T00:00:00');
-        const dateStr = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-        document.getElementById('breadcrumb-date').textContent = dateStr;
-        document.getElementById('selected-master-name-3').textContent = master.name;
-        document.getElementById('selected-master-spec-3').textContent = master.specialization;
-        const avatar = document.getElementById('selected-master-avatar-3');
-        avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
-        document.getElementById('selected-service-summary-2').textContent = service.name;
-        document.getElementById('selected-service-price-2').textContent = formatServicePrice(service);
-        document.getElementById('selected-date-summary').textContent = dateStr;
+        const dateStr = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+        document.getElementById('selected-date-summary').textContent = 'на ' + dateStr;
 
         const grid = document.getElementById('times-grid');
         grid.innerHTML = '<p style="color:var(--color-muted)">Загрузка...</p>';
+        // Быстро перещёлкивая даты, можно получить ответы не по порядку —
+        // рисуем только ответ на ПОСЛЕДНИЙ выбор.
+        const requestId = ++slotsRequest;
         fetch(`/api/v1/bookings/available/${master.id}?date=${date}&service_id=${service.id}`)
             .then(r => r.json())
             .then(data => {
+                if (requestId !== slotsRequest) return;
                 grid.innerHTML = '';
                 if (data.slots && data.slots.length) {
                     data.slots.forEach(slot => {
@@ -201,14 +217,16 @@ import { toastNetworkError } from './ui-feedback.js';
                         const timeStr = dt.toTimeString().slice(0, 5);
                         btn.textContent = timeStr;
                         btn.dataset.time = slot;
+                        if (slot === state.time) btn.classList.add('active');
                         btn.addEventListener('click', () => selectTime(slot));
                         grid.appendChild(btn);
                     });
                 } else {
-                    grid.innerHTML = '<p style="color:var(--color-muted)">Нет свободных окон на эту дату</p>';
+                    grid.innerHTML = '<p style="color:var(--color-muted)">Нет свободных окон на эту дату — выберите другую</p>';
                 }
             })
             .catch(() => {
+                if (requestId !== slotsRequest) return;
                 grid.innerHTML = '<p style="color:var(--color-muted)">Ошибка загрузки</p>';
             });
     }
@@ -395,7 +413,6 @@ import { toastNetworkError } from './ui-feedback.js';
                 goToStep(step);
                 if (step === 'services') renderServices();
                 else if (step === 'date') renderDateSelection();
-                else if (step === 'time') renderTimeSelection();
                 else if (step === 'reminder') renderReminder();
             }
         });
@@ -413,7 +430,6 @@ import { toastNetworkError } from './ui-feedback.js';
                 renderMasters();
             } else if (step === 'services') renderServices();
             else if (step === 'date') renderDateSelection();
-            else if (step === 'time') renderTimeSelection();
             else if (step === 'reminder') renderReminder();
         });
     });

@@ -1156,7 +1156,13 @@
     color: rgba(255, 255, 255, 0.8);
 }
 
-/* Время */
+/* Время — под сеткой дат на том же шаге */
+.date-times {
+    margin-top: 1.5rem;
+    /* scrollIntoView не должен прятать заголовок под липкой шапкой */
+    scroll-margin-top: 5rem;
+}
+
 .times-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));

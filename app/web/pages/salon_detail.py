@@ -377,7 +377,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                 <div class="services-grid" id="services-list"></div>
             </div>
 
-            <!-- Шаг 3: Выбор даты -->
+            <!-- Шаг 3: Дата и время -->
             <div class="booking-step" id="step-date" style="display: none;">
                 <div class="breadcrumb">
                     <button class="breadcrumb-btn" data-step="masters">Выберите мастера</button>
@@ -399,36 +399,16 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                 </div>
                 <h3 class="step-subtitle">Выберите дату:</h3>
                 <div class="dates-grid" id="dates-grid"></div>
+                <!-- Время — на том же шаге, под датами: раньше это был отдельный
+                     шаг, и чтобы посмотреть окна другого дня, приходилось каждый
+                     раз жать «Назад к дате». Теперь окна просто меняются. -->
+                <div class="date-times" id="date-times" hidden>
+                    <h3 class="step-subtitle">Свободное время <span id="selected-date-summary"></span>:</h3>
+                    <div class="times-grid" id="times-grid" aria-live="polite"></div>
+                </div>
             </div>
 
-            <!-- Шаг 4: Выбор времени -->
-            <div class="booking-step" id="step-time" style="display: none;">
-                <div class="breadcrumb">
-                    <button class="breadcrumb-btn" data-step="masters">Выберите мастера</button>
-                    {ICON_CHEVRON_RIGHT}
-                    <span class="breadcrumb-current" id="breadcrumb-master-3"></span>
-                    {ICON_CHEVRON_RIGHT}
-                    <span class="breadcrumb-current" id="breadcrumb-service-2"></span>
-                    {ICON_CHEVRON_RIGHT}
-                    <span class="breadcrumb-current" id="breadcrumb-date"></span>
-                </div>
-                <button class="back-btn" data-step="date">{ICON_ARROW_LEFT} Назад к дате</button>
-                <div class="master-summary">
-                    <div class="master-avatar-sm" id="selected-master-avatar-3"></div>
-                    <div>
-                        <p class="master-name-sm" id="selected-master-name-3"></p>
-                        <p class="master-spec-sm" id="selected-master-spec-3"></p>
-                    </div>
-                    {ICON_CHECK}
-                    <span class="service-summary" id="selected-service-summary-2"></span>
-                    <span class="service-price" id="selected-service-price-2"></span>
-                    <span class="date-summary" id="selected-date-summary"></span>
-                </div>
-                <h3 class="step-subtitle">Выберите время:</h3>
-                <div class="times-grid" id="times-grid"></div>
-            </div>
-
-            <!-- Шаг 5: Напоминание -->
+            <!-- Шаг 4: Напоминание -->
             <div class="booking-step" id="step-reminder" style="display: none;">
                 <div class="breadcrumb">
                     <button class="breadcrumb-btn" data-step="masters">Выберите мастера</button>
@@ -441,7 +421,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                     {ICON_CHEVRON_RIGHT}
                     <span class="breadcrumb-current" id="breadcrumb-time"></span>
                 </div>
-                <button class="back-btn" data-step="time">{ICON_ARROW_LEFT} Назад к времени</button>
+                <button class="back-btn" data-step="date">{ICON_ARROW_LEFT} Назад к дате и времени</button>
                 <div class="master-summary">
                     <div class="master-avatar-sm" id="selected-master-avatar-4"></div>
                     <div>
@@ -477,7 +457,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                 <button class="btn-primary next-btn" id="reminder-next">Далее →</button>
             </div>
 
-            <!-- Шаг 6: Подтверждение -->
+            <!-- Шаг 5: Подтверждение -->
             <div class="booking-step" id="step-confirm" style="display: none;">
                 <div class="breadcrumb">
                     <button class="breadcrumb-btn" data-step="masters">Выберите мастера</button>
