@@ -428,5 +428,26 @@ def test_reminder_step_offers_channel_without_blocking(vk):
     from app.web.pages.salon_detail import _reminder_channel_hint
 
     assert "Подключить ВКонтакте" in _reminder_channel_hint(User(phone="+7"))
+    assert "отправьте любое сообщение" in _reminder_channel_hint(User(phone="+7"))
     assert _reminder_channel_hint(User(phone="+7", vk_peer_id=1)) == ""
     assert _reminder_channel_hint(None) == ""
+
+
+def test_connect_explains_missing_start_button(vk):
+    """ВК показывает «Начать» только в пустом диалоге. Кто уже писал сообществу,
+    кнопки не увидит — на стейдже 16.09 пришлось догадываться печатать руками."""
+    from app.web.pages.profile import _notify_channel_block
+
+    html = _notify_channel_block(User(phone="+7", email="a@b.ru", notify_channel=NotifyChannel.EMAIL))
+    assert "отправьте любое сообщение" in html
+    linked = _notify_channel_block(User(phone="+7", vk_peer_id=1, notify_channel=NotifyChannel.VK))
+    assert "отправьте любое сообщение" not in linked
+    assert "любое сообщение" in vk_bot.UNLINKED_TEXT
+
+
+async def test_typed_message_after_profile_link_binds(client, db_session, vk):
+    """Кнопки «Начать» нет — человек пишет сам, ВК передаёт метку с этим сообщением."""
+    user_id = await _user(db_session, phone="+79998880020")
+    code = await vk_link.create_code(user_id)
+    await vk_bot.on_message_new(_msg(719, "привет", ref=code))
+    assert (await _get(db_session, user_id)).vk_peer_id == 719

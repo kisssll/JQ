@@ -35,6 +35,15 @@ from app.web.components.icons import (
 from app.core.config import settings
 
 
+# ВК показывает кнопку «Начать» только в ПУСТОМ диалоге. Кто уже писал
+# сообществу, её не увидит — и не поймёт, что делать (так и случилось на
+# стейдже 16.09). Метку привязки ВК передаёт с любым первым сообщением.
+VK_START_HINT = (
+    "Откроется диалог с сообществом Руми во ВКонтакте. Нажмите «Начать», "
+    "а если этой кнопки нет — просто отправьте любое сообщение, например «привет»."
+)
+
+
 def _vk_connect_button(label: str, css: str = "btn-mini") -> str:
     """Кнопка привязки ВК. Форма, а не ссылка: код привязки выдаётся POST-ом
     и только вошедшему (см. users.vk_connect_form). Пусто, если бота нет."""
@@ -90,6 +99,15 @@ def _channels_overview(user, available) -> str:
         "#22c55e" if email else "var(--color-muted)", "",
     ))
 
+    from app.services.notify_channel import is_broken
+
+    vk_hint = ""
+    if settings.vk_bot_address and (
+        NotifyChannel.VK not in available or is_broken(user, NotifyChannel.VK)
+    ):
+        vk_hint = (f'<p class="settings-card-hint" style="margin:0.5rem 0 0">'
+                   f'ВКонтакте: {VK_START_HINT}</p>')
+
     items = ""
     for title, value, state, color, action in rows:
         items += (
@@ -101,7 +119,7 @@ def _channels_overview(user, available) -> str:
         )
     return (f'<div style="margin-bottom:1rem">{items}'
             f'<p class="settings-card-hint" style="margin:0.5rem 0 0">'
-            f'Телефон и почта меняются ниже, в разделе «Смена данных».</p></div>')
+            f'Телефон и почта меняются ниже, в разделе «Смена данных».</p>{vk_hint}</div>')
 
 
 def _vk_row(user, available):
@@ -229,7 +247,8 @@ def _notify_channel_block(user) -> str:
                 сообщения приходить не будут. Подключите мессенджер или укажите
                 почту в разделе «Смена данных».
             </p>
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{''.join(links)}</div>"""
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{''.join(links)}</div>
+            {f'<p class="settings-card-hint" style="margin:0.5rem 0 0">ВКонтакте: {VK_START_HINT}</p>' if settings.vk_bot_address else ''}"""
 
     options = "".join(
         f'<option value="{c.value}"{" selected" if c == channel else ""}>{CHANNEL_LABELS[c]}</option>'

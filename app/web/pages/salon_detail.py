@@ -53,6 +53,7 @@ def _reminder_channel_hint(user) -> str:
         return ""
     from app.core.config import settings
     from app.services.notify_channel import has_channel
+    from app.web.pages.profile import VK_START_HINT
 
     if has_channel(user):
         return ""
@@ -75,6 +76,7 @@ def _reminder_channel_hint(user) -> str:
                         ни почта. Подключите — это займёт минуту. Записаться можно и без этого.
                     </p>
                     <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{"".join(buttons)}</div>
+                    {f'<p class="reminder-desc" style="margin:0.5rem 0 0">{VK_START_HINT}</p>' if settings.vk_bot_address else ""}
                 </div>"""
 
 
