@@ -262,3 +262,13 @@ async def test_telegram_sender_reports_permanent_refusal(monkeypatch):
     monkeypatch.setattr(httpx.AsyncClient, "__init__", mocked)
     assert await tasks._send_via_telegram(1, "привет") is False
     monkeypatch.undo()
+
+
+def test_question_does_not_claim_past_mailings():
+    """Подборка до перехода на согласие не уходила никому: на проде 16.09.2026
+    не было ни одной включённой акции. Текст «раньше присылали» был бы
+    неправдой — посыл вопроса «запускаем»."""
+    text = ad_consent.QUESTION_TEXT.lower()
+    for false_premise in ("раньше", "присылали", "дальше", "больше их не"):
+        assert false_premise not in text, false_premise
+    assert "запускаем" in text
