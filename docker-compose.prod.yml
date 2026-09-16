@@ -131,6 +131,27 @@ services:
       disable: true
     restart: unless-stopped
 
+  # ВК-бот сообщества (Bots Long Poll). Как tg-/max-бот: POSTGRES_HOST из .env.
+  # Спит, пока в .env пусты VK_BOT_TOKEN/VK_GROUP_ID. Сообщество у прода СВОЁ:
+  # второй процесс на том же Long Poll отнимал бы сообщения.
+  vk-bot:
+    image: rumi-app:prod
+    container_name: rumi-prod-vk-bot
+    env_file: .env
+    command: ["python", "-m", "app.vk_bot"]
+    environment:
+      ENVIRONMENT: production
+      TZ: Asia/Novosibirsk
+      REDIS_URL: redis://redis:6379/0
+      LOG_FORMAT: json
+    logging: *default-logging
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
 networks:
   edge:
     external: true

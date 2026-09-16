@@ -17,6 +17,7 @@
 """
 import base64
 import hashlib
+import logging
 import secrets
 import uuid
 
@@ -35,6 +36,7 @@ from app.models.models import User, UserRole
 from app.schemas.user import try_normalize_phone
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 AUTH_URL = "https://id.vk.ru/authorize"
 TOKEN_URL = "https://id.vk.ru/oauth2/auth"
@@ -179,6 +181,16 @@ async def vk_callback(
     # подключал мессенджер (см. services/notify_channel.py).
     from app.services.notify_channel import adopt_oauth_email
     await adopt_oauth_email(db, user, profile.get("email"))
+
+    # Кто это во ВК — чтобы бот сообщества узнал человека по первому же
+    # сообщению и привязал без кода. Сбой не должен ломать вход.
+    try:
+        from app.services.vk_link import remember_vk_user
+
+        await remember_vk_user(db, user, profile.get("user_id"))
+    except Exception:
+        logger.exception("vk: vk_user_id не сохранён для user=%s", user.id)
+        await db.rollback()
 
     if not user.is_active:
         return RedirectResponse(url="/login?error=locked", status_code=302)

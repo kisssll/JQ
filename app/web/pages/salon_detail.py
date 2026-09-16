@@ -43,6 +43,41 @@ from app.web.components.icons import (
 )
 from app.web.service_categories import match_category_slugs, slug_to_label
 
+def _reminder_channel_hint(user) -> str:
+    """Шаг «Напоминание» обещал напоминание и тем, кому его некуда прислать.
+
+    Честно говорим, что канала нет, и предлагаем подключить — но запись НЕ
+    блокируем: человек пришёл записаться, а не настраивать уведомления.
+    """
+    if user is None:
+        return ""
+    from app.core.config import settings
+    from app.services.notify_channel import has_channel
+
+    if has_channel(user):
+        return ""
+    buttons = []
+    if settings.vk_bot_address:
+        buttons.append(
+            '<form method="post" action="/api/v1/users/me/vk-connect" target="_blank" style="display:inline">'
+            '<button class="btn-outline" type="submit">Подключить ВКонтакте</button></form>'
+        )
+    if settings.TG_BOT_USERNAME:
+        buttons.append(f'<a class="btn-outline" href="https://t.me/{e(settings.TG_BOT_USERNAME)}" '
+                       'target="_blank" rel="noopener">Подключить Telegram</a>')
+    if settings.MAX_BOT_USERNAME:
+        buttons.append(f'<a class="btn-outline" href="https://max.ru/{e(settings.MAX_BOT_USERNAME)}" '
+                       'target="_blank" rel="noopener">Подключить MAX</a>')
+    return f"""
+                <div class="reminder-channel-hint" role="note" style="margin-top:0.75rem">
+                    <p class="reminder-desc" style="margin:0 0 0.5rem">
+                        Напоминание сейчас некуда прислать: у вас не подключён ни мессенджер,
+                        ни почта. Подключите — это займёт минуту. Записаться можно и без этого.
+                    </p>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{"".join(buttons)}</div>
+                </div>"""
+
+
 async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str:
     # Публично видны только одобренные активные салоны (модерация регистрации).
     result = await db.execute(select(Salon).where(
@@ -436,6 +471,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None) -> str
                         <button class="reminder-option" data-minutes="1440">За день</button>
                     </div>
                 </div>
+                {_reminder_channel_hint(user)}
                 <button class="btn-primary next-btn" id="reminder-next">Далее →</button>
             </div>
 

@@ -175,6 +175,22 @@ class Settings(BaseSettings):
     VK_OAUTH_ENABLED: bool = True
     VK_CLIENT_ID: str = "54721847"
 
+    # --- ВК-бот сообщества (Bots Long Poll API) ---
+    # Ключ сообщества с правами messages + manage (+ photos, docs) — только в
+    # .env на сервере. У прода и стейджа РАЗНЫЕ сообщества: два процесса на
+    # одном Long Poll отнимают друг у друга сообщения. Без ключа бот спит.
+    VK_BOT_TOKEN: str = ""
+    VK_GROUP_ID: int = 0
+    # Короткий адрес сообщества для ссылок vk.me/<адрес>. Пусто — club<ID>.
+    VK_GROUP_SCREEN_NAME: str = ""
+
+    @property
+    def vk_bot_address(self) -> str:
+        """Адрес сообщества для vk.me-ссылок или пустая строка, если бота нет."""
+        if not self.VK_GROUP_ID:
+            return ""
+        return (self.VK_GROUP_SCREEN_NAME or "").strip().lstrip("@") or f"club{self.VK_GROUP_ID}"
+
     # --- Яндекс Карты (подсказки адреса + геокодирование) ---
     # Один ключ типа «JavaScript API и HTTP Геокодер» из developer.tech.yandex.ru
     # закрывает и подсказки/карту на фронте, и серверный геокодер (бэкфилл

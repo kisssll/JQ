@@ -123,6 +123,30 @@ services:
       disable: true
     restart: unless-stopped
 
+  # ВК-бот тестового сообщества. Своё сообщество, не боевое: два процесса на
+  # одном Long Poll отнимают друг у друга сообщения. Без ключа спит.
+  vk-bot:
+    image: rumi-app:staging
+    container_name: rumi-staging-vk-bot
+    env_file: .env.staging
+    command: ["python", "-m", "app.vk_bot"]
+    environment:
+      ENVIRONMENT: production
+      TZ: Asia/Novosibirsk
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+      LOG_FORMAT: json
+    logging: *default-logging
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
   arq-worker:
     image: rumi-app:staging
     container_name: rumi-staging-arq

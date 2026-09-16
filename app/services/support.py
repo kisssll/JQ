@@ -1,6 +1,6 @@
 """Обращения в поддержку из ботов.
 
-Один модуль на оба мессенджера: Telegram и MAX отличаются только тем, как
+Один модуль на все мессенджеры: Telegram, MAX и ВКонтакте отличаются только тем, как
 достать текст и скачать фото, а правила приёма, лимиты и уведомления у них
 общие. Разъехавшиеся правила в двух ботах — это когда в одном спам ловится,
 а в другом нет.
@@ -173,8 +173,9 @@ async def _send_to_chat(channel: NotifyChannel, chat_id: int, text: str) -> bool
         from app.core.worker import get_arq_pool
 
         pool = await get_arq_pool()
-        task = "send_tg_message" if channel == NotifyChannel.TG else "send_max_message"
-        await pool.enqueue_job(task, chat_id, text)
+        from app.services.notify_channel import task_for
+
+        await pool.enqueue_job(task_for(channel), chat_id, text)
         return True
     except Exception:
         logger.exception("support: не удалось ответить в чат %s", chat_id)

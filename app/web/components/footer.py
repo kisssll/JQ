@@ -8,7 +8,7 @@ SUPPORT_EMAIL = "hello@rrumi.ru"
 
 
 def _support_block() -> str:
-    """Три способа задать вопрос: почта и оба бота.
+    """Способы задать вопрос: почта и боты (Telegram, MAX, ВКонтакте).
 
     Ссылки на ботов ведут не на их главное меню, а сразу на выбор темы
     обращения (?start=support): человек идёт по ним с вопросом, лишний шаг
@@ -31,6 +31,13 @@ def _support_block() -> str:
         options.append((
             "MAX", f"https://max.ru/{html.escape(mx, quote=True)}?start=support",
             f"@{mx}", ' target="_blank" rel="noopener"', ICON_MESSAGE_CIRCLE,
+        ))
+    vk = settings.vk_bot_address
+    if vk:
+        # ref=support ВК вернёт в первом сообщении — бот сразу откроет темы.
+        options.append((
+            "ВКонтакте", f"https://vk.me/{html.escape(vk, quote=True)}?ref=support",
+            f"vk.ru/{vk}", ' target="_blank" rel="noopener"', ICON_MESSAGE_CIRCLE,
         ))
 
     # Иконка есть у каждого варианта — это опознавательный знак, а не выделение

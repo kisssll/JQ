@@ -34,6 +34,7 @@ from app.models.models import NotifyChannel, User
 _TASK_BY_CHANNEL = {
     NotifyChannel.TG: "send_tg_message",
     NotifyChannel.MAX: "send_max_message",
+    NotifyChannel.VK: "send_vk_message",
 }
 
 CHANNEL_LABELS = {
@@ -41,6 +42,7 @@ CHANNEL_LABELS = {
     NotifyChannel.TG: "Telegram",
     NotifyChannel.MAX: "MAX",
     NotifyChannel.EMAIL: "почта",
+    NotifyChannel.VK: "ВКонтакте",
 }
 
 
@@ -49,10 +51,12 @@ CHANNEL_LABELS = {
 _BROKEN_FIELD = {
     NotifyChannel.TG: "tg_broken_at",
     NotifyChannel.MAX: "max_broken_at",
+    NotifyChannel.VK: "vk_broken_at",
 }
 _ADDRESS_FIELD = {
     NotifyChannel.TG: "tg_chat_id",
     NotifyChannel.MAX: "max_chat_id",
+    NotifyChannel.VK: "vk_peer_id",
 }
 
 
@@ -74,6 +78,8 @@ def _address(user: User, channel: NotifyChannel):
         return user.tg_chat_id
     if channel == NotifyChannel.MAX:
         return user.max_chat_id
+    if channel == NotifyChannel.VK:
+        return getattr(user, "vk_peer_id", None)
     if channel == NotifyChannel.EMAIL:
         return (user.email or "").strip() or None
     return None
@@ -88,7 +94,8 @@ def resolve(user: Optional[User]) -> tuple[NotifyChannel, Optional[object]]:
         return NotifyChannel.NONE, None
 
     preferred = user.notify_channel or NotifyChannel.NONE
-    for channel in (preferred, NotifyChannel.TG, NotifyChannel.MAX, NotifyChannel.EMAIL):
+    for channel in (preferred, NotifyChannel.TG, NotifyChannel.MAX, NotifyChannel.VK,
+                    NotifyChannel.EMAIL):
         if channel == NotifyChannel.NONE:
             continue
         address = _address(user, channel)
@@ -111,6 +118,7 @@ def has_channel_clause():
     return or_(
         and_(User.tg_chat_id.isnot(None), User.tg_broken_at.is_(None)),
         and_(User.max_chat_id.isnot(None), User.max_broken_at.is_(None)),
+        and_(User.vk_peer_id.isnot(None), User.vk_broken_at.is_(None)),
         User.email.isnot(None),
     )
 

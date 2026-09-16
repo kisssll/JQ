@@ -12,6 +12,7 @@ from app.web.components.footer import render_footer, SUPPORT_EMAIL
 def bots(monkeypatch):
     monkeypatch.setattr(settings, "TG_BOT_USERNAME", "rumi_beauty_bot")
     monkeypatch.setattr(settings, "MAX_BOT_USERNAME", "id7000036144_bot")
+    monkeypatch.setattr(settings, "VK_GROUP_ID", 0)   # ВК проверяется в test_vk_bot.py
 
 
 def _links(html: str) -> list[str]:

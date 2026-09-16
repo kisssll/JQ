@@ -35,6 +35,17 @@ from app.web.components.icons import (
 from app.core.config import settings
 
 
+def _vk_connect_button(label: str, css: str = "btn-mini") -> str:
+    """Кнопка привязки ВК. Форма, а не ссылка: код привязки выдаётся POST-ом
+    и только вошедшему (см. users.vk_connect_form). Пусто, если бота нет."""
+    from app.core.config import settings
+
+    if not settings.vk_bot_address:
+        return ""
+    return (f'<form method="post" action="/api/v1/users/me/vk-connect" target="_blank" '
+            f'style="display:inline"><button class="{css}" type="submit">{label}</button></form>')
+
+
 def _channels_overview(user, available) -> str:
     """Список каналов связи: что подключено и что с этим можно сделать.
 
@@ -70,7 +81,9 @@ def _channels_overview(user, available) -> str:
 
     rows.append(_messenger_row(NotifyChannel.TG, "Telegram", settings.TG_BOT_USERNAME, "https://t.me/{}"))
     rows.append(_messenger_row(NotifyChannel.MAX, "MAX", settings.MAX_BOT_USERNAME, "https://max.ru/{}"))
+    rows.append(_vk_row(user, available))
 
+    rows = [row for row in rows if row is not None]
     email = (getattr(user, "email", "") or "").strip()
     rows.append((
         "Почта", email or "не указана", "указана" if email else "не указана",
@@ -91,6 +104,37 @@ def _channels_overview(user, available) -> str:
             f'Телефон и почта меняются ниже, в разделе «Смена данных».</p></div>')
 
 
+def _vk_row(user, available):
+    """Строка ВКонтакте. Показываем ИМЯ привязанного аккаунта: если ссылку
+    привязки успел открыть кто-то другой, человек увидит чужое имя и отвяжет."""
+    from app.core.config import settings
+    from app.models.models import NotifyChannel
+    from app.services import vk_api
+    from app.services.notify_channel import is_broken
+
+    if not settings.vk_bot_address:
+        return None
+    if NotifyChannel.VK in available:
+        who = e(getattr(user, "vk_name", None) or "")
+        action = (
+            '<form method="post" action="/api/v1/users/me/disconnect-channel" style="display:inline">'
+            '<input type="hidden" name="channel" value="vk">'
+            '<button class="btn-mini" type="submit">Отвязать</button></form>'
+        )
+        if is_broken(user, NotifyChannel.VK):
+            reconnect = (f'<a class="btn-mini" href="{e(vk_api.vk_me_url())}" target="_blank" '
+                         f'rel="noopener">Переподключить</a> ')
+            return ("ВКонтакте", f"не доставляется{': ' + who if who else ''}", "",
+                    "#ef4444", reconnect + action)
+        return ("ВКонтакте", f"подключён{': ' + who if who else ''}", "", "#22c55e", action)
+    if getattr(user, "vk_user_id", None):
+        # Вошёл через VK ID: бот узнает его сам, достаточно написать сообществу.
+        return ("ВКонтакте", "не подключён — напишите сообществу, и бот узнает вас", "",
+                "var(--color-muted)",
+                f'<a class="btn-mini" href="{e(vk_api.vk_me_url())}" target="_blank" rel="noopener">Подключить</a>')
+    return ("ВКонтакте", "не подключён", "", "var(--color-muted)", _vk_connect_button("Подключить"))
+
+
 def _broken_banner(user, broken, channel) -> str:
     """Плашка «мессенджер перестал принимать сообщения».
 
@@ -107,11 +151,12 @@ def _broken_banner(user, broken, channel) -> str:
     links = {
         NotifyChannel.TG: ("https://t.me/{}", settings.TG_BOT_USERNAME),
         NotifyChannel.MAX: ("https://max.ru/{}", settings.MAX_BOT_USERNAME),
+        NotifyChannel.VK: ("https://vk.me/{}", settings.vk_bot_address),
     }
     names = " и ".join(CHANNEL_LABELS[c] for c in broken)
     buttons = "".join(
         f'<a class="btn-outline" href="{e(tpl.format(username))}" target="_blank" '
-        f'rel="noopener">Открыть бота в {CHANNEL_LABELS[c]}</a>'
+        f'rel="noopener">Открыть бота: {CHANNEL_LABELS[c]}</a>'
         for c in broken
         for tpl, username in [links[c]] if username
     )
@@ -141,6 +186,7 @@ def _notify_channel_block(user) -> str:
     """
     from app.core.config import settings
     from app.models.models import NotifyChannel
+    from app.services import vk_api
     from app.services.notify_channel import CHANNEL_LABELS, broken_channels, resolve
 
     if user is None:
@@ -152,6 +198,8 @@ def _notify_channel_block(user) -> str:
         available.append(NotifyChannel.TG)
     if getattr(user, "max_chat_id", None):
         available.append(NotifyChannel.MAX)
+    if getattr(user, "vk_peer_id", None):
+        available.append(NotifyChannel.VK)
     if (getattr(user, "email", "") or "").strip():
         available.append(NotifyChannel.EMAIL)
 
@@ -167,6 +215,13 @@ def _notify_channel_block(user) -> str:
             links.append(
                 f'<a class="btn-outline" href="https://max.ru/{settings.MAX_BOT_USERNAME}" '
                 f'target="_blank" rel="noopener">Подключить MAX</a>'
+            )
+        if settings.vk_bot_address:
+            links.append(
+                f'<a class="btn-outline" href="{e(vk_api.vk_me_url())}" target="_blank" '
+                f'rel="noopener">Подключить ВКонтакте</a>'
+                if getattr(user, "vk_user_id", None)
+                else _vk_connect_button("Подключить ВКонтакте", "btn-outline")
             )
         return f"""
             <p class="settings-card-hint" style="margin:0 0 0.75rem">
@@ -189,6 +244,8 @@ def _notify_channel_block(user) -> str:
         missing.append(
             f'<a href="https://max.ru/{settings.MAX_BOT_USERNAME}" target="_blank" rel="noopener">MAX</a>'
         )
+    if NotifyChannel.VK not in available and settings.vk_bot_address:
+        missing.append(_vk_connect_button("ВКонтакте", "btn-mini"))
     missing_hint = (
         f'<p class="settings-card-hint" style="margin:0.5rem 0 0">Можно подключить ещё: {", ".join(missing)}.</p>'
         if missing else ""
@@ -228,6 +285,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None, 
             "otp_unavailable": "Сервис подтверждения временно недоступен, попробуйте позже",
             "update_failed": "Не удалось обновить профиль",
             "notify_channel_invalid": "Неизвестный канал уведомлений",
+            "vk_unavailable": "Подключение ВКонтакте сейчас недоступно",
             "notify_channel_unavailable": "Этот канал не подключён — сначала привяжите бота или укажите почту",
             "notify_channel_last": "Это единственный канал связи — сначала подключите другой, иначе уведомления перестанут приходить",
         }

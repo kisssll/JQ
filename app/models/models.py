@@ -34,7 +34,8 @@ class NotifyChannel(str, enum.Enum):
     none  — канала нет (вход через Яндекс/VK без мессенджера, старые записи);
     tg    — Telegram (users.tg_chat_id);
     max   — MAX (users.max_chat_id);
-    email — почта (users.email), запасной канал.
+    email — почта (users.email), запасной канал;
+    vk    — ВКонтакте, бот сообщества (users.vk_peer_id).
 
     Ставится автоматически по способу подтверждения телефона: чем подтвердил,
     туда и шлём. Меняется вручную в профиле.
@@ -43,6 +44,7 @@ class NotifyChannel(str, enum.Enum):
     TG = "tg"
     MAX = "max"
     EMAIL = "email"
+    VK = "vk"
 
 class BookingStatus(str, enum.Enum):
     PENDING = "pending"
@@ -276,6 +278,16 @@ class User(Base):
     # человек снова пишет боту.
     tg_broken_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     max_broken_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # ВКонтакте. Два разных идентификатора, потому что знаем мы их в разное время:
+    # vk_user_id — кто этот человек во ВК, приходит при входе через VK ID;
+    # vk_peer_id — куда бот МОЖЕТ писать, появляется, только когда человек сам
+    # написал сообществу (писать первым сообщество не может). Адрес доставки —
+    # vk_peer_id. vk_name — чтобы на сайте было видно, КАКОЙ аккаунт привязан:
+    # это защита от переданной чужому ссылки привязки.
+    vk_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    vk_peer_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    vk_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    vk_broken_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     # Куда слать уведомления. Ставится автоматически при подтверждении телефона
     # (чем подтвердил — туда и шлём), меняется в профиле. NONE = канала нет,
     # доставка попробует email, иначе уведомление не уйдёт (мягко логируем).
