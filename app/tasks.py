@@ -80,12 +80,17 @@ async def send_sms(ctx: dict[str, Any], phone: str, message: str) -> str:
 # ── Telegram-уведомления (бот @rumi_beauty_bot) ──────────────────
 
 
-async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None = None) -> None:
+async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None = None) -> bool:
     """Отправка сообщения ботом через Bot API (без aiogram: воркеру не нужен
     polling, достаточно одного HTTPS-вызова; конфликтов с процессом бота нет).
 
     Сетевые ошибки и 5xx/429 — TransientTaskError (ретрай); 403 «bot was
     blocked» и прочие 4xx — постоянные, не ретраим.
+
+    Возвращает, дошло ли сообщение. Раньше постоянный отказ уходил в журнал, а
+    функция возвращалась как ни в чём не бывало — и вызывающий код принимал
+    молчание за успех. Так на стейдже вопрос о согласии «спросил» человека,
+    которому ничего не пришло (chat not found), и пометил его спрошенным.
     """
     import httpx
 
@@ -93,7 +98,7 @@ async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None 
 
     if not settings.TG_BOT_TOKEN:
         logger.info("[dev-заглушка TG] chat=%s: %s", chat_id, text[:60])
-        return
+        return True
 
     url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/sendMessage"
     # Тот же прокси, что у бота: уведомления идут мимо aiogram, и без этого
@@ -113,6 +118,8 @@ async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None 
         # 403 = пользователь заблокировал бота и т.п. — ретрай не поможет
         logger.warning("telegram chat=%s: постоянный отказ %s %s",
                        chat_id, resp.status_code, resp.text[:120])
+        return False
+    return True
 
 
 async def _send_via_max(chat_id: int, text: str, attachments: list | None = None) -> None:
@@ -161,11 +168,12 @@ async def _deliver(channel, address, text: str, subject: str = "Руми") -> No
 async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
     """Разовый вопрос: присылать ли дальше рекламную подборку вечерних окон.
 
-    Отметку «спрашивали» ставим ДО отправки: договорились спросить один раз и
-    не повторять — каждое следующее «ну так что?» превращается в назойливость,
-    от которой жмут «спам». Если отправка упала по временной причине, отметку
-    снимаем, чтобы повтор задачи всё-таки спросил. Постоянный отказ (человек
-    заблокировал бота) отметку оставляет: спросить его нельзя, и не нужно.
+    Отметка «спрашивали» означает «вопрос ДОШЁЛ», а не «пытались отправить».
+    Ставим её до отправки — чтобы два параллельных запуска не спросили человека
+    дважды, — и снимаем, если вопрос не дошёл: по временной причине или по
+    постоянной. Недошедший вопрос повторить можно смело: назойливым может быть
+    только то, что человек получил. А отметка у недошедшего навсегда исключила
+    бы его из вопроса — на стейдже так и случилось (chat not found).
     """
     from app.db.session import AsyncSessionLocal
     from app.models.models import NotifyChannel, User
@@ -187,9 +195,10 @@ async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
         ad_consent.mark_asked(user)
         await db.commit()
 
+        delivered = True
         try:
             if channel == NotifyChannel.TG:
-                await _send_via_telegram(address, ad_consent.QUESTION_TEXT, reply_markup={
+                delivered = await _send_via_telegram(address, ad_consent.QUESTION_TEXT, reply_markup={
                     "inline_keyboard": [[{"text": ad_consent.OPT_IN_LABEL, "callback_data": "edc:yes"}]],
                 })
             elif channel == NotifyChannel.MAX:
@@ -208,7 +217,7 @@ async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
                 # по переходу: почтовые сканеры открывают ссылки из писем сами.
                 body = (f"{ad_consent.QUESTION_TEXT}\n\n"
                         f"Чтобы получать подборку, откройте страницу и нажмите кнопку:\n{link}")
-                await _send_via_smtp(address, "Подборка вечерних окон — Руми", body)
+                delivered = await _send_via_smtp(address, "Подборка вечерних окон — Руми", body)
             else:
                 return "skipped:unknown-channel"
         except TransientTaskError as exc:
@@ -216,6 +225,15 @@ async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
             await db.commit()
             logger.warning("ask_evening_deals_consent user=%s: временный сбой: %s", user_id, exc)
             raise _retry(ctx, exc) from exc
+
+        if not delivered:
+            ad_consent.unmark_asked(user)
+            await db.commit()
+            logger.warning(
+                "ask_evening_deals_consent user=%s: НЕ ДОШЛО через %s — отметку сняли",
+                user_id, channel.value,
+            )
+            return f"undelivered:{channel.value}"
 
     logger.info("ask_evening_deals_consent user=%s: спросили через %s", user_id, channel.value)
     return f"asked:{channel.value}"
@@ -377,7 +395,7 @@ async def send_evening_deals_blast(ctx: dict[str, Any]) -> str:
 # ── Email (noreply@rrumi.ru через SMTP Timeweb) ──────────────────
 
 
-async def _send_via_smtp(to: str, subject: str, body: str, html: Optional[str] = None) -> None:
+async def _send_via_smtp(to: str, subject: str, body: str, html: Optional[str] = None) -> bool:
     """Единственная точка отправки писем. mock — в лог (dev/до кредов).
 
     body — текстовый вариант (fallback), html — опциональная HTML-версия
@@ -389,7 +407,7 @@ async def _send_via_smtp(to: str, subject: str, body: str, html: Optional[str] =
 
     if settings.EMAIL_MODE == "mock" or not settings.SMTP_PASSWORD:
         logger.info("[dev-заглушка email] %s: %s", to, subject)
-        return
+        return True
 
     from email.message import EmailMessage
 
@@ -421,8 +439,10 @@ async def _send_via_smtp(to: str, subject: str, body: str, html: Optional[str] =
         if 400 <= exc.code < 500:
             raise TransientTaskError(f"SMTP {exc.code}") from exc
         logger.warning("email %s: постоянный отказ SMTP %s %s", to, exc.code, exc.message)
+        return False
     except (aiosmtplib.SMTPException, OSError) as exc:
         raise TransientTaskError(f"SMTP: {exc}") from exc
+    return True
 
 
 async def send_email(ctx: dict[str, Any], to: str, subject: str, body: str, html: Optional[str] = None) -> str:

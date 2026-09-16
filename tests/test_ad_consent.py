@@ -161,6 +161,7 @@ async def test_question_is_asked_once(client, db_session, monkeypatch):
 
     async def fake_tg(chat_id, text, reply_markup=None):
         sent.append((chat_id, reply_markup))
+        return True   # дошло: отправка теперь обязана это сообщать
 
     monkeypatch.setattr(tasks, "_send_via_telegram", fake_tg)
     from app.models.models import NotifyChannel
@@ -222,3 +223,42 @@ def test_bot_toggles_route_advertising_through_consent():
     assert "OPT_IN_TOPICS" in tg_src and "ad_consent.grant" in tg_src
     max_src = inspect.getsource(max_bot._toggle_topic)
     assert "OPT_IN_TOPICS" in max_src and "ad_consent.grant" in max_src
+
+
+async def test_undelivered_question_is_not_marked_as_asked(client, db_session, monkeypatch):
+    """Регрессия со стейджа 16.09.2026: Telegram ответил «chat not found», а
+    задача отчиталась «спросили» и пометила человека. Вопрос не дошёл — и
+    больше никогда не был бы задан."""
+    from app import tasks
+    from app.models.models import NotifyChannel
+
+    async def refused(chat_id, text, reply_markup=None):
+        return False   # постоянный отказ: chat not found, бот заблокирован
+
+    monkeypatch.setattr(tasks, "_send_via_telegram", refused)
+    user_id = await _user(db_session, tg_chat_id=558, notify_channel=NotifyChannel.TG)
+
+    assert (await tasks.ask_evening_deals_consent({"job_try": 1}, user_id)) == "undelivered:tg"
+    async with db_session() as db:
+        assert ad_consent.was_asked(await db.get(User, user_id)) is False
+
+
+async def test_telegram_sender_reports_permanent_refusal(monkeypatch):
+    """Отправка обязана сказать, что не дошло, а не выйти молча."""
+    import httpx
+
+    from app import tasks
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "TG_BOT_TOKEN", "123:ABC")
+    real_init = httpx.AsyncClient.__init__
+
+    def mocked(self, *a, **kw):
+        kw.pop("proxy", None)
+        kw["transport"] = httpx.MockTransport(lambda r: httpx.Response(
+            400, json={"ok": False, "description": "Bad Request: chat not found"}))
+        real_init(self, *a, **kw)
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", mocked)
+    assert await tasks._send_via_telegram(1, "привет") is False
+    monkeypatch.undo()
