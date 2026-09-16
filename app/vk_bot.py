@@ -645,5 +645,9 @@ if __name__ == "__main__":
     from app.core.observability import init_sentry, setup_logging
 
     setup_logging()
+    # httpx пишет каждый запрос с полным адресом — для Long Poll это строка раз
+    # в 25 секунд С КЛЮЧОМ опроса, по которому до его истечения можно читать
+    # события сообщества. Ни шум, ни ключ в логах не нужны.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     init_sentry()
     asyncio.run(main())
