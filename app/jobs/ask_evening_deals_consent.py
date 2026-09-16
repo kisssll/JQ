@@ -57,12 +57,20 @@ async def main(send: bool) -> None:
     from app.core.worker import get_arq_pool
 
     pool = await get_arq_pool()
+    queued = 0
     for user_id, _ in picked:
-        # _job_id делает постановку идемпотентной: двойной запуск скрипта в
-        # одну минуту не поставит вопрос одному человеку дважды.
-        await pool.enqueue_job("ask_evening_deals_consent", user_id,
-                               _job_id=f"ask-evening-deals-consent-{user_id}")
-    print(f"Поставлено в очередь: {len(picked)}")
+        # Без _job_id намеренно: очередь час хранит результат задачи с тем же
+        # идентификатором и молча отбрасывает новую — законный повтор после
+        # недошедшего вопроса не ставился вовсе. От двойного вопроса защищает
+        # блокировка строки пользователя внутри самой задачи.
+        job = await pool.enqueue_job("ask_evening_deals_consent", user_id)
+        if job is not None:
+            queued += 1
+    # Печатаем то, что очередь ПРИНЯЛА, а не то, что мы пытались поставить:
+    # прежний вывод сообщал «поставлено», даже когда очередь всё отбросила.
+    print(f"Принято очередью: {queued} из {len(picked)}")
+    if queued < len(picked):
+        print("ВНИМАНИЕ: часть задач очередь не приняла")
 
 
 if __name__ == "__main__":

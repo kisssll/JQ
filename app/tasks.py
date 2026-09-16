@@ -181,7 +181,12 @@ async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
     from app.services.notify_channel import resolve
 
     async with AsyncSessionLocal() as db:
-        user = await db.get(User, user_id)
+        # Блокируем строку пользователя до коммита отметки: две задачи для
+        # одного человека, стартовавшие одновременно, иначе обе прочитали бы
+        # «ещё не спрашивали» и обе отправили вопрос. Раньше от этого защищал
+        # фиксированный _job_id в очереди — но очередь час хранит результат и
+        # молча отбрасывала законный повтор после недошедшего вопроса.
+        user = await db.get(User, user_id, with_for_update=True)
         if user is None or user.is_guest:
             return "skipped:no-user"
         if ad_consent.was_asked(user):
