@@ -1452,6 +1452,32 @@ class ConsentDocument(str, enum.Enum):
     ADS_EVENING_DEALS = "ads_evening_deals"
 
 
+class AdAttribution(Base):
+    """Откуда пришёл подключившийся: метки рекламы на момент подключения.
+
+    Метрика у нас включается только по согласию на cookie, и кто согласие не
+    дал, для неё невидим. Чтобы честно ответить «сколько подключений дала
+    реклама», метки (utm_*, yclid — номер клика в Директе) передаются по
+    ссылкам от лендинга до страницы подключения и сохраняются здесь, на
+    сервере, без cookie.
+    """
+    __tablename__ = "ad_attributions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    salon_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("salons.id", ondelete="SET NULL"), nullable=True, index=True)
+    landing: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    utm_source: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    utm_medium: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    utm_campaign: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    utm_content: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    utm_term: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    yclid: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class UserConsent(Base):
     """Журнал согласий.
 

@@ -20,7 +20,7 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
     client = (await db.execute(select(UserModel).where(UserModel.id == client_id))).scalar_one_or_none()
     if not client:
         return f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">{get_base_styles()}</head>
-        <body>{render_header("business", user)}{render_sidebar("business")}
+        <body>{render_header("business")}{render_sidebar("business", user)}
         <main style="margin-right:16rem;padding-top:3rem"><div class="section-container">
         <h1>Клиент не найден</h1><a href="/business/dashboard?salon_id={salon.id}" class="btn-outline">← Назад в панель</a>
         </div></main>{render_footer(user)}</body></html>"""
@@ -118,8 +118,8 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
     </style>
 </head>
 <body>
-    {render_header("business", user)}
-    {render_sidebar("business")}
+    {render_header("business")}
+    {render_sidebar("business", user)}
 
     <main style="margin-right:16rem;padding-top:2rem">
         <div class="section-container">

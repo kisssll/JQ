@@ -58,6 +58,12 @@ def render_register_page(request: Request) -> str:
     q = request.query_params
     phone = html.escape(q.get("phone") or "+7", quote=True)
     full_name = html.escape(q.get("full_name", ""), quote=True)
+    # Адрес возврата после регистрации (страница подключения тарифа и т.п.).
+    # Проверка на open redirect — на сервере, здесь только переносим значение.
+    redirect_raw = q.get("redirect", "")
+    redirect_field = (f'<input type="hidden" name="redirect" value="{html.escape(redirect_raw, quote=True)}">'
+                      if redirect_raw else "")
+    login_href = f"/login?redirect={html.escape(quote(redirect_raw, safe=''), quote=True)}" if redirect_raw else "/login"
     errors = {
         "phone_exists": "Пользователь с таким телефоном уже зарегистрирован",
         "weak_password": "Пароль не отвечает требованиям сложности",
@@ -143,6 +149,7 @@ def render_register_page(request: Request) -> str:
         <h1 class="auth-title">Регистрация</h1>
         {banner}
         <form action="/api/v1/auth/register-web" method="post" data-submit-lock>
+            {redirect_field}
             <div class="form-group">
                 <label for="full_name">Имя</label>
                 <input type="text" id="full_name" name="full_name" value="{e(full_name)}" placeholder="Ваше имя">
@@ -161,7 +168,7 @@ def render_register_page(request: Request) -> str:
             <button type="submit" id="submitBtn" class="btn-primary auth-btn" disabled>Зарегистрироваться</button>
         </form>
         <div class="auth-links">
-            <a href="/login">Вход</a> · <a href="/">На главную</a>
+            <a href="{login_href}">Вход</a> · <a href="/">На главную</a>
         </div>
     </div>
     {scripts}

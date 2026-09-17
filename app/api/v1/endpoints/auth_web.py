@@ -117,6 +117,7 @@ async def register_web(
     code: str = Form(""),
     pd_consent: str = Form(""),
     consent_version: str = Form(""),
+    redirect: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     """Регистрация через веб-форму. Роль всегда CLIENT (назначает сервер).
@@ -127,7 +128,13 @@ async def register_web(
     не удалять; без неё регистрация не проверяет телефон вовсе.
     """
     norm_phone = try_normalize_phone(phone)
+    # Куда вернуть после регистрации. Раньше адрес игнорировался и человек
+    # всегда попадал в /profile — пришедший со страницы подключения тарифа
+    # терял её вместе с выбранным тарифом и метками рекламы.
+    redirect = _safe_redirect(redirect) if redirect else ""
     keep = f"phone={quote(norm_phone or phone)}&full_name={quote(full_name)}"
+    if redirect:
+        keep += f"&redirect={quote(redirect, safe='')}"
 
     if norm_phone is None:
         return RedirectResponse(url=f"/register?error=bad_phone&{keep}", status_code=302)
@@ -198,7 +205,7 @@ async def register_web(
         source="register", user_id=user_id, phone=norm_phone, request=request,
     )
 
-    response = RedirectResponse(url="/profile", status_code=302)
+    response = RedirectResponse(url=redirect or "/profile", status_code=302)
     _set_auth_cookie(response, user_id)
     return response
 

@@ -80,6 +80,8 @@ async def vk_start(request: Request):
     r = get_redis()
     # Храним code_verifier по state (он же — CSRF-маркер, одноразовый).
     await r.set(f"oauth:vk:{state}", verifier, ex=_STATE_TTL)
+    from app.services.auth_redirect import remember_for_oauth
+    await remember_for_oauth("vk", state, request.query_params.get("redirect"))
 
     from urllib.parse import urlencode
 
@@ -195,6 +197,7 @@ async def vk_callback(
     if not user.is_active:
         return RedirectResponse(url="/login?error=locked", status_code=302)
 
-    response = RedirectResponse(url="/profile", status_code=302)
+    from app.services.auth_redirect import pop_for_oauth
+    response = RedirectResponse(url=await pop_for_oauth("vk", state), status_code=302)
     _set_auth_cookie(response, user.id)
     return response

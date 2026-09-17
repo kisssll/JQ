@@ -381,7 +381,9 @@ async def business_checkout_page(request: Request, db: AsyncSession = Depends(ge
     plan = request.query_params.get("plan", "business")
     user = await get_current_user_from_cookie(request, db)
     from app.web.pages.business_checkout import render_business_checkout_page
-    return HTMLResponse(content=render_business_checkout_page(plan, user))
+    current = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+    return HTMLResponse(content=render_business_checkout_page(
+        plan, user, for_master=request.query_params.get("for") == "master", current_url=current))
 
 
 @router.get("/salons/{salon_id}/book", response_class=HTMLResponse)
@@ -553,6 +555,18 @@ async def license_page(request: Request, db: AsyncSession = Depends(get_db)):
     """Лицензионная оферта для салонов и мастеров."""
     user = await get_current_user_from_cookie(request, db)
     return HTMLResponse(content=render_legal_page("license", user))
+
+
+@router.get("/dlya-masterov", response_class=HTMLResponse)
+async def master_landing_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Лендинг для частных мастеров под рекламу в Яндекс Директе."""
+    from app.web.pages.master_landing import render_master_landing_page
+
+    user = await get_current_user_from_cookie(request, db)
+    response = HTMLResponse(content=render_master_landing_page(request.query_params, user))
+    # Страница для рекламы, не для поиска: noindex и в заголовке ответа.
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
 
 
 @router.get("/cookies", response_class=HTMLResponse)
