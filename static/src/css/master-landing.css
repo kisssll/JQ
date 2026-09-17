@@ -183,33 +183,44 @@
 
 .ml-tour-visual { display: flex; justify-content: center; }
 
+/* Рамка телефона одной ширины для всех пунктов экскурсии. В ней — только
+   фрагмент экрана, о котором говорит подпись: целые экраны превращали блок
+   в ленту картинок, где терялся текст. Фрагменты обрезаны по содержимому,
+   поэтому рамка по высоте не больше текста рядом. */
+.ml-phone {
+    width: 100%;
+    max-width: 20rem;
+    box-sizing: border-box;
+    padding: 0.9rem 0.55rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Корпус телефона тёмный в обеих темах: цвет заголовка в тёмной теме
+       светлый, и рамка становилась белой, перетягивая внимание с кадра. */
+    border: 0.45rem solid #2a1a20;
+    outline: 1px solid var(--color-border);
+    border-radius: 2rem;
+    background: var(--color-background);
+    box-shadow: 0 24px 48px -30px #000a;
+    overflow: hidden;
+}
+
 .ml-shot {
     display: block;
     width: 100%;
     height: auto;
-    max-height: 34rem;
+    max-height: 100%;
     object-fit: contain;
-    object-position: top;
-    border-radius: 1rem;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface);
-    box-shadow: 0 18px 40px -28px #0006;
+    border-radius: 0.75rem;
 }
-
-/* Скриншоты с телефона не растягиваем на всю ширину десктопа */
-/* Все кадры кабинета сняты на ширине телефона: на широком экране их не
-   растягиваем, а высоту не ограничиваем — иначе object-fit ужимал длинный
-   кадр вместе с текстом, и цифры переставали читаться. */
-.ml-shot[width="780"], .ml-shot[width="728"] { max-width: 22rem; max-height: none; }
 
 .ml-chat {
     width: 100%;
-    max-width: 22rem;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 1rem;
-    padding: 1rem;
-    box-shadow: 0 18px 40px -28px #0006;
+    padding: 0.85rem;
+    font-size: 0.9rem;
 }
 
 .ml-chat-head {
@@ -340,7 +351,11 @@
     .ml-section { padding: 4.5rem 0; }
     .ml-h2 { font-size: 2.2rem; }
     .ml-grid-3 { grid-template-columns: repeat(3, 1fr); }
-    .ml-tour-item { grid-template-columns: 1fr 1.3fr; gap: 2.5rem; }
+    .ml-tour { gap: 3.5rem; }
+    .ml-tour-item { grid-template-columns: 1.2fr 1fr; gap: 3rem; }
+    .ml-tour-text .ml-card-title { font-size: 1.5rem; }
+    .ml-tour-text .ml-card-text { font-size: 1.1rem; max-width: 28rem; }
+    .ml-phone { max-width: 22rem; }
     .ml-tour-item:nth-child(even) .ml-tour-text { order: 2; }
 }
 
