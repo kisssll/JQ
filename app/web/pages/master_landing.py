@@ -46,9 +46,19 @@ def cta_url(params: Mapping[str, str], logged_in: bool) -> str:
     return f"/register?redirect={quote(checkout, safe='')}"
 
 
-def _cta(href: str, label: str = f"Подключиться — {TRIAL_DAYS} дней бесплатно") -> str:
-    return (f'<a class="ml-cta" href="{e(href)}">{label}{ICON_ARROW_RIGHT}</a>'
-            f'<p class="ml-cta-note">Дальше {PRICE_RUB} ₽ в месяц. Карта не нужна.</p>')
+def _cta(href: str, label: str = f"Подключиться — {TRIAL_DAYS} дней бесплатно",
+         short: str = "Попробовать бесплатно", note: bool = True) -> str:
+    """Кнопка подключения.
+
+    Две подписи: на экране уже 420px длинная переносилась на две строки, кнопка
+    вырастала до 86px, а стрелка отрывалась от текста. Лишняя подпись скрыта
+    через display:none — экранный диктор её тоже не читает.
+    """
+    note_html = (f'<p class="ml-cta-note">Дальше {PRICE_RUB} ₽ в месяц. Карта не нужна.</p>'
+                 if note else "")
+    return (f'<a class="ml-cta" href="{e(href)}">'
+            f'<span class="ml-cta-long">{label}</span>'
+            f'<span class="ml-cta-short">{short}</span>{ICON_ARROW_RIGHT}</a>{note_html}')
 
 
 _PAINS = [
@@ -169,10 +179,12 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
 </head>
 <body class="ml-body">
     <header class="ml-header">
-        <picture class="ml-logo">
-            <source type="image/webp" srcset="/static/images/rumi-logo.webp">
-            <img src="/static/images/rumi-logo.png" alt="Руми" width="480" height="312">
-        </picture>
+        <div class="ml-container">
+            <picture class="ml-logo">
+                <source type="image/webp" srcset="/static/images/rumi-logo.webp">
+                <img src="/static/images/rumi-logo.png" alt="Руми" width="480" height="312">
+            </picture>
+        </div>
     </header>
 
     <main>
@@ -198,6 +210,7 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
                 <h2 class="ml-h2">Как это выглядит</h2>
                 <p class="ml-sub">Настоящие экраны Руми на примере вымышленного мастера.</p>
                 <ol class="ml-tour">{"".join(tour_items)}</ol>
+                <div class="ml-mid-cta">{_cta(href)}</div>
             </div>
         </section>
 
@@ -206,7 +219,7 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
                 <h2 class="ml-h2">Кто мы</h2>
                 <p class="ml-text">Руми — сервис онлайн-записи в салоны красоты и к частным мастерам.
                     Мы делаем его в Томске и отвечаем на вопросы сами, без колл-центра: пишите на
-                    hello@rrumi.ru.</p>
+                    <a class="ml-link" href="mailto:hello@rrumi.ru">hello@rrumi.ru</a>.</p>
             </div>
         </section>
 
@@ -220,6 +233,7 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
                         автоматических списаний нет.</p>
                     <ul class="ml-included">{included}</ul>
                     <p class="ml-price-note">Модели на отработку для пустых окон — пока только в Томске.</p>
+                    <div class="ml-price-cta">{_cta(href, note=False)}</div>
                 </div>
             </div>
         </section>
@@ -241,7 +255,7 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
         <section class="ml-final">
             <div class="ml-container">
                 <h2 class="ml-h2">Попробуйте {TRIAL_DAYS} дней бесплатно</h2>
-                {_cta(href)}
+                {_cta(href, label="Подключиться", short="Подключиться")}
             </div>
         </section>
     </main>

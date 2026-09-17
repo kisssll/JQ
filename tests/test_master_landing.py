@@ -35,13 +35,17 @@ async def test_landing_is_noindex_and_carries_labels(client):
 
 async def test_landing_has_single_exit(client):
     """Сепарированная страница: никаких ссылок «погулять» по сайту —
-    только кнопка подключения и документы в новой вкладке."""
+    только кнопка подключения, документы в новой вкладке и почта.
+
+    Почта разрешена ровно одна и только mailto: текст страницы сам предлагает
+    «пишите на hello@rrumi.ru», и адрес без ссылки заставлял его копировать.
+    На сайт она не уводит."""
     r = await client.get("/dlya-masterov")
     import re
     hrefs = set(re.findall(r'<a [^>]*href="([^"]+)"', r.text))
-    allowed_docs = {"/license", "/privacy", "/cookies"}
+    allowed = {"/license", "/privacy", "/cookies", "mailto:hello@rrumi.ru"}
     for href in hrefs:
-        assert href in allowed_docs or href.startswith("/register?redirect=%2Fbusiness%2Fcheckout"), href
+        assert href in allowed or href.startswith("/register?redirect=%2Fbusiness%2Fcheckout"), href
 
 
 async def test_registration_returns_to_checkout(client):

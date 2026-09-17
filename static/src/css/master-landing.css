@@ -3,6 +3,11 @@
    чтобы не пересекаться со стилями сайта. В первую очередь под телефон. */
 
 .ml-body {
+    /* Фон главной кнопки — своя переменная, а не токен темы: --color-accent-hover
+       с белой подписью даёт 3.31:1 в светлой теме и 4.28:1 в тёмной, ниже нормы
+       4.5 для текста этого размера (17.85px жирный — чуть меньше порога
+       «крупного» 18.66px). Тот же тон бренда, только темнее: 4.72 и 4.71. */
+    --ml-cta-bg: #ca3e74;
     margin: 0;
     background: var(--color-background);
     color: var(--color-body);
@@ -15,8 +20,14 @@
     padding: 0 1.25rem;
 }
 
+:root[data-theme="dark"] .ml-body {
+    --ml-cta-bg: #a35f77;
+}
+
+/* Отступ по горизонтали даёт .ml-container: раньше логотип стоял у края окна
+   (x=21px), а контент на десктопе начинался с 163px. */
 .ml-header {
-    padding: 0.75rem 1.25rem;
+    padding: 0.75rem 0;
 }
 
 .ml-logo img {
@@ -68,18 +79,34 @@
     min-height: 3.25rem;
     padding: 0.85rem 1.6rem;
     border-radius: 9999px;
-    background: var(--color-accent-hover);
+    background: var(--ml-cta-bg);
     color: #fff;
     font-weight: 700;
     font-size: 1.05rem;
     text-decoration: none;
-    box-shadow: 0 10px 24px -12px var(--color-accent-hover);
+    box-shadow: 0 10px 24px -12px var(--ml-cta-bg);
     transition: transform 0.15s ease, filter 0.15s ease;
 }
 
 .ml-cta:hover { filter: brightness(1.06); transform: translateY(-1px); }
 .ml-cta:focus-visible { outline: 3px solid var(--color-heading); outline-offset: 3px; }
-.ml-cta svg { width: 1.1rem; height: 1.1rem; }
+.ml-cta svg { width: 1.1rem; height: 1.1rem; flex: none; }
+
+/* Короткая подпись — только на узком экране, где длинная не помещается в строку. */
+.ml-cta-short { display: none; }
+
+@media (max-width: 419px) {
+    .ml-cta-long { display: none; }
+    .ml-cta-short { display: inline; }
+}
+
+/* Кнопка после экскурсии и в карточке цены: раньше между первой и последней
+   кнопкой на телефоне было 6 500px без единого призыва. */
+.ml-mid-cta { margin-top: 2.5rem; text-align: center; }
+.ml-price-cta { margin-top: 1.25rem; }
+.ml-price-cta .ml-cta { width: 100%; }
+
+.ml-link { color: var(--color-heading); text-underline-offset: 0.15em; }
 
 .ml-cta-note {
     margin: 0.6rem 0 0;
@@ -198,7 +225,7 @@
     width: 2rem;
     height: 2rem;
     border-radius: 50%;
-    background: var(--color-accent-hover);
+    background: var(--ml-cta-bg);
     color: #fff;
     font-size: 0.85rem;
 }
@@ -239,6 +266,14 @@
 .ml-included svg { flex: none; width: 1.15rem; height: 1.15rem; margin-top: 0.15rem; color: var(--color-success); }
 
 .ml-price-note { margin: 0; font-size: 0.9rem; color: var(--color-muted); }
+
+/* Внутри карточки цены места меньше, чем на всю ширину экрана: без этого и
+   короткая подпись кнопки переносилась, кнопка снова вырастала до 86px.
+   Правило стоит после базового .ml-price — выше по файлу оно бы проиграло. */
+@media (max-width: 419px) {
+    .ml-price { padding: 1.25rem 1rem; }
+    .ml-price-cta .ml-cta { padding-inline: 1rem; }
+}
 
 /* ---------- вопросы ---------- */
 .ml-faq { max-width: 46rem; }
@@ -286,6 +321,15 @@
 .ml-footer-links { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; }
 .ml-footer a { color: var(--color-muted); }
 
+/* ---------- первый экран на телефоне ----------
+   Кнопка и подпись «Дальше 250 ₽» должны помещаться выше баннера cookie на
+   коротком экране (375×667): без этого подпись заходила под баннер на 9px. */
+@media (max-width: 767px) {
+    .ml-logo img { width: 84px; }
+    .ml-title { margin: 0.75rem 0 0.7rem; }
+    .ml-lead { margin-bottom: 1.25rem; }
+}
+
 /* ---------- шире телефона ---------- */
 @media (min-width: 768px) {
     .ml-title { font-size: 3.2rem; }
@@ -296,3 +340,19 @@
     .ml-tour-item { grid-template-columns: 1fr 1.3fr; gap: 2.5rem; }
     .ml-tour-item:nth-child(even) .ml-tour-text { order: 2; }
 }
+
+/* ---------- уведомление о cookie ----------
+   На телефоне 375×667 обычный баннер (138px) начинался с 521px и закрывал низ
+   главной кнопки (до 560px) и подпись под ней — на первом экране рекламной
+   страницы. Здесь он компактнее и прижат к краю. Оба ответа остаются
+   равноправными: меняются только отступы и кегль. */
+.ml-body .cookie-notice {
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    gap: 0.5rem;
+}
+
+.ml-body .cookie-notice-text { font-size: 0.74rem; line-height: 1.35; }
+.ml-body .cookie-notice-btn { padding: 0.35rem 0.9rem; font-size: 0.78rem; }
