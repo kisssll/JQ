@@ -143,6 +143,12 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
         select(Master).where(Master.salon_id == salon_id, Master.is_active == True)
     )).scalars().all()
 
+    # Частный мастер — «салон» из одного человека, который сам им владеет.
+    # Ему «салон подтвердит запись» звучит странно: клиент идёт к мастеру.
+    solo = len(masters) == 1 and masters[0].user_id == salon.creator_id
+    confirmer = "мастер" if solo else "салон"
+    title = f"Запись к «{e(salon.name)}»" if solo else f"Запись в «{e(salon.name)}»"
+
     data = []
     for m in masters:
         muser = (await db.execute(select(User).where(User.id == m.user_id))).scalar_one_or_none()
@@ -176,8 +182,8 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
     masters_json = ejson(data)
 
     inner = f"""
-        <h1 class="gb-title">Запись в «{e(salon.name)}»</h1>
-        <p class="gb-sub">Без регистрации — оставьте имя и телефон, салон подтвердит запись.</p>
+        <h1 class="gb-title">{title}</h1>
+        <p class="gb-sub">Без регистрации — оставьте имя и телефон, {confirmer} подтвердит запись.</p>
 
         <div id="guest-book" data-salon-id="{salon.id}" data-masters='{masters_json}'>
 

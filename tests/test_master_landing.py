@@ -160,3 +160,28 @@ async def test_client_card_renders_for_owner(client, db_session):
     salon_id = r.json()["salon_id"]
     r = await client.get(f"/business/clients/{data['user']['id'] if 'user' in data else 1}?salon_id={salon_id}")
     assert r.status_code == 200
+
+
+async def test_guest_booking_speaks_of_master_for_solo(client, db_session):
+    """У частного мастера страница записи не говорит «салон подтвердит»."""
+    data = await register_user(client, "+79997771006")
+    client.cookies.set("access_token", data["access_token"])
+    r = await client.post("/api/v1/business/apply", data={
+        "salon_name": "Анна Смирнова", "phone": "+79997771006",
+        "offer_accepted": "1", "pd_consent": "1", "plan": "lite", "for_master": "1",
+    })
+    salon_id = r.json()["salon_id"]
+    from app.models.models import SalonModerationStatus
+    async with db_session() as db:
+        salon = await db.get(Salon, salon_id)
+        salon.moderation_status = SalonModerationStatus.APPROVED
+        salon.guest_booking_enabled = True
+        from datetime import datetime, timezone
+        salon.published_at = datetime.now(timezone.utc)
+        master = (await db.execute(select(Master).where(Master.salon_id == salon_id))).scalar_one()
+        from app.models.models import Service
+        db.add(Service(master_id=master.id, name="Маникюр", price=2000, duration_minutes=90))
+        await db.commit()
+    r = await client.get(f"/book/{salon_id}")
+    assert "мастер подтвердит запись" in r.text, r.text[:500]
+    assert "салон подтвердит" not in r.text
