@@ -2,32 +2,32 @@
 :root {
     --font-heading: "Playfair Display", serif;
     --font-body: "Inter", sans-serif;
-    --color-primary: #F69EBC;
-    --color-secondary: #f2e2ee;
-    --color-background: #faf7f5;
+    --color-primary: #CA3E74;
+    --color-secondary: #FBE3EA;
+    --color-background: #FFF8F6;
     --color-surface: #fff;
     --color-text: #590127;
-    --color-accent: #F69EBC;
-    --color-surface-alt: #f4eef2;
+    --color-accent: #CA3E74;
+    --color-surface-alt: #FDEFF2;
     /* Вторая поверхность — для вложенных плашек (строки графика мастера,
        попап реквизитов). Раньше на неё ссылались как var(--color-surface-2,
        #f6f6f8), но токена не существовало: всегда брался светлый запасной
        цвет, и в тёмной теме выходил белый текст на белом. */
-    --color-surface-2: #f6f6f8;
+    --color-surface-2: #FEF3F2;
     /* #3a0019 — правка лендинга от 04.09, уже на проде. Фронт-сессия ветвилась
        раньше неё и держала прежний #2a0e16; при слиянии оставлен живой цвет. */
     --color-heading: #3a0019;
-    --color-muted: #6b6470;
-    --color-border: #ece4ea;
-    --color-accent-hover: #D66A94;
-    --color-accent-light: #f2e2ee;
+    --color-muted: #7A5C69;
+    --color-border: #F0DDE2;
+    --color-accent-hover: #A82E5E;
+    --color-accent-light: #FCE1EA;
     --color-accent-muted: #F69EBC4d;
 
     /* Основной текст — на полтона светлее заголовка. Переменная использовалась
        в 10 местах (.text-body в global.css, карточки записей, услуги, профиль,
        страница салона), но объявлена не была: свойство становилось невалидным
        и цвет молча наследовался от заголовка. */
-    --color-body: #4a4552;
+    --color-body: #503F47;
 
     /* Семантика состояний. Тоже использовались без объявления — держались на
        инлайновых фолбэках, из-за чего значения разъехались: danger был и
@@ -47,11 +47,11 @@
     /* Фирменный тёплый градиент-подложка страниц (home/profile/settings/
        bookings/favorites/checkout/business-landing) — раньше был захардкожен
        в каждом файле по отдельности, поэтому не подчинялся теме. */
-    --page-gradient-1: #FFF8F6;
-    --page-gradient-2: #F8C8DC33;
-    --page-gradient-3: #F28C6F22;
-    --page-gradient-2-strong: #F8C8DC44;
-    --page-gradient-3-strong: #F28C6F33;
+    --page-gradient-1: #FFFAF8;
+    --page-gradient-2: #F69EBC26;
+    --page-gradient-3: #FFC9B822;
+    --page-gradient-2-strong: #F69EBC40;
+    --page-gradient-3-strong: #FFC9B833;
 
     /* Темизация Choices.js (выпадающие .custom-select) через её же
        CSS-переменные — сама библиотека их поддерживает, но без явного
