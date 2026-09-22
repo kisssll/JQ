@@ -230,9 +230,19 @@ async def apply_business(
     offer_accepted: str = Form(""),
     pd_consent: str = Form(""),
     consent_version: str = Form(""),
+    for_master: str = Form(""),
+    specialization: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     """Заявка на подключение салона со страницы /business/checkout.
+
+    for_master=1 — частный мастер (лендинг /dlya-masterov): «салон» из одного
+    человека, и мастером в нём сразу заводится сам владелец. Без этого
+    частному мастеру пришлось бы искать в кабинете «добавить сотрудника» и
+    вписывать туда собственный телефон — иначе к нему нельзя записаться.
+
+    Метки рекламы (utm_*, yclid, landing) приходят полями формы и сохраняются
+    в ad_attributions — учёт подключений из рекламы без cookie.
 
     Создаёт салон-заявку (pending), повышает пользователя до BUSINESS и заводит
     владельцем — чтобы он мог дозаполнить салон в кабинете. Публично салон не
@@ -266,6 +276,18 @@ async def apply_business(
         salon_id=salon.id, user_id=user.id, role=SalonRole.OWNER,
         is_creator=True, permissions=dict(OWNER_DEFAULT_PERMISSIONS), is_active=True,
     ))
+    if for_master == "1":
+        # Мастер у пользователя может быть только один (masters.user_id
+        # уникален): уже работает мастером в другом салоне — не заводим.
+        already_master = (await db.execute(
+            select(Master.id).where(Master.user_id == user.id)
+        )).scalar_one_or_none()
+        if already_master is None:
+            db.add(Master(
+                user_id=user.id, salon_id=salon.id,
+                specialization=(specialization.strip() or "Мастер")[:100],
+                experience_years=0, rating=0.0,
+            ))
     # Повышаем до BUSINESS: владелец получает кабинет (с баннером «на модерации»),
     # но салон невидим публично и запись закрыта до одобрения.
     # ADMIN не трогаем: это ПОНИЖЕНИЕ, а не повышение — модератор, заведя себе
@@ -280,17 +302,21 @@ async def apply_business(
     # Значения читаем до записи журнала: её commit сбрасывает состояние сессии,
     # и обращение к user.id после него уходит в ленивую подгрузку.
     _uid, _uphone = user.id, getattr(user, "phone", None)
+    _salon_id = salon.id
     await record_consents(
         db, documents=(ConsentDocument.OFFER, ConsentDocument.PD_CONSENT),
-        version=consent_version, source="business_checkout",
+        version=consent_version, source="master_checkout" if for_master == "1" else "business_checkout",
         user_id=_uid, phone=_uphone, request=request,
     )
+    from app.services import ad_attribution
+    form = await request.form()
+    await ad_attribution.record(db, user_id=_uid, salon_id=_salon_id, params=form)
     # salon_id — чек-ауту нужен, чтобы следующим шагом дёрнуть
     # /api/v1/payments/business/init (выбор автопродления, запуск триала/оплаты).
     return {
         "ok": True,
-        "redirect": f"/business/dashboard?submitted=1&salon_id={salon.id}",
-        "salon_id": salon.id,
+        "redirect": f"/business/dashboard?submitted=1&salon_id={_salon_id}",
+        "salon_id": _salon_id,
     }
 
 

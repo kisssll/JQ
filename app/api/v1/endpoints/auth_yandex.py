@@ -60,6 +60,8 @@ async def yandex_start(request: Request):
     state = str(uuid.uuid4())
     r = get_redis()
     await r.set(f"oauth:yandex:{state}", "1", ex=_STATE_TTL)
+    from app.services.auth_redirect import remember_for_oauth
+    await remember_for_oauth("yandex", state, request.query_params.get("redirect"))
 
     from urllib.parse import urlencode
 
@@ -157,6 +159,7 @@ async def yandex_callback(
     if not user.is_active:
         return RedirectResponse(url="/login?error=locked", status_code=302)
 
-    response = RedirectResponse(url="/profile", status_code=302)
+    from app.services.auth_redirect import pop_for_oauth
+    response = RedirectResponse(url=await pop_for_oauth("yandex", state), status_code=302)
     _set_auth_cookie(response, user.id)
     return response

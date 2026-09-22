@@ -48,6 +48,11 @@ def render_login_page(request: Request) -> str:
     """Страница входа."""
     q = request.query_params
     redirect = html.escape(q.get("redirect", "/"), quote=True)
+    # Адрес возврата передаём дальше — на регистрацию и во вход через
+    # Яндекс/VK, иначе он терялся на первом же переходе.
+    from urllib.parse import quote as _quote
+    redirect_raw = q.get("redirect", "")
+    redirect_qs = f"?redirect={_quote(redirect_raw, safe='')}" if redirect_raw else ""
     phone = html.escape(q.get("phone") or "+7", quote=True)
     errors = {
         "1": "Неверный телефон или пароль",
@@ -65,9 +70,9 @@ def render_login_page(request: Request) -> str:
     banner = _alert(errors.get(q.get("error", ""), ""))
     oauth_buttons = ""
     if settings.YANDEX_OAUTH_ENABLED:
-        oauth_buttons += YANDEX_BUTTON
+        oauth_buttons += YANDEX_BUTTON.replace('/api/v1/auth/yandex/start"', f'/api/v1/auth/yandex/start{html.escape(redirect_qs, quote=True)}"')
     if settings.VK_OAUTH_ENABLED:
-        oauth_buttons += VK_BUTTON
+        oauth_buttons += VK_BUTTON.replace('/api/v1/auth/vk/start"', f'/api/v1/auth/vk/start{html.escape(redirect_qs, quote=True)}"')
     yandex_block = (OAUTH_DIVIDER + oauth_buttons) if oauth_buttons else ""
 
     return f"""<!DOCTYPE html>
@@ -97,7 +102,7 @@ def render_login_page(request: Request) -> str:
         </form>
 
         <!-- Кнопка регистрации (белая с розовой надписью) -->
-        <button type="button" class="auth-btn-outline" onclick="window.location.href='/register'">Регистрация</button>
+        <button type="button" class="auth-btn-outline" onclick="window.location.href='/register{html.escape(redirect_qs, quote=True)}'">Регистрация</button>
 
         {yandex_block}
         <div class="auth-links">

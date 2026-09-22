@@ -1,0 +1,803 @@
+/* static/src/css/master-landing.css — лендинг /dlya-masterov (реклама для частных мастеров).
+   Все цвета — токены темы: страница живёт и в тёмной теме. Префикс ml- —
+   чтобы не пересекаться со стилями сайта. В первую очередь под телефон. */
+
+.ml-body {
+    /* Фон главной кнопки — своя переменная, а не токен темы: --color-accent-hover
+       с белой подписью даёт 3.31:1 в светлой теме и 4.28:1 в тёмной, ниже нормы
+       4.5 для текста этого размера (17.85px жирный — чуть меньше порога
+       «крупного» 18.66px). Тот же тон бренда, только темнее: 4.72 и 4.71. */
+    --ml-cta-bg: #ca3e74;
+    margin: 0;
+    background: var(--color-background);
+    color: var(--color-body);
+    font-family: var(--font-body);
+}
+
+.ml-container {
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+}
+
+:root[data-theme="dark"] .ml-body {
+    --ml-cta-bg: #a35f77;
+}
+
+/* Отступ по горизонтали даёт .ml-container: раньше логотип стоял у края окна
+   (x=21px), а контент на десктопе начинался с 163px. */
+.ml-header {
+    padding: 0.75rem 0;
+}
+
+.ml-logo img {
+    display: block;
+    width: 96px;
+    height: auto;
+}
+
+/* ---------- первый экран ---------- */
+.ml-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 1.5rem 0 3rem;
+    background: radial-gradient(120% 90% at 100% 0%, var(--page-gradient-2-strong), transparent 60%),
+                radial-gradient(90% 70% at 0% 100%, var(--page-gradient-3), transparent 60%);
+}
+
+/* Мягкие цветные пятна за текстом. Контраст низкий, читаемость не страдает. */
+.ml-hero::before,
+.ml-hero::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    pointer-events: none;
+}
+.ml-hero::before {
+    width: 26rem;
+    height: 26rem;
+    right: -8rem;
+    top: -9rem;
+    background: #F69EBC;
+    opacity: 0.32;
+    animation: ml-drift 14s ease-in-out infinite alternate;
+}
+.ml-hero::after {
+    width: 22rem;
+    height: 22rem;
+    left: -8rem;
+    bottom: -10rem;
+    background: #FFC9B8;
+    opacity: 0.4;
+    animation: ml-drift 18s ease-in-out infinite alternate-reverse;
+}
+:root[data-theme="dark"] .ml-hero::before { opacity: 0.16; }
+:root[data-theme="dark"] .ml-hero::after { opacity: 0.1; }
+
+/* Контент героя поверх пятен. */
+.ml-hero .ml-container { position: relative; z-index: 1; }
+
+@keyframes ml-drift {
+    from { transform: translate(0, 0); }
+    to   { transform: translate(-2.5rem, 2rem); }
+}
+
+.ml-badge {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    background: var(--color-accent-light);
+    color: var(--color-heading);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.ml-title {
+    font-family: var(--font-heading);
+    color: var(--color-heading);
+    font-size: 2.1rem;
+    line-height: 1.12;
+    margin: 1rem 0 0.9rem;
+    max-width: 44rem;
+}
+
+.ml-lead {
+    font-size: 1.1rem;
+    line-height: 1.55;
+    max-width: 38rem;
+    margin: 0 0 1.75rem;
+}
+
+/* Маркер под ключевыми словами заголовка. Цвет из токена, в тёмной теме он свой. */
+.ml-hl {
+    background-image: linear-gradient(var(--color-accent-muted), var(--color-accent-muted));
+    background-repeat: no-repeat;
+    background-position: 0 88%;
+    background-size: 100% 0.38em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    padding: 0 0.1em;
+}
+
+/* Акцентная первая строка подзаголовка. */
+.ml-lead-hi {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-family: var(--font-heading);
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--ml-cta-bg);
+}
+
+/* Плашки с выгодами под кнопкой. */
+.ml-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0 0;
+}
+.ml-chips li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.ml-chips svg {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    color: var(--ml-cta-bg);
+}
+
+/* Главная кнопка: светлый #F69EBC с белой подписью не читался (≈2:1),
+   поэтому фон — более тёмный акцент. */
+.ml-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3.25rem;
+    padding: 0.85rem 1.6rem;
+    border-radius: 9999px;
+    background: var(--ml-cta-bg);
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.05rem;
+    text-decoration: none;
+    box-shadow: 0 10px 24px -12px var(--ml-cta-bg);
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.ml-cta:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.ml-cta:focus-visible { outline: 3px solid var(--color-heading); outline-offset: 3px; }
+.ml-cta svg { width: 1.1rem; height: 1.1rem; flex: none; }
+
+/* Короткая подпись — только на узком экране, где длинная не помещается в строку. */
+.ml-cta-short { display: none; }
+
+@media (max-width: 419px) {
+    .ml-cta-long { display: none; }
+    .ml-cta-short { display: inline; }
+}
+
+/* Кнопка после экскурсии и в карточке цены: раньше между первой и последней
+   кнопкой на телефоне было 6 500px без единого призыва. */
+.ml-mid-cta { margin-top: 2.5rem; text-align: center; }
+.ml-price-cta { margin-top: 1.25rem; }
+.ml-price-cta .ml-cta { width: 100%; }
+
+.ml-link { color: var(--color-heading); text-underline-offset: 0.15em; }
+
+.ml-cta-note {
+    margin: 0.6rem 0 0;
+    font-size: 0.9rem;
+    color: var(--color-muted);
+}
+
+/* ---------- секции ---------- */
+.ml-section { padding: 3rem 0; }
+.ml-section-alt { background: var(--color-surface-alt); }
+
+.ml-h2 {
+    font-family: var(--font-heading);
+    color: var(--color-heading);
+    font-size: 1.7rem;
+    line-height: 1.2;
+    margin: 0 0 1.25rem;
+}
+
+.ml-sub { margin: -0.5rem 0 1.5rem; color: var(--color-muted); }
+.ml-text { font-size: 1.05rem; line-height: 1.6; max-width: 42rem; margin: 0; }
+
+.ml-grid-3 {
+    display: grid;
+    gap: 1rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ml-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: 1.25rem;
+}
+
+.ml-card-title {
+    color: var(--color-heading);
+    font-size: 1.1rem;
+    margin: 0 0 0.4rem;
+}
+
+.ml-card-text { margin: 0; line-height: 1.55; }
+
+.ml-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    margin-bottom: 0.6rem;
+    border-radius: 50%;
+    background: var(--color-accent-light);
+    color: var(--color-heading);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+/* Номера пунктов экскурсии: крупная цифра-индекс с линией, а не кружок.
+   Цвет — как у главной кнопки, линия приглушена, чтобы цифра не перетягивала
+   внимание с заголовка. Кружки в «Как подключиться» этим правилом не задеты. */
+.ml-tour .ml-step-num {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: auto;
+    height: auto;
+    margin-bottom: 0.4rem;
+    border-radius: 0;
+    background: none;
+    color: var(--ml-cta-bg);
+    font-family: var(--font-heading);
+    font-size: 3.25rem;
+    font-weight: 700;
+    line-height: 1;
+    /* У Playfair Display цифры по умолчанию «старого стиля» (разной высоты),
+       для номера нужны ровные. */
+    font-variant-numeric: lining-nums;
+}
+
+/* Крупная цифра слева, заголовок и описание справа. Цифра занимает обе
+   строки текстового блока и стоит по центру относительно них. */
+.ml-tour-text {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-content: center;
+    column-gap: 1.25rem;
+}
+
+.ml-tour .ml-step-num {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+    display: block;
+    width: auto;
+    height: auto;
+    min-width: 0.75em;
+    margin: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--ml-cta-bg);
+    text-align: center;
+    font-family: var(--font-heading);
+    font-size: 5.5rem;
+    font-weight: 700;
+    line-height: 1;
+    /* Ровные цифры одной высоты и одной ширины: «1» и «4» не сдвигают текст. */
+    font-variant-numeric: lining-nums tabular-nums;
+}
+
+.ml-tour-text .ml-card-title {
+    grid-column: 2;
+    align-self: end;
+}
+
+.ml-tour-text .ml-card-text {
+    grid-column: 2;
+    align-self: start;
+}
+
+@media (max-width: 767px) {
+    .ml-tour-text { column-gap: 0.9rem; }
+    .ml-tour .ml-step-num { font-size: 3.5rem; }
+}
+/* ---------- экскурсия ---------- */
+.ml-tour {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 2.5rem;
+}
+
+.ml-tour-item {
+    display: grid;
+    gap: 1rem;
+    align-items: center;
+}
+
+.ml-tour-visual { display: flex; justify-content: center; }
+
+/* Рамка телефона одной ширины для всех пунктов экскурсии. В ней — только
+   фрагмент экрана, о котором говорит подпись: целые экраны превращали блок
+   в ленту картинок, где терялся текст. Фрагменты обрезаны по содержимому,
+   поэтому рамка по высоте не больше текста рядом. */
+.ml-phone {
+    width: 100%;
+    max-width: 20rem;
+    box-sizing: border-box;
+    padding: 0.9rem 0.55rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Корпус телефона тёмный в обеих темах: цвет заголовка в тёмной теме
+       светлый, и рамка становилась белой, перетягивая внимание с кадра. */
+    border: 0.45rem solid #2a1a20;
+    outline: 1px solid var(--color-border);
+    border-radius: 2rem;
+    background: var(--color-background);
+    box-shadow: 0 24px 48px -30px #000a;
+    overflow: hidden;
+}
+
+.ml-shot {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 0.75rem;
+}
+
+.ml-chat {
+    width: 100%;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: 0.85rem;
+    font-size: 0.9rem;
+}
+
+.ml-chat-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin-bottom: 0.75rem;
+}
+
+.ml-chat-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--ml-cta-bg);
+    color: #fff;
+    font-size: 0.85rem;
+}
+
+.ml-chat-bubble {
+    background: var(--color-surface-alt);
+    border-radius: 0.25rem 1rem 1rem 1rem;
+    padding: 0.75rem 0.9rem;
+    line-height: 1.5;
+    color: var(--color-heading);
+}
+
+.ml-chat-caption { margin: 0.5rem 0 0; font-size: 0.8rem; color: var(--color-muted); }
+
+/* ---------- цена ---------- */
+.ml-price {
+    background: var(--color-surface);
+    border: 2px solid var(--color-primary);
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    max-width: 30rem;
+}
+
+.ml-price-name { margin: 0; font-weight: 600; color: var(--color-heading); }
+
+.ml-price-amount {
+    margin: 0.4rem 0;
+    font-family: var(--font-heading);
+    font-size: 2.6rem;
+    color: var(--color-heading);
+}
+
+.ml-price-amount span { font-family: var(--font-body); font-size: 1rem; color: var(--color-muted); }
+.ml-price-trial { margin: 0 0 1rem; font-weight: 600; }
+
+.ml-included { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; gap: 0.5rem; }
+.ml-included li { display: flex; gap: 0.5rem; align-items: flex-start; }
+.ml-included svg { flex: none; width: 1.15rem; height: 1.15rem; margin-top: 0.15rem; color: var(--color-success); }
+
+.ml-price-note { margin: 0; font-size: 0.9rem; color: var(--color-muted); }
+
+/* Внутри карточки цены места меньше, чем на всю ширину экрана: без этого и
+   короткая подпись кнопки переносилась, кнопка снова вырастала до 86px.
+   Правило стоит после базового .ml-price — выше по файлу оно бы проиграло. */
+@media (max-width: 419px) {
+    .ml-price { padding: 1.25rem 1rem; }
+    .ml-price-cta .ml-cta { padding-inline: 1rem; }
+}
+
+/* ---------- вопросы ---------- */
+.ml-faq { max-width: 46rem; }
+
+.ml-faq-item {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.9rem;
+    margin-bottom: 0.6rem;
+}
+
+.ml-faq-item summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 1rem 2.5rem 1rem 1.1rem;
+    position: relative;
+    font-weight: 600;
+    color: var(--color-heading);
+}
+
+.ml-faq-item summary::-webkit-details-marker { display: none; }
+.ml-faq-item summary::after {
+    content: "+";
+    position: absolute;
+    right: 1.1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.3rem;
+    color: var(--color-muted);
+}
+.ml-faq-item[open] summary::after { content: "−"; }
+.ml-faq-item p { margin: 0; padding: 0 1.1rem 1rem; line-height: 1.55; }
+
+/* ---------- финал и подвал ---------- */
+.ml-final { padding: 3.5rem 0; text-align: center; }
+
+.ml-footer {
+    padding: 1.5rem 0 2rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.ml-footer p { margin: 0 0 0.5rem; }
+.ml-footer-links { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; }
+.ml-footer a { color: var(--color-muted); }
+
+/* ---------- первый экран на телефоне ----------
+   Кнопка и подпись «Дальше 250 ₽» должны помещаться выше баннера cookie на
+   коротком экране (375×667): без этого подпись заходила под баннер на 9px. */
+@media (max-width: 767px) {
+    .ml-logo img { width: 84px; }
+    .ml-title { margin: 0.75rem 0 0.7rem; }
+    .ml-lead { margin-bottom: 1.25rem; }
+    .ml-lead-hi { font-size: 1.15rem; }
+}
+
+/* ---------- шире телефона ---------- */
+@media (min-width: 768px) {
+    .ml-title { font-size: 3.2rem; }
+    .ml-hero { padding: 3rem 0 4.5rem; }
+    .ml-section { padding: 4.5rem 0; }
+    .ml-h2 { font-size: 2.2rem; }
+    .ml-grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .ml-tour { gap: 3.5rem; }
+    .ml-tour-item { grid-template-columns: 1.2fr 1fr; gap: 3rem; }
+    .ml-tour-text .ml-card-title { font-size: 1.5rem; }
+    .ml-tour-text .ml-card-text { font-size: 1.1rem; max-width: 28rem; }
+    .ml-phone { max-width: 22rem; }
+    .ml-tour-item:nth-child(even) .ml-tour-text { order: 2; }
+}
+
+/* ---------- уведомление о cookie ----------
+   На телефоне 375×667 обычный баннер (138px) начинался с 521px и закрывал низ
+   главной кнопки (до 560px) и подпись под ней — на первом экране рекламной
+   страницы. Здесь он компактнее и прижат к краю. Оба ответа остаются
+   равноправными: меняются только отступы и кегль. */
+.ml-body .cookie-notice {
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    gap: 0.5rem;
+}
+
+.ml-body .cookie-notice-text { font-size: 0.74rem; line-height: 1.35; }
+.ml-body .cookie-notice-btn { padding: 0.35rem 0.9rem; font-size: 0.78rem; }
+
+/* ==========================================================================
+   ЭФФЕКТЫ
+   Правило: без JS и при prefers-reduced-motion страница показывает итоговое
+   состояние. Скрытые «до появления» состояния включаются только классом
+   .ml-js, который ставит master-landing.js.
+   ========================================================================== */
+
+/* ---------- первый экран: сетка и живой телефон ---------- */
+.ml-hero-visual { display: none; }
+
+@media (min-width: 900px) {
+    .ml-hero-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 3rem;
+        align-items: center;
+    }
+    .ml-hero-visual { display: flex; justify-content: center; }
+}
+
+.ml-phone-hero {
+    max-width: 19rem;
+    animation: ml-float 6s ease-in-out infinite;
+}
+
+.ml-live {
+    position: relative;
+    width: 100%;
+    min-height: 21rem;
+    padding: 1rem 0.9rem;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    background: var(--color-surface);
+    color: var(--color-body);
+    font-size: 0.85rem;
+}
+
+.ml-live-title { margin: 0; font-weight: 700; font-size: 1rem; color: var(--color-heading); }
+.ml-live-sub { margin: 0.15rem 0 0.9rem; font-size: 0.78rem; color: var(--color-muted); }
+
+.ml-live-days { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; }
+.ml-live-day {
+    flex: 1;
+    padding: 0.4rem 0;
+    text-align: center;
+    border: 1px solid var(--color-border);
+    border-radius: 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-heading);
+}
+.ml-live-day-on { background: var(--color-accent-light); border-color: transparent; }
+
+.ml-live-slots {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.45rem;
+    margin-bottom: 0.9rem;
+}
+
+.ml-slot {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding: 0.55rem 0;
+    text-align: center;
+    border: 1px solid var(--color-border);
+    border-radius: 0.6rem;
+    font-weight: 600;
+    color: var(--color-heading);
+}
+
+.ml-slot-busy {
+    font-weight: 400;
+    text-decoration: line-through;
+    color: var(--color-muted);
+    opacity: 0.55;
+}
+
+/* Выбранное окно: заливка — отдельным слоем, чтобы анимировать прозрачность. */
+.ml-slot-pick { animation: ml-pick-text 9s infinite; }
+.ml-slot-pick::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--ml-cta-bg);
+    opacity: 0;
+    animation: ml-pick 9s infinite;
+}
+
+.ml-live-btn {
+    padding: 0.7rem;
+    text-align: center;
+    border-radius: 9999px;
+    background: var(--ml-cta-bg);
+    color: #fff;
+    font-weight: 700;
+    animation: ml-press 9s infinite;
+}
+
+.ml-live-done {
+    position: absolute;
+    left: 0.7rem;
+    right: 0.7rem;
+    bottom: 0.8rem;
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.9rem;
+    background: var(--color-surface);
+    box-shadow: 0 12px 28px -14px #0007;
+    opacity: 0;
+    transform: translateY(14px);
+    animation: ml-done 9s infinite;
+}
+.ml-live-done svg { flex: none; width: 1.3rem; height: 1.3rem; color: var(--color-success); }
+.ml-live-done b { display: block; color: var(--color-heading); }
+.ml-live-done span { font-size: 0.78rem; color: var(--color-muted); }
+
+@keyframes ml-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+}
+@keyframes ml-pick {
+    0%, 30%   { opacity: 0; }
+    34%, 90%  { opacity: 1; }
+    96%, 100% { opacity: 0; }
+}
+@keyframes ml-pick-text {
+    0%, 30%   { color: var(--color-heading); }
+    34%, 90%  { color: #fff; }
+    96%, 100% { color: var(--color-heading); }
+}
+@keyframes ml-press {
+    0%, 38%, 45%, 100% { transform: scale(1); }
+    41.5%              { transform: scale(0.95); }
+}
+@keyframes ml-done {
+    0%, 44%   { opacity: 0; transform: translateY(14px); }
+    50%, 88%  { opacity: 1; transform: none; }
+    95%, 100% { opacity: 0; transform: translateY(14px); }
+}
+
+/* ---------- блик на главной кнопке ---------- */
+.ml-cta { position: relative; overflow: hidden; isolation: isolate; }
+.ml-cta > * { position: relative; z-index: 1; }
+.ml-cta::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    transform: translateX(-160%) skewX(-20deg);
+    animation: ml-shine 5s ease-in-out infinite;
+    pointer-events: none;
+}
+.ml-cta:hover::after { animation: none; }
+
+@keyframes ml-shine {
+    0%, 60% { transform: translateX(-160%) skewX(-20deg); }
+    100%    { transform: translateX(360%) skewX(-20deg); }
+}
+
+/* ---------- зачёркивание «болей» ---------- */
+.ml-strike {
+    background-image: linear-gradient(var(--ml-cta-bg), var(--ml-cta-bg));
+    background-repeat: no-repeat;
+    background-position: 0 56%;
+    background-size: 100% 2px;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    transition: background-size 0.7s ease, color 0.7s ease;
+    transition-delay: calc(var(--i, 0) * 90ms + 0.25s);
+}
+.ml-js .ml-pain .ml-strike { background-size: 0 2px; }
+.ml-js .ml-pain.is-visible .ml-strike { background-size: 100% 2px; color: var(--color-muted); }
+
+/* ---------- появление блоков ---------- */
+.ml-js .ml-reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.55s ease, transform 0.55s ease;
+    transition-delay: calc(var(--i, 0) * 90ms);
+}
+.ml-js .ml-reveal.is-visible { opacity: 1; transform: none; }
+
+/* ---------- «Как подключиться»: линия между шагами ---------- */
+.ml-steps > li { position: relative; }
+
+/* Узкий экран: вертикальная линия под номером. 2.2rem = padding карточки
+   1.25rem + половина кружка 0.95rem. */
+.ml-steps > li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    left: calc(2.2rem - 1px);
+    top: 100%;
+    width: 2px;
+    height: 1rem;
+    background: var(--ml-cta-bg);
+    transform-origin: top;
+    transition: transform 0.4s ease;
+    transition-delay: calc(var(--i, 0) * 90ms + 0.35s);
+}
+
+@media (min-width: 768px) {
+    .ml-steps { gap: 1.75rem; }
+    .ml-steps > li:not(:last-child)::after {
+        left: 100%;
+        top: 2.2rem;
+        width: 1.75rem;
+        height: 2px;
+        transform-origin: left;
+    }
+}
+
+.ml-js .ml-steps > li:not(:last-child)::after { transform: scaleY(0); }
+@media (min-width: 768px) {
+    .ml-js .ml-steps > li:not(:last-child)::after { transform: scaleX(0); }
+}
+.ml-js .ml-steps > li.is-visible:not(:last-child)::after { transform: none; }
+
+/* Номера заливаются по очереди. */
+.ml-js .ml-steps .ml-step-num {
+    transition: background 0.35s ease, color 0.35s ease;
+    transition-delay: calc(var(--i, 0) * 90ms + 0.25s);
+}
+.ml-js .ml-steps > li.is-visible .ml-step-num {
+    background: var(--ml-cta-bg);
+    color: #fff;
+}
+
+/* ---------- уменьшенное движение (держать в конце файла) ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .ml-hero::before,
+    .ml-hero::after,
+    .ml-phone-hero,
+    .ml-slot-pick,
+    .ml-slot-pick::before,
+    .ml-live-btn,
+    .ml-live-done { animation: none; }
+
+    /* Статичный кадр: окно выбрано, плашка подтверждения не нужна. */
+    .ml-slot-pick { color: #fff; }
+    .ml-slot-pick::before { opacity: 1; }
+
+    .ml-cta::after { display: none; }
+}
+/* Каждый пункт экскурсии — отдельная карточка, цвета чередуются. */
+.ml-tour-item {
+    padding: 1.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: 1.5rem;
+    background: var(--color-surface);
+}
+.ml-tour-item:nth-child(even) {
+    background: var(--color-accent-light);
+    border-color: transparent;
+}
+
+@media (min-width: 768px) {
+    .ml-tour-item { padding: 2rem 2.5rem; }
+}
