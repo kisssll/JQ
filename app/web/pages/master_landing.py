@@ -54,7 +54,7 @@ def _cta(href: str, label: str = f"Подключиться — {TRIAL_DAYS} д�
     вырастала до 86px, а стрелка отрывалась от текста. Лишняя подпись скрыта
     через display:none — экранный диктор её тоже не читает.
     """
-    note_html = (f'<p class="ml-cta-note">Дальше {PRICE_RUB} ₽ в месяц. Карта не нужна.</p>'
+    note_html = (f'<p class="ml-cta-note">Дальше от {PRICE_RUB} ₽ в месяц. </p>'
                  if note else "")
     return (f'<a class="ml-cta" href="{e(href)}">'
             f'<span class="ml-cta-long">{label}</span>'
@@ -133,11 +133,42 @@ def _reminder_mock() -> str:
         </div>"""
 
 
+def _hero_phone() -> str:
+    """Декоративная анимация записи для первого экрана (только CSS, без JS).
+    Скрыта от экранных дикторов и на телефоне — там первый экран отдан кнопке."""
+    return f"""
+            <div class="ml-hero-visual" aria-hidden="true">
+                <div class="ml-phone ml-phone-hero">
+                    <div class="ml-live">
+                        <p class="ml-live-title">Анна Смирнова</p>
+                        <p class="ml-live-sub">Маникюр с покрытием · 2 ч</p>
+                        <div class="ml-live-days">
+                            <span class="ml-live-day">Пн</span>
+                            <span class="ml-live-day ml-live-day-on">Вт</span>
+                            <span class="ml-live-day">Ср</span>
+                            <span class="ml-live-day">Чт</span>
+                        </div>
+                        <div class="ml-live-slots">
+                            <span class="ml-slot">10:00</span>
+                            <span class="ml-slot ml-slot-busy">11:30</span>
+                            <span class="ml-slot">13:00</span>
+                            <span class="ml-slot ml-slot-pick">14:30</span>
+                            <span class="ml-slot ml-slot-busy">16:00</span>
+                            <span class="ml-slot">17:30</span>
+                        </div>
+                        <div class="ml-live-btn">Записаться</div>
+                        <div class="ml-live-done">{ICON_CIRCLE_CHECK}<div><b>Запись подтверждена</b><span>Вт, 14:30 · Маникюр с покрытием</span></div></div>
+                    </div>
+                </div>
+            </div>"""
+
+
 def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
     href = cta_url(params, logged_in=user is not None)
 
     pains = "".join(
-        f'<div class="ml-card"><h3 class="ml-card-title">{e(title)}</h3>'
+        f'<div class="ml-card ml-pain ml-reveal">'
+        f'<h3 class="ml-card-title"><span class="ml-strike">{e(title)}</span></h3>'
         f'<p class="ml-card-text">{e(text)}</p></div>'
         for title, text in _PAINS
     )
@@ -150,20 +181,20 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
         else:
             visual = _reminder_mock()
         tour_items.append(
-            f'<li class="ml-tour-item"><div class="ml-tour-text">'
-            f'<span class="ml-step-num">{i}</span><h3 class="ml-card-title">{e(title)}</h3>'
+            f'<li class="ml-tour-item ml-reveal"><div class="ml-tour-text">'
+            f'<span class="ml-step-num" aria-hidden="true">{i}</span><h3 class="ml-card-title">{e(title)}</h3>'
             f'<p class="ml-card-text">{e(text)}</p></div>'
             f'<div class="ml-tour-visual"><div class="ml-phone">{visual}</div></div></li>'
         )
 
     included = "".join(f'<li>{ICON_CIRCLE_CHECK}<span>{e(x)}</span></li>' for x in _INCLUDED)
     steps = "".join(
-        f'<li class="ml-card"><span class="ml-step-num">{i}</span>'
+        f'<li class="ml-card ml-reveal"><span class="ml-step-num">{i}</span>'
         f'<h3 class="ml-card-title">{e(t)}</h3><p class="ml-card-text">{e(d)}</p></li>'
         for i, (t, d) in enumerate(_STEPS, start=1)
     )
     faq = "".join(
-        f'<details class="ml-faq-item"><summary>{e(q)}</summary><p>{e(a)}</p></details>'
+        f'<details class="ml-faq-item ml-reveal"><summary>{e(q)}</summary><p>{e(a)}</p></details>'
         for q, a in _FAQ
     )
 
@@ -176,6 +207,7 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
     <meta name="description" content="Руми ищет мастеров, которые работают на себя: запись по ссылке, расписание, напоминания клиентам. {TRIAL_DAYS} дней бесплатно, дальше {PRICE_RUB} ₽ в месяц.">
     <meta name="robots" content="noindex, nofollow">
     {get_base_styles()}
+    <script src="/static/js/master-landing.js" defer></script>
 </head>
 <body class="ml-body">
     <header class="ml-header">
@@ -189,25 +221,34 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
 
     <main>
         <section class="ml-hero">
-            <div class="ml-container">
-                <span class="ml-badge">Для частных мастеров</span>
-                <h1 class="ml-title">Руми ищет мастеров, которые работают на себя</h1>
-                <p class="ml-lead">Хватит вести запись в директе и заметках. Клиенты записываются сами
-                    по ссылке, а у вас — расписание, напоминания и карточки клиентов.</p>
-                {_cta(href)}
+            <div class="ml-container ml-hero-grid">
+                <div class="ml-hero-text">
+                    <span class="ml-badge">Для частных мастеров</span>
+                    <h1 class="ml-title">ВЫ бьюти-мастер, который <span class="ml-hl">работает на себя</span>?</h1>
+                    <p class="ml-lead"><strong class="ml-lead-hi">ПРИСОЕДИНЯЙСЯ К РУМИ</strong>
+                        Хватит вести запись в директе и заметках. Клиенты записываются сами
+                        по ссылке, а у тебя — расписание, напоминания и карточки клиентов.</p>
+                    {_cta(href)}
+                    <ul class="ml-chips">
+                        <li>{ICON_CIRCLE_CHECK}Запись по ссылке</li>
+                        <li>{ICON_CIRCLE_CHECK}Напоминания клиентам</li>
+                        <li>{ICON_CIRCLE_CHECK}Карточки клиентов</li>
+                    </ul>
+                </div>
+                {_hero_phone()}
             </div>
         </section>
 
         <section class="ml-section">
             <div class="ml-container">
-                <h2 class="ml-h2">Знакомо?</h2>
+                <h2 class="ml-h2 ml-reveal">Знакомо?</h2>
                 <div class="ml-grid-3">{pains}</div>
             </div>
         </section>
 
         <section class="ml-section ml-section-alt">
             <div class="ml-container">
-                <h2 class="ml-h2">Как это выглядит</h2>
+                <h2 class="ml-h2 ml-reveal">Как это выглядит</h2>
                 <p class="ml-sub">Настоящие экраны Руми на примере вымышленного мастера.</p>
                 <ol class="ml-tour">{"".join(tour_items)}</ol>
                 <div class="ml-mid-cta">{_cta(href)}</div>
@@ -216,7 +257,7 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
 
         <section class="ml-section">
             <div class="ml-container ml-about">
-                <h2 class="ml-h2">Кто мы</h2>
+                <h2 class="ml-h2 ml-reveal">Кто мы</h2>
                 <p class="ml-text">Руми — сервис онлайн-записи в салоны красоты и к частным мастерам.
                     Мы делаем его в Томске и отвечаем на вопросы сами, без колл-центра: пишите на
                     <a class="ml-link" href="mailto:hello@rrumi.ru">hello@rrumi.ru</a>.</p>
@@ -225,8 +266,8 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
 
         <section class="ml-section ml-section-alt" id="price">
             <div class="ml-container">
-                <h2 class="ml-h2">Сколько стоит</h2>
-                <div class="ml-price">
+                <h2 class="ml-h2 ml-reveal">Сколько стоит</h2>
+                <div class="ml-price ml-reveal">
                     <p class="ml-price-name">Тариф «Лайт» для частного мастера</p>
                     <p class="ml-price-amount">{PRICE_RUB} ₽ <span>в месяц</span></p>
                     <p class="ml-price-trial">Первые {TRIAL_DAYS} дней — бесплатно. Карта не нужна,
@@ -240,14 +281,14 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
 
         <section class="ml-section">
             <div class="ml-container">
-                <h2 class="ml-h2">Как подключиться</h2>
+                <h2 class="ml-h2 ml-reveal">Как подключиться</h2>
                 <ol class="ml-grid-3 ml-steps">{steps}</ol>
             </div>
         </section>
 
         <section class="ml-section ml-section-alt">
             <div class="ml-container ml-faq">
-                <h2 class="ml-h2">Частые вопросы</h2>
+                <h2 class="ml-h2 ml-reveal">Частые вопросы</h2>
                 {faq}
             </div>
         </section>

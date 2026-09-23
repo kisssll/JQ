@@ -6,7 +6,7 @@
     padding-bottom: 5rem;
     position: relative;
     overflow: hidden;
-    background: linear-gradient(135deg, var(--color-background) 0%, var(--color-secondary) 50%, rgba(192, 129, 184, 0.125) 100%);
+    background: linear-gradient(135deg, var(--color-background) 0%, var(--color-secondary) 50%, rgba(246, 158, 188, 0.2) 100%);
 }
 
 .model-hero .section-container {
@@ -27,7 +27,7 @@
     gap: 0.5rem;
     padding: 0.5rem 1.25rem;
     border-radius: 9999px;
-    background: rgba(192, 129, 184, 0.12);
+    background: rgba(202, 62, 116, 0.1);
     color: var(--color-primary);
     margin-bottom: 1.5rem;
 }
@@ -212,11 +212,11 @@
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 10px 15px -3px rgba(192, 129, 184, 0.3);
+    box-shadow: 0 10px 15px -3px rgba(202, 62, 116, 0.28);
 }
 
 .plan-card.popular:hover {
-    box-shadow: 0 15px 35px -10px rgba(192, 129, 184, 0.4);
+    box-shadow: 0 15px 35px -10px rgba(202, 62, 116, 0.35);
 }
 
 .plan-card.popular .popular-badge {
@@ -512,7 +512,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    background: rgba(192, 129, 184, 0.12);
+    background: rgba(202, 62, 116, 0.1);
     color: var(--color-primary);
     margin-bottom: 1rem;
 }
@@ -544,7 +544,7 @@
     overflow: hidden;
     padding-top: 3rem;
     padding-bottom: 5rem;
-    background: linear-gradient(135deg, var(--color-background) 0%, var(--color-secondary) 50%, rgba(192, 129, 184, 0.125) 100%);
+    background: linear-gradient(135deg, var(--color-background) 0%, var(--color-secondary) 50%, rgba(246, 158, 188, 0.2) 100%);
 }
 
 /* Изображение – на всю ширину, с наклоном и полупрозрачностью */
@@ -580,8 +580,8 @@
     background: linear-gradient(to right, 
         transparent 0%, 
         transparent 15%, 
-        #faf7f5 55%, 
-        #faf7f5 100%
+        var(--color-background) 55%, 
+        var(--color-background) 100%
     );
     pointer-events: none;
     z-index: 1;
