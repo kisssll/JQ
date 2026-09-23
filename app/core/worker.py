@@ -19,7 +19,7 @@ from arq.connections import ArqRedis, RedisSettings
 from app.core.config import settings
 from app.tasks import (
     charge_due_subscriptions, finalize_tkassa_verification, process_payment_webhook,
-    ask_evening_deals_consent, ask_for_review, ask_service_rating, check_pending_receipts, reconcile_refunds,
+    ask_promo_consent, ask_for_review, ask_service_rating, check_pending_receipts, reconcile_refunds,
     send_review_request_tg, send_review_request_vk, send_service_rating_tg, send_service_rating_vk,
     send_vk_message,
     send_booking_reminder, send_email, send_evening_deals_blast, send_max_message, send_sms, send_tg_message,
@@ -69,7 +69,7 @@ class WorkerSettings:
         reconcile_refunds, check_pending_receipts,
         ask_for_review, send_review_request_tg, send_review_request_vk,
         ask_service_rating, send_service_rating_tg, send_service_rating_vk,
-        ask_evening_deals_consent,
+        ask_promo_consent,
     ]
     # Ежедневная рассылка «вечерних окон со скидкой» в 18:00 по Томску (UTC+7).
     # arq считает cron по локальному времени процесса; контейнер воркера в UTC,

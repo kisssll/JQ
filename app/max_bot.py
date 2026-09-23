@@ -54,8 +54,8 @@ SUPPORT_DEEP_LINK = "support"
 LINK_MODE = "link"
 
 _LINK_GREETING = (
-    "Здравствуйте! Чтобы привязать MAX к аккаунту Руми, нажмите кнопку ниже — "
-    "MAX передаст нам ваш номер, и мы найдём по нему ваш аккаунт.\n\n"
+    "Привяжите аккаунт Руми — и уведомления о записях будут приходить сюда. "
+    "Нажмите кнопку ниже: MAX передаст нам ваш номер, и мы найдём по нему аккаунт.\n\n"
     "Если вы пришли сюда со страницы регистрации, ссылка устарела: вернитесь "
     "на сайт и нажмите «Подтвердить в MAX» ещё раз."
 )
@@ -157,6 +157,8 @@ async def _begin(bot: Bot, chat_id: int, user_id: int, token: str) -> None:
         # подключить MAX к уже созданному аккаунту.
         await r.set(_pending_key(user_id), LINK_MODE,
                     ex=settings.OTP_TTL_MINUTES * 60)
+        # Сначала короткое «кто мы», отдельным сообщением — как в tg- и vk-боте.
+        await bot.send_message(chat_id=chat_id, text=bot_texts.GREETING)
         await bot.send_message(chat_id=chat_id, text=_LINK_GREETING,
                                attachments=_contact_kb())
         return
@@ -298,9 +300,11 @@ async def on_contact(event: MessageCreated, contact) -> None:
 # мог ими управлять — отписаться было буквально нечем. Здесь оба недостающих
 # куска, логика та же, что в tg_bot.py, отличается лишь способ рисовать кнопки.
 
-MENU_PREFS = "⚙️ Мои уведомления"
-MENU_SUPPORT = "✉️ Написать нам"
-MENU_BOOKINGS = "📅 Мои записи"
+from app.services import bot_texts     # общие подписи и тексты трёх ботов
+
+MENU_PREFS = bot_texts.MENU_PREFS
+MENU_SUPPORT = bot_texts.MENU_SUPPORT
+MENU_BOOKINGS = bot_texts.MENU_BOOKINGS
 _SUPPORT_TTL = 1800
 
 
@@ -366,14 +370,10 @@ async def _linked_user(db, chat_id: int):
 
 async def _show_main_menu(bot: Bot, chat_id: int, user) -> None:
     """Что бот умеет — зеркало главного меню tg-бота."""
-    name = (user.full_name or "").split()[0] if user.full_name else ""
-    hello = f"Здравствуйте, {name}!" if name else "Здравствуйте!"
     await bot.send_message(
         chat_id=chat_id,
-        text=f"{hello} Это бот Руми. Отсюда можно:\n\n"
-             f"{MENU_BOOKINGS} — ближайшие записи, можно отменить\n"
-             f"{MENU_PREFS} — какие уведомления присылать\n"
-             f"{MENU_SUPPORT} — вопрос или проблема, ответим сюда же",
+        text=f"{bot_texts.hello(user)} Это бот Руми. Отсюда можно:\n\n"
+             f"{bot_texts.menu_hint()}",
         attachments=_menu_kb(),
     )
 
@@ -517,7 +517,7 @@ async def on_feedback_command(event: MessageCreated) -> None:
     await _show_topics(event.bot, chat_id)
 
 
-async def _grant_evening_deals(event: MessageCallback) -> None:
+async def _grant_promos(event: MessageCallback) -> None:
     """«Да, присылать подборку» из разового вопроса о согласии на рекламу."""
     from app.db.session import AsyncSessionLocal
     from app.services import ad_consent
@@ -553,8 +553,8 @@ async def on_callback(event: MessageCallback) -> None:
         await _show_topics(event.bot, chat_id)
     elif payload.startswith("ntf:"):
         await _toggle_topic(event, payload.split(":", 1)[1])
-    elif payload == "edc:yes":
-        await _grant_evening_deals(event)
+    elif payload == "adc:yes":
+        await _grant_promos(event)
     elif payload.startswith("sup:"):
         try:
             topic = SupportTopic(payload.split(":", 1)[1])

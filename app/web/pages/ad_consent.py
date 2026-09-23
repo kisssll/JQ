@@ -38,7 +38,7 @@ def render_question(token: str) -> str:
     body = f"""
         <h1 class="auth-title">Подборка вечерних окон</h1>
         <p style="color:var(--color-body);font-size:0.9rem;line-height:1.55">{question}</p>
-        <form method="post" action="/consent/evening-deals" data-submit-lock>
+        <form method="post" action="/consent/promo" data-submit-lock>
             <input type="hidden" name="t" value="{html.escape(token, quote=True)}">
             <button type="submit" class="btn-primary auth-btn">{html.escape(ad_consent.OPT_IN_LABEL)}</button>
         </form>"""

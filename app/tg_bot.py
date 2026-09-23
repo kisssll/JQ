@@ -91,11 +91,13 @@ _CONTACT_KB = ReplyKeyboardMarkup(
 
 # Постоянная кнопка внизу у привязанного пользователя: открыть меню подписок,
 # не набирая /settings. Ставится после привязки и держится в чате.
-MENU_BTN_PREFS = "⚙️ Мои уведомления"
-MENU_BTN_SUPPORT = "✉️ Написать нам"
+from app.services import bot_texts     # общие подписи и тексты трёх ботов
+
+MENU_BTN_BOOKINGS = bot_texts.MENU_BOOKINGS
+MENU_BTN_PREFS = bot_texts.MENU_PREFS
+MENU_BTN_SUPPORT = bot_texts.MENU_SUPPORT
 # Полезная нагрузка deep link'а: t.me/<бот>?start=support
 SUPPORT_DEEP_LINK = "support"
-MENU_BTN_BOOKINGS = "📅 Мои записи"
 _MENU_KB = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text=MENU_BTN_BOOKINGS)],
@@ -140,14 +142,14 @@ async def _available_topics(db, user) -> list[str]:
     from app.services.notifications import (
         TOPIC_BOOKINGS,
         TOPIC_REMINDERS,
-        TOPIC_EVENING_DEALS,
+        TOPIC_PROMOS,
         TOPIC_REPORTS,
         TOPIC_REVIEWS,
         TOPIC_WAREHOUSE,
     )
 
-    # Клиентские — всем привязанным (вечерние скидки — opt-out, default вкл).
-    topics = [TOPIC_BOOKINGS, TOPIC_REMINDERS, TOPIC_EVENING_DEALS]
+    # Клиентские — всем привязанным (акции и конкурсы — только по согласию).
+    topics = [TOPIC_BOOKINGS, TOPIC_REMINDERS, TOPIC_PROMOS]
 
     is_master = (
         await db.execute(select(Master.id).where(Master.user_id == user.id, Master.is_active == True))  # noqa: E712
@@ -251,7 +253,7 @@ async def on_prefs_toggle(callback: CallbackQuery) -> None:
     await callback.answer("Сохранено")
 
 
-async def on_evening_deals_consent(callback: CallbackQuery) -> None:
+async def on_promo_consent(callback: CallbackQuery) -> None:
     """«Да, присылать подборку» из разового вопроса о согласии на рекламу."""
     from app.db.session import AsyncSessionLocal
     from app.services import ad_consent
@@ -569,23 +571,21 @@ async def _show_main_menu(message: Message) -> None:
         user = await _find_linked_user(db, message.chat.id)
 
     if user is None:
+        # Два коротких сообщения вместо одного длинного: приветствие видят все,
+        # предложение привязать — только непривязанные.
+        await message.answer(bot_texts.GREETING)
         await message.answer(
-            "Telegram ещё не привязан к аккаунту Руми. Нажмите кнопку ниже, "
-            "чтобы привязать — и уведомления заработают.",
+            f"{bot_texts.LINK_OFFER}\n\nЧтобы привязать, нажмите кнопку ниже — "
+            "Telegram передаст нам ваш номер.",
             reply_markup=_CONTACT_KB,
         )
         await get_redis().set(_pending_key(message.from_user.id), LINK_MODE,
                               ex=settings.OTP_TTL_MINUTES * 60)
         return
 
-    name = (user.full_name or "").split()[0] if user.full_name else ""
-    hello = f"Здравствуйте, {name}!" if name else "Здравствуйте!"
     await message.answer(
-        f"{hello} Это бот Руми. Отсюда можно:\n\n"
-        f"{MENU_BTN_BOOKINGS} — ближайшие записи, можно отменить\n"
-        f"{MENU_BTN_PREFS} — какие уведомления присылать\n"
-        f"{MENU_BTN_SUPPORT} — вопрос или проблема, ответим сюда же\n\n"
-        "Выберите кнопку внизу.",
+        f"{bot_texts.hello(user)} Это бот Руми. Отсюда можно:\n\n"
+        f"{bot_texts.menu_hint()}",
         reply_markup=_MENU_KB,
     )
 
@@ -863,7 +863,7 @@ async def main() -> None:
     dp.callback_query.register(on_cancel_booking, F.data.startswith("cnl:"))
     dp.callback_query.register(on_review_stars, F.data.startswith("rev:"))
     dp.callback_query.register(on_service_rating, F.data.startswith("nps:"))
-    dp.callback_query.register(on_evening_deals_consent, F.data == "edc:yes")
+    dp.callback_query.register(on_promo_consent, F.data == "adc:yes")
     dp.message.register(on_support_start, Command("feedback"))
     dp.message.register(on_support_start, F.text == MENU_BTN_SUPPORT)
     dp.message.register(on_support_cancel, Command("cancel"))

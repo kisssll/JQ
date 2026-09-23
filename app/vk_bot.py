@@ -14,7 +14,7 @@
   которое обязательно отвечать, иначе у кнопки бесконечно крутится индикатор.
 
 Команды кнопок те же, что у двух других ботов (menu:*, cnl:, ntf:, sup:, rev:,
-nps:, edc:yes), — правила живут в общих bot_actions.py и support.py.
+nps:, adc:yes), — правила живут в общих bot_actions.py и support.py.
 """
 from __future__ import annotations
 
@@ -31,9 +31,11 @@ from app.services import vk_api, vk_link
 
 logger = logging.getLogger("vk_bot")
 
-MENU_BOOKINGS = "📅 Мои записи"
-MENU_PREFS = "⚙️ Мои уведомления"
-MENU_SUPPORT = "✉️ Написать нам"
+from app.services import bot_texts     # общие подписи и тексты трёх ботов
+
+MENU_BOOKINGS = bot_texts.MENU_BOOKINGS
+MENU_PREFS = bot_texts.MENU_PREFS
+MENU_SUPPORT = bot_texts.MENU_SUPPORT
 
 # Слова, на которые показываем меню. «Начать» — подпись кнопки ВК в пустом
 # диалоге; её нажатие приходит обычным сообщением с payload {"command":"start"}.
@@ -64,25 +66,23 @@ def _menu_kb() -> dict:
     ])
 
 
-def _profile_url() -> str:
-    return f"{config.settings.PUBLIC_BASE_URL.rstrip('/')}/profile"
+def _connect_url() -> str:
+    """Страница привязки: одна кнопка и возврат сюда же. Раньше вели на
+    /profile, где нужный блок — седьмой экран вниз, и человек до него
+    не доходил."""
+    return f"{config.settings.PUBLIC_BASE_URL.rstrip('/')}/connect/vk"
 
 
 def _unlinked_kb() -> dict:
     return vk_api.inline_keyboard([
-        [vk_api.link_button("Привязать аккаунт", _profile_url())],
+        [vk_api.link_button(bot_texts.MENU_LINK, _connect_url())],
         [vk_api.callback_button(MENU_SUPPORT, "menu:support")],
     ])
 
 
 UNLINKED_TEXT = (
-    "Этот ВКонтакте пока не привязан к аккаунту Руми.\n\n"
-    "Чтобы привязать, откройте профиль на сайте и нажмите «Подключить "
-    "ВКонтакте» — вас вернёт сюда. Кнопки «Начать» здесь уже не будет: "
-    "просто отправьте любое сообщение, и бот вас узнает.\n"
-    "Если входите на сайт через VK ID — достаточно войти, дальше бот узнает "
-    "вас сам.\n\n"
-    "Написать нам можно и без привязки."
+    f"{bot_texts.LINK_OFFER}\n\n"
+    "Привязка займёт минуту: откроется страница Руми, а оттуда вас вернёт сюда."
 )
 
 
@@ -114,17 +114,14 @@ async def _announce_link(peer_id: int, user, ask_channel: bool) -> None:
         current = CHANNEL_LABELS[user.notify_channel]
         await send(
             peer_id,
-            "ВКонтакте привязан к аккаунту Руми ✅\n\n"
-            f"Сейчас уведомления о записях приходят в {current}. "
-            "Присылать их сюда, во ВКонтакте?",
+            bot_texts.link_done(current),
             vk_api.inline_keyboard([
                 [vk_api.callback_button("Да, присылать сюда", "chn:vk", "positive")],
                 [vk_api.callback_button(f"Оставить {current}", "chn:keep")],
             ]),
         )
     else:
-        await send(peer_id, "ВКонтакте привязан к аккаунту Руми ✅\n"
-                            "Уведомления о записях будут приходить сюда.", _menu_kb())
+        await send(peer_id, bot_texts.link_done(), _menu_kb())
 
 
 async def _revive(peer_id: int) -> None:
@@ -163,16 +160,14 @@ async def _draft_clear(peer_id: int) -> None:
 
 async def show_main_menu(peer_id: int, user) -> None:
     if user is None:
+        # Два коротких сообщения: приветствие — всем, предложение привязать —
+        # только непривязанным (так же в tg- и max-боте).
+        await send(peer_id, bot_texts.GREETING)
         await send(peer_id, UNLINKED_TEXT, _unlinked_kb())
         return
-    name = (user.full_name or "").split()[0] if user.full_name else ""
-    hello = f"Здравствуйте, {name}!" if name else "Здравствуйте!"
     await send(
         peer_id,
-        f"{hello} Это бот Руми. Отсюда можно:\n\n"
-        f"{MENU_BOOKINGS} — ближайшие записи, можно отменить\n"
-        f"{MENU_PREFS} — какие уведомления присылать\n"
-        f"{MENU_SUPPORT} — вопрос или проблема, ответим сюда же",
+        f"{bot_texts.hello(user)} Это бот Руми. Отсюда можно:\n\n{bot_texts.menu_hint()}",
         _menu_kb(),
     )
 
@@ -388,7 +383,7 @@ async def save_service_rating(peer_id: int, rating: int) -> None:
                         f"Если хотите добавить, чего не хватает — напишите нам через «{MENU_SUPPORT}».")
 
 
-async def grant_evening_deals(peer_id: int) -> None:
+async def grant_promos(peer_id: int) -> None:
     from app.services import ad_consent
 
     async with await _db() as db:
@@ -430,6 +425,22 @@ def _message_payload(message: dict) -> dict:
         return {}
 
 
+async def _link_by_code(peer_id: int, code: str) -> bool:
+    """Привязать аккаунт по коду (из ссылки или из сообщения). → получилось ли."""
+    from app.models.models import User
+
+    user_id = await vk_link.pop_code(code)
+    if user_id is None:
+        return False
+    async with await _db() as db:
+        user = await db.get(User, user_id)
+        if user is None:
+            return False
+        ask = await vk_link.link(db, user, peer_id, await vk_api.user_name(peer_id))
+        await _announce_link(peer_id, user, ask)
+    return True
+
+
 async def on_message_new(obj: dict) -> None:
     message = obj.get("message") or {}
     peer_id = int(message.get("peer_id") or 0)
@@ -445,21 +456,24 @@ async def on_message_new(obj: dict) -> None:
         return
 
     if ref:
-        user_id = await vk_link.pop_code(ref)
-        if user_id is not None:
-            from app.models.models import User
-
-            async with await _db() as db:
-                user = await db.get(User, user_id)
-                if user is not None:
-                    ask = await vk_link.link(db, user, peer_id, await vk_api.user_name(peer_id))
-                    await _announce_link(peer_id, user, ask)
-                    return
-        elif ref.startswith("l"):
-            await send(peer_id, "Ссылка для привязки устарела или уже использована. "
-                                "Откройте профиль на сайте и нажмите «Подключить ВКонтакте» ещё раз.",
-                       vk_api.inline_keyboard([[vk_api.link_button("Открыть профиль", _profile_url())]]))
+        if await _link_by_code(peer_id, ref):
             return
+        if vk_link.looks_like_code(ref):
+            await send(peer_id, "Ссылка для привязки устарела или уже использована — "
+                                "она живёт 15 минут. Откройте страницу привязки ещё раз.",
+                       _unlinked_kb())
+            return
+
+    text_raw = (message.get("text") or "").strip()
+    # Код со страницы привязки, присланный сообщением. Проверяем ДО черновика
+    # обращения: человек, начавший писать в поддержку, мог параллельно
+    # получить код, и привязка важнее незаконченного текста.
+    if vk_link.looks_like_code(text_raw):
+        if await _link_by_code(peer_id, text_raw):
+            return
+        await send(peer_id, "Такой код не подошёл: он живёт 15 минут и работает один раз. "
+                            "Откройте страницу привязки и возьмите новый.", _unlinked_kb())
+        return
 
     draft = await _draft_get(peer_id)
     if draft is not None:
@@ -517,8 +531,8 @@ async def _dispatch_command(peer_id: int, command: str) -> Optional[str]:
             return None
     elif command.startswith("ntf:"):
         await toggle_topic(peer_id, command.split(":", 1)[1])
-    elif command == "edc:yes":
-        await grant_evening_deals(peer_id)
+    elif command == "adc:yes":
+        await grant_promos(peer_id)
     elif command.startswith("sup:"):
         await start_support_topic(peer_id, command.split(":", 1)[1])
     elif command.startswith("rev:"):

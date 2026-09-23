@@ -30,18 +30,41 @@ logger = logging.getLogger(__name__)
 CODE_TTL_SECONDS = 15 * 60
 # Метка ссылки «Написать во ВКонтакте» из подвала: сразу к выбору темы.
 REF_SUPPORT = "support"
-_CODE_PREFIX = "l"
+#: Код короткий и читаемый вслух: его показывают на странице привязки как
+#: запасной путь — кнопка «Начать» во ВКонтакте есть только в пустом диалоге,
+#: а в непустом её нет, и человек упирается в тупик (жалоба 17.09.2026).
+#: Алфавит без похожих символов (0/O, 1/I), чтобы код не набирали с ошибкой.
+_CODE_PREFIX = "RUMI-"
+_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+_CODE_LENGTH = 5
 
 
 def _code_key(code: str) -> str:
-    return f"vk:link:{code}"
+    return f"vk:link:{normalize_code(code)}"
+
+
+def normalize_code(code: str) -> str:
+    """«rumi-ab12c», «RUMI AB12C», «ab12c» → «RUMI-AB12C».
+
+    Человек присылает код сообщением и набирает его как получится.
+    """
+    raw = (code or "").strip().upper().replace(" ", "").replace("—", "-")
+    if raw.startswith("RUMI"):
+        raw = raw[4:]
+    return _CODE_PREFIX + raw.lstrip("-")
+
+
+def looks_like_code(text: str) -> bool:
+    """Похоже ли сообщение на код привязки — чтобы не искать в Redis каждое слово."""
+    raw = normalize_code(text)[len(_CODE_PREFIX):]
+    return len(raw) == _CODE_LENGTH and all(c in _CODE_ALPHABET for c in raw)
 
 
 async def create_code(user_id: int) -> str:
     """Одноразовый код привязки для ссылки vk.me/…?ref=КОД."""
     from app.core.limiter import get_redis
 
-    code = _CODE_PREFIX + secrets.token_hex(10)
+    code = _CODE_PREFIX + "".join(secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH))
     await get_redis().set(_code_key(code), user_id, ex=CODE_TTL_SECONDS)
     return code
 
@@ -50,7 +73,7 @@ async def pop_code(code: str) -> Optional[int]:
     """user_id по коду, код при этом сгорает. None — нет, истёк или уже использован."""
     from app.core.limiter import get_redis
 
-    if not code or not code.startswith(_CODE_PREFIX):
+    if not looks_like_code(code):
         return None
     # GETDEL атомарен: два одновременных сообщения с одним кодом не
     # привяжут его дважды.

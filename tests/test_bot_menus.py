@@ -90,8 +90,11 @@ async def test_start_offers_linking_when_not_linked(db_session):
     msg = _FakeMessage(990003)
     await _show_main_menu(msg)
 
-    text, _ = msg.answers[0]
-    assert "не привязан" in text.lower()
+    # Два коротких сообщения: приветствие всем, предложение привязать — только
+    # непривязанному (решение 18.09.2026: меньше текста, меньше шагов).
+    assert len(msg.answers) == 2
+    assert "это руми" in msg.answers[0][0].lower()
+    assert "привяжите аккаунт" in msg.answers[1][0].lower()
 
 
 # ── MAX ──────────────────────────────────────────────────────────────────────
@@ -117,8 +120,9 @@ async def test_max_start_offers_linking_when_not_linked(db_session):
     bot = _FakeMaxBot()
     await _begin(bot, chat_id=990005, user_id=556, token="")
 
-    assert bot.sent
-    assert "привязать" in bot.sent[0].lower()
+    assert len(bot.sent) == 2
+    assert "это руми" in bot.sent[0].lower()
+    assert "привяжите аккаунт" in bot.sent[1].lower()
 
 
 # ── Быстрое меню команд в MAX ────────────────────────────────────────────────

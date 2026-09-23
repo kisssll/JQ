@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app.core.security import get_password_hash
 from app.models.models import ConsentDocument, User, UserConsent, UserRole
 from app.services import ad_consent
-from app.services.notifications import TOPIC_EVENING_DEALS, TOPIC_REMINDERS, wants
+from app.services.notifications import TOPIC_PROMOS, TOPIC_REMINDERS, wants
 
 
 async def _user(db_session, phone="+79996660001", **kw) -> int:
@@ -27,7 +27,7 @@ async def _consents(db_session, user_id):
     async with db_session() as db:
         return (await db.execute(select(UserConsent).where(
             UserConsent.user_id == user_id,
-            UserConsent.document == ConsentDocument.ADS_EVENING_DEALS,
+            UserConsent.document == ConsentDocument.ADS_PROMOS,
         ))).scalars().all()
 
 
@@ -37,7 +37,7 @@ def test_advertising_is_off_by_default_service_is_on():
     """Сервисное — «включено, пока не выключишь», рекламное — наоборот."""
     user = User(phone="+79990000000", tg_notify_prefs=None)
     assert wants(user, TOPIC_REMINDERS) is True
-    assert wants(user, TOPIC_EVENING_DEALS) is False
+    assert wants(user, TOPIC_PROMOS) is False
 
 
 # ── grant / revoke ───────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ async def test_grant_writes_proof_and_enables(client, db_session):
     assert records[0].source == "tg_question"
     assert records[0].version == ad_consent.VERSION
     async with db_session() as db:
-        assert wants(await db.get(User, user_id), TOPIC_EVENING_DEALS) is True
+        assert wants(await db.get(User, user_id), TOPIC_PROMOS) is True
 
 
 async def test_second_press_does_not_duplicate_proof(client, db_session):
@@ -83,7 +83,7 @@ async def test_no_proof_no_mailing(client, db_session, monkeypatch):
     monkeypatch.undo()
 
     async with db_session() as db:
-        assert wants(await db.get(User, user_id), TOPIC_EVENING_DEALS) is False
+        assert wants(await db.get(User, user_id), TOPIC_PROMOS) is False
     assert await _consents(db_session, user_id) == []
 
 
@@ -94,7 +94,7 @@ async def test_revoke_stops_mailing(client, db_session):
     async with db_session() as db:
         await ad_consent.revoke(db, user_id=user_id)
     async with db_session() as db:
-        assert wants(await db.get(User, user_id), TOPIC_EVENING_DEALS) is False
+        assert wants(await db.get(User, user_id), TOPIC_PROMOS) is False
 
 
 # ── нейтральный вопрос ──────────────────────────────────────────────────────
@@ -128,18 +128,18 @@ async def test_opening_the_link_does_not_consent(client, db_session):
     сами — если бы переход записывал согласие, робот соглашался бы за человека."""
     user_id = await _user(db_session)
     token = ad_consent.make_token(user_id)
-    r = await client.get(f"/consent/evening-deals?t={token}")
+    r = await client.get(f"/consent/promo?t={token}")
     assert r.status_code == 200
     assert ad_consent.OPT_IN_LABEL in r.text
     assert await _consents(db_session, user_id) == []
     async with db_session() as db:
-        assert wants(await db.get(User, user_id), TOPIC_EVENING_DEALS) is False
+        assert wants(await db.get(User, user_id), TOPIC_PROMOS) is False
 
 
 async def test_pressing_the_button_consents(client, db_session):
     user_id = await _user(db_session)
     token = ad_consent.make_token(user_id)
-    r = await client.post("/consent/evening-deals", data={"t": token})
+    r = await client.post("/consent/promo", data={"t": token})
     assert r.status_code == 200
     records = await _consents(db_session, user_id)
     assert len(records) == 1 and records[0].source == "email_question"
@@ -147,7 +147,7 @@ async def test_pressing_the_button_consents(client, db_session):
 
 async def test_forged_link_grants_nothing(client, db_session):
     user_id = await _user(db_session)
-    r = await client.post("/consent/evening-deals", data={"t": f"{user_id}.9999999999.подделка"})
+    r = await client.post("/consent/promo", data={"t": f"{user_id}.9999999999.подделка"})
     assert r.status_code == 400
     assert await _consents(db_session, user_id) == []
 
@@ -168,12 +168,12 @@ async def test_question_is_asked_once(client, db_session, monkeypatch):
 
     user_id = await _user(db_session, tg_chat_id=555, notify_channel=NotifyChannel.TG)
 
-    assert (await tasks.ask_evening_deals_consent({"job_try": 1}, user_id)) == "asked:tg"
-    assert (await tasks.ask_evening_deals_consent({"job_try": 1}, user_id)) == "skipped:already-asked"
+    assert (await tasks.ask_promo_consent({"job_try": 1}, user_id)) == "asked:tg"
+    assert (await tasks.ask_promo_consent({"job_try": 1}, user_id)) == "skipped:already-asked"
     assert len(sent) == 1
     # и кнопка ведёт именно на согласие
     button = sent[0][1]["inline_keyboard"][0][0]
-    assert button["callback_data"] == "edc:yes"
+    assert button["callback_data"] == "adc:yes"
 
 
 async def test_transient_failure_allows_retry(client, db_session, monkeypatch):
@@ -188,7 +188,7 @@ async def test_transient_failure_allows_retry(client, db_session, monkeypatch):
     monkeypatch.setattr(tasks, "_send_via_telegram", flaky)
     user_id = await _user(db_session, tg_chat_id=556, notify_channel=NotifyChannel.TG)
     try:
-        await tasks.ask_evening_deals_consent({"job_try": 1}, user_id)
+        await tasks.ask_promo_consent({"job_try": 1}, user_id)
     except Exception:
         pass
     async with db_session() as db:
@@ -206,7 +206,7 @@ async def test_already_consented_is_not_asked(client, db_session, monkeypatch):
     user_id = await _user(db_session, tg_chat_id=557, notify_channel=NotifyChannel.TG)
     async with db_session() as db:
         await ad_consent.grant(db, user_id=user_id, source="tg_prefs")
-    assert (await tasks.ask_evening_deals_consent({"job_try": 1}, user_id)) == "skipped:already-consented"
+    assert (await tasks.ask_promo_consent({"job_try": 1}, user_id)) == "skipped:already-consented"
 
 
 # ── в обход журнала включить нельзя ─────────────────────────────────────────
@@ -238,7 +238,7 @@ async def test_undelivered_question_is_not_marked_as_asked(client, db_session, m
     monkeypatch.setattr(tasks, "_send_via_telegram", refused)
     user_id = await _user(db_session, tg_chat_id=558, notify_channel=NotifyChannel.TG)
 
-    assert (await tasks.ask_evening_deals_consent({"job_try": 1}, user_id)) == "undelivered:tg"
+    assert (await tasks.ask_promo_consent({"job_try": 1}, user_id)) == "undelivered:tg"
     async with db_session() as db:
         assert ad_consent.was_asked(await db.get(User, user_id)) is False
 
@@ -268,11 +268,12 @@ async def test_telegram_sender_reports_permanent_refusal(monkeypatch):
     monkeypatch.undo()
 
 
-def test_question_does_not_claim_past_mailings():
-    """Подборка до перехода на согласие не уходила никому: на проде 16.09.2026
-    не было ни одной включённой акции. Текст «раньше присылали» был бы
-    неправдой — посыл вопроса «запускаем»."""
+def test_question_lists_what_will_come():
+    """Согласие должно быть информированным: вопрос перечисляет, что именно
+    будет приходить. Появится что-то сверх списка — нужен новый вопрос."""
     text = ad_consent.QUESTION_TEXT.lower()
-    for false_premise in ("раньше", "присылали", "дальше", "больше их не"):
+    for topic in ("акциях", "конкурсах", "вечерних окон"):
+        assert topic in text, topic
+    # и ничего не обещает про прошлое: до перехода на согласие не уходило ничего
+    for false_premise in ("раньше", "присылали"):
         assert false_premise not in text, false_premise
-    assert "запускаем" in text

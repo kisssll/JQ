@@ -39,20 +39,20 @@ from app.core.config import settings
 # сообществу, её не увидит — и не поймёт, что делать (так и случилось на
 # стейдже 16.09). Метку привязки ВК передаёт с любым первым сообщением.
 VK_START_HINT = (
-    "Откроется диалог с сообществом Руми во ВКонтакте. Нажмите «Начать», "
-    "а если этой кнопки нет — просто отправьте любое сообщение, например «привет»."
+    "Откроется страница привязки: кнопка в диалог с сообществом и короткий код "
+    "на случай, если кнопки «Начать» в диалоге нет."
 )
 
 
 def _vk_connect_button(label: str, css: str = "btn-mini") -> str:
-    """Кнопка привязки ВК. Форма, а не ссылка: код привязки выдаётся POST-ом
-    и только вошедшему (см. users.vk_connect_form). Пусто, если бота нет."""
+    """Кнопка привязки ВК ведёт на отдельную страницу /connect/vk: там один
+    экран с кнопкой и кодом. Раньше форма сразу уводила во ВКонтакте, и если
+    кнопки «Начать» в диалоге не было, человек оставался без подсказки."""
     from app.core.config import settings
 
     if not settings.vk_bot_address:
         return ""
-    return (f'<form method="post" action="/api/v1/users/me/vk-connect" target="_blank" '
-            f'style="display:inline"><button class="{css}" type="submit">{label}</button></form>')
+    return f'<a class="{css}" href="/connect/vk">{label}</a>'
 
 
 def _channels_overview(user, available) -> str:

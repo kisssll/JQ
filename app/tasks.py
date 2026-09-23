@@ -302,7 +302,7 @@ async def _reroute_after_refusal(channel, address, text: str, subject: str = "Р
     return f"gone:rerouted:{rerouted}"
 
 
-async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
+async def ask_promo_consent(ctx: dict[str, Any], user_id: int) -> str:
     """Разовый вопрос: присылать ли дальше рекламную подборку вечерних окон.
 
     Отметка «спрашивали» означает «вопрос ДОШЁЛ», а не «пытались отправить».
@@ -341,36 +341,36 @@ async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
         try:
             if channel == NotifyChannel.TG:
                 delivered = await _send_via_telegram(address, ad_consent.QUESTION_TEXT, reply_markup={
-                    "inline_keyboard": [[{"text": ad_consent.OPT_IN_LABEL, "callback_data": "edc:yes"}]],
+                    "inline_keyboard": [[{"text": ad_consent.OPT_IN_LABEL, "callback_data": "adc:yes"}]],
                 })
             elif channel == NotifyChannel.MAX:
                 from maxapi.types.attachments.buttons.callback_button import CallbackButton
                 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
                 kb = InlineKeyboardBuilder()
-                kb.row(CallbackButton(text=ad_consent.OPT_IN_LABEL, payload="edc:yes"))
+                kb.row(CallbackButton(text=ad_consent.OPT_IN_LABEL, payload="adc:yes"))
                 delivered = await _send_via_max(address, ad_consent.QUESTION_TEXT, attachments=[kb.as_markup()])
             elif channel == NotifyChannel.VK:
                 from app.services import vk_api
 
                 delivered = await _send_via_vk(address, ad_consent.QUESTION_TEXT, vk_api.inline_keyboard(
-                    [[vk_api.callback_button(ad_consent.OPT_IN_LABEL, "edc:yes", "positive")]]))
+                    [[vk_api.callback_button(ad_consent.OPT_IN_LABEL, "adc:yes", "positive")]]))
             elif channel == NotifyChannel.EMAIL:
                 from app.core.config import settings
 
-                link = (f"{settings.PUBLIC_BASE_URL.rstrip('/')}/consent/evening-deals"
+                link = (f"{settings.PUBLIC_BASE_URL.rstrip('/')}/consent/promo"
                         f"?t={ad_consent.make_token(user.id)}")
                 # Ссылка открывает страницу с кнопкой, а не записывает согласие
                 # по переходу: почтовые сканеры открывают ссылки из писем сами.
                 body = (f"{ad_consent.QUESTION_TEXT}\n\n"
                         f"Чтобы получать подборку, откройте страницу и нажмите кнопку:\n{link}")
-                delivered = await _send_via_smtp(address, "Подборка вечерних окон — Руми", body)
+                delivered = await _send_via_smtp(address, "Сообщения об акциях и конкурсах — Руми", body)
             else:
                 return "skipped:unknown-channel"
         except TransientTaskError as exc:
             ad_consent.unmark_asked(user)
             await db.commit()
-            logger.warning("ask_evening_deals_consent user=%s: временный сбой: %s", user_id, exc)
+            logger.warning("ask_promo_consent user=%s: временный сбой: %s", user_id, exc)
             raise _retry(ctx, exc) from exc
         except RecipientGone:
             # Помечаем канал, но вопрос о рекламе запасным каналом НЕ дошлём:
@@ -381,7 +381,7 @@ async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
             from app.services.notify_channel import mark_broken
 
             await mark_broken(db, channel, address)
-            logger.warning("ask_evening_deals_consent user=%s: %s недоступен",
+            logger.warning("ask_promo_consent user=%s: %s недоступен",
                            user_id, channel.value)
             return f"undelivered:{channel.value}"
 
@@ -389,12 +389,12 @@ async def ask_evening_deals_consent(ctx: dict[str, Any], user_id: int) -> str:
             ad_consent.unmark_asked(user)
             await db.commit()
             logger.warning(
-                "ask_evening_deals_consent user=%s: НЕ ДОШЛО через %s — отметку сняли",
+                "ask_promo_consent user=%s: НЕ ДОШЛО через %s — отметку сняли",
                 user_id, channel.value,
             )
             return f"undelivered:{channel.value}"
 
-    logger.info("ask_evening_deals_consent user=%s: спросили через %s", user_id, channel.value)
+    logger.info("ask_promo_consent user=%s: спросили через %s", user_id, channel.value)
     return f"asked:{channel.value}"
 
 
@@ -539,7 +539,7 @@ async def send_evening_deals_blast(ctx: dict[str, Any]) -> str:
     from app.db.session import AsyncSessionLocal
     from app.models.models import User
     from app.services.evening_deals_service import any_windows_today
-    from app.services.notifications import TOPIC_EVENING_DEALS, wants
+    from app.services.notifications import TOPIC_PROMOS, wants
 
     try:
         async with AsyncSessionLocal() as db:
@@ -569,7 +569,7 @@ async def send_evening_deals_blast(ctx: dict[str, Any]) -> str:
     pool = await get_arq_pool()
     sent = 0
     for u in recipients:
-        if not wants(u, TOPIC_EVENING_DEALS):
+        if not wants(u, TOPIC_PROMOS):
             continue
         channel, address = _resolve_channel(u)
         if address is None:

@@ -557,6 +557,23 @@ async def license_page(request: Request, db: AsyncSession = Depends(get_db)):
     return HTMLResponse(content=render_legal_page("license", user))
 
 
+@router.get("/connect/vk", response_class=HTMLResponse)
+async def connect_vk_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Привязка ВКонтакте одним экраном — сюда ведёт кнопка из бота."""
+    from app.services.vk_link import create_code
+    from app.web.pages.connect_vk import render_already_linked, render_connect_vk
+
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        # Возврат ровно сюда: человек пришёл из бота, и терять его нельзя.
+        return RedirectResponse(url="/login?redirect=%2Fconnect%2Fvk", status_code=302)
+    if not settings.vk_bot_address:
+        return RedirectResponse(url="/profile", status_code=302)
+    if getattr(user, "vk_peer_id", None):
+        return HTMLResponse(content=render_already_linked(user))
+    return HTMLResponse(content=render_connect_vk(user, await create_code(user.id)))
+
+
 @router.get("/dlya-masterov", response_class=HTMLResponse)
 async def master_landing_page(request: Request, db: AsyncSession = Depends(get_db)):
     """Лендинг для частных мастеров под рекламу в Яндекс Директе."""
@@ -794,7 +811,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     return Response(content=xml, media_type="application/xml")
 
 
-@router.get("/consent/evening-deals", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/consent/promo", response_class=HTMLResponse, include_in_schema=False)
 async def evening_deals_consent_page(t: str = ""):
     """Открыта ссылкой из письма. Только показывает вопрос — не записывает."""
     from app.services import ad_consent
@@ -805,7 +822,7 @@ async def evening_deals_consent_page(t: str = ""):
     return HTMLResponse(content=page.render_question(t))
 
 
-@router.post("/consent/evening-deals", response_class=HTMLResponse, include_in_schema=False)
+@router.post("/consent/promo", response_class=HTMLResponse, include_in_schema=False)
 async def evening_deals_consent_submit(request: Request, db: AsyncSession = Depends(get_db)):
     """Нажатие кнопки — единственное, что записывает согласие."""
     from app.services import ad_consent

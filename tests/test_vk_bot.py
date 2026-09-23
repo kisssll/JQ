@@ -37,9 +37,14 @@ async def _get(db_session, user_id):
 @pytest.fixture()
 def vk(monkeypatch):
     """Бот включён, отправка и ответы на кнопки перехватываются."""
-    # Актуальный объект настроек: соседние тесты пересоздают модуль reload'ом.
-    monkeypatch.setattr(config_mod.settings, "VK_GROUP_ID", 241543992)
-    monkeypatch.setattr(config_mod.settings, "VK_GROUP_SCREEN_NAME", "rumi_test")
+    # Соседние тесты пересоздают модуль конфига reload'ом, и объект настроек
+    # у веб-страниц может оказаться ДРУГИМ, чем config_mod.settings. Патчим оба,
+    # иначе /connect/vk видит пустой адрес сообщества и уводит в профиль.
+    import app.web.views as views_mod
+    for target in {id(config_mod.settings): config_mod.settings,
+                   id(views_mod.settings): views_mod.settings}.values():
+        monkeypatch.setattr(target, "VK_GROUP_ID", 241543992)
+        monkeypatch.setattr(target, "VK_GROUP_SCREEN_NAME", "rumi_test")
     sent, answered = [], []
 
     async def send_message(peer_id, text, keyboard=None):
@@ -243,8 +248,25 @@ async def test_profile_link_binds_account(client, db_session, vk):
 
 
 async def test_stale_link_is_explained(client, db_session, vk):
-    await vk_bot.on_message_new(_msg(708, "Начать", ref="l0123456789abcdef0123"))
+    """Код живёт 15 минут и сгорает при первом использовании — истёкший
+    не должен молча приводить в меню."""
+    await vk_bot.on_message_new(_msg(708, "Начать", ref="RUMI-AB23C"))
     assert "устарела" in vk.sent[-1]["text"]
+
+
+async def test_code_sent_as_message_links_account(client, db_session, vk):
+    """Кнопки «Начать» в непустом диалоге нет (жалоба 17.09.2026), поэтому
+    код со страницы привязки можно просто отправить сообщением."""
+    user_id = await _user(db_session, phone="+79998880031")
+    code = await vk_link.create_code(user_id)
+    await vk_bot.on_message_new(_msg(731, f"  {code.lower()} "))
+    assert (await _get(db_session, user_id)).vk_peer_id == 731
+    assert "привязан" in vk.sent[-1]["text"]
+
+
+async def test_wrong_code_sent_as_message_is_explained(client, db_session, vk):
+    await vk_bot.on_message_new(_msg(732, "RUMI-AB23C"))
+    assert "не подошёл" in vk.sent[-1]["text"]
 
 
 async def test_vk_id_user_is_recognised_without_code(client, db_session, vk):
@@ -309,17 +331,17 @@ async def test_choose_vk_channel_button(client, db_session, vk):
 
 
 async def test_advertising_topic_needs_consent_record(client, db_session, vk):
-    from app.services.notifications import TOPIC_EVENING_DEALS, wants
+    from app.services.notifications import TOPIC_PROMOS, wants
     from app.models.models import ConsentDocument, UserConsent
 
     user_id = await _user(db_session, vk_peer_id=716)
     await vk_bot.on_message_event({"peer_id": 716, "user_id": 716, "event_id": "e5",
-                                   "payload": {"c": f"ntf:{TOPIC_EVENING_DEALS}"}})
-    assert wants(await _get(db_session, user_id), TOPIC_EVENING_DEALS) is True
+                                   "payload": {"c": f"ntf:{TOPIC_PROMOS}"}})
+    assert wants(await _get(db_session, user_id), TOPIC_PROMOS) is True
     async with db_session() as db:
         proof = (await db.execute(select(UserConsent).where(
             UserConsent.user_id == user_id,
-            UserConsent.document == ConsentDocument.ADS_EVENING_DEALS))).scalar_one()
+            UserConsent.document == ConsentDocument.ADS_PROMOS))).scalar_one()
     assert proof.source == "vk_prefs"
 
 
@@ -384,7 +406,7 @@ async def test_connect_button_issues_code_for_this_account(client, db_session, v
     r = await client.post("/api/v1/users/me/vk-connect", follow_redirects=False)
     assert r.status_code == 303
     location = r.headers["location"]
-    assert location.startswith("https://vk.me/rumi_test?ref=l")
+    assert location.startswith("https://vk.me/rumi_test?ref=RUMI-")
     assert await vk_link.pop_code(location.split("ref=", 1)[1]) == user_id
 
 
@@ -428,21 +450,21 @@ def test_reminder_step_offers_channel_without_blocking(vk):
     from app.web.pages.salon_detail import _reminder_channel_hint
 
     assert "Подключить ВКонтакте" in _reminder_channel_hint(User(phone="+7"))
-    assert "отправьте любое сообщение" in _reminder_channel_hint(User(phone="+7"))
+    assert "код" in _reminder_channel_hint(User(phone="+7"))
     assert _reminder_channel_hint(User(phone="+7", vk_peer_id=1)) == ""
     assert _reminder_channel_hint(None) == ""
 
 
 def test_connect_explains_missing_start_button(vk):
     """ВК показывает «Начать» только в пустом диалоге. Кто уже писал сообществу,
-    кнопки не увидит — на стейдже 16.09 пришлось догадываться печатать руками."""
+    кнопки не увидит — 16.09 и 17.09 на этом застряли двое. Выход — код со
+    страницы привязки, и о нём должно быть сказано до перехода во ВКонтакте."""
     from app.web.pages.profile import _notify_channel_block
 
     html = _notify_channel_block(User(phone="+7", email="a@b.ru", notify_channel=NotifyChannel.EMAIL))
-    assert "отправьте любое сообщение" in html
+    assert "код" in html and "/connect/vk" in html
     linked = _notify_channel_block(User(phone="+7", vk_peer_id=1, notify_channel=NotifyChannel.VK))
-    assert "отправьте любое сообщение" not in linked
-    assert "любое сообщение" in vk_bot.UNLINKED_TEXT
+    assert "код" not in linked   # привязанному подсказка не нужна
 
 
 async def test_typed_message_after_profile_link_binds(client, db_session, vk):
@@ -451,3 +473,48 @@ async def test_typed_message_after_profile_link_binds(client, db_session, vk):
     code = await vk_link.create_code(user_id)
     await vk_bot.on_message_new(_msg(719, "привет", ref=code))
     assert (await _get(db_session, user_id)).vk_peer_id == 719
+
+
+# ── страница привязки /connect/vk ───────────────────────────────────────────
+
+async def test_connect_page_requires_login_and_returns_back(client, vk):
+    """Человек приходит сюда из бота: потерять его на входе нельзя."""
+    r = await client.get("/connect/vk")
+    assert r.status_code == 302
+    assert r.headers["location"] == "/login?redirect=%2Fconnect%2Fvk"
+
+
+async def test_connect_page_shows_link_and_code(client, db_session, vk):
+    from tests.conftest import register_user
+
+    data = await register_user(client, "+79998880041")
+    client.cookies.set("access_token", data["access_token"])
+    r = await client.get("/connect/vk")
+    assert r.status_code == 200
+    assert "https://vk.me/rumi_test?ref=RUMI-" in r.text
+    # код виден на странице текстом: кнопки «Начать» в непустом диалоге нет,
+    # и тогда человек отправляет код сообщением
+    import re
+    code = re.search(r"RUMI-[A-Z0-9]{5}", r.text).group(0)
+    assert vk_link.looks_like_code(code)
+    assert r.text.count(code) >= 2          # в ссылке и отдельной строкой
+    assert await vk_link.pop_code(code) is not None
+    client.cookies.clear()
+
+
+async def test_connect_page_tells_when_already_linked(client, db_session, vk):
+    """Привязанному показываем, К КАКОМУ аккаунту ВК он привязан: если ссылку
+    успел открыть кто-то другой, видно чужое имя и есть «Отвязать»."""
+    from sqlalchemy import update as _update
+    from tests.conftest import register_user
+
+    data = await register_user(client, "+79998880042")
+    client.cookies.set("access_token", data["access_token"])
+    async with db_session() as db:
+        await db.execute(_update(User).where(User.phone == "+79998880042")
+                         .values(vk_peer_id=742, vk_name="Диана Мальцева"))
+        await db.commit()
+    r = await client.get("/connect/vk")
+    assert "уже подключён" in r.text and "Диана Мальцева" in r.text
+    assert "Отвязать" in r.text
+    client.cookies.clear()
