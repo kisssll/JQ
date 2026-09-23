@@ -466,6 +466,41 @@ def _reports_tab(reports):
 
 
 # ── ВКЛАДКА: ОБРАЩЕНИЯ ───────────────────────────────────────────────────────
+def _contest_tab(entries, phone_by_id):
+    """Заявки на конкурс из ботов. Только чтение: победителей выбирают
+    голосованием и жюри, а не кнопкой в админке."""
+    from app.services import contest
+
+    rows = ""
+    for entry in entries:
+        who = phone_by_id.get(entry.user_id) if entry.user_id else None
+        who_html = _esc(who) if who else '<span class="text-muted">нет аккаунта</span>'
+        rows += f"""
+        <tr>
+            <td class="text-muted" style="white-space:nowrap">{entry.created_at:%d.%m %H:%M}</td>
+            <td>{_esc(entry.name)}</td>
+            <td>{_esc(entry.city)}</td>
+            <td><a href="{_esc(entry.work_url)}" target="_blank" rel="noopener">работа</a></td>
+            <td>{_esc(entry.contact)}</td>
+            <td>{who_html}<br><span class="text-muted" style="font-size:0.8rem">{entry.channel.value}</span></td>
+        </tr>"""
+    if not rows:
+        rows = ('<tr><td colspan="6" class="text-muted" style="padding:1.5rem;text-align:center">'
+                'Заявок пока нет</td></tr>')
+    return f"""
+    <div class="tab-content" id="tab-contest">
+        <h2 style="margin-bottom:1rem">Конкурс ({len(entries)})</h2>
+        <p class="text-muted" style="margin-bottom:1rem;font-size:0.85rem">
+            {_esc(contest.TITLE)}. Приём заявок {_esc(contest.ru_date(contest.ENTRY_START))} —
+            {_esc(contest.ru_date(contest.ENTRY_END))}, правила: <a href="/contest">/contest</a>.
+            Заявки приходят из ботов, данные — со слов участника.</p>
+        <div style="overflow-x:auto"><table>
+            <thead><tr><th>Когда</th><th>Имя</th><th>Город</th><th>Работа</th><th>Связь</th><th>Аккаунт</th></tr></thead>
+            <tbody>{rows}</tbody>
+        </table></div>
+    </div>"""
+
+
 def _support_tab(requests, phone_by_id):
     """Обращения из ботов. Ответ уходит человеку его же каналом."""
     from app.services.support import STATUS_LABELS, TOPIC_LABELS
@@ -652,6 +687,12 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     support_new = [r for r in support_requests if r.status == SupportStatus.NEW]
     support_tab = _support_tab(support_requests, phone_by_id)
 
+    from app.models.models import ContestEntry
+    contest_entries = (await db.execute(
+        select(ContestEntry).order_by(ContestEntry.created_at.desc()).limit(300)
+    )).scalars().all()
+    contest_tab = _contest_tab(contest_entries, phone_by_id)
+
     # Доп. данные для карточек заявок: фото + услуги (только по заявкам)
     extra_by_id = {}
     if pending:
@@ -714,8 +755,8 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
 
     allowed_tabs = (
         {"overview", "users", "applications", "models", "reports", "salons",
-         "reviews", "audit", "support"}
-        if is_senior else {"applications", "models", "reports", "support"}
+         "reviews", "audit", "support", "contest"}
+        if is_senior else {"applications", "models", "reports", "support", "contest"}
     )
     default_tab = "overview" if is_senior else "applications"
     _tab = q.get("tab", default_tab)
@@ -723,6 +764,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     pending_badge = f' <span style="background:#d97706;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(pending)}</span>' if pending else ""
     models_badge = f' <span style="background:#d97706;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(pending_models)}</span>' if pending_models else ""
     reports_badge = f' <span style="background:#dc2626;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(reports_data)}</span>' if reports_data else ""
+    contest_badge = f' <span style="background:#7c3aed;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(contest_entries)}</span>' if contest_entries else ""
     support_badge = f' <span style="background:#2563eb;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(support_new)}</span>' if support_new else ""
 
     tab_nav = ""
@@ -733,6 +775,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     tab_nav += f'<button class="tab-btn" data-tab="models" onclick="switchTab(\'models\')">{ICON_MODEL} Модели{models_badge}</button>'
     tab_nav += f'<button class="tab-btn" data-tab="reports" onclick="switchTab(\'reports\')">{ICON_FLAG} Жалобы{reports_badge}</button>'
     tab_nav += f'<button class="tab-btn" data-tab="support" onclick="switchTab(\'support\')">{ICON_MESSAGE_CIRCLE} Обращения{support_badge}</button>'
+    tab_nav += f'<button class="tab-btn" data-tab="contest" onclick="switchTab(\'contest\')">{ICON_FILE_TEXT} Конкурс{contest_badge}</button>'
     if is_senior:
         tab_nav += f'<button class="tab-btn" data-tab="salons" onclick="switchTab(\'salons\')">{ICON_BUILDING2} Салоны</button>'
         tab_nav += f'<button class="tab-btn" data-tab="reviews" onclick="switchTab(\'reviews\')">{ICON_MESSAGE_CIRCLE} Отзывы</button>'
@@ -838,6 +881,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         {model_applications_tab}
         {reports_tab}
         {support_tab}
+        {contest_tab}
         {salons_tab}
         {reviews_tab}
         {audit_tab}

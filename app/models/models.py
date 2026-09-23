@@ -1452,6 +1452,34 @@ class ConsentDocument(str, enum.Enum):
     ADS_EVENING_DEALS = "ads_evening_deals"   # прежняя узкая тема, записей нет
     #: Рекламные сообщения Руми: акции, конкурсы, подборка вечерних окон.
     ADS_PROMOS = "ads_promos"
+    #: Правила конкурса — принимаются вместе с отправкой заявки.
+    CONTEST_RULES = "contest_rules"
+
+
+class ContestEntry(Base):
+    """Заявка на конкурс, поданная в боте.
+
+    Участник может быть не зарегистрирован в Руми: конкурс зовёт мастеров
+    со стороны, и требовать аккаунт до подачи заявки — терять участников.
+    Поэтому user_id необязателен, а связаться всегда есть как: чат, из
+    которого пришла заявка, и контакт, который человек указал сам.
+    """
+    __tablename__ = "contest_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: Какой конкурс: чтобы следующий не смешался с этим.
+    contest: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    channel: Mapped[NotifyChannel] = mapped_column(Enum(NotifyChannel), nullable=False)
+    chat_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    city: Mapped[str] = mapped_column(String(300), nullable=False)
+    work_url: Mapped[str] = mapped_column(String(300), nullable=False)
+    contact: Mapped[str] = mapped_column(String(300), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class AdAttribution(Base):

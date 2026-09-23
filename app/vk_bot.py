@@ -27,7 +27,8 @@ import httpx
 
 from app.core import config
 from app.core.limiter import get_redis
-from app.services import vk_api, vk_link
+from app.models.models import NotifyChannel
+from app.services import contest, vk_api, vk_link
 
 logger = logging.getLogger("vk_bot")
 
@@ -59,11 +60,52 @@ async def send(peer_id: int, text: str, keyboard: Optional[dict] = None) -> None
 
 
 def _menu_kb() -> dict:
-    return vk_api.inline_keyboard([
+    rows = [
         [vk_api.callback_button(MENU_BOOKINGS, "menu:bookings", "primary")],
         [vk_api.callback_button(MENU_PREFS, "menu:prefs")],
         [vk_api.callback_button(MENU_SUPPORT, "menu:support")],
-    ])
+    ]
+    if contest.is_menu_visible():
+        # Кнопка живёт только на время конкурса: меню не должно расти
+        # навсегда из-за разовой затеи.
+        rows.insert(0, [vk_api.callback_button(
+            bot_texts.MENU_CONTEST, contest.CMD_START, "positive")])
+    return vk_api.inline_keyboard(rows)
+
+
+def _contest_kb(with_send: bool = False) -> dict:
+    rows = []
+    if with_send:
+        rows.append([vk_api.callback_button("Отправить заявку", contest.CMD_SEND, "positive")])
+    else:
+        rows.append([vk_api.callback_button("Подать заявку", contest.CMD_APPLY, "positive")])
+    rows.append([vk_api.link_button("Правила конкурса", _contest_url())])
+    return vk_api.inline_keyboard(rows)
+
+
+def _contest_url() -> str:
+    return f"{config.settings.PUBLIC_BASE_URL.rstrip('/')}/contest"
+
+
+async def show_contest(peer_id: int) -> None:
+    await send(peer_id, contest.short_pitch(), _contest_kb())
+
+
+async def start_contest_entry(peer_id: int) -> None:
+    async with await _db() as db:
+        user, _ = await current_user(db, peer_id)
+        text = await contest.begin(db, NotifyChannel.VK, peer_id, user)
+    await send(peer_id, text)
+
+
+async def send_contest_entry(peer_id: int) -> None:
+    from app.web.pages.legal import LEGAL_VERSION
+
+    async with await _db() as db:
+        user, _ = await current_user(db, peer_id)
+        text = await contest.send(db, NotifyChannel.VK, peer_id, user=user,
+                                  consent_version=LEGAL_VERSION)
+    await send(peer_id, text, _menu_kb())
 
 
 def _connect_url() -> str:
@@ -475,6 +517,15 @@ async def on_message_new(obj: dict) -> None:
                             "Откройте страницу привязки и возьмите новый.", _unlinked_kb())
         return
 
+    # Анкета конкурса идёт раньше обращения в поддержку: человек, который
+    # начал заполнять заявку, отвечает на вопрос бота, а не пишет нам письмо.
+    if await contest.draft_get(NotifyChannel.VK, peer_id) is not None:
+        async with await _db() as db:
+            reply, ready = await contest.answer(db, NotifyChannel.VK, peer_id, text_raw)
+        if reply:
+            await send(peer_id, reply, _contest_kb(with_send=True) if ready else None)
+        return
+
     draft = await _draft_get(peer_id)
     if draft is not None:
         await continue_support(peer_id, message, draft)
@@ -533,6 +584,12 @@ async def _dispatch_command(peer_id: int, command: str) -> Optional[str]:
         await toggle_topic(peer_id, command.split(":", 1)[1])
     elif command == "adc:yes":
         await grant_promos(peer_id)
+    elif command == contest.CMD_START:
+        await show_contest(peer_id)
+    elif command == contest.CMD_APPLY:
+        await start_contest_entry(peer_id)
+    elif command == contest.CMD_SEND:
+        await send_contest_entry(peer_id)
     elif command.startswith("sup:"):
         await start_support_topic(peer_id, command.split(":", 1)[1])
     elif command.startswith("rev:"):

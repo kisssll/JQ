@@ -98,14 +98,19 @@ MENU_BTN_PREFS = bot_texts.MENU_PREFS
 MENU_BTN_SUPPORT = bot_texts.MENU_SUPPORT
 # Полезная нагрузка deep link'а: t.me/<бот>?start=support
 SUPPORT_DEEP_LINK = "support"
-_MENU_KB = ReplyKeyboardMarkup(
-    keyboard=[
+def _menu_kb() -> ReplyKeyboardMarkup:
+    """Нижнее меню. Кнопка конкурса появляется только на время конкурса:
+    разовая затея не должна навсегда оставаться в меню."""
+    from app.services import contest
+
+    rows = [
         [KeyboardButton(text=MENU_BTN_BOOKINGS)],
         [KeyboardButton(text=MENU_BTN_PREFS)],
         [KeyboardButton(text=MENU_BTN_SUPPORT)],
-    ],
-    resize_keyboard=True,
-)
+    ]
+    if contest.is_menu_visible():
+        rows.insert(0, [KeyboardButton(text=bot_texts.MENU_CONTEST)])
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 # Непривязанному постоянное меню не ставится (он его просто не видел), но
 # написать в поддержку он должен мочь — именно у него чаще всего и проблема
 # со входом. Поэтому у обращения свой вход через /feedback и кнопку.
@@ -494,6 +499,64 @@ async def _download_photo(message: Message) -> bytes | None:
         return None
 
 
+async def on_contest_button(message: Message) -> None:
+    """Кнопка «Участвовать в конкурсе» из меню."""
+    from app.services import contest
+
+    await message.answer(contest.short_pitch(), reply_markup=_contest_kb())
+
+
+def _contest_kb(with_send: bool = False) -> InlineKeyboardMarkup:
+    from app.core.config import settings as _settings
+    from app.services import contest
+
+    action = (InlineKeyboardButton(text="Отправить заявку", callback_data=contest.CMD_SEND)
+              if with_send else
+              InlineKeyboardButton(text="Подать заявку", callback_data=contest.CMD_APPLY))
+    rules = InlineKeyboardButton(text="Правила конкурса",
+                                 url=f"{_settings.PUBLIC_BASE_URL.rstrip('/')}/contest")
+    return InlineKeyboardMarkup(inline_keyboard=[[action], [rules]])
+
+
+async def on_contest_callback(callback: CallbackQuery) -> None:
+    """Подать заявку / отправить заполненную."""
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel
+    from app.services import contest
+    from app.web.pages.legal import LEGAL_VERSION
+
+    chat_id = callback.message.chat.id
+    data = callback.data or ""
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, chat_id)
+        if data == contest.CMD_START:
+            text, markup = contest.short_pitch(), _contest_kb()
+        elif data == contest.CMD_APPLY:
+            text, markup = await contest.begin(db, NotifyChannel.TG, chat_id, user), None
+        else:
+            text = await contest.send(db, NotifyChannel.TG, chat_id, user=user,
+                                      consent_version=LEGAL_VERSION)
+            markup = None
+    await callback.answer()
+    await callback.message.answer(text, reply_markup=markup)
+
+
+async def on_contest_answer(message: Message) -> bool:
+    """Ответ на вопрос анкеты. → взяли ли сообщение себе."""
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel
+    from app.services import contest
+
+    chat_id = message.chat.id
+    if await contest.draft_get(NotifyChannel.TG, chat_id) is None:
+        return False
+    async with AsyncSessionLocal() as db:
+        reply, ready = await contest.answer(db, NotifyChannel.TG, chat_id, message.text or "")
+    if reply:
+        await message.answer(reply, reply_markup=_contest_kb(with_send=True) if ready else None)
+    return True
+
+
 async def on_support_message(message: Message) -> None:
     """Текст (и/или фото) для начатого обращения."""
     from app.db.session import AsyncSessionLocal
@@ -504,6 +567,9 @@ async def on_support_message(message: Message) -> None:
     )
 
     chat_id = message.chat.id
+    # Анкета конкурса важнее: человек отвечает боту на вопрос, а не пишет нам.
+    if await on_contest_answer(message):
+        return
     draft = await _support_draft(chat_id)
     if draft is None:
         return  # обращение не начиналось — сообщение не наше
@@ -554,7 +620,7 @@ async def on_support_message(message: Message) -> None:
     await message.answer(
         f"Обращение №{request.id} принято — спасибо.\n"
         "Ответим сюда же, в этот чат.",
-        reply_markup=_MENU_KB if user else _SUPPORT_ONLY_KB,
+        reply_markup=_menu_kb() if user else _SUPPORT_ONLY_KB,
     )
 
 
@@ -586,7 +652,7 @@ async def _show_main_menu(message: Message) -> None:
     await message.answer(
         f"{bot_texts.hello(user)} Это бот Руми. Отсюда можно:\n\n"
         f"{bot_texts.menu_hint()}",
-        reply_markup=_MENU_KB,
+        reply_markup=_menu_kb(),
     )
 
 
@@ -716,7 +782,7 @@ async def _link_existing_account(message: Message) -> None:
         await message.answer(
             "Номер подтверждён ✅\nВернитесь на сайт — регистрация продолжится сама.\n\n"
             "Кнопка «⚙️ Мои уведомления» внизу — управление подписками.",
-            reply_markup=_MENU_KB,
+            reply_markup=_menu_kb(),
         )
         return
 
@@ -751,7 +817,7 @@ async def _link_existing_account(message: Message) -> None:
     await message.answer(
         "Telegram привязан ✅ Теперь уведомления о записях будут приходить сюда.\n\n"
         "Кнопка «⚙️ Мои уведомления» внизу — управление подписками.",
-        reply_markup=_MENU_KB,
+        reply_markup=_menu_kb(),
     )
 
 
@@ -792,7 +858,7 @@ async def on_contact(message: Message) -> None:
         await message.answer(
             "Номер подтверждён ✅\nВернитесь на сайт — регистрация продолжится сама.\n\n"
             "Кнопка «⚙️ Мои уведомления» внизу — управление подписками.",
-            reply_markup=_MENU_KB,
+            reply_markup=_menu_kb(),
         )
     elif verdict == VERDICT_FOREIGN_CONTACT:
         logger.info(
@@ -853,6 +919,7 @@ async def main() -> None:
     dp.message.register(_show_prefs_menu, Command("settings"))
     # Нижняя кнопка-клавиатура: открыть меню подписок без набора /settings.
     dp.message.register(_show_prefs_menu, F.text == MENU_BTN_PREFS)
+    dp.message.register(on_contest_button, F.text == bot_texts.MENU_CONTEST)
     dp.message.register(on_contact, F.contact)
     dp.callback_query.register(on_prefs_toggle, F.data.startswith("ntf:"))
 
@@ -864,6 +931,7 @@ async def main() -> None:
     dp.callback_query.register(on_review_stars, F.data.startswith("rev:"))
     dp.callback_query.register(on_service_rating, F.data.startswith("nps:"))
     dp.callback_query.register(on_promo_consent, F.data == "adc:yes")
+    dp.callback_query.register(on_contest_callback, F.data.startswith("contest:"))
     dp.message.register(on_support_start, Command("feedback"))
     dp.message.register(on_support_start, F.text == MENU_BTN_SUPPORT)
     dp.message.register(on_support_cancel, Command("cancel"))

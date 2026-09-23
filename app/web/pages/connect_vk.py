@@ -35,7 +35,7 @@ def _page(title: str, body: str, user=None) -> str:
 <body>
     {render_header("profile")}
     <main class="main-content">
-        <div class="section-container" style="max-width:34rem;padding-top:2rem;padding-bottom:3rem">
+        <div class="section-container" style="max-width:34rem;padding-top:5.5rem;padding-bottom:3rem">
             {body}
         </div>
     </main>

@@ -518,3 +518,53 @@ async def test_connect_page_tells_when_already_linked(client, db_session, vk):
     assert "уже подключён" in r.text and "Диана Мальцева" in r.text
     assert "Отвязать" in r.text
     client.cookies.clear()
+
+
+# ── конкурс ─────────────────────────────────────────────────────────────────
+
+async def test_contest_entry_through_the_bot(client, db_session, vk, monkeypatch):
+    """Заявку подают прямо в боте: гугл-форма отпадает (152-ФЗ), а данные
+    сразу попадают к нам вместе с записью согласия."""
+    from app.models.models import ContestEntry
+    from app.services import contest
+
+    monkeypatch.setattr(contest, "accepts_entries", lambda today=None: True)
+    monkeypatch.setattr(contest, "is_menu_visible", lambda today=None: True)
+    user_id = await _user(db_session, phone="+79998880051", vk_peer_id=751)
+
+    await vk_bot._dispatch_command(751, contest.CMD_START)
+    assert "Хеллоуин" in vk.sent[-1]["text"]
+    assert contest.CMD_APPLY in _commands(vk.sent[-1]["kb"])
+
+    await vk_bot._dispatch_command(751, contest.CMD_APPLY)
+    assert "Вопрос 1 из 4" in vk.sent[-1]["text"]
+    for answer in ("Алина Агеева", "Томск", "https://vk.com/wall-1_1", "@alina"):
+        await vk_bot.on_message_new(_msg(751, answer))
+    assert contest.CMD_SEND in _commands(vk.sent[-1]["kb"])
+
+    await vk_bot._dispatch_command(751, contest.CMD_SEND)
+    async with db_session() as db:
+        entry = (await db.execute(select(ContestEntry))).scalars().one()
+    assert entry.user_id == user_id and entry.name == "Алина Агеева"
+    assert "принята" in vk.sent[-1]["text"]
+
+
+async def test_contest_answers_do_not_become_support_tickets(client, db_session, vk, monkeypatch):
+    """Человек отвечает на вопрос анкеты, а не пишет в поддержку."""
+    from app.services import contest
+
+    monkeypatch.setattr(contest, "accepts_entries", lambda today=None: True)
+    await vk_bot._dispatch_command(752, contest.CMD_APPLY)
+    await vk_bot.on_message_new(_msg(752, "Алина Агеева"))
+    async with db_session() as db:
+        assert (await db.execute(select(SupportRequest))).scalars().first() is None
+    assert "Вопрос 2 из 4" in vk.sent[-1]["text"]
+
+
+def test_contest_button_hidden_outside_contest(monkeypatch):
+    from app.services import contest
+
+    monkeypatch.setattr(contest, "is_menu_visible", lambda today=None: False)
+    assert all("contest" not in c for c in _commands(vk_bot._menu_kb()))
+    monkeypatch.setattr(contest, "is_menu_visible", lambda today=None: True)
+    assert contest.CMD_START in _commands(vk_bot._menu_kb())

@@ -308,8 +308,27 @@ MENU_BOOKINGS = bot_texts.MENU_BOOKINGS
 _SUPPORT_TTL = 1800
 
 
-def _menu_kb() -> list:
+def _contest_kb(with_send: bool = False) -> list:
+    from app.core.config import settings as _settings
+    from app.services import contest
+    from maxapi.types.attachments.buttons.link_button import LinkButton
+
     kb = InlineKeyboardBuilder()
+    if with_send:
+        kb.row(CallbackButton(text="Отправить заявку", payload=contest.CMD_SEND))
+    else:
+        kb.row(CallbackButton(text="Подать заявку", payload=contest.CMD_APPLY))
+    kb.row(LinkButton(text="Правила конкурса",
+                      url=f"{_settings.PUBLIC_BASE_URL.rstrip('/')}/contest"))
+    return [kb.as_markup()]
+
+
+def _menu_kb() -> list:
+    from app.services import contest
+
+    kb = InlineKeyboardBuilder()
+    if contest.is_menu_visible():
+        kb.row(CallbackButton(text=bot_texts.MENU_CONTEST, payload=contest.CMD_START))
     kb.row(CallbackButton(text=MENU_BOOKINGS, payload="menu:bookings"))
     kb.row(CallbackButton(text=MENU_PREFS, payload="menu:prefs"))
     kb.row(CallbackButton(text=MENU_SUPPORT, payload="menu:support"))
@@ -532,9 +551,34 @@ async def _grant_promos(event: MessageCallback) -> None:
     await event.bot.send_message(chat_id=chat_id, text=ad_consent.THANKS_TEXT)
 
 
+async def _contest_step(event: MessageCallback, payload: str) -> None:
+    """Кнопки конкурса: рассказ, начало анкеты и отправка заявки."""
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel
+    from app.services import contest
+    from app.web.pages.legal import LEGAL_VERSION
+
+    chat_id, _ = event.get_ids()
+    if payload == contest.CMD_START:
+        await event.bot.send_message(chat_id=chat_id, text=contest.short_pitch(),
+                                     attachments=_contest_kb())
+        return
+    async with AsyncSessionLocal() as db:
+        user = await _linked_user(db, chat_id)
+        if payload == contest.CMD_APPLY:
+            text = await contest.begin(db, NotifyChannel.MAX, chat_id, user)
+            attachments = None
+        else:
+            text = await contest.send(db, NotifyChannel.MAX, chat_id, user=user,
+                                      consent_version=LEGAL_VERSION)
+            attachments = _menu_kb()
+    await event.bot.send_message(chat_id=chat_id, text=text, attachments=attachments)
+
+
 async def on_callback(event: MessageCallback) -> None:
     """Один вход на все кнопки: меню, темы уведомлений, темы обращения."""
     from app.models.models import SupportTopic
+    from app.services import contest
     from app.services.support import MAX_PHOTOS, TOPIC_LABELS as SUPPORT_LABELS
 
     chat_id, _ = event.get_ids()
@@ -555,6 +599,8 @@ async def on_callback(event: MessageCallback) -> None:
         await _toggle_topic(event, payload.split(":", 1)[1])
     elif payload == "adc:yes":
         await _grant_promos(event)
+    elif payload in (contest.CMD_START, contest.CMD_APPLY, contest.CMD_SEND):
+        await _contest_step(event, payload)
     elif payload.startswith("sup:"):
         try:
             topic = SupportTopic(payload.split(":", 1)[1])
@@ -599,6 +645,20 @@ async def on_free_message(event: MessageCreated) -> None:
 
     chat_id, _ = event.get_ids()
     text = (getattr(event.message.body, "text", None) or "").strip()
+
+    # Анкета конкурса идёт раньше обращения в поддержку (как в vk-боте).
+    from app.services import contest
+
+    if await contest.draft_get(NotifyChannel.MAX, chat_id) is not None:
+        from app.db.session import AsyncSessionLocal as _Sessions
+
+        async with _Sessions() as db:
+            reply, ready = await contest.answer(db, NotifyChannel.MAX, chat_id, text)
+        if reply:
+            await event.bot.send_message(
+                chat_id=chat_id, text=reply,
+                attachments=_contest_kb(with_send=True) if ready else None)
+        return
 
     draft = await _draft_get(chat_id)
     if draft is None:

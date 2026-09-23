@@ -557,6 +557,16 @@ async def license_page(request: Request, db: AsyncSession = Depends(get_db)):
     return HTMLResponse(content=render_legal_page("license", user))
 
 
+@router.get("/contest", response_class=HTMLResponse)
+async def contest_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Правила конкурса. Обязательная страница: ст. 9 закона «О рекламе»
+    требует объявить организатора, сроки, условия и порядок выдачи призов."""
+    from app.web.pages.contest import render_contest_page
+
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_contest_page(user))
+
+
 @router.get("/connect/vk", response_class=HTMLResponse)
 async def connect_vk_page(request: Request, db: AsyncSession = Depends(get_db)):
     """Привязка ВКонтакте одним экраном — сюда ведёт кнопка из бота."""
