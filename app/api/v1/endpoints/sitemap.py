@@ -49,6 +49,7 @@ async def generate_sitemap(db: AsyncSession) -> str:
         {"url": "/model", "priority": "0.8000"},
         {"url": "/about", "priority": "0.8000"},
         {"url": "/tariffs", "priority": "0.8000"},
+        {"url": "/dlya-masterov", "priority": "0.8000"},
         {"url": "/terms", "priority": "0.8000"},
         {"url": "/privacy", "priority": "0.8000"},
         {"url": "/consent", "priority": "0.8000"},
