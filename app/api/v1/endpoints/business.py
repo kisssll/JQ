@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from typing import List
 from fastapi.responses import HTMLResponse
@@ -15,6 +16,7 @@ from app.models.models import (
     User, Salon, SalonPhoto, Master, Service, Promotion,
     SalonMember, SalonRole, OWNER_DEFAULT_PERMISSIONS, AdminAudit, ClientNote,
     SalonModel, UserRole, SalonModerationStatus, SalonSubscriptionStatus, SalonEveningDeal, ConsentDocument,
+    SalonPanelMode,
 )
 from app.schemas.business import (
     SalonUpdateRequest,
@@ -29,7 +31,35 @@ from app.api.deps import (
 from app.services.analytics_service import AnalyticsService
 from app.services.consent_service import record_consents
 from app.services.subscription import has_access
+from app.services import panel_sections
 from app.core.config import settings
+
+
+async def ensure_owner_master(
+    db: AsyncSession, salon_id: int, user_id: int, specialization: str = "",
+) -> bool:
+    """Заводит владельцу карточку мастера в своём салоне. True — завела.
+
+    Нужна в двух местах (подключение в соло-режиме и кнопка «создать мою
+    карточку» в панели) и раньше существовала только внутри /apply для
+    режима «для мастера». Без карточки к человеку нельзя записаться, поэтому
+    для того, кто работает один, это не опция, а обязательный шаг.
+
+    Мастер у пользователя может быть только один (masters.user_id уникален):
+    если человек уже работает мастером — в этом салоне или в чужом — не
+    трогаем. Вызывающий сам решает, что сказать в этом случае.
+    """
+    already_master = (await db.execute(
+        select(Master.id).where(Master.user_id == user_id)
+    )).scalar_one_or_none()
+    if already_master is not None:
+        return False
+    db.add(Master(
+        user_id=user_id, salon_id=salon_id,
+        specialization=(specialization.strip() or "Мастер")[:100],
+        experience_years=0, rating=0.0,
+    ))
+    return True
 
 
 def _validate_coords(latitude: Optional[float], longitude: Optional[float]) -> bool:
@@ -232,9 +262,14 @@ async def apply_business(
     consent_version: str = Form(""),
     for_master: str = Form(""),
     specialization: str = Form(""),
+    panel_mode: str = Form("solo"),
     db: AsyncSession = Depends(get_db),
 ):
     """Заявка на подключение салона со страницы /business/checkout.
+
+    panel_mode — ответ на вопрос «работаете один или с командой» (решение 0007):
+    задаёт набор разделов панели. В режиме for_master вопрос не задаём — ответ
+    известен заранее, поэтому присланное значение там игнорируется.
 
     for_master=1 — частный мастер (лендинг /dlya-masterov): «салон» из одного
     человека, и мастером в нём сразу заводится сам владелец. Без этого
@@ -258,6 +293,14 @@ async def apply_business(
     if offer_accepted != "1":
         raise HTTPException(status_code=400, detail="Нужно принять условия использования.")
 
+    # Частный мастер с лендинга — всегда «работаю один», что бы ни пришло в
+    # форме: там этот вопрос не задаётся. В остальных случаях верим ответу, а
+    # неизвестное значение трактуем как solo (так же, как default модели).
+    mode = (
+        SalonPanelMode.SOLO if for_master == "1"
+        else (SalonPanelMode.TEAM if panel_mode.strip() == "team" else SalonPanelMode.SOLO)
+    )
+
     salon = Salon(
         creator_id=user.id,
         name=salon_name.strip() or "Салон",
@@ -269,6 +312,7 @@ async def apply_business(
         moderation_status=SalonModerationStatus.PENDING,
         offer_accepted_at=datetime.now(_tz.utc),
         business_tier=(plan.strip() or None),
+        panel_mode=mode,
     )
     db.add(salon)
     await db.flush()
@@ -276,18 +320,11 @@ async def apply_business(
         salon_id=salon.id, user_id=user.id, role=SalonRole.OWNER,
         is_creator=True, permissions=dict(OWNER_DEFAULT_PERMISSIONS), is_active=True,
     ))
-    if for_master == "1":
-        # Мастер у пользователя может быть только один (masters.user_id
-        # уникален): уже работает мастером в другом салоне — не заводим.
-        already_master = (await db.execute(
-            select(Master.id).where(Master.user_id == user.id)
-        )).scalar_one_or_none()
-        if already_master is None:
-            db.add(Master(
-                user_id=user.id, salon_id=salon.id,
-                specialization=(specialization.strip() or "Мастер")[:100],
-                experience_years=0, rating=0.0,
-            ))
+    # Кто работает один — тот и есть мастер своего салона: заводим карточку
+    # сразу, иначе к нему нельзя записаться, а искать «добавить сотрудника»,
+    # чтобы вписать туда себя, люди не догадываются (на проде так и вышло).
+    if mode is SalonPanelMode.SOLO:
+        await ensure_owner_master(db, salon.id, user.id, specialization)
     # Повышаем до BUSINESS: владелец получает кабинет (с баннером «на модерации»),
     # но салон невидим публично и запись закрыта до одобрения.
     # ADMIN не трогаем: это ПОНИЖЕНИЕ, а не повышение — модератор, заведя себе
@@ -366,6 +403,120 @@ async def toggle_guest_booking(
     salon.guest_booking_enabled = not salon.guest_booking_enabled
     await db.commit()
     return {"guest_booking_enabled": salon.guest_booking_enabled}
+
+
+def _settings_redirect(salon_id: int) -> RedirectResponse:
+    """Назад в настройки салона. Адрес собираем сами, а не берём из формы —
+    тогда вопроса об open redirect просто не возникает."""
+    return RedirectResponse(
+        url=f"/business/dashboard?salon_id={salon_id}&tab=edit", status_code=302,
+    )
+
+
+@router.post("/my-salon/panel-mode")
+async def set_panel_mode(
+    salon_id: int = Form(...),
+    mode: str = Form(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Режим бизнеса: «работаю один» / «у меня команда» (решение 0007).
+
+    Набор разделов при смене режима сбрасываем в «как по режиму» — иначе
+    человек переключился бы в «команду» и не увидел ни аналитики, ни склада,
+    потому что их гасит список, сохранённый в соло-режиме.
+    """
+    await check_salon_permission(db, current_user, salon_id, "manage_salon")
+    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
+    if salon is None:
+        raise HTTPException(status_code=404, detail="Салон не найден")
+
+    new_mode = SalonPanelMode.TEAM if mode.strip() == "team" else SalonPanelMode.SOLO
+    if new_mode is not salon.panel_mode:
+        was = salon.panel_mode
+        salon.panel_mode = new_mode
+        salon.panel_sections = None
+        db.add(AdminAudit(
+            actor_id=current_user.id, action="salon_panel_mode",
+            target_type="salon", target_id=salon.id, salon_id=salon.id,
+            detail=f"Режим панели: {was.value} → {new_mode.value}",
+        ))
+        await db.commit()
+    return _settings_redirect(salon_id)
+
+
+@router.post("/my-salon/panel-sections")
+async def set_panel_sections(
+    salon_id: int = Form(...),
+    sections: List[str] = Form(default=[]),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Какие разделы панели показывать. Обязательные добавляются независимо от
+    присланного списка — переключателя у них нет, но и подделанная форма не
+    должна оставить салон без «Тарифа» или «Настроек» (см. panel_sections)."""
+    await check_salon_permission(db, current_user, salon_id, "manage_salon")
+    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
+    if salon is None:
+        raise HTTPException(status_code=404, detail="Салон не найден")
+
+    before = panel_sections.enabled_keys(salon)
+    salon.panel_sections = panel_sections.normalize(salon.panel_mode, sections)
+    after = panel_sections.enabled_keys(salon)
+    if after != before:
+        turned_on = sorted(panel_sections.LABELS[k] for k in after - before)
+        turned_off = sorted(panel_sections.LABELS[k] for k in before - after)
+        parts = []
+        if turned_on:
+            parts.append("включены: " + ", ".join(turned_on))
+        if turned_off:
+            parts.append("выключены: " + ", ".join(turned_off))
+        db.add(AdminAudit(
+            actor_id=current_user.id, action="salon_panel_sections",
+            target_type="salon", target_id=salon.id, salon_id=salon.id,
+            detail="Разделы панели — " + "; ".join(parts),
+        ))
+    await db.commit()
+    return _settings_redirect(salon_id)
+
+
+@router.post("/my-salon/master-card")
+async def create_own_master_card(
+    salon_id: int = Form(...),
+    specialization: str = Form(""),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Завести себе карточку мастера в своём салоне (соло-режим, кнопка в
+    разделе «Моя карточка мастера»). Найма в соло нет, значит завести себя
+    должно быть чем-то одним — без этого к человеку нельзя записаться."""
+    await check_salon_permission(db, current_user, salon_id, "manage_masters")
+    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
+    if salon is None:
+        raise HTTPException(status_code=404, detail="Салон не найден")
+
+    created = await ensure_owner_master(db, salon_id, current_user.id, specialization)
+    if created:
+        db.add(AdminAudit(
+            actor_id=current_user.id, action="create_own_master_card",
+            target_type="salon", target_id=salon.id, salon_id=salon.id,
+            detail="Владелец завёл себе карточку мастера",
+        ))
+        try:
+            await db.commit()
+        except IntegrityError:
+            # Двойной клик: два запроса успели пройти проверку до того, как
+            # первый закоммитился, и второй упёрся в уникальный masters.user_id.
+            # Карточка уже есть — это ровно то, чего человек добивался, поэтому
+            # молча уводим туда же, а не показываем ошибку (см. историю с
+            # двойной отправкой регистрации).
+            await db.rollback()
+        else:
+            from app.api.v1.endpoints.master import _sync_billing_headcount
+            await _sync_billing_headcount(db, salon_id)
+    return RedirectResponse(
+        url=f"/business/dashboard?salon_id={salon_id}&tab=employees", status_code=302,
+    )
 
 
 @router.post("/my-salon/visibility-toggle")

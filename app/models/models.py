@@ -344,6 +344,18 @@ class SalonModerationStatus(str, enum.Enum):
     REJECTED = "rejected"
 
 
+class SalonPanelMode(str, enum.Enum):
+    """Как устроен бизнес: «работаю один» или «у меня команда» (решение 0007).
+
+    Режим — про то, ЧТО есть в этом бизнесе, и задаёт набор разделов панели.
+    Права (SALON_PERMISSION_KEYS) — про то, КТО из команды что может, и режимом
+    не управляются: иначе потом не понять, человек не видит склад по настройке
+    салона или у него отобрали доступ.
+    """
+    SOLO = "solo"
+    TEAM = "team"
+
+
 class SalonChain(Base):
     """Сеть салонов одного бренда: несколько независимых салонов (у каждого
     свой владелец/creator_id, сотрудники, брони, фото) показывают друг друга
@@ -448,6 +460,22 @@ class Salon(Base):
     logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     # Принимать записи без регистрации (гостевые по ссылке/QR). По умолчанию вкл.
     guest_booking_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+
+    # --- Режим бизнес-панели (решение 0007) ---
+    # По умолчанию solo: на сегодня соло-мастер — не частный случай, а почти весь
+    # продукт (на проде 8 салонов из 9 с одним мастером). Кто работает с командой,
+    # говорит об этом при подключении или переключает в настройках.
+    panel_mode: Mapped[SalonPanelMode] = mapped_column(
+        Enum(SalonPanelMode),
+        default=SalonPanelMode.SOLO,
+        server_default="SOLO",  # SQLAlchemy хранит ИМЯ члена (конвенция проекта)
+        nullable=False,
+    )
+    # Какие разделы панели включены. NULL/пусто = «как по режиму»: тогда смена
+    # режима обновляет набор сама, а не оставляет застывшую копию прошлого.
+    # Заполнен только после того, как владелец правил набор переключателями.
+    # Правила разбора — app/services/panel_sections.py, здесь только хранение.
+    panel_sections: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
     photos: Mapped[List["SalonPhoto"]] = relationship(back_populates="salon")
 
     rating: Mapped[float] = mapped_column(Float, default=0.0)

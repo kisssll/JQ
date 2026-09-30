@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta, timezone
 from app.services.subscription import has_access
+from app.services import panel_sections
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
     SalonMember, User as UserModel, SalonModerationStatus, SalonSubscriptionStatus,
@@ -248,25 +249,42 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         select(func.count(Review.id)).where(Review.salon_id == salon.id)
     )).scalar() or 0
 
-    tab_buttons = [
-        ('overview', ICON_LAYOUT_DASHBOARD, 'Обзор', True),
-        ('analytics', ICON_CHART_COLUMN, 'Аналитика', perms["view_finances"]),
-        ('schedule', ICON_CLOCK, 'Расписание', True),
-        ('employees', ICON_USERS, 'Сотрудники', True),
-        ('services', ICON_USER_CHECK, 'Услуги', True),
-        ('payroll', ICON_WALLET, 'Зарплаты', perms["manage_payroll"]),
-        ('cost', ICON_PACKAGE, 'Себестоимость', perms["view_finances"]),
-        ('records', ICON_CALENDAR_DAYS, 'Записи', True),
-        ('warehouse', ICON_PACKAGE, 'Склад', perms["manage_inventory"]),
-        ('models', ICON_HEART, 'Модели', perms["manage_masters"]),
-        ('promos', ICON_SPARKLES, f'Акции ({promos_count})', True),
-        ('reviews', ICON_STAR_FILLED, f'Отзывы ({reviews_count})', True),
-        ('crm', ICON_USER_CHECK, 'Клиенты', True),
-        ('billing', ICON_CREDIT_CARD, 'Тариф', perms["manage_tariff"]),
-        ('edit', ICON_SETTINGS_GEAR_SMALL, 'Редактировать салон', True),
-        ('instructions', ICON_MESSAGE_CIRCLE, 'Инструкция', True),
-    ]
+    # Итоговая видимость раздела — И то, и другое: раздел включён у салона
+    # (режим + переключатели владельца, см. panel_sections) И у человека есть
+    # право. Две разные причины, их нельзя складывать в одну: режим — про то,
+    # что есть в бизнесе, право — про то, кто из команды что может.
+    enabled_sections = panel_sections.enabled_keys(salon)
+    mode = salon.panel_mode
+    _icons = {
+        'overview': ICON_LAYOUT_DASHBOARD, 'analytics': ICON_CHART_COLUMN,
+        'schedule': ICON_CLOCK, 'employees': ICON_USERS, 'services': ICON_USER_CHECK,
+        'payroll': ICON_WALLET, 'cost': ICON_PACKAGE, 'records': ICON_CALENDAR_DAYS,
+        'warehouse': ICON_PACKAGE, 'models': ICON_HEART, 'promos': ICON_SPARKLES,
+        'reviews': ICON_STAR_FILLED, 'crm': ICON_USER_CHECK, 'billing': ICON_CREDIT_CARD,
+        'edit': ICON_SETTINGS_GEAR_SMALL, 'instructions': ICON_MESSAGE_CIRCLE,
+    }
+    _perm_of = {
+        'analytics': perms["view_finances"],
+        'payroll': perms["manage_payroll"],
+        'cost': perms["view_finances"],
+        'warehouse': perms["manage_inventory"],
+        'models': perms["manage_masters"],
+        'billing': perms["manage_tariff"],
+    }
+    _counts = {'promos': promos_count, 'reviews': reviews_count}
 
+    tab_buttons = []
+    for slug in panel_sections.ALL_KEYS:
+        text = panel_sections.label(slug, mode)
+        if slug in _counts:
+            text = f'{text} ({_counts[slug]})'
+        tab_buttons.append((
+            slug, _icons[slug], text,
+            _perm_of.get(slug, True) and slug in enabled_sections,
+        ))
+
+    # Выключенный раздел не открывается и по прямой ссылке — проверка стоит ДО
+    # рендера вкладки, поэтому и ?tab=, и ?tab=&partial=1 уходят в «Обзор».
     visible_slugs = [slug for slug, _, _, visible in tab_buttons if visible]
     if active_tab not in visible_slugs:
         active_tab = "overview"

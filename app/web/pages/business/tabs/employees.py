@@ -3,7 +3,7 @@ from app.web.components.escaping import e
 import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.models.models import Master, User as UserModel, SalonMember, SalonRole, AdminAudit, SALON_PERMISSION_KEYS
 from app.web.components.icons import (
     ICON_EDIT,
@@ -17,6 +17,7 @@ from app.web.components.icons import (
     ICON_STAR_FILLED,
 )
 from app.web.components.hint import hint as _hint
+from app.services import panel_sections
 
 _ERROR_MESSAGES = {
     "bad_phone": "Не удалось распознать телефон. Формат: +7 999 123-45-67 или 8 999 123-45-67.",
@@ -94,7 +95,29 @@ def _render_staff_card(member, user_data, can_edit_perms, can_remove):
     """
 
 
-def _render_master_card(master, user_data, can_manage_masters):
+def _master_extra_actions(master_id, user_name, can_manage_masters, solo):
+    """Кнопки управления мастером сверх «править/включить».
+
+    Одна функция на таблицу и на карточки для телефона: раньше это были две
+    копии одного списка, и они разъезжались.
+
+    В соло-режиме карточка принадлежит самому владельцу, поэтому:
+      - «Фото» остаётся: без портфолио клиенту нечего показать;
+      - «Сбросить пароль» не нужен — это свой же аккаунт, пароль меняется
+        в профиле;
+      - «Удалить» убрано: снеся свою карточку, человек вернулся бы в то же
+        состояние «ко мне нельзя записаться», из-за которого всё и затевалось.
+    """
+    if not can_manage_masters:
+        return ""
+    actions = f'<a class="action-btn" href="/masters/{master_id}" title="Фото и портфолио">Фото</a>'
+    if not solo:
+        actions += f'<button class="action-btn" onclick="resetMasterPassword({master_id})" title="Сбросить пароль">{ICON_LOCK_MINI}</button>'
+        actions += f'<button class="action-btn delete-btn" onclick="deleteEmployee({master_id}, \'{user_name}\')" title="Удалить">{ICON_TRASH}</button>'
+    return actions
+
+
+def _render_master_card(master, user_data, can_manage_masters, solo=False):
     """Возвращает HTML карточки мастера для мобильной версии."""
     user_name = user_data.full_name if user_data else "—"
     phone = user_data.phone if user_data else "—"
@@ -107,10 +130,7 @@ def _render_master_card(master, user_data, can_manage_masters):
         <button class="action-btn edit-btn" onclick="editEmployee({master.id}, '{user_name}', '{e(master.specialization)}', {master.experience_years})" title="Редактировать">{ICON_EDIT}</button>
         <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({master.id}, '{user_name}', {str(master.is_active).lower()})" title="{'Отключить' if master.is_active else 'Включить'}">{ICON_POWER}</button>
     """
-    if can_manage_masters:
-        actions += f'<a class="action-btn" href="/masters/{master.id}" title="Фото и портфолио">Фото</a>'
-        actions += f'<button class="action-btn" onclick="resetMasterPassword({master.id})" title="Сбросить пароль">{ICON_LOCK_MINI}</button>'
-        actions += f'<button class="action-btn delete-btn" onclick="deleteEmployee({master.id}, \'{user_name}\')" title="Удалить">{ICON_TRASH}</button>'
+    actions += _master_extra_actions(master.id, user_name, can_manage_masters, solo)
 
     return f"""
     <div class="master-card" data-master-id="{master.id}">
@@ -162,7 +182,21 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
     can_manage_owners = perms.get("manage_owners", False)
     can_manage_admins = perms.get("manage_admins", False)
     can_view_audit = perms.get("view_audit_log", False)
+    # В соло-режиме раздел не про сотрудников, а про собственную карточку
+    # мастера: найма и приглашений здесь нет, зато есть способ завести себя.
+    solo = panel_sections.is_solo(salon)
     is_full_admin = is_creator or can_manage_owners or can_manage_admins
+    # Список участников в соло обычно не нужен — там один сам владелец. Но если
+    # салон перевели из «команды» и совладелец остался, прятать список нельзя:
+    # снять его будет просто неоткуда. Приглашать новых всё равно не даём ниже.
+    if solo and is_full_admin:
+        active_members = (await db.execute(
+            select(func.count(SalonMember.id)).where(
+                SalonMember.salon_id == salon.id,
+                SalonMember.is_active == True,  # noqa: E712
+            )
+        )).scalar() or 0
+        is_full_admin = active_members > 1
 
     # ----- Баннер уведомлений -----
     notice_banner = ""
@@ -247,8 +281,10 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             staff_cards_html = '<div class="empty-state">Пока нет других участников</div>'
 
         invite_btn = ""
-        if can_manage_owners or can_manage_admins:
-            role_options = ""
+        role_options = ""
+        # Приглашать новых участников в соло нельзя — список здесь показан
+        # только затем, чтобы оставшегося совладельца было чем снять.
+        if (can_manage_owners or can_manage_admins) and not solo:
             if can_manage_owners:
                 role_options += '<option value="owner">Владелец</option>'
             if is_creator:
@@ -261,8 +297,9 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             </button>
             """
 
-        # Форма добавления участника
-        invite_form = f"""
+        # Форма добавления участника. В соло её нет вовсе — не только кнопки,
+        # но и самой разметки, иначе найм остался бы доступен из исходника.
+        invite_form = "" if solo else f"""
         <div class="modal-overlay" id="inviteMemberModal">
             <div class="modal-box">
                 <button class="modal-close" onclick="document.getElementById('inviteMemberModal').classList.remove('active')">&times;</button>
@@ -345,10 +382,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             <button class="action-btn edit-btn" onclick="editEmployee({m.id}, '{user_name}', '{e(m.specialization)}', {m.experience_years})" title="Редактировать">{ICON_EDIT}</button>
             <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({m.id}, '{user_name}', {str(m.is_active).lower()})" title="{'Отключить' if m.is_active else 'Включить'}">{ICON_POWER}</button>
         """
-        if can_manage_masters:
-            actions += f'<a class="action-btn" href="/masters/{m.id}" title="Фото и портфолио">Фото</a>'
-            actions += f'<button class="action-btn" onclick="resetMasterPassword({m.id})" title="Сбросить пароль">{ICON_LOCK_MINI}</button>'
-            actions += f'<button class="action-btn delete-btn" onclick="deleteEmployee({m.id}, \'{user_name}\')" title="Удалить">{ICON_TRASH}</button>'
+        actions += _master_extra_actions(m.id, user_name, can_manage_masters, solo)
 
         masters_rows += f"""
         <tr>
@@ -377,27 +411,73 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
         </tr>"""
 
         # Генерируем карточку мастера для мобильной версии
-        masters_cards_html += _render_master_card(m, master_user, can_manage_masters)
+        masters_cards_html += _render_master_card(m, master_user, can_manage_masters, solo)
 
     if not masters_rows:
-        masters_rows = '<tr><td colspan="6" class="empty-state">Пока нет мастеров</td></tr>'
-        masters_cards_html = '<div class="empty-state">Пока нет мастеров</div>'
+        empty_text = "Карточка мастера не создана" if solo else "Пока нет мастеров"
+        masters_rows = f'<tr><td colspan="6" class="empty-state">{empty_text}</td></tr>'
+        masters_cards_html = f'<div class="empty-state">{empty_text}</div>'
 
     add_master_btn = ""
-    if can_manage_masters:
+    if can_manage_masters and not solo:
         add_master_btn = f"""
         <button class="btn-primary add-btn" onclick="document.getElementById('addEmployeeModal').classList.add('active')">
             {ICON_USER_PLUS} Добавить мастера
         </button>
         """
 
+    # Соло-режим без карточки мастера — это ровно та дыра, из-за которой салон
+    # на проде остался с нулём мастеров: к человеку нельзя записаться, а найма
+    # в соло нет. Даём один способ завести себя, обычной формой без JS.
+    master_card_gate = ""
+    if solo and not masters and can_manage_masters:
+        # Мастер у человека может быть только один (masters.user_id уникален).
+        # Если он уже мастер в другом салоне, кнопка заведомо ничего не сделает —
+        # объясняем это, а не оставляем нажимать пустышку.
+        master_elsewhere = (await db.execute(
+            select(Master.id).where(Master.user_id == user.id)
+        )).scalar_one_or_none()
+        if master_elsewhere is not None:
+            master_card_gate = """
+        <div class="card" style="padding:1.1rem;margin-bottom:1.25rem">
+            <h3 style="margin:0 0 0.5rem">Вас пока нельзя записать в этом салоне</h3>
+            <p class="text-muted" style="font-size:0.9rem;margin:0">
+                Вы уже заведены мастером в другом своём салоне, а один человек может быть
+                мастером только в одном месте. Чтобы здесь принимать записи, добавьте
+                мастера в режиме «у меня команда» — переключить режим можно в настройках
+                салона.
+            </p>
+        </div>
+        """
+        else:
+            master_card_gate = f"""
+        <div class="card" style="padding:1.1rem;margin-bottom:1.25rem">
+            <h3 style="margin:0 0 0.5rem">Вас пока нельзя записать</h3>
+            <p class="text-muted" style="font-size:0.9rem;margin:0 0 0.9rem">
+                Клиенты записываются к мастеру, а не к салону. Заведите свою карточку —
+                после этого появятся услуги, расписание и ссылка для записи.
+            </p>
+            <form method="post" action="/api/v1/business/my-salon/master-card"
+                  style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:flex-end">
+                <input type="hidden" name="salon_id" value="{salon.id}">
+                <div class="form-group" style="margin:0;flex:1 1 14rem">
+                    <label for="soloSpecialization">Чем занимаетесь</label>
+                    <input type="text" id="soloSpecialization" name="specialization"
+                           maxlength="100" placeholder="Например, маникюр">
+                </div>
+                <button type="submit" class="btn-primary">{ICON_USER_PLUS} Создать мою карточку мастера</button>
+            </form>
+        </div>
+        """
+
     masters_section = f"""
     <div class="employees-section">
         <div class="section-header">
-            <h2>Мастера</h2>
+            <h2>{panel_sections.label("employees", salon.panel_mode) if solo else "Мастера"}</h2>
             {add_master_btn}
         </div>
-        <div class="stats-group">
+        {master_card_gate}
+        <div class="stats-group"{' style="display:none"' if solo else ''}>
             <div class="stat-card compact">
                 <span class="stat-value">{total_masters}</span>
                 <span class="stat-label">Всего</span>
@@ -432,7 +512,9 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
     """
 
     # ----- МОДАЛКА ДОБАВЛЕНИЯ МАСТЕРА -----
-    add_master_modal = f"""
+    # В соло-режиме её нет вовсе: не только кнопки, но и самой формы — иначе
+    # найм оставался бы доступен тому, кто найдёт её в разметке.
+    add_master_modal = "" if solo else f"""
     <div class="modal-overlay" id="addEmployeeModal">
         <div class="modal-box">
             <button class="modal-close" onclick="document.getElementById('addEmployeeModal').classList.remove('active')">&times;</button>

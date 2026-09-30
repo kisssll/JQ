@@ -9,6 +9,7 @@ from app.models.models import (
     SalonChain, SalonChainRequest, SalonChainRequestStatus,
 )
 from app.services.salon_chain_service import pending_requests_for_salon_ids
+from app.services import panel_sections
 from app.web.components.yandex_maps import yandex_maps_enabled
 from app.web.cities import city_options_html
 
@@ -163,6 +164,68 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
             </button>
         </div>
         {init_script}
+    </div>
+    """
+
+
+def _render_panel_sections_card(salon: Salon) -> str:
+    """Блок «Разделы панели»: режим бизнеса + переключатели разделов.
+
+    Обычные формы, без JS: обе настройки перестраивают меню целиком, поэтому
+    страницу всё равно нужно перечитать — от AJAX выигрыша нет, зато он
+    сломался бы без собранного бандла.
+
+    Обязательные разделы показываем как отмеченные и заблокированные, а не
+    прячем: иначе непонятно, почему их нет в списке. disabled-чекбокс браузер
+    не отправляет — обязательные всё равно добавляет сервер (panel_sections).
+    """
+    solo = panel_sections.is_solo(salon)
+    enabled = panel_sections.enabled_keys(salon)
+
+    mode_form = f"""
+    <form method="post" action="/api/v1/business/my-salon/panel-mode" style="margin:0 0 1.5rem">
+        <input type="hidden" name="salon_id" value="{salon.id}">
+        <label style="display:block;margin:0.4rem 0">
+            <input type="radio" name="mode" value="solo" {"checked" if solo else ""}>
+            Работаю один
+        </label>
+        <label style="display:block;margin:0.4rem 0">
+            <input type="radio" name="mode" value="team" {"checked" if not solo else ""}>
+            У меня команда
+        </label>
+        <p class="my-salon-card-hint" style="margin:0.5rem 0 0.75rem">
+            Смена режима вернёт набор разделов к обычному для этого режима —
+            ваши правки ниже сбросятся.
+        </p>
+        <button type="submit" class="my-salon-btn-outline">{ICON_SAVE} Сменить режим</button>
+    </form>
+    """
+
+    rows = ""
+    for key in panel_sections.ALL_KEYS:
+        locked = key in panel_sections.LOCKED_KEYS
+        checked = " checked" if key in enabled else ""
+        attrs = ' disabled title="Без этого раздела панель не работает"' if locked else ""
+        suffix = ' <span class="text-muted">— обязательный</span>' if locked else ""
+        rows += (
+            '<label style="display:block;margin:0.35rem 0">'
+            f'<input type="checkbox" name="sections" value="{key}"{checked}{attrs}> '
+            f'{panel_sections.label(key, salon.panel_mode)}{suffix}</label>'
+        )
+
+    return f"""
+    <div class="my-salon-card">
+        <h2 class="my-salon-card-title">Разделы панели</h2>
+        <p class="my-salon-card-hint">
+            Режим задаёт набор разделов, а список ниже можно поправить под себя.
+            Выключенный раздел исчезает из меню — данные в нём остаются.
+        </p>
+        {mode_form}
+        <form method="post" action="/api/v1/business/my-salon/panel-sections">
+            <input type="hidden" name="salon_id" value="{salon.id}">
+            {rows}
+            <button type="submit" class="my-salon-btn-primary" style="margin-top:0.9rem">{ICON_SAVE} Сохранить разделы</button>
+        </form>
     </div>
     """
 
@@ -426,6 +489,8 @@ async def render_my_salon_tab(
                     <a href="/book/{salon.id}/qr" download="rumi-qr-{salon.id}.png" class="my-salon-btn-outline">Скачать QR</a>
                 </div>
             </div>
+
+            {_render_panel_sections_card(salon) if can_manage_salon else ""}
 
             {chain_section_html}
 

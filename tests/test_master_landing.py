@@ -107,12 +107,19 @@ async def test_master_apply_creates_master_and_saves_labels(client, db_session):
 
 
 async def test_salon_apply_without_labels_writes_nothing(client, db_session):
-    """Обычное подключение салона: мастера не заводим, пустую метку не пишем."""
+    """Подключение салона с командой: мастера не заводим, пустую метку не пишем.
+
+    Режим «у меня команда» здесь указан явно: с решения 0007 подключение без
+    ответа о режиме считается «работаю один», и владелец там заводится мастером
+    сам (см. tests/test_panel_modes.py). Метки рекламы от режима не зависят —
+    ради них тест и написан.
+    """
     data = await register_user(client, "+79997771002")
     client.cookies.set("access_token", data["access_token"])
     r = await client.post("/api/v1/business/apply", data={
         "salon_name": "Салон", "phone": "+79997771002",
         "offer_accepted": "1", "pd_consent": "1", "plan": "business",
+        "panel_mode": "team",
     })
     salon_id = r.json()["salon_id"]
     async with db_session() as db:

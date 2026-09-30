@@ -97,6 +97,23 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
         '<div><label class="form-label" for="cx-specialization">Чем занимаетесь</label>'
         '<input type="text" id="cx-specialization" placeholder="Например, маникюр" class="form-input" maxlength="100"></div>'
     ) if m else ""
+    # Режим бизнеса (решение 0007) задаёт набор разделов панели. Частному
+    # мастеру вопрос не задаём — ответ уже известен, и лишний выбор только
+    # сбивает; сервер там всё равно ставит «работаю один».
+    panel_mode_field = "" if m else """
+                                <div>
+                                    <label class="form-label">Вы работаете один или с командой? *</label>
+                                    <label class="consent-check" style="margin-top:0.4rem">
+                                        <input type="radio" name="panel_mode" value="solo" checked>
+                                        <span class="consent-check-text">Работаю один</span>
+                                    </label>
+                                    <label class="consent-check" style="margin-top:0.4rem">
+                                        <input type="radio" name="panel_mode" value="team">
+                                        <span class="consent-check-text">У меня команда</span>
+                                    </label>
+                                    <p class="form-hint">От этого зависит, какие разделы будут в кабинете.
+                                        Поменять можно в любой момент в настройках салона.</p>
+                                </div>"""
     name_value = e(getattr(user, "full_name", "") or "") if m else ""
     phone_value = e(getattr(user, "phone", "") or "+7") if m else "+7"
 
@@ -160,6 +177,7 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
                                     <label class="form-label">Email</label>
                                     <input type="email" id="cx-email" placeholder="{'you@example.com' if m else 'salon@example.com'}" class="form-input">
                                 </div>
+                                {panel_mode_field}
                                 <div id="employee-count-wrap" style="display:none;">
                                     <label class="form-label">Количество сотрудников *</label>
                                     <input type="number" id="cx-employees" min="1" max="5" placeholder="От 1 до 5" class="form-input">
@@ -367,6 +385,11 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
             if (forMaster) {{
                 fd.append('for_master', '1');
                 fd.append('specialization', (document.getElementById('cx-specialization') || {{}}).value || '');
+            }} else {{
+                // Режим бизнеса: набор разделов в кабинете. Радиокнопка всегда
+                // отмечена, но если разметка вдруг не дошла — сервер сам возьмёт solo.
+                const modeInput = document.querySelector('input[name="panel_mode"]:checked');
+                if (modeInput) fd.append('panel_mode', modeInput.value);
             }}
             // Метки рекламы из адреса — сервер сохранит их к подключению
             // (учёт без cookie, см. services/ad_attribution.py).
