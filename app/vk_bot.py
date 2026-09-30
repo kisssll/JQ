@@ -507,10 +507,14 @@ async def on_message_new(obj: dict) -> None:
             return
 
     text_raw = (message.get("text") or "").strip()
+    # Анкета конкурса важнее: человек отвечает на вопрос бота. Иначе короткий
+    # латинский ответ из пяти букв (город «TOMSK») был бы принят за код
+    # привязки, и человек получил бы «код не подошёл» вместо следующего вопроса.
+    in_contest = await contest.draft_get(NotifyChannel.VK, peer_id) is not None
     # Код со страницы привязки, присланный сообщением. Проверяем ДО черновика
     # обращения: человек, начавший писать в поддержку, мог параллельно
     # получить код, и привязка важнее незаконченного текста.
-    if vk_link.looks_like_code(text_raw):
+    if not in_contest and vk_link.looks_like_code(text_raw):
         if await _link_by_code(peer_id, text_raw):
             return
         await send(peer_id, "Такой код не подошёл: он живёт 15 минут и работает один раз. "
@@ -519,7 +523,7 @@ async def on_message_new(obj: dict) -> None:
 
     # Анкета конкурса идёт раньше обращения в поддержку: человек, который
     # начал заполнять заявку, отвечает на вопрос бота, а не пишет нам письмо.
-    if await contest.draft_get(NotifyChannel.VK, peer_id) is not None:
+    if in_contest:
         async with await _db() as db:
             reply, ready = await contest.answer(db, NotifyChannel.VK, peer_id, text_raw)
         if reply:

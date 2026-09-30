@@ -36,7 +36,7 @@ def _shell(title: str, body: str) -> str:
 def render_question(token: str) -> str:
     question = html.escape(ad_consent.QUESTION_TEXT).replace("\n\n", "</p><p>")
     body = f"""
-        <h1 class="auth-title">Подборка вечерних окон</h1>
+        <h1 class="auth-title">Сообщения об акциях и конкурсах</h1>
         <p style="color:var(--color-body);font-size:0.9rem;line-height:1.55">{question}</p>
         <form method="post" action="/consent/promo" data-submit-lock>
             <input type="hidden" name="t" value="{html.escape(token, quote=True)}">

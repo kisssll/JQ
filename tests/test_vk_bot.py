@@ -573,3 +573,17 @@ def test_contest_button_hidden_outside_contest(monkeypatch):
     assert all("contest" not in c for c in _commands(vk_bot._menu_kb()))
     monkeypatch.setattr(contest, "is_menu_visible", lambda today=None: True)
     assert contest.CMD_START in _commands(vk_bot._menu_kb())
+
+
+async def test_contest_answer_is_not_mistaken_for_link_code(client, db_session, vk, monkeypatch):
+    """Ответ из пяти латинских букв («KAZAN») неотличим от кода привязки. Пока
+    человек заполняет заявку, он отвечает боту, а не присылает код."""
+    from app.services import contest
+
+    monkeypatch.setattr(contest, "accepts_entries", lambda today=None: True)
+    await vk_bot._dispatch_command(761, contest.CMD_APPLY)
+    await vk_bot.on_message_new(_msg(761, "Алина"))
+    assert vk_link.looks_like_code("KAZAN")                  # неотличимо от кода
+    await vk_bot.on_message_new(_msg(761, "KAZAN"))
+    assert "не подошёл" not in vk.sent[-1]["text"]
+    assert "Вопрос 3 из 4" in vk.sent[-1]["text"]
