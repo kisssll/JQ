@@ -587,6 +587,37 @@ async def salon_toggle(sid: int, request: Request, db: AsyncSession = Depends(ge
     return _back("salons", ok=f"«{salon.name}» {state}")
 
 
+@router.post("/salons/{sid}/contest-winner")
+async def salon_contest_winner(sid: int, request: Request, months: int = Form(3),
+                               db: AsyncSession = Depends(get_db)):
+    """Отметить салон победителем конкурса (или снять отметку при months=0).
+
+    Подъём в каталоге и метка живут до contest_winner_until. Срок конечный
+    намеренно: приз на 3 месяца, а не навсегда (docs/decisions/0006).
+    """
+    from datetime import datetime, timedelta, timezone
+
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    salon = (await db.execute(select(Salon).where(Salon.id == sid))).scalar_one_or_none()
+    if not salon:
+        return _back("salons", err="Салон не найден")
+    if months <= 0:
+        salon.contest_winner_until = None
+        detail = f"{salon.name}: отметка победителя снята"
+        message = f"«{salon.name}»: отметка снята"
+    else:
+        months = min(months, 12)
+        salon.contest_winner_until = datetime.now(timezone.utc) + timedelta(days=30 * months)
+        detail = f"{salon.name}: победитель конкурса на {months} мес."
+        message = f"«{salon.name}» — победитель конкурса на {months} мес."
+    _audit(db, admin.id, "contest_winner", "salon", sid, detail, salon_id=sid)
+    await db.commit()
+    return _back("salons", ok=message)
+
+
 @router.post("/salons/{sid}/restore")
 async def salon_restore(sid: int, request: Request, db: AsyncSession = Depends(get_db)):
     admin = await _get_senior_admin(request, db)

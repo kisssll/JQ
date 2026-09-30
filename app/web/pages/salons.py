@@ -112,6 +112,10 @@ def parse_salon_query(request, default_city: str = "") -> SalonQuery:
 _DOC = "(coalesce(s.name,'') || ' ' || coalesce(s.description,'') || ' ' || coalesce(sn.svc,''))"
 
 
+#: Тарифы, которые покупают приоритет в выдаче («Лайт» — нет).
+_PAID = "coalesce(s.business_tier, '') IN ('business', 'corporate', 'custom')"
+
+
 def _build_search_sql(p: SalonQuery, trgm: bool):
     """Строит SELECT (текст + связки). Пользовательские значения — только через
     bind-параметры; в f-string идут лишь структурные фрагменты."""
@@ -177,7 +181,14 @@ def _build_search_sql(p: SalonQuery, trgm: bool):
         )
         extra_cols += f", ({dist}) AS dist"
 
-    # Сортировка
+    # Сортировка. Подъём победителей конкурса и платных салонов действует ТОЛЬКО
+    # в порядке по умолчанию: если человек выбрал «по рейтингу» или «по близости»,
+    # он выбрал правило, и подменять его — обманывать (docs/decisions/0006).
+    # coalesce обязателен: у салона без тарифа business_tier = NULL, и выражение
+    # IN даёт NULL, а не false. В ORDER BY ... DESC NULL идёт ПЕРВЫМ — салоны без
+    # тарифа оказывались выше платных, то есть подъём работал наоборот.
+    boost = ("(s.contest_winner_until IS NOT NULL AND s.contest_winner_until > now()) DESC, "
+             f"({_PAID}) DESC, ")
     if p.sort == "reviews":
         order = "coalesce(s.reviews_count, 0) DESC"
     elif p.sort == "distance" and has_coords:
@@ -185,9 +196,9 @@ def _build_search_sql(p: SalonQuery, trgm: bool):
     elif p.sort == "rating":
         order = "coalesce(s.rating, 0) DESC"
     elif has_q:  # sort не задан + есть запрос → релевантность
-        order = "rank DESC, coalesce(s.rating, 0) DESC"
+        order = boost + "rank DESC, coalesce(s.rating, 0) DESC"
     else:
-        order = "coalesce(s.rating, 0) DESC"
+        order = boost + "coalesce(s.rating, 0) DESC"
     order += ", s.id DESC"  # детерминированный тайбрейк
 
     binds["lim"] = p.limit + 1  # +1 чтобы понять, есть ли ещё
@@ -201,7 +212,9 @@ def _build_search_sql(p: SalonQuery, trgm: bool):
             GROUP BY m.salon_id
         )
         SELECT s.id, s.name, s.description, s.address, s.city, s.rating,
-               s.reviews_count, s.latitude, s.longitude, s.logo_url{extra_cols}
+               s.reviews_count, s.latitude, s.longitude, s.logo_url,
+               (s.contest_winner_until IS NOT NULL AND s.contest_winner_until > now()) AS is_winner,
+               ({_PAID}) AS is_promoted{extra_cols}
         FROM salons s
         LEFT JOIN sn ON sn.salon_id = s.id
         WHERE {' AND '.join(where)}
@@ -327,6 +340,15 @@ def _render_card(s, promos, categories) -> str:
     desc = (s["description"] or "").strip()
     desc_html = f'<p class="salon-desc">{html.escape(desc)}</p>' if desc else ""
 
+    # Метки видны всегда, даже когда подъём не действует: клиент должен
+    # понимать, почему карточка наверху, иначе это скрытая реклама.
+    badges = ""
+    if s.get("is_winner"):
+        badges += '<span class="salon-badge salon-badge-winner">Победитель конкурса Руми</span>'
+    if s.get("is_promoted"):
+        badges += '<span class="salon-badge salon-badge-ad">Продвигается</span>'
+    badges_html = f'<div class="salon-badges">{badges}</div>' if badges else ""
+
     heart_svg = ICON_HEART.replace('"', '&quot;')
     heart_filled_svg = ICON_HEART_FILLED.replace('"', '&quot;')
 
@@ -373,6 +395,7 @@ def _render_card(s, promos, categories) -> str:
                     </div>
                     {rating_html}
                 </div>
+                {badges_html}
                 {desc_html}
                 {chips_html}
                 <a href="/salons/{s['id']}" class="btn-primary salon-btn">Смотреть мастеров {ICON_ARROW_RIGHT}</a>
@@ -440,11 +463,12 @@ def _render_filter_bar(p: SalonQuery, cities: list[str]) -> str:
             f'form="salonsFilterForm" onchange="if(!this.form.dataset.ajax)this.form.submit()"{checked}>{lbl}</label>'
         )
 
-    sort_opts = [("", "По релевантности" if p.q else "По рейтингу"), ("rating", "По рейтингу"),
+    # Порядок по умолчанию больше не «по рейтингу»: сверху идут победители
+    # конкурса и салоны на платном тарифе (они помечены на карточках).
+    # Называть его «по рейтингу» значит обманывать — это «рекомендуемые».
+    default_label = "По релевантности" if p.q else "Рекомендуемые"
+    sort_opts = [("", default_label), ("rating", "По рейтингу"),
                  ("reviews", "По отзывам"), ("distance", "Рядом со мной")]
-    # убираем дубль «По рейтингу», когда запроса нет (пустой sort уже = рейтинг)
-    if not p.q:
-        sort_opts = [("", "По рейтингу"), ("reviews", "По отзывам"), ("distance", "Рядом со мной")]
     sort_options = "".join(
         f'<option value="{val}"{" selected" if val == p.sort else ""}>{lbl}</option>'
         for val, lbl in sort_opts

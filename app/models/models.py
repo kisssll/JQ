@@ -455,6 +455,11 @@ class Salon(Base):
 
     working_hours: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     business_tier: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    #: Победитель конкурса Руми: до этой даты салон поднимается в каталоге и
+    #: несёт метку. Метка обязательна — подъём без неё выглядит как скрытая
+    #: реклама (см. docs/decisions/0006-metki-v-kataloge.md).
+    contest_winner_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True)
     # Зона продукта по умолчанию — Сибирь (запуск в Новосибирске); салоны в
     # других поясах задают свою явно
     timezone: Mapped[str] = mapped_column(String(50), default="Asia/Novosibirsk", server_default="Asia/Novosibirsk", nullable=False)

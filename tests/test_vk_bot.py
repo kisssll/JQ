@@ -284,7 +284,12 @@ async def test_stranger_gets_explanation_not_menu(client, db_session, vk):
     assert "menu:support" in _commands(vk.sent[-1]["kb"])   # написать можно без привязки
 
 
-async def test_linked_user_gets_menu(client, db_session, vk):
+async def test_linked_user_gets_menu(client, db_session, vk, monkeypatch):
+    """Три постоянных раздела. Кнопка конкурса временная и живёт по датам —
+    её проверяет отдельный тест, здесь она только мешала бы календарю."""
+    from app.services import contest
+
+    monkeypatch.setattr(contest, "is_menu_visible", lambda today=None: False)
     await _user(db_session, vk_peer_id=711)
     await vk_bot.on_message_new(_msg(711, "Начать", payload='{"command":"start"}'))
     assert _commands(vk.sent[-1]["kb"]) == ["menu:bookings", "menu:prefs", "menu:support"]

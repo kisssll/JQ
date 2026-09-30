@@ -297,6 +297,12 @@ def _users_tab(users, me_id):
 
 
 # ── ВКЛАДКА: САЛОНЫ ──────────────────────────────────────────────────────────
+def _now_utc():
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc)
+
+
 def _salons_tab(salons, owner_phone_by_id):
     """Салон = карточка, а не строка таблицы.
 
@@ -318,6 +324,25 @@ def _salons_tab(salons, owner_phone_by_id):
         for s in group:
             owner = owner_phone_by_id.get(s.creator_id, "—") if s.creator_id else "нет"
             toggle_label = "Деактивировать" if s.is_active else "Активировать"
+            winner_until = getattr(s, "contest_winner_until", None)
+            is_winner = bool(winner_until and winner_until > _now_utc())
+            # Приз конечный: метка и подъём живут до contest_winner_until.
+            if is_winner:
+                winner_action = (
+                    f'<form method="post" action="/api/v1/admin/salons/{s.id}/contest-winner">'
+                    f'<input type="hidden" name="months" value="0">'
+                    f'<button class="btn-mini">Снять победителя (до {winner_until:%d.%m.%Y})</button>'
+                    f'</form>'
+                )
+            else:
+                winner_action = (
+                    f'<form method="post" action="/api/v1/admin/salons/{s.id}/contest-winner" '
+                    f'data-confirm="Отметить «{_esc(s.name)}» победителем конкурса на 3 месяца?" '
+                    f'data-confirm-label="Отметить">'
+                    f'<input type="hidden" name="months" value="3">'
+                    f'<button class="btn-mini">Победитель конкурса</button>'
+                    f'</form>'
+                )
             status_badges = _deleted_badge() if s.is_deleted else _active_badge(s.is_active)
             salon_action = (
                 f'''<form method="post" action="/api/v1/admin/salons/{s.id}/restore"
@@ -367,6 +392,7 @@ def _salons_tab(salons, owner_phone_by_id):
                     </form>
                     <div class="adm-group-actions">
                         {salon_action}
+                        {winner_action}
                     </div>
                 </section>
 

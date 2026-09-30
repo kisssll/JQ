@@ -561,6 +561,36 @@
 /* Бейдж рейтинга — верхний правый угол инфо-части карточки (не на фото,
    не в блоке акций). Плоский светлый чип, а не тёмная плашка поверх фото —
    она была уместна только оверлеем на картинке. */
+/* Метки в каталоге. «Продвигается» — раскрытие рекламного характера выдачи:
+   без него платный подъём выглядит как редакционный выбор. */
+.salon-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 0.5rem;
+}
+
+.salon-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.55rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.salon-badge-winner {
+    background: var(--color-accent-light);
+    color: var(--color-heading);
+}
+
+.salon-badge-ad {
+    background: var(--color-surface-alt);
+    color: var(--color-muted);
+    font-weight: 500;
+}
+
 .salon-rating-badge {
     display: flex;
     align-items: center;
