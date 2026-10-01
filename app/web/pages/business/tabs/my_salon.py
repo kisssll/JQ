@@ -17,6 +17,7 @@ DAY_KEYS_RU = [
     ("mon", "Понедельник"), ("tue", "Вторник"), ("wed", "Среда"), ("thu", "Четверг"),
     ("fri", "Пятница"), ("sat", "Суббота"), ("sun", "Воскресенье"),
 ]
+from app.web.components.booking_link import render_booking_link_block
 from app.web.components.icons import (
     ICON_TRASH,
     ICON_SAVE,
@@ -466,15 +467,7 @@ async def render_my_salon_tab(
                     <input type="checkbox" id="guestToggle" data-salon-id="{salon.id}" {"checked" if salon.guest_booking_enabled else ""}>
                     Принимать записи без регистрации
                 </label>
-                <p style="margin:0.5rem 0;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
-                    Ссылка: <a href="/book/{salon.id}" target="_blank" class="text-link">…/book/{salon.id}</a>
-                    <button type="button" class="my-salon-btn-outline" id="guestCopyLink" data-salon-id="{salon.id}" style="padding:0.2rem 0.7rem">Копировать</button>
-                    <span id="guestCopyMsg" style="color:var(--color-success,#27ae60)"></span>
-                </p>
-                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-                    <img src="/book/{salon.id}/qr" alt="QR-код записи" loading="lazy" style="width:150px;height:150px;border:1px solid var(--color-border,#eee);border-radius:8px">
-                    <a href="/book/{salon.id}/qr" download="rumi-qr-{salon.id}.png" class="my-salon-btn-outline">Скачать QR</a>
-                </div>
+                {render_booking_link_block(salon.id, enabled=salon.guest_booking_enabled, heading="", off_note="", hint=False)}
             </div>
 
             {_render_panel_sections_card(salon) if can_manage_salon else ""}

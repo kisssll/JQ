@@ -452,3 +452,339 @@
         max-width: 2rem;
     }
 }
+/* ===== «Можно ли к вам записаться» (решение 0007, п. 6) =====
+   Первый блок главного экрана: вердикт и строки «что мешает». Сделан не
+   карточкой, как остальное, а полосой с цветным кантом слева — он должен
+   читаться как ответ на вопрос, а не как ещё одна плитка статистики.
+
+   Цвет состояния берётся локальными переменными, а не напрямую токеном: в
+   тёмной теме --color-success/danger/warning не переопределяются (это
+   середина шкалы), и на тёмной подложке кант из них уходит в грязь. Светлее
+   делаем через color-mix от того же токена — новых цветов не появляется. */
+.dashboard-page .readiness {
+    --readiness-tint: var(--color-surface-alt);
+    --readiness-rule: var(--color-border);
+    background: var(--readiness-tint);
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--readiness-rule);
+    border-radius: 1rem;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1.5rem;
+}
+.dashboard-page .readiness-ok {
+    --readiness-tint: var(--color-success-light);
+    --readiness-rule: var(--color-success);
+}
+.dashboard-page .readiness-warn {
+    --readiness-tint: var(--color-warning-light);
+    --readiness-rule: var(--color-warning);
+}
+.dashboard-page .readiness-bad {
+    --readiness-tint: var(--color-danger-light);
+    --readiness-rule: var(--color-danger);
+}
+:root[data-theme="dark"] .readiness-ok {
+    --readiness-rule: color-mix(in srgb, var(--color-success) 65%, white);
+}
+:root[data-theme="dark"] .readiness-warn {
+    --readiness-rule: color-mix(in srgb, var(--color-warning) 65%, white);
+}
+:root[data-theme="dark"] .readiness-bad {
+    --readiness-rule: color-mix(in srgb, var(--color-danger) 70%, white);
+}
+
+.dashboard-page .readiness-verdict {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-heading);
+}
+.dashboard-page .readiness-mark {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--readiness-rule);
+}
+.dashboard-page .readiness-mark svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+.dashboard-page .readiness-sub {
+    margin: 0.4rem 0 0;
+    font-size: 0.85rem;
+    color: var(--color-body);
+}
+
+/* Строки причин. Иконки у каждой строки намеренно нет: девять одинаковых
+   восклицательных знаков превращают список в обои, а состояние уже сказано
+   вердиктом сверху. Вместо иконки строку держит волосяная линия. */
+.dashboard-page .readiness-list {
+    list-style: none;
+    margin: 0.9rem 0 0;
+    padding: 0;
+}
+.dashboard-page .readiness-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    flex-wrap: wrap;
+    padding: 0.7rem 0;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+.dashboard-page .readiness-text {
+    color: var(--color-heading);
+    flex: 1 1 14rem;
+    min-width: 0;
+}
+/* Предупреждение (закрыт один путь записи из двух) тише блокировки: это не
+   «нельзя», а «не так, как вы думаете». */
+.dashboard-page .readiness-row-warn .readiness-text {
+    color: var(--color-body);
+}
+.dashboard-page .readiness-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.dashboard-page .readiness-action:hover,
+.dashboard-page .readiness-action:focus-visible {
+    text-decoration: underline;
+}
+.dashboard-page .readiness-action svg {
+    width: 0.9rem;
+    height: 0.9rem;
+}
+
+/* ===== Ссылка и QR для записи (components/booking_link.py) ===== */
+.dashboard-page .booking-link {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+/* Во вкладке «Редактировать салон» блок лежит внутри своей карточки — рамку и
+   отступы там даёт она, вторая рамка вокруг выглядела бы вложенной коробкой. */
+.dashboard-page .my-salon-card .booking-link {
+    background: none;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    margin-bottom: 0;
+}
+.dashboard-page .booking-link-title {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin: 0 0 1rem;
+}
+.dashboard-page .booking-link-off {
+    margin: 0 0 1rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 0.6rem;
+    background: var(--color-warning-light);
+    color: var(--color-heading);
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+.dashboard-page .booking-link-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+.dashboard-page .booking-link-qr {
+    width: 150px;
+    height: 150px;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    /* QR читается сканером только по контрасту, поэтому подложка белая в обеих
+       темах: картинка приходит с прозрачным фоном. */
+    background: #fff;
+}
+.dashboard-page .booking-link-side {
+    flex: 1 1 15rem;
+    min-width: 0;
+}
+.dashboard-page .booking-link-url {
+    display: inline-block;
+    font-size: 1.02rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-decoration: none;
+    /* Адрес длинный, а колонка на 375px узкая — рвём по символам, иначе строка
+       растягивает флекс и появляется горизонтальная прокрутка. */
+    overflow-wrap: anywhere;
+}
+.dashboard-page .booking-link-url:hover,
+.dashboard-page .booking-link-url:focus-visible {
+    text-decoration: underline;
+}
+.dashboard-page .booking-link-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+}
+.dashboard-page .booking-link-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border: 0;
+    border-radius: 0.6rem;
+    background: var(--color-primary);
+    color: var(--color-btn-text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.dashboard-page .booking-link-copy:hover {
+    background: var(--color-accent-hover);
+}
+/* В тёмной теме --color-primary — светло-розовый (#c98fa4), и белая подпись на
+   нём даёт контраст 2.6:1: надпись на главной кнопке блока читается с трудом.
+   Тёмный текст на той же заливке — 5.9:1. Отдельного цвета не заводим,
+   --color-dark уже есть. */
+:root[data-theme="dark"] .booking-link-copy {
+    color: var(--color-dark);
+}
+.dashboard-page .booking-link-copy svg {
+    width: 0.95rem;
+    height: 0.95rem;
+}
+.dashboard-page .booking-link-download {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.6rem;
+    color: var(--color-heading);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+.dashboard-page .booking-link-download:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+.dashboard-page .booking-link-copied {
+    margin: 0.5rem 0 0;
+    min-height: 1.1em;
+    font-size: 0.82rem;
+    color: var(--color-success);
+}
+.dashboard-page .booking-link-hint {
+    margin: 0.6rem 0 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--color-muted);
+}
+
+@media (max-width: 480px) {
+    .dashboard-page .booking-link-row {
+        gap: 1rem;
+    }
+    .dashboard-page .booking-link-qr {
+        /* По центру: на телефоне QR показывают с экрана, и он становится
+           главным предметом блока, а не иллюстрацией сбоку. */
+        margin: 0 auto;
+    }
+    .dashboard-page .booking-link-side {
+        flex: 1 1 100%;
+    }
+    .dashboard-page .booking-link-copy,
+    .dashboard-page .booking-link-download {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+}
+
+/* ===== Приглашение в «Модели» ===== */
+/* Самый тихий блок экрана: он объясняет раздел, а не требует действия. Если
+   он начнёт спорить за внимание со ссылкой для записи, оба проиграют. */
+.dashboard-page .models-invite {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+.dashboard-page .models-invite-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border-radius: 0.75rem;
+    background: var(--color-accent-light);
+    color: var(--color-primary);
+}
+.dashboard-page .models-invite-mark svg {
+    width: 1.1rem;
+    height: 1.1rem;
+}
+.dashboard-page .models-invite-body {
+    min-width: 0;
+}
+.dashboard-page .models-invite-title {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-heading);
+    margin: 0 0 0.35rem;
+}
+.dashboard-page .models-invite-text {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: var(--color-body);
+}
+.dashboard-page .models-invite-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.7rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-decoration: none;
+}
+.dashboard-page .models-invite-link:hover,
+.dashboard-page .models-invite-link:focus-visible {
+    text-decoration: underline;
+}
+.dashboard-page .models-invite-link svg {
+    width: 0.9rem;
+    height: 0.9rem;
+}
+
+/* Пустое «Сегодня» — приглашение к действию, а не пустая таблица. */
+.dashboard-page .today-empty {
+    margin: 0;
+    padding: 1rem 0;
+    text-align: center;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--color-muted);
+}

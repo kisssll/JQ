@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta
 from app.models.models import Booking, BookingStatus, User, Review
+from app.web.components.booking_link import render_booking_link_block
 from app.web.components.hint import hint as _hint
 from app.web.components.icons import (
     ICON_USERS_SMALL,
@@ -19,7 +20,96 @@ from app.web.components.icons import (
     ICON_RUBLE_SIGN,
     ICON_CREDIT_CARD_SMALL,
     ICON_CHECK,
+    ICON_CIRCLE_CHECK,
+    ICON_CIRCLE_X,
+    ICON_ALERT_TRIANGLE,
+    ICON_HEART,
+    ICON_ARROW_RIGHT,
 )
+
+
+def _tab_url(salon_id: int, target: str) -> str:
+    """Адрес действия из строки «что мешает». Якорь (#…) ведёт на ту же
+    страницу — плашка статуса салона в шапке панели: кнопка «Опубликовать»
+    живёт только там, и дублировать её здесь нельзя (обработчик висит на id)."""
+    if target.startswith("#"):
+        return target
+    return f"/business/dashboard?salon_id={salon_id}&tab={target}"
+
+
+def _render_readiness(salon, readiness, solo: bool) -> str:
+    """«Можно ли к вам записаться» — вердикт и список того, что мешает.
+
+    Условия считает app/services/booking_readiness.py, здесь только показ:
+    иначе правила разъехались бы с кодом записи, из которого они выписаны.
+    Пользовательских данных в строках нет (тексты — литералы сервиса), поэтому
+    экранировать нечего; если в строку когда-нибудь попадёт причина отказа
+    модерации или имя салона — её придётся пропустить через e().
+    """
+    who = "к вам" if solo else "в ваш салон"
+    if not readiness.issues:
+        state, mark = "ok", ICON_CIRCLE_CHECK
+        verdict = f"Записаться {who} можно"
+        sub = "Ссылка, QR и каталог работают — клиент выберет услугу и время сам."
+    elif readiness.can_book:
+        # Блокировок нет, но один из двух путей записи закрыт.
+        state, mark = "warn", ICON_ALERT_TRIANGLE
+        verdict = f"Записаться {who} можно, но не всеми способами"
+        sub = ""
+    else:
+        state, mark = "bad", ICON_CIRCLE_X
+        verdict = f"Записаться {who} сейчас нельзя"
+        sub = "Пока это не исправлено, заявок не будет — даже по ссылке."
+
+    rows = ""
+    for issue in readiness.issues:
+        action = (
+            f'<a class="readiness-action" href="{_tab_url(salon.id, issue.target)}">'
+            f'{issue.action} {ICON_ARROW_RIGHT}</a>'
+        ) if issue.target else ""
+        rows += (
+            f'<li class="readiness-row readiness-row-{"bad" if issue.blocking else "warn"}">'
+            f'<span class="readiness-text">{issue.text}</span>{action}</li>'
+        )
+    rows_html = f'<ul class="readiness-list">{rows}</ul>' if rows else ""
+    sub_html = f'<p class="readiness-sub">{sub}</p>' if sub else ""
+
+    return f"""
+    <section class="readiness readiness-{state}" aria-label="Готовность к записи">
+        <p class="readiness-verdict"><span class="readiness-mark">{mark}</span>{verdict}</p>
+        {sub_html}
+        {rows_html}
+    </section>
+    """
+
+
+def _render_models_invite(salon_id: int) -> str:
+    """Приглашение в раздел «Модели» — его за 25 дней открыли один раз, и это
+    при том, что он включён в обоих режимах (решение 0007, п. 2).
+
+    Каждое утверждение здесь сверено с app/web/pages/business/tabs/promo_models.py
+    и app/services/model_matching_service.py: публикуется поиск на КОНКРЕТНУЮ
+    услугу со своей ценой и длительностью, обычным клиентам она не видна
+    (is_model_practice), квота закрывает набор, а откликнувшаяся модель сама
+    выбирает свободное окно в расписании мастера — отдельного шага «оффер» нет.
+    Ничего сверх этого обещать нельзя.
+    """
+    return f"""
+    <section class="models-invite" aria-label="Раздел «Модели»">
+        <span class="models-invite-mark">{ICON_HEART}</span>
+        <div class="models-invite-body">
+            <h3 class="models-invite-title">Ищете моделей на отработку?</h3>
+            <p class="models-invite-text">
+                Опубликуйте поиск на отдельную услугу — со своей ценой, длительностью,
+                желаемой датой и числом моделей, которое нужно набрать. Обычным клиентам
+                такая услуга не показывается. Кто откликнулся, сам выбирает свободное
+                окно в вашем расписании, а когда набор закончен, поиск закрывается.
+            </p>
+            <a class="models-invite-link" href="/business/dashboard?salon_id={salon_id}&tab=models">
+                Открыть «Модели» {ICON_ARROW_RIGHT}</a>
+        </div>
+    </section>
+    """
 
 
 async def render_overview_tab(
@@ -39,8 +129,44 @@ async def render_overview_tab(
     revenue_color,
     week_operations,
     days,
+    *,
+    solo: bool = False,
+    readiness=None,
+    show_booking_link: bool = False,
+    show_models_invite: bool = False,
+    has_any_booking: bool = True,
+    extra_html: str = "",
 ) -> str:
-    """Вкладка Обзор со статистикой, выручкой и сегодняшними записями."""
+    """Вкладка «Обзор» — главный экран панели.
+
+    Собирается из блоков, и порядок у режимов разный (решение 0007, п. 6):
+
+      соло: можно ли записаться → ссылка и QR → сегодня → «Модели» → выручка;
+      команда: можно ли записаться (только если есть проблемы) → привычные
+      счётчики, график и «сегодня» → ссылка и QR.
+
+    Соло-мастеру деньги показываем, только когда записи вообще существуют:
+    пустой график и четыре нуля — не информация, а шум на первом экране.
+
+    Новые аргументы — именованные и со значениями по умолчанию: тот же рендер
+    зовёт панель мастера (master_dashboard.py), где ни блока готовности, ни
+    ссылки быть не должно — там человек наёмный, а разделы, куда ведут
+    действия, ему не принадлежат.
+
+      solo             — режим салона «работаю один» (panel_sections.is_solo);
+      readiness        — Readiness из services/booking_readiness.py или None,
+                         если блок показывать не нужно;
+      show_booking_link — рисовать ли ссылку и QR;
+      show_models_invite — приглашать ли в «Модели». Раздел владелец может
+                         выключить в самой панели, и звать в выключенный
+                         раздел нельзя: ссылка вернула бы человека в «Обзор»;
+      has_any_booking  — есть ли у салона хоть одна запись за всё время;
+      extra_html       — что дописать в конец вкладки. Нужен панели мастера:
+                         она добавляет свои карточки и раньше вклеивала их
+                         поиском подстроки «</div>\n    </div>» в готовой
+                         разметке. Любая перестановка блоков здесь молча
+                         уводила их в середину экрана.
+    """
     
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday = today - timedelta(days=1)
@@ -260,7 +386,15 @@ async def render_overview_tab(
             </div>
             """
     else:
-        today_items = '<p class="text-muted" style="padding:1rem 0;text-align:center">На сегодня записей нет</p>'
+        # Пустая таблица ничего не сообщает. Про ссылку говорим только там, где
+        # она тут же на экране, и без «выше/ниже»: порядок блоков у режимов разный.
+        empty_text = (
+            "Записей на сегодня нет — раздайте клиентам ссылку для записи."
+            if show_booking_link and solo else "Записей на сегодня нет."
+        )
+        today_items = (
+            f'<p class="today-empty">{empty_text}</p>'
+        )
 
     today_html = f"""
     <div class="card">
@@ -278,14 +412,54 @@ async def render_overview_tab(
     """
 
     # --- 4. Собираем всё ---
-    return f"""
-    <div id="tab-overview" class="tab-content">
+    # Блок готовности: соло-мастеру отвечаем всегда (он за этим и зашёл —
+    # «можно ли ко мне записаться»), команде — только когда есть что исправлять:
+    # у салона с командой первый экран и так занят делом.
+    readiness_html = ""
+    if readiness is not None and (solo or readiness.issues):
+        readiness_html = _render_readiness(salon, readiness, solo)
+
+    booking_link_html = ""
+    if show_booking_link:
+        # enabled — ровно про тумблер «запись без регистрации», потому что
+        # приписка под заголовком объясняет именно его. Передавать сюда
+        # readiness.link_works нельзя: он False и когда салон не опубликован,
+        # и человек прочитал бы, что выключил тумблер, которого не трогал.
+        # Остальные причины уже перечислены блоком готовности выше — второй
+        # раз, да ещё и неверно, их называть незачем.
+        booking_link_html = render_booking_link_block(
+            salon.id, enabled=bool(salon.guest_booking_enabled),
+        )
+
+    if solo:
+        # Деньги — последним и только когда записи существуют. Пока их нет,
+        # счётчики и график показывали четыре нуля и семь засечек.
+        money_html = f"""
         {stats_cards}
-        
+        {revenue_html}
+        """ if has_any_booking else ""
+        body = f"""
+        {readiness_html}
+        {booking_link_html}
+        {today_html}
+        {_render_models_invite(salon.id) if show_models_invite else ""}
+        {money_html}
+        """
+    else:
+        body = f"""
+        {readiness_html}
+        {stats_cards}
         <div class="overview-grid-2-1">
             {revenue_html}
             {today_html}
         </div>
+        {booking_link_html}
+        """
+
+    return f"""
+    <div id="tab-overview" class="tab-content">
+        {body}
+        {extra_html}
     </div>
 
     <script>

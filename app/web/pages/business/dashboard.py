@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta, timezone
 from app.services.subscription import has_access
-from app.services import panel_sections
+from app.services import booking_readiness, panel_sections
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
     SalonMember, User as UserModel, SalonModerationStatus, SalonSubscriptionStatus,
@@ -112,8 +112,34 @@ async def render_dashboard_tab(
             select(Promotion).where(Promotion.salon_id == salon.id)
         )).scalars().all()
         overview_data = await get_overview_revenue_data(db, master_ids)
+        solo = panel_sections.is_solo(salon)
+        # «Есть ли записи вообще» — чтобы не показывать соло-мастеру пустой
+        # график выручки. Именно за всё время, а не за неделю: неделя без
+        # записей бывает и у работающего салона. Спрашиваем существование, а не
+        # количество: точное число здесь не нужно, а выборка останавливается на
+        # первой же строке.
+        has_any_booking = bool(master_ids) and (await db.scalar(
+            select(Booking.id).where(Booking.master_id.in_(master_ids)).limit(1)
+        )) is not None
+        # Блок готовности и ссылку показываем тому, кто вправе менять салон:
+        # каждое действие в блоке ведёт в раздел, который иначе ему не откроется,
+        # — получился бы список ссылок, возвращающих человека обратно в «Обзор».
+        can_manage = bool(perms.get("manage_salon"))
         return await render_overview_tab(
             db, salon, masters, master_ids, services_count, promotions, **overview_data,
+            solo=solo,
+            readiness=(
+                await booking_readiness.collect(db, salon, masters, solo=solo)
+                if can_manage else None
+            ),
+            show_booking_link=can_manage,
+            # Та же видимость, что у вкладки: раздел включён у салона И право
+            # есть (см. _perm_of ниже — у «Моделей» это manage_masters).
+            show_models_invite=(
+                panel_sections.is_enabled(salon, "models")
+                and bool(perms.get("manage_masters"))
+            ),
+            has_any_booking=has_any_booking,
         )
 
     if tab_name == "analytics":
@@ -603,7 +629,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     {render_sidebar("business_dashboard", user)}
     <main style="margin-right:0;padding-top:0">
         {header_html}
-        <div class="section-container" style="padding-top: 0;">{moderation_banner}</div>
+        <div class="section-container" id="salon-status" style="padding-top: 0;">{moderation_banner}</div>
         <div class="section-container" style="padding-top: 1.5rem;">
             <div class="tab-nav-row">
                 <div class="tab-nav" id="panelNav" data-salon-id="{salon.id}"

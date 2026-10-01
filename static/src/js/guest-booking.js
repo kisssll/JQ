@@ -16,21 +16,29 @@ import { confirmDialog } from './ui-feedback.js';
         });
     }
 
-    // ---- Копирование ссылки записи без регистрации (панель салона) ----
-    const copyBtn = document.getElementById('guestCopyLink');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', async function () {
-            const link = location.origin + '/book/' + copyBtn.dataset.salonId;
-            const msg = document.getElementById('guestCopyMsg');
+    // ---- Ссылка и QR для записи (блок booking_link.py: «Обзор» и «Редактировать салон») ----
+    // Не по id, а по классу: блок один, но живёт на двух вкладках, и когда-нибудь
+    // может оказаться на одной странице дважды — обработчик по id тогда молча
+    // достался бы только первой кнопке.
+    document.querySelectorAll('.js-copy-booking-link').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            const link = location.origin + '/book/' + btn.dataset.salonId;
+            const msg = btn.closest('.booking-link-side')?.querySelector('.js-copy-booking-msg');
             try {
                 await navigator.clipboard.writeText(link);
-                if (msg) { msg.textContent = 'Скопировано ✓'; setTimeout(() => { msg.textContent = ''; }, 2000); }
+                if (msg) { msg.textContent = 'Ссылка скопирована'; setTimeout(() => { msg.textContent = ''; }, 2500); }
             } catch (e) {
                 // clipboard API недоступен (http/старый браузер) — показываем для ручного копирования
                 window.prompt('Скопируйте ссылку:', link);
             }
         });
-    }
+    });
+
+    // Домен в разметке не зашит: на стейдже и в localhost он другой, а мастер
+    // читает эту строку вслух клиенту — показываем настоящий адрес страницы.
+    document.querySelectorAll('.js-booking-link-url').forEach(function (a) {
+        a.textContent = location.host + new URL(a.href).pathname;
+    });
 
     // ---- Управление бронью (отмена по токену) ----
     const cancelBtn = document.getElementById('gb-cancel');

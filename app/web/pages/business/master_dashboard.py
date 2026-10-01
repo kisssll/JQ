@@ -52,9 +52,6 @@ async def _render_master_overview(db: AsyncSession, salon: Salon, master: Master
         Booking.master_id == master.id, Booking.status == BookingStatus.COMPLETED, Booking.consumption_reported == False,
     ))).scalar() or 0
 
-    overview_html = await render_overview_tab(
-        db, salon, masters, master_ids, services_count, promotions, **overview_data,
-    )
     personal_html = f"""
     <div class="card" style="margin-top:1.5rem">
         <h3 style="margin-bottom:1rem">Ваша статистика</h3>
@@ -65,7 +62,13 @@ async def _render_master_overview(db: AsyncSession, salon: Salon, master: Master
         </div>
     </div>"""
     warehouse_html = await _render_master_warehouse_card(db, salon, master)
-    return overview_html.replace("</div>\n    </div>", "</div>\n    </div>" + personal_html + warehouse_html, 1)
+    # Свои карточки отдаём «Обзору» параметром, а не вклеиваем поиском подстроки
+    # в его разметке: от перестановки блоков в «Обзоре» они уезжали в середину
+    # экрана, и заметить это было нечем.
+    return await render_overview_tab(
+        db, salon, masters, master_ids, services_count, promotions, **overview_data,
+        extra_html=personal_html + warehouse_html,
+    )
 
 
 async def _render_master_warehouse_card(db: AsyncSession, salon: Salon, master: Master) -> str:
