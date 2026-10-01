@@ -56,22 +56,80 @@ SOLO_LABELS = {
 # Без этих разделов панель не работает: «Обзор» — вход, «Услуги» и «Расписание»
 # без которых нет записи, «Записи» — сами записи, «Тариф» — оплата (иначе салон
 # молча выпадет из каталога), «Настройки» — единственный путь назад.
+# Это набор командного режима; в соло место «Редактировать салон» занимает
+# «Моя карточка мастера» — см. locked_keys().
 LOCKED_KEYS = frozenset({"overview", "services", "schedule", "records", "billing", "edit"})
 
-# «Работаю один»: из полного набора убраны разделы, которые существуют только
+# Разделы, которых в режиме НЕ СУЩЕСТВУЕТ вовсе — не «выключены владельцем», а
+# не имеют смысла. В соло такой раздел один: «Редактировать салон». Его
+# содержимое переехало в «Мою карточку мастера» (решение 0009, п. 2), и второй
+# раздел с теми же формами был бы не выбором, а двумя источниками правды.
+# Поэтому ключ отбрасывается даже из сохранённого порядка и не предлагается к
+# возврату в режиме редактирования панели.
+_UNAVAILABLE = {
+    SalonPanelMode.SOLO: frozenset({"edit"}),
+    SalonPanelMode.TEAM: frozenset(),
+}
+
+# Чем в этом режиме дополняется LOCKED_KEYS. В соло выключить «Мою карточку
+# мастера» нельзя, и это не вкусовщина: в ней живёт переключатель режима —
+# единственная дверь из «работаю один» в «у меня команда» (решение 0009, п. 3).
+# Спрятав раздел, человек запер бы себя в соло навсегда и не смог бы нанять
+# мастера.
+_LOCKED_EXTRA = {
+    SalonPanelMode.SOLO: frozenset({"employees"}),
+    SalonPanelMode.TEAM: frozenset(),
+}
+
+# «Работаю один»: из доступного набора убраны разделы, которые существуют только
 # при наличии штата — аналитика, зарплаты, себестоимость, склад. «Модели»
 # оставлены намеренно (решение владельца: отличительная черта сервиса).
 _SOLO_HIDDEN = frozenset({"analytics", "payroll", "cost", "warehouse"})
 
 _DEFAULTS = {
-    SalonPanelMode.SOLO: frozenset(ALL_KEYS) - _SOLO_HIDDEN,
+    SalonPanelMode.SOLO: frozenset(ALL_KEYS) - _SOLO_HIDDEN - _UNAVAILABLE[SalonPanelMode.SOLO],
     SalonPanelMode.TEAM: frozenset(ALL_KEYS),
 }
 
 
+def _mode_or_team(mode) -> SalonPanelMode:
+    return mode if mode in _DEFAULTS else SalonPanelMode.TEAM
+
+
 def default_keys(mode: SalonPanelMode) -> frozenset:
     """Набор разделов, который даёт сам режим, без правок владельца."""
-    return _DEFAULTS.get(mode, _DEFAULTS[SalonPanelMode.TEAM])
+    return _DEFAULTS[_mode_or_team(mode)]
+
+
+def unavailable_keys(mode: SalonPanelMode) -> frozenset:
+    """Разделы, которых в этом режиме не существует вовсе."""
+    return _UNAVAILABLE[_mode_or_team(mode)]
+
+
+def available_keys(mode: SalonPanelMode) -> frozenset:
+    """Разделы, которые в этом режиме вообще бывают.
+
+    Шире default_keys: сюда входит и то, что владелец может включить сам
+    (склад в соло, например). Но не входит то, чего в режиме нет, — такой
+    раздел не вернуть ни формой, ни правкой JSON.
+    """
+    return frozenset(ALL_KEYS) - unavailable_keys(mode)
+
+
+def locked_keys(mode: SalonPanelMode) -> frozenset:
+    """Разделы, которые в этом режиме нельзя выключить."""
+    m = _mode_or_team(mode)
+    return (LOCKED_KEYS | _LOCKED_EXTRA[m]) & available_keys(m)
+
+
+def settings_key(mode: SalonPanelMode) -> str:
+    """Раздел, в котором в этом режиме лежат настройки салона.
+
+    Одно место на все ссылки «иди поправь это»: действия блока готовности,
+    редирект /business/my-salon, подсказки в справочнике. В соло настройки
+    живут в «Моей карточке мастера», в команде — в «Редактировать салон».
+    """
+    return "employees" if mode is SalonPanelMode.SOLO else "edit"
 
 
 def ordered_keys(salon) -> List[str]:
@@ -89,21 +147,28 @@ def ordered_keys(salon) -> List[str]:
     mode = getattr(salon, "panel_mode", None) or SalonPanelMode.TEAM
     if not stored:
         return [k for k in ALL_KEYS if k in default_keys(mode)]
-    return _repair(stored)
+    return _repair(stored, mode)
 
 
-def _repair(requested: Iterable[str]) -> List[str]:
+def _repair(requested: Iterable[str], mode: SalonPanelMode) -> List[str]:
     """Присланный порядок → порядок, который панель точно выдержит.
 
-    Неизвестные ключи и повторы отбрасываем, обязательные дописываем в конец
-    (в начало нельзя: это сдвинуло бы порядок владельца), «Обзор» ставим
-    первым — он вход в панель и место, куда уводит скрытая ссылка.
+    Неизвестные ключи, повторы и разделы, которых в этом режиме не бывает,
+    отбрасываем; обязательные дописываем в конец (в начало нельзя: это сдвинуло
+    бы порядок владельца), «Обзор» ставим первым — он вход в панель и место,
+    куда уводит скрытая ссылка.
+
+    Режим нужен не для красоты: в соло «Редактировать салон» не существует, и
+    если он остался в сохранённом JSON (список пережил смену режима, кто-то
+    поправил столбец руками), раздел нельзя поднимать обратно — его содержимое
+    уже лежит в «Моей карточке мастера».
     """
+    available = available_keys(mode)
     result: List[str] = []
     for key in requested:
-        if key in LABELS and key not in result:
+        if key in LABELS and key in available and key not in result:
             result.append(key)
-    result += [k for k in ALL_KEYS if k in LOCKED_KEYS and k not in result]
+    result += [k for k in ALL_KEYS if k in locked_keys(mode) and k not in result]
     return ["overview"] + [k for k in result if k != "overview"]
 
 
@@ -138,7 +203,7 @@ def normalize(mode: SalonPanelMode, requested: Iterable[str]) -> Optional[List[s
     Именно поэтому сравниваем со списком, а не с множеством: тот же состав,
     но переставленный, — это правка владельца, и потерять её нельзя.
     """
-    ordered = _repair(requested)
+    ordered = _repair(requested, mode)
     if ordered == [k for k in ALL_KEYS if k in default_keys(mode)]:
         return None
     return ordered

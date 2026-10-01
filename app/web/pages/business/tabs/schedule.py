@@ -8,6 +8,7 @@ from app.models.models import Booking, Master, Service, User as UserModel, Booki
 from app.services.schedule_utils import get_salon_work_hours, MAX_BOOKING_DAYS_AHEAD
 from app.services.schedule_service import ScheduleService
 from app.services.booking_service import can_mark_completed_now
+from app.services import panel_guide
 from app.web.components.hint import hint as _hint
 from app.web.components.icons import (
     ICON_CHECK_SMALL,
@@ -42,9 +43,14 @@ async def render_schedule_tab(
     if can_close_dates is None:
         can_close_dates = can_manage_schedule
 
+    # Подписи — из реестра: у соло-мастера салона нет, график его собственный
+    # (решение 0009, п. 6).
+    cap = panel_guide.words_for(getattr(salon, "panel_mode", None))
+
     if not masters:
         return ('<div id="tab-schedule" class="tab-content"><div class="card" '
-                'style="padding:2rem;text-align:center;color:var(--color-muted)">В салоне пока нет мастеров</div></div>')
+                'style="padding:2rem;text-align:center;color:var(--color-muted)">'
+                f'{cap("schedule_no_masters")}</div></div>')
 
     master_by_id = {m.id: m for m in masters}
     selected_master = master_by_id.get(schedule_master_id) or masters[0]
@@ -396,7 +402,7 @@ async def render_schedule_tab(
         upcoming_closures = await ScheduleService.list_closures(db, salon.id)
         closures_html = ""
         for c in upcoming_closures:
-            scope = master_names.get(c.master_id, f"Мастер #{c.master_id}") if c.master_id else "Весь салон"
+            scope = master_names.get(c.master_id, f"Мастер #{c.master_id}") if c.master_id else cap("schedule_whole_salon")
             reason_html = f' — {e(c.reason)}' if c.reason else ''
             closures_html += f"""
             <div class="closure-item">
@@ -428,7 +434,7 @@ async def render_schedule_tab(
                 <div style="margin-bottom:1rem">
                     <label style="display:block;font-weight:500;margin-bottom:0.5rem">Кто закрывается</label>
                     <select id="closeDateMaster" class="custom-select">
-                        <option value="">Весь салон</option>
+                        <option value="">{cap("schedule_whole_salon")}</option>
                         {closure_master_options}
                     </select>
                 </div>
@@ -456,7 +462,7 @@ async def render_schedule_tab(
     summary_rows = ""
     for d in range(7):
         if not has_custom_schedule:
-            value = '<span class="text-muted">по часам салона</span>'
+            value = f'<span class="text-muted">{cap("schedule_by_salon_hours")}</span>'
         elif by_day[d]:
             value = " · ".join(f"{s}–{e}" for s, e in by_day[d])
         else:
@@ -479,8 +485,7 @@ async def render_schedule_tab(
             </div>
             <div class="mschedule-list">{summary_rows}</div>
             <p class="text-muted" style="font-size:0.8rem;margin-top:0.75rem">
-                Если график не задан — мастер работает по часам салона. Заданный график
-                ограничивает время, доступное клиентам для записи (в пределах часов салона).
+                {cap("schedule_hint")}
             </p>
         </div>"""
 

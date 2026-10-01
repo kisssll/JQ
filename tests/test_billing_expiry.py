@@ -100,8 +100,10 @@ async def test_dashboard_shows_hidden_by_billing_banner(client, db_session):
 
     r = await client.get(f"/business/dashboard?salon_id={sid}")
     assert r.status_code == 200
-    assert "Салон скрыт из каталога" in r.text
-    assert "снова появится" in r.text
+    # Салон по умолчанию в режиме «работаю один», и плашка там говорит с
+    # человеком, а не про салон (решение 0009, п. 6).
+    assert "Вас не видно в ленте" in r.text
+    assert "снова появитесь в ленте" in r.text
 
 
 async def test_dashboard_no_billing_banner_when_active(client, db_session):

@@ -1,5 +1,7 @@
 # app/web/pages/business/tabs/promos.py
 from app.web.components.escaping import e
+from app.models.models import SalonPanelMode
+from app.services import panel_guide
 from app.web.components.hint import hint as _hint
 from app.web.components.icons import (
     ICON_PLUS, ICON_TRASH, ICON_EDIT, ICON_SAVE, ICON_COPY,
@@ -14,6 +16,7 @@ def render_promos_tab(
     loyalty_settings=None,
     loyalty_offers=None,
     evening_deal_html: str = "",
+    solo: bool = False,
 ) -> str:
     """
     Вкладка Акции.
@@ -22,6 +25,9 @@ def render_promos_tab(
     - loyalty_settings: объект SalonLoyaltySettings или None.
     - loyalty_offers: список LoyaltyOffer.
     """
+    # Подписи — из реестра: соло-мастер даёт скидку сам, салона у него нет
+    # (решение 0009, п. 6).
+    w = panel_guide.words_for(SalonPanelMode.SOLO if solo else SalonPanelMode.TEAM)
     # ---- Акции (существующий блок) ----
     promos_rows = ""
     for p in promotions:
@@ -153,7 +159,7 @@ def render_promos_tab(
         <div class="my-salon-card">
             <h2 class="my-salon-card-title">Лояльность</h2>
             <p class="my-salon-card-hint">
-                Скидку клиенту даёт только ваш салон — настройте её сами. Мастер такие скидки не применяет,
+                {w("promos_loyalty_hint")}Мастер такие скидки не применяет,
                 это делает администратор при завершении записи в «Расписании».
             </p>
 
@@ -219,7 +225,7 @@ def render_promos_tab(
         """
 
     # Заголовок вкладки с подсказкой
-    hint_text = "Метки-акции, которые видят клиенты на странице салона (например «Скидка новым клиентам»)."
+    hint_text = w("promos_tags_hint")
     if not can_manage:
         hint_text += " У вас нет прав на управление акциями."
 

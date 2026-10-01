@@ -64,11 +64,25 @@ def test_team_tour_is_longer_than_solo_and_includes_analytics():
 
 
 def test_the_core_path_to_the_feed_is_in_order():
-    """Акт «чтобы вас было видно» — это порядок действий, а не набор ссылок:
-    салон → мастер → услуги → расписание → тариф."""
-    steps = [s for s in _steps(_Salon(SalonPanelMode.SOLO))
-             if s.act == panel_tour.ACT_VISIBLE]
-    assert [s.tab for s in steps] == ["edit", "employees", "services", "schedule", "billing"]
+    """Акт «чтобы вас было видно» — это порядок действий, а не набор ссылок.
+
+    В команде: салон → мастера → услуги → расписание → тариф. В соло вкладки
+    «Редактировать салон» нет, её содержимое в «Моей карточке мастера», и
+    раздел занимает ДВА шага — по одному на группу настроек (решение 0009,
+    дополнение 02.10). Порядок от этого не меняется: сначала о себе, потом
+    услуги, график и тариф."""
+    team = [s for s in _steps(_Salon(SalonPanelMode.TEAM))
+            if s.act == panel_tour.ACT_VISIBLE]
+    assert [s.tab for s in team] == ["edit", "employees", "services", "schedule", "billing"]
+
+    solo = [s for s in _steps(_Salon(SalonPanelMode.SOLO))
+            if s.act == panel_tour.ACT_VISIBLE]
+    assert [s.tab for s in solo] == [
+        "employees", "employees", "services", "schedule", "billing",
+    ]
+    assert [s.anchor for s in solo[:2]] == [
+        panel_tour.ANCHOR_CARD_PUBLIC, panel_tour.ANCHOR_CARD_WORK,
+    ]
 
 
 def test_every_step_has_a_text():
@@ -79,10 +93,39 @@ def test_every_step_has_a_text():
 
 def test_solo_master_card_step_speaks_about_himself():
     """В соло «Сотрудники» — это «Моя карточка мастера», и реплика другая."""
-    solo = {s.tab: s for s in _steps(_Salon(SalonPanelMode.SOLO))}
+    solo = [s for s in _steps(_Salon(SalonPanelMode.SOLO)) if s.tab == "employees"]
     team = {s.tab: s for s in _steps(_Salon(SalonPanelMode.TEAM))}
-    assert solo["employees"].text != team["employees"].text
-    assert solo["employees"].text == panel_guide.tour_line("employees", solo=True)
+    assert solo[0].text != team["employees"].text
+    assert solo[0].text == panel_guide.tour_line("employees", solo=True)
+    assert solo[1].text == panel_guide.tour_line("employees-work", solo=True)
+
+
+def test_the_solo_tour_still_tells_what_the_vanished_section_told():
+    """Самая тихая дыра переноса (решение 0009, дополнение 02.10): шаг про
+    «Редактировать салон» в соло исчезает сам, потому что build() фильтрует по
+    видимым разделам. Вместе с ним ушло бы всё, что он рассказывал.
+
+    Проверка на СОДЕРЖАНИЕ, а не на наличие шага: тест «тур не ведёт в
+    выключенный раздел» здесь зелёный и при пустом туре."""
+    said = " ".join(s.text for s in _steps(_Salon(SalonPanelMode.SOLO))).lower()
+    for must in ("имя", "фото", "адрес", "город", "телефон", "час", "ссылк", "qr"):
+        assert must in said, f"соло-тур больше не рассказывает про «{must}»"
+
+
+def test_the_solo_tour_shows_where_the_door_to_team_mode_is():
+    """Переключатель режима — единственный выход из соло, и тур обязан про него
+    сказать: раздел, в котором он живёт, теперь выглядит как «моя карточка»."""
+    said = " ".join(s.text for s in _steps(_Salon(SalonPanelMode.SOLO))).lower()
+    assert "режим работы" in said and "команда" in said
+
+
+def test_the_solo_finale_does_not_name_the_vanished_section():
+    """Финал «что есть ещё» не имеет права звать в раздел, которого нет."""
+    finale = [s for s in _steps(_Salon(SalonPanelMode.SOLO))
+              if s.act == panel_tour.ACT_FINALE][0]
+    assert "Редактировать салон" not in finale.text
+    label = panel_sections.label("edit", SalonPanelMode.TEAM)
+    assert label not in finale.text
 
 
 # ─────────────────── тур не ведёт туда, чего у человека нет ───────────────────
@@ -317,13 +360,21 @@ def test_sources_point_at_files_that_exist():
             assert (root / rel).exists(), f"{claim}: нет {rel}"
 
 
+def test_every_tour_line_build_can_ask_for_exists():
+    """build() спрашивает реплики не только по ключам разделов: в соло у «Моей
+    карточки мастера» их две. Пустая реплика дала бы полосу без текста."""
+    for solo in (False, True):
+        for key in panel_tour.line_keys(solo=solo):
+            assert panel_guide.tour_line(key, solo=solo).strip(), (key, solo)
+
+
 def test_tour_lines_fit_into_the_bar():
     """Реплика живёт в полосе внизу экрана, и на 375px она не может быть любой
     длины: на восьмой строке полоса занимает почти половину телефона, а текст
     начинает обрезаться. 300 знаков — семь строк на узком экране, проверено
     руками. Это не придирка к стилю, а рамка вёрстки: тексты правит владелец,
     и тест должен поймать реплику, которая в полосу не влезет."""
-    for key in panel_sections.ALL_KEYS:
+    for key in panel_guide.TOUR_KEYS:
         for solo in (False, True):
             line = panel_guide.tour_line(key, solo=solo)
             assert len(line) <= 300, f"{key} (solo={solo}): {len(line)} знаков"
@@ -335,7 +386,7 @@ def test_no_forbidden_promises_in_the_tour_texts():
     такое обещание обычно и пишется."""
     forbidden = ("больше клиентов", "лучше, чем", "лучше чем", "гарантиру",
                  "тысячи", "в разы", "вырастет", "окупится", "обязательно придут")
-    for key in panel_sections.ALL_KEYS:
+    for key in panel_guide.TOUR_KEYS:
         text = panel_guide.tour_line(key).lower() + panel_guide.tour_line(key, solo=True).lower()
         for word in forbidden:
             assert word not in text, f"{key}: «{word}»"

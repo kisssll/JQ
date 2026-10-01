@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta, timezone
 from app.services.subscription import has_access
-from app.services import booking_readiness, panel_sections, panel_tour
+from app.services import booking_readiness, panel_guide, panel_sections, panel_tour
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
     SalonMember, User as UserModel, SalonModerationStatus, SalonSubscriptionStatus,
@@ -206,6 +206,7 @@ async def render_dashboard_tab(
             loyalty_settings=loyalty_settings,
             loyalty_offers=loyalty_offers,
             evening_deal_html=await _evening_deal_html(db, salon, perms),
+            solo=panel_sections.is_solo(salon),
         )
 
     if tab_name == "reviews":
@@ -343,6 +344,9 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     # что есть в бизнесе, право — про то, кто из команды что может.
     enabled_sections = panel_sections.enabled_keys(salon)
     mode = salon.panel_mode
+    # Подписи панели — из реестра (решение 0009, п. 6). У соло-мастера салона
+    # нет, есть он сам, и плашки статуса в этом режиме говорят другое.
+    w = panel_guide.words_for(mode)
     _icons = {
         'overview': ICON_LAYOUT_DASHBOARD, 'analytics': ICON_CHART_COLUMN,
         'schedule': ICON_CLOCK, 'employees': ICON_USERS, 'services': ICON_USER_CHECK,
@@ -374,10 +378,23 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     visible_slugs = [slug for slug in panel_sections.ordered_keys(salon) if _permitted(slug)]
     # Вернуть предлагаем только те скрытые разделы, которые человеку в принципе
     # покажут: плюс на разделе без права ничего бы не изменил.
+    # Раздела, которого в режиме не существует, в «скрытых» быть не должно:
+    # плюс на нём вернул бы в панель вкладку, чьё содержимое уже лежит в другой
+    # (в соло это «Редактировать салон», см. panel_sections.available_keys).
+    available_sections = panel_sections.available_keys(mode)
+    locked = panel_sections.locked_keys(mode)
     hidden_slugs = [
         slug for slug in panel_sections.ALL_KEYS
-        if slug not in enabled_sections and _permitted(slug)
+        if slug not in enabled_sections and slug in available_sections and _permitted(slug)
     ]
+
+    # Прямой ?tab=edit в соло — не ошибка и не «Обзор»: вкладки «Редактировать
+    # салон» в этом режиме нет, но её содержимое никуда не делось, оно в «Моей
+    # карточке мастера» (решение 0009, п. 2). Так же приходят старые ссылки,
+    # закладки и редирект /business/my-salon, который режима не знает.
+    settings_tab = panel_sections.settings_key(mode)
+    if active_tab == "edit" and settings_tab != "edit":
+        active_tab = settings_tab
 
     # Выключенный раздел не открывается и по прямой ссылке — проверка стоит ДО
     # рендера вкладки, поэтому и ?tab=, и ?tab=&partial=1 уходят в «Обзор».
@@ -433,7 +450,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         и табом до них не дойти, возиться с tabindex не нужно."""
         name = e(panel_sections.label(slug, mode))
         out = ""
-        if slug not in panel_sections.LOCKED_KEYS:
+        if slug not in locked:
             out += (
                 f'<button type="button" class="tab-item-minus" '
                 f'aria-label="Убрать раздел «{name}» из панели" '
@@ -463,11 +480,11 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         # полной навигацией, но кнопкой её нельзя было открыть в новой вкладке,
         # средним кликом или без JS, и скринридер не читал её как переход.
         href_attr = f' href="{_tab_href(slug)}"' if href else ""
-        locked = ' data-locked="1"' if slug in panel_sections.LOCKED_KEYS else ""
+        locked_attr = ' data-locked="1"' if slug in locked else ""
         pinned = ' data-pinned="1"' if slug == "overview" else ""
         return (
             f'<div class="tab-item{tour_class}" data-key="{slug}" '
-            f'data-label="{e(panel_sections.label(slug, mode))}"{locked}{pinned}>'
+            f'data-label="{e(panel_sections.label(slug, mode))}"{locked_attr}{pinned}>'
             f'<a class="tab-btn{active_class}"{href_attr}{aria_current}>'
             f'{_icons[slug]} {_label_of(slug)}</a>'
             f'{_edit_controls(slug)}</div>'
@@ -572,17 +589,14 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         moderation_banner = (
             '<div style="background:#fee2e2;border:1px solid #ef4444;color:#991b1b;'
             'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
-            '<b>Салон удалён.</b> Он не отображается в каталоге и поиске, запись '
-            'клиентов закрыта. Настройки, мастера и история сохранены — чтобы '
-            'вернуть салон, напишите в поддержку: '
+            f'<b>{w("banner_deleted_head")}</b> {w("banner_deleted_body")}'
             '<a href="mailto:hello@rrumi.ru" style="color:#991b1b">hello@rrumi.ru</a>.</div>'
         )
     elif salon.moderation_status == SalonModerationStatus.PENDING:
         moderation_banner = (
             '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;'
             'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
-            '<b>Заявка на рассмотрении.</b> Можно настраивать салон (услуги, мастера, фото), '
-            'но клиентам он пока не виден и запись закрыта — откроются после подтверждения платформой.</div>'
+            f'<b>Заявка на рассмотрении.</b> {w("banner_pending_body")}</div>'
         )
     elif salon.moderation_status == SalonModerationStatus.REJECTED:
         import html as _html
@@ -605,8 +619,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         moderation_banner = (
             '<div style="background:#dcfce7;border:1px solid #16a34a;color:#166534;'
             'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
-            '<b>Ваш салон прошёл модерацию!</b> Осталось выбрать тариф — без него '
-            'публикация недоступна. До этого салон виден только вам.'
+            f'<b>{w("banner_approved_head")}</b> {w("banner_need_tariff_body")}'
             f'{billing_link}</div>'
         )
         show_publish_gate_modal = can_publish
@@ -621,14 +634,12 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             f'<button type="button" id="salonPublishBtn" data-salon-id="{salon.id}" '
             'style="margin-top:0.75rem;background:#16a34a;color:#fff;border:none;'
             'padding:0.6rem 1.2rem;border-radius:0.6rem;font-size:0.9rem;font-weight:600;cursor:pointer">'
-            f'{ICON_SPARKLES} Опубликовать салон</button>'
+            f'{ICON_SPARKLES} {w("publish_btn")}</button>'
         ) if can_publish else ''
         moderation_banner = (
             '<div style="background:#dcfce7;border:1px solid #16a34a;color:#166534;'
             'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
-            '<b>Ваш салон прошёл модерацию!</b> Осталось опубликовать его — после '
-            'этого он появится в каталоге, поиске и откроется запись клиентов. '
-            'До публикации салон виден только вам.'
+            f'<b>{w("banner_approved_head")}</b> {w("banner_need_publish_body")}'
             f'{publish_btn}</div>'
         )
     else:
@@ -656,16 +667,14 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             moderation_banner = (
                 '<div style="background:#fee2e2;border:1px solid #ef4444;color:#991b1b;'
                 'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
-                '<b>Салон скрыт из каталога.</b> Подписка не оплачена — салон снова появится '
-                'в общем списке платформы и откроется для записи сразу после оплаты.'
+                f'<b>{w("banner_no_access_head")}</b> {w("banner_no_access_body")}'
                 f'{_billing_link("#ef4444")}</div>'
             )
         elif salon.subscription_status == SalonSubscriptionStatus.PAST_DUE:
             moderation_banner = (
                 '<div style="background:#fee2e2;border:1px solid #ef4444;color:#991b1b;'
                 'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
-                '<b>Не удалось списать оплату.</b> Обновите привязанную карту или оплатите '
-                'вручную — иначе салон скоро пропадёт из каталога.'
+                f'<b>Не удалось списать оплату.</b> {w("banner_past_due_body")}'
                 f'{_billing_link("#ef4444")}</div>'
             )
         elif salon.subscription_status == SalonSubscriptionStatus.TRIALING and salon.trial_ends_at:
@@ -676,8 +685,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
                 '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;'
                 'padding:0.9rem 1.1rem;border-radius:0.75rem;margin:1.5rem 0 0;font-size:0.9rem">'
                 f'<b>Идёт бесплатный пробный период</b> — осталось {days_left} {days_word} '
-                f'(до {deadline}). Оплатите подписку, чтобы салон не пропал из каталога '
-                'после его окончания.'
+                f'(до {deadline}). {w("banner_trial_tail")}'
                 f'{_billing_link("#f59e0b")}</div>'
             )
 
@@ -688,11 +696,8 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             <div class="publish-gate-modal-box">
                 <button type="button" class="publish-gate-modal-close" id="publishGateModalClose">&times;</button>
                 <div class="publish-gate-icon">💳</div>
-                <h2>Салон пока не виден клиентам</h2>
-                <p>Модерация пройдена, но салон появится в общем каталоге платформы —
-                видимым для клиентов и открытым для записи — только после оплаты
-                тарифа. Как только оплатите (или запустите пробный период),
-                салон сразу появится в списке.</p>
+                <h2>{w("publish_gate_title")}</h2>
+                <p>{w("publish_gate_body")}</p>
                 <a href="/business/dashboard?salon_id={salon.id}&tab=billing" class="btn-primary">
                     {ICON_SPARKLES} Выбрать тариф
                 </a>
@@ -716,12 +721,20 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     # накрыла бы кнопки сохранения в последнем блоке раздела.
     body_class = "panel-tour-open" if tour_bar_html else ""
 
+    # Подзаголовок шапки: в соло имя человека — это и есть имя в ленте, и
+    # приписка «Салон «…»» перед ним звучит как чужая вывеска.
+    where = salon.address.split(',')[0] if salon.address else 'Адрес не указан'
+    header_subtitle = (
+        f'{e(salon.name)} • {where}' if panel_sections.is_solo(salon)
+        else f'Салон «{e(salon.name)}» • {where}'
+    )
+
     header_html = f"""
     <div class="dashboard-header">
         <div class="dashboard-header-inner">
             <div class="header-title">
-                <h1>Панель салона</h1>
-                <p>Салон «{e(salon.name)}» • {salon.address.split(',')[0] if salon.address else 'Адрес не указан'}</p>
+                <h1>{w("header_title")}</h1>
+                <p>{header_subtitle}</p>
             </div>
             <div class="header-controls">
                 {switcher_html}

@@ -17,12 +17,15 @@ from app.web.components.icons import (
     ICON_STAR_FILLED,
 )
 from app.web.components.hint import hint as _hint
-from app.services import panel_sections
+from app.services import panel_guide, panel_sections, panel_tour
+from app.web.pages.business.tabs.my_salon import render_solo_settings_groups
 
 _ERROR_MESSAGES = {
     "bad_phone": "Не удалось распознать телефон. Формат: +7 999 123-45-67 или 8 999 123-45-67.",
     "bad_role": "Неизвестная роль.",
     "member_exists": "Этот пользователь уже участник салона.",
+    # Приходит с /api/v1/master/create-web, который в соло уводит сюда же.
+    "master_exists": "У этого пользователя уже есть профиль мастера.",
 }
 
 ROLE_LABELS = {
@@ -167,8 +170,21 @@ def _render_master_card(master, user_data, can_manage_masters, solo=False):
     """
 
 
-async def render_employees_tab(db: AsyncSession, salon, masters, user, membership, perms, query_params=None) -> str:
-    """Объединённая вкладка «Сотрудники»: мастера + участники салона + история действий."""
+async def render_employees_tab(
+    db: AsyncSession, salon, masters, user, membership, perms, query_params=None,
+) -> str:
+    """«Сотрудники» в команде и «Моя карточка мастера» в соло.
+
+    В соло это единственный раздел настроек: содержимое «Редактировать салон»
+    переехало сюда и легло двумя группами — «Как вас видят клиенты» (карточка
+    мастера, «О вас», ссылка с QR) и «Рабочие настройки» (часы приёма, приём
+    записей по ссылке, режим работы, видимость и удаление). Решение 0009, п. 2;
+    сами блоки — в my_salon.py, здесь только сборка, потому что в первую группу
+    входит карточка мастера.
+
+    В командном режиме раздел не меняется: ни групп, ни настроек салона здесь
+    нет, они остаются в своей вкладке.
+    """
     
     query_params = query_params or {}
     notice = {
@@ -185,6 +201,8 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
     # В соло-режиме раздел не про сотрудников, а про собственную карточку
     # мастера: найма и приглашений здесь нет, зато есть способ завести себя.
     solo = panel_sections.is_solo(salon)
+    # Подписи — из реестра: в соло раздел говорит с человеком, а не с салоном.
+    w = panel_guide.words_for(salon.panel_mode)
     is_full_admin = is_creator or can_manage_owners or can_manage_admins
     # Список участников в соло обычно не нужен — там один сам владелец. Но если
     # салон перевели из «команды» и совладелец остался, прятать список нельзя:
@@ -438,14 +456,12 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
             select(Master.id).where(Master.user_id == user.id)
         )).scalar_one_or_none()
         if master_elsewhere is not None:
-            master_card_gate = """
+            master_card_gate = f"""
         <div class="card" style="padding:1.1rem;margin-bottom:1.25rem">
             <h3 style="margin:0 0 0.5rem">Вас пока нельзя записать в этом салоне</h3>
             <p class="text-muted" style="font-size:0.9rem;margin:0">
                 Вы уже заведены мастером в другом своём салоне, а один человек может быть
-                мастером только в одном месте. Чтобы здесь принимать записи, добавьте
-                мастера в режиме «у меня команда» — переключить режим можно в настройках
-                салона.
+                мастером только в одном месте. {w("master_elsewhere_tail")}
             </p>
         </div>
         """
@@ -473,7 +489,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
     masters_section = f"""
     <div class="employees-section">
         <div class="section-header">
-            <h2>{panel_sections.label("employees", salon.panel_mode) if solo else "Мастера"}</h2>
+            <h2>{w("masters_block_title")}</h2>
             {add_master_btn}
         </div>
         {master_card_gate}
@@ -496,7 +512,7 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
                         <th>Опыт</th>
                         <th>Рейтинг</th>
                         <th>Статус</th>
-                        <th style="width:120px">Действия {_hint("Отключить — временно скрыть мастера из записи, не теряя историю визитов и зарплат. Удалить — убрать мастера из салона полностью (аккаунт пользователя при этом сохраняется).")}</th>
+                        <th style="width:120px">Действия {_hint(w("masters_actions_hint"))}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -599,7 +615,60 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
         </div>
         """
 
-    # ----- СБОРКА (порядок: участники → мастера → лог) -----
+    # Попап с логином и паролем нужен только там, где кого-то заводят или
+    # сбрасывают ему пароль. В соло-режиме найма нет, и у владельца-одиночки
+    # эта разметка мертва: ни кнопки, ни запроса, который её откроет, — зато
+    # текст про «сотрудника» и «почту салона» виден в исходнике. Остаётся она
+    # в соло ровно в одном случае: когда от прошлой команды остался
+    # совладелец, которому можно сбросить пароль (is_full_admin, см. выше).
+    credentials_modal = "" if (solo and not is_full_admin) else """
+        <div class="modal-overlay" id="credentialsModal">
+            <div class="modal-box">
+                <button class="modal-close" onclick="document.getElementById('credentialsModal').classList.remove('active')">&times;</button>
+                <h2>Реквизиты для входа</h2>
+                <p class="text-muted" style="font-size:0.85rem;margin-bottom:1rem">Передайте их сотруднику. Пароль показывается один раз — скопируйте или отправьте на почту салона.</p>
+                <div class="creds-row"><span>Сотрудник</span><b id="credName">&mdash;</b></div>
+                <div class="creds-row"><span>Логин (телефон)</span><b id="credLogin">&mdash;</b></div>
+                <div class="creds-row"><span>Временный пароль</span><code id="credPassword">&mdash;</code></div>
+                <div class="creds-actions">
+                    <button type="button" id="credCopyBtn" class="btn-outline" onclick="copyCredentials()">Копировать</button>
+                    <button type="button" class="btn-primary" onclick="sendCredentialsToSalonEmail()">Отправить на почту салона</button>
+                </div>
+                <div id="credEmailResult" class="creds-email-result"></div>
+            </div>
+        </div>"""
+
+    # window.salonId читают скрипты карточки салона (сохранение, фото, часы,
+    # видимость). В соло вкладки «Редактировать салон» нет, и переменную должна
+    # ставить эта: без неё формы молча перестали бы сохраняться.
+    solo_script = f"<script>window.salonId = {salon.id};</script>" if solo else ""
+
+    # ----- Настройки салона: в соло они живут здесь (решение 0009, п. 2) -----
+    # Две группы с якорями: на якоря ссылаются шаги тура (panel_tour) и
+    # действия блока готовности к записи. В командном режиме настроек здесь
+    # нет вовсе — ни групп, ни заголовков, раздел остаётся прежним.
+    settings_html = ""
+    if solo:
+        public_html, work_html = await render_solo_settings_groups(
+            db, salon,
+            can_manage_salon=perms.get("manage_salon", False),
+            is_creator=is_creator,
+        )
+        settings_html = f"""
+        <section class="panel-card-group" id="{panel_tour.ANCHOR_CARD_WORK}">
+            <h2 class="panel-card-group-title">{w("group_work")}</h2>
+            {work_html}
+        </section>
+        """
+        masters_section = f"""
+        <section class="panel-card-group" id="{panel_tour.ANCHOR_CARD_PUBLIC}">
+            <h2 class="panel-card-group-title">{w("group_public")}</h2>
+            {masters_section}
+            {public_html}
+        </section>
+        """
+
+    # ----- СБОРКА (порядок: участники → мастера → настройки → лог) -----
     html = f"""
     <div id="tab-employees" class="tab-content">
         {notice_banner}
@@ -607,8 +676,11 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
         <!-- Секция участников (только для владельца/админа с правами) -->
         {staff_section}
 
-        <!-- Секция мастеров -->
+        <!-- Секция мастеров (в соло — группа «Как вас видят клиенты») -->
         {masters_section}
+
+        <!-- Настройки: только соло-режим -->
+        {settings_html}
 
         <!-- История действий -->
         {audit_section}
@@ -618,21 +690,8 @@ async def render_employees_tab(db: AsyncSession, salon, masters, user, membershi
         {edit_master_modal}
 
         <!-- Реквизиты нового сотрудника/мастера (попап после добавления/сброса) -->
-        <div class="modal-overlay" id="credentialsModal">
-            <div class="modal-box">
-                <button class="modal-close" onclick="document.getElementById('credentialsModal').classList.remove('active')">&times;</button>
-                <h2>Реквизиты для входа</h2>
-                <p class="text-muted" style="font-size:0.85rem;margin-bottom:1rem">Передайте их сотруднику. Пароль показывается один раз — скопируйте или отправьте на почту салона.</p>
-                <div class="creds-row"><span>Сотрудник</span><b id="credName">—</b></div>
-                <div class="creds-row"><span>Логин (телефон)</span><b id="credLogin">—</b></div>
-                <div class="creds-row"><span>Временный пароль</span><code id="credPassword">—</code></div>
-                <div class="creds-actions">
-                    <button type="button" id="credCopyBtn" class="btn-outline" onclick="copyCredentials()">Копировать</button>
-                    <button type="button" class="btn-primary" onclick="sendCredentialsToSalonEmail()">Отправить на почту салона</button>
-                </div>
-                <div id="credEmailResult" class="creds-email-result"></div>
-            </div>
-        </div>
+        {credentials_modal}
     </div>
+    {solo_script}
     """
     return html

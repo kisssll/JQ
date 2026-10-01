@@ -72,7 +72,9 @@ async def test_owner_of_deleted_salon_is_told_why(client, db_session):
 
     r = await client.get(f"/business/dashboard?salon_id={salon_id}")
     assert r.status_code == 200
-    assert "Салон удалён" in r.text
+    # Режим салона по умолчанию «работаю один»: плашка говорит про профиль
+    # человека, а не про салон (решение 0009, п. 6).
+    assert "Ваш профиль удалён" in r.text
     assert "hello@rrumi.ru" in r.text
 
 

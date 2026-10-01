@@ -405,11 +405,18 @@ async def toggle_guest_booking(
     return {"guest_booking_enabled": salon.guest_booking_enabled}
 
 
-def _settings_redirect(salon_id: int) -> RedirectResponse:
+def _settings_redirect(salon_id: int, mode: SalonPanelMode) -> RedirectResponse:
     """Назад в настройки салона. Адрес собираем сами, а не берём из формы —
-    тогда вопроса об open redirect просто не возникает."""
+    тогда вопроса об open redirect просто не возникает.
+
+    Раздел зависит от режима: после перехода в «работаю один» вкладки
+    «Редактировать салон» больше нет, и вернуть человека надо в «Мою карточку
+    мастера», куда переехали те же формы (решение 0009, п. 2). Иначе смена
+    режима выбрасывала бы его в «Обзор» — ровно в тот момент, когда он менял
+    настройки."""
+    tab = panel_sections.settings_key(mode)
     return RedirectResponse(
-        url=f"/business/dashboard?salon_id={salon_id}&tab=edit", status_code=302,
+        url=f"/business/dashboard?salon_id={salon_id}&tab={tab}", status_code=302,
     )
 
 
@@ -442,7 +449,7 @@ async def set_panel_mode(
             detail=f"Режим панели: {was.value} → {new_mode.value}",
         ))
         await db.commit()
-    return _settings_redirect(salon_id)
+    return _settings_redirect(salon_id, salon.panel_mode)
 
 
 class PanelSectionsRequest(BaseModel):

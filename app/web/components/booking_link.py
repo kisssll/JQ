@@ -13,13 +13,17 @@
 здесь говорим только про тумблер «запись без регистрации» — тот, о котором
 прямо написано в приписке.
 """
+from typing import Optional
+
+from app.services.panel_words import word
 from app.web.components.icons import ICON_COPY
 
 
-_DEFAULT_OFF_NOTE = (
-    "Сейчас ссылка не работает: запись без регистрации выключена. "
-    "Включите её в разделе «Редактировать салон»."
-)
+def default_off_note(*, solo: bool = False) -> str:
+    """Куда идти включать запись по ссылке. Раздел называется по-разному: в
+    соло настройки живут в «Моей карточке мастера», и совет «включите в
+    „Редактировать салон"» отправил бы человека в несуществующую вкладку."""
+    return word("booking_link_off_note", solo=solo)
 
 
 def render_booking_link_block(
@@ -27,8 +31,10 @@ def render_booking_link_block(
     *,
     enabled: bool = True,
     heading: str = "Ссылка и QR для записи",
-    off_note: str = _DEFAULT_OFF_NOTE,
+    off_note: Optional[str] = None,
     hint: bool = True,
+    qr_alt: str = "QR-код для записи в ваш салон",
+    solo: bool = False,
 ) -> str:
     """enabled=False — запись без регистрации выключена: ссылка открывается, но
     отвечает «Этот салон сейчас не принимает записи без регистрации». Молча
@@ -37,7 +43,10 @@ def render_booking_link_block(
     off_note="" — для вкладки «Редактировать салон»: там тумблер стоит прямо
     над блоком и сам показывает состояние, а совет «включите в разделе
     „Редактировать салон"» читался бы как насмешка — человек уже в нём.
+    off_note=None — взять подпись по режиму (см. default_off_note).
     """
+    if off_note is None:
+        off_note = default_off_note(solo=solo)
     off_html = "" if (enabled or not off_note) else (
         f'<p class="booking-link-off">{off_note}</p>'
     )
@@ -52,7 +61,7 @@ def render_booking_link_block(
         {off_html}
         <div class="booking-link-row">
             <img class="booking-link-qr" src="/book/{salon_id}/qr"
-                 alt="QR-код для записи в ваш салон" loading="lazy" width="150" height="150">
+                 alt="{qr_alt}" loading="lazy" width="150" height="150">
             <div class="booking-link-side">
                 <a class="booking-link-url js-booking-link-url" href="/book/{salon_id}"
                    target="_blank" rel="noopener">…/book/{salon_id}</a>

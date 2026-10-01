@@ -265,6 +265,80 @@ async def test_the_tour_never_leads_into_a_section_the_owner_turned_off(client, 
     assert f"из {len(steps)}" in html
 
 
+# ──────────── соло-тур после переноса настроек (решение 0009) ────────────
+
+async def test_the_solo_tour_walks_from_the_first_step_to_the_finale(client, db_session):
+    """Проход целиком, а не «полоса появилась»: после переноса в соло на один
+    раздел приходится два шага, и ошибка в ключах оборвала бы тур посередине
+    — «Дальше» просто перестало бы двигаться."""
+    owner_id, salon_id = await _salon(db_session, "+79995558001", published=False)
+    await _login(client, "+79995558001")
+    steps = _steps()
+    assert len(steps) >= 10
+
+    await _get(client, salon_id)
+    for i, s in enumerate(steps, start=1):
+        tab = f"&tab={s.tab}" if s.tab else ""
+        html = await _get(client, salon_id, f"{tab}&tour={s.key}")
+        assert BAR in html, s.key
+        assert f"Шаг {i} из {len(steps)}" in html, s.key
+        assert (await _tour_state(db_session, owner_id))[2] == s.key
+
+    html = await _get(client, salon_id, "&tour=done")
+    assert BAR not in html and INVITE not in html
+    assert (await _tour_state(db_session, owner_id))[1] is not None
+
+
+async def test_the_solo_tour_spends_two_steps_on_the_master_card(client, db_session):
+    """По одному на группу, и каждый ведёт к своей группе якорем: раздел
+    длинный, и попадание в его начало вместо нужной группы — ручной поиск."""
+    _, salon_id = await _salon(db_session, "+79995558002", published=False)
+    await _login(client, "+79995558002")
+
+    card_steps = [s for s in _steps() if s.tab == "employees"]
+    assert len(card_steps) == 2
+    assert [s.anchor for s in card_steps] == [
+        panel_tour.ANCHOR_CARD_PUBLIC, panel_tour.ANCHOR_CARD_WORK,
+    ]
+
+    first = await _get(client, salon_id, f"&tab=employees&tour={card_steps[0].key}")
+    assert HIGHLIGHT in first
+    # «Дальше» с первого шага ведёт во вторую группу — вместе с якорем.
+    assert f"tour={card_steps[1].key}#{panel_tour.ANCHOR_CARD_WORK}" in first
+    # А якоря есть в самой разметке раздела, иначе ссылка никуда не прокрутит.
+    assert f'id="{panel_tour.ANCHOR_CARD_PUBLIC}"' in first
+    assert f'id="{panel_tour.ANCHOR_CARD_WORK}"' in first
+
+
+async def test_the_solo_tour_never_mentions_the_vanished_section(client, db_session):
+    """Ни полоса, ни ссылки не зовут в «Редактировать салон»: его в соло нет."""
+    _, salon_id = await _salon(db_session, "+79995558003", published=False)
+    await _login(client, "+79995558003")
+    steps = _steps()
+
+    for s in steps:
+        tab = f"&tab={s.tab}" if s.tab else ""
+        html = await _get(client, salon_id, f"{tab}&tour={s.key}")
+        bar = html.split('id="panelTour"', 1)[1]
+        assert "Редактировать салон" not in bar, s.key
+        assert "tab=edit&" not in bar and "tab=edit\"" not in bar, s.key
+
+
+async def test_the_team_tour_still_starts_with_the_salon_settings(client, db_session):
+    """Командный тур не менялся: первый шаг акта «чтобы вас было видно» — та же
+    вкладка «Редактировать салон»."""
+    _, salon_id = await _salon(db_session, "+79995558004", SalonPanelMode.TEAM,
+                               published=False)
+    await _login(client, "+79995558004")
+    steps = _steps(SalonPanelMode.TEAM)
+    visible = [s for s in steps if s.act == panel_tour.ACT_VISIBLE]
+    assert visible[0].tab == "edit"
+
+    html = await _get(client, salon_id, f"&tab=edit&tour={visible[0].key}")
+    assert BAR in html
+    assert 'id="tab-edit"' in html
+
+
 # ─────────────────────────── кому тура нет ───────────────────────────
 
 async def test_a_member_without_manage_salon_has_no_tour(client, db_session):
@@ -336,6 +410,45 @@ async def test_the_instructions_tab_offers_to_take_the_tour_again(client, db_ses
     html = await _get(client, salon_id, "&tab=instructions&tour=off")
     assert "Пройти знакомство заново" in html
     assert "tour=restart" in html
+
+
+async def test_the_instructions_guide_does_not_name_a_tab_that_is_gone(client, db_session):
+    """В _GUIDE_STEPS были зашиты «вкладка „Редактировать салон"» и «вкладки
+    „Сотрудники" и „Услуги"». В соло после переноса это ложь: такой вкладки нет,
+    а настройки лежат в «Моей карточке мастера». Вкладку целиком переписывает
+    заход 5, но врать в проде заход 4 не имеет права (решение 0009, дополнение
+    02.10)."""
+    _, salon_id = await _salon(db_session, "+79995559001", published=False)
+    await _login(client, "+79995559001")
+    html = await _get(client, salon_id, "&tab=instructions&tour=off")
+    guide = html[html.index("С чего начать"):]
+    guide = guide[:guide.index("Инструкция по разделам")]
+    assert "Редактировать салон" not in guide
+    assert "«Сотрудники»" not in guide
+    assert "«Моя карточка мастера»" in guide
+
+
+async def test_the_instructions_guide_is_unchanged_for_a_team(client, db_session):
+    _, salon_id = await _salon(db_session, "+79995559002", SalonPanelMode.TEAM,
+                               published=False)
+    await _login(client, "+79995559002")
+    html = await _get(client, salon_id, "&tab=instructions&tour=off")
+    guide = html[html.index("С чего начать"):]
+    guide = guide[:guide.index("Инструкция по разделам")]
+    assert "«Редактировать салон»" in guide
+    assert "«Сотрудники»" in guide
+
+
+async def test_the_instructions_tab_does_not_describe_a_section_that_is_gone(client, db_session):
+    """Справочник — это оглавление панели. Описывать раздел, которого у
+    человека нет, значит отправить его искать несуществующую вкладку."""
+    _, salon_id = await _salon(db_session, "+79995559003", published=False)
+    await _login(client, "+79995559003")
+    html = await _get(client, salon_id, "&tab=instructions&tour=off")
+    body = html[html.index('id="tab-instructions"'):]
+    accordion = body[body.index("Инструкция по разделам"):]
+    assert "Редактировать салон" not in accordion
+    assert "Моя карточка мастера" in accordion
 
 
 async def test_the_instructions_tab_in_solo_mode_uses_the_solo_label(client, db_session):

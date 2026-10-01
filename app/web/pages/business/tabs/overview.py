@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta
 from app.models.models import Booking, BookingStatus, User, Review
+from app.models.models import SalonPanelMode
+from app.services import panel_guide
 from app.web.components.booking_link import render_booking_link_block
 from app.web.components.hint import hint as _hint
 from app.web.components.icons import (
@@ -167,6 +169,11 @@ async def render_overview_tab(
                          разметке. Любая перестановка блоков здесь молча
                          уводила их в середину экрана.
     """
+    # Подписи — из реестра: соло-мастеру панель говорит «ваши клиенты», а не
+    # «клиенты салона» (решение 0009, п. 6).
+    w = panel_guide.words_for(
+        SalonPanelMode.SOLO if solo else SalonPanelMode.TEAM
+    )
     
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday = today - timedelta(days=1)
@@ -277,7 +284,7 @@ async def render_overview_tab(
                 {clients_trend}
             </div>
             <p class="stat-value">{clients_count}</p>
-            <p class="stat-label">Клиентов {_hint("Все уникальные клиенты, когда-либо записывавшиеся к мастерам салона. Процент — рост их числа за последнюю неделю.")}</p>
+            <p class="stat-label">Клиентов {_hint(w("hint_clients"))}</p>
         </div>
 
         <div class="stat-card">
@@ -304,7 +311,7 @@ async def render_overview_tab(
                 {rating_trend}
             </div>
             <p class="stat-value">{current_rating:.1f}</p>
-            <p class="stat-label">Рейтинг {_hint("Средний рейтинг салона по всем отзывам. Число рядом — изменение по сравнению со средним рейтингом отзывов недельной давности.")}</p>
+            <p class="stat-label">Рейтинг {_hint(w("hint_rating"))}</p>
         </div>
     </div>
     """
@@ -429,6 +436,7 @@ async def render_overview_tab(
         # раз, да ещё и неверно, их называть незачем.
         booking_link_html = render_booking_link_block(
             salon.id, enabled=bool(salon.guest_booking_enabled),
+            qr_alt=w("qr_alt"), solo=solo,
         )
 
     if solo:

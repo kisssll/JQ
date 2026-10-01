@@ -1,4 +1,23 @@
 # app/web/pages/business/tabs/my_salon.py
+"""Настройки салона: блоки и две их раскладки.
+
+В командном режиме это вкладка «Редактировать салон» — один список карточек,
+как было. В соло-режиме такой вкладки нет вовсе: её содержимое переехало в
+«Мою карточку мастера» и легло там двумя группами — «Как вас видят клиенты» и
+«Рабочие настройки» (решение 0009, п. 2). Собирает группы employees.py, потому
+что в первую из них входит сама карточка мастера.
+
+Поэтому блоки здесь — функции, а не куски одной f-строки: один и тот же блок
+рисуется в двух раскладках, и копия на второй режим разъехалась бы с первой.
+Подписи блоки не придумывают, а спрашивают у реестра (panel_guide.words_for):
+у соло-мастера салона нет, есть он сам, и половина заголовков в этом режиме
+другая.
+
+Переключатель режима живёт в блоке «Разделы панели» и обязан быть в обеих
+раскладках. Если бы он остался только в исчезнувшей вкладке, соло-мастер
+никогда не перешёл бы в «у меня команда» и не смог бы нанять человека: дверь
+стала бы односторонней (решение 0009, п. 3).
+"""
 from app.web.components.escaping import e
 import html
 import json
@@ -9,7 +28,7 @@ from app.models.models import (
     SalonChain, SalonChainRequest, SalonChainRequestStatus,
 )
 from app.services.salon_chain_service import pending_requests_for_salon_ids
-from app.services import panel_sections
+from app.services import panel_guide, panel_sections, panel_tour
 from app.web.components.yandex_maps import yandex_maps_enabled
 from app.web.cities import city_options_html
 
@@ -39,7 +58,7 @@ _ERROR_MESSAGES = {
 }
 
 
-def _render_edit_card(salon: Salon, photos: list) -> str:
+def _render_edit_card(salon: Salon, photos: list, w) -> str:
     """Карточка салона с режимом редактирования и галереей фото."""
     rating = salon.rating or 0.0
     reviews = salon.reviews_count or 0
@@ -79,7 +98,7 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
             f'<span class="cover-badge">{ICON_STAR_FILLED} Обложка</span>'
             if is_cover else
             f'''<form method="post" action="/api/v1/upload/salon/{salon.id}/photo/{p.id}/cover" style="margin:0;position:absolute;bottom:0.25rem;left:0.25rem">
-                    <button type="submit" title="Показывать это фото на карточке салона в общем списке" class="cover-btn">Сделать обложкой</button>
+                    <button type="submit" title="{w("cover_title")}" class="cover-btn">Сделать обложкой</button>
                 </form>'''
         )
         return f'''
@@ -95,12 +114,12 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
 
     inputs_html = f"""
         <div class="salon-edit-inputs" style="display:none;">
-            <!-- Блок фото салона -->
+            <!-- Фотографии -->
             <div class="salon-edit-photos-block">
-                <div class="salon-edit-photos-label">Фото салона</div>
+                <div class="salon-edit-photos-label">{w("photos_title")}</div>
                 <button type="button" id="photoDropZone" data-upload-url="/api/v1/upload/salon/{salon.id}/photo" class="my-salon-dropzone">
                     <p>Перетащите фото сюда или нажмите, чтобы выбрать</p>
-                    <p class="hint">Можно несколько сразу · JPG/PNG до 5 МБ · появятся на странице салона</p>
+                    <p class="hint">Можно несколько сразу · JPG/PNG до 5 МБ · {w("photos_hint_tail")}</p>
                 </button>
                 <input type="file" id="photoFileInputMySalon" accept="image/*" multiple style="display:none">
                 <div id="photoUploadStatus"></div>
@@ -112,7 +131,7 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
             <!-- Поля ввода -->
             <div class="salon-edit-fields" style="margin-top: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1.5rem;">
                 <div class="salon-edit-field">
-                    <label>Название</label>
+                    <label>{w("field_name")}</label>
                     <input type="text" id="salonEditNameInput" value="{e(salon.name)}" class="salon-edit-input">
                 </div>
                 <div class="salon-edit-field">
@@ -135,11 +154,11 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
                     {f'<input type="hidden" id="salonEditLat" value="{salon.latitude}"><input type="hidden" id="salonEditLon" value="{salon.longitude}">' if yandex_maps_enabled() else ''}
                 </div>
                 <div class="salon-edit-field">
-                    <label>Почта салона</label>
+                    <label>{w("field_email")}</label>
                     <input type="email" id="salonEditEmailInput" value="{salon.email or ''}" placeholder="salon@example.com (для реквизитов и уведомлений)" class="salon-edit-input">
                 </div>
                 <div class="salon-edit-field">
-                    <label>Описание</label>
+                    <label>{w("field_desc")}</label>
                     <textarea id="salonEditDescInput" class="salon-edit-input salon-edit-textarea">{e(salon.description or '')}</textarea>
                 </div>
             </div>
@@ -148,7 +167,6 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
 
     photos_data = [{"id": p.id, "url": p.url} for p in photos]
     initial_logo = salon.logo_url or ''
-    import json
     init_script = f"""
     <script>
         window.initialPhotos = {json.dumps(photos_data)};
@@ -170,7 +188,111 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
     """
 
 
-def _render_panel_sections_card(salon: Salon) -> str:
+def _render_basic_card(salon: Salon, photos: list, w) -> str:
+    """Карточка «Основная информация» / «О вас» целиком."""
+    hint = w("card_basic_hint")
+    hint_html = f'<p class="my-salon-card-hint">{hint}</p>' if hint else ""
+    return f"""
+            <div class="my-salon-card">
+                <h2 class="my-salon-card-title">{w("card_basic_title")}</h2>
+                {hint_html}
+                {_render_edit_card(salon, photos, w)}
+            </div>
+    """
+
+
+def _render_hours_card(salon: Salon, w) -> str:
+    """Часы работы: рамка, внутри которой считаются свободные окна."""
+    parsed_hours = {}
+    if salon.working_hours:
+        try:
+            parsed_hours = json.loads(salon.working_hours)
+        except (ValueError, TypeError):
+            parsed_hours = {}
+
+    hours_rows = ""
+    for key, label in DAY_KEYS_RU:
+        raw = (parsed_hours.get(key) or "").strip()
+        is_closed = raw in ("closed", "выходной", "day off")
+        start_val, end_val = "10:00", "20:00"
+        if raw and not is_closed and "-" in raw:
+            parts = raw.split("-")
+            if len(parts) == 2:
+                start_val, end_val = parts[0].strip(), parts[1].strip()
+        checked = "checked" if is_closed else ""
+        disabled = "disabled" if is_closed else ""
+        hours_rows += f"""
+        <div class="my-salon-hours-row">
+            <span class="day-label">{label}</span>
+            <label class="closed-label">
+                <input type="checkbox" class="wh-closed" data-day="{key}" {checked} onchange="toggleDayClosed('{key}', this.checked)"> Выходной
+            </label>
+            <input type="time" id="wh-start-{key}" class="custom-date" value="{start_val}" {disabled}>
+            <span class="time-sep">—</span>
+            <input type="time" id="wh-end-{key}" class="custom-date" value="{end_val}" {disabled}>
+        </div>"""
+
+    return f"""
+            <div class="my-salon-card">
+                <h2 class="my-salon-card-title">{w("card_hours_title")}</h2>
+                <p class="my-salon-card-hint">{w("card_hours_hint")}</p>
+                <div class="hours-container">
+                    {hours_rows}
+                </div>
+                <div class="hours-actions">
+                    <button type="button" class="my-salon-btn-primary" onclick="saveWorkingHours({salon.id})">{ICON_SAVE} {w("hours_save_btn")}</button>
+                    <button type="button" class="my-salon-btn-outline" onclick="copyMondayToWeekdays()">{ICON_COPY} Скопировать понедельник на пн–пт</button>
+                </div>
+            </div>
+    """
+
+
+def _render_guest_toggle_card(salon: Salon, w, *, with_link: bool) -> str:
+    """Тумблер «принимать записи без регистрации».
+
+    with_link=True — вместе с ним показываем ссылку и QR (командный режим: там
+    блок один). В соло ссылка и QR уехали в группу «Как вас видят клиенты» —
+    это то, что человек даёт клиентам, а не настройка приёма.
+    """
+    link_html = render_booking_link_block(
+        salon.id, enabled=salon.guest_booking_enabled, heading="", off_note="",
+        hint=False, qr_alt=w("qr_alt"),
+    ) if with_link else ""
+    return f"""
+            <div class="my-salon-card">
+                <h2 class="my-salon-card-title">{w("card_guest_title")}</h2>
+                <p class="my-salon-card-hint">{w("card_guest_hint")}</p>
+                <label style="display:block;margin:0.5rem 0">
+                    <input type="checkbox" id="guestToggle" data-salon-id="{salon.id}" {"checked" if salon.guest_booking_enabled else ""}>
+                    Принимать записи без регистрации
+                </label>
+                {link_html}
+            </div>
+    """
+
+
+def _render_booking_link_card(salon: Salon, w) -> str:
+    """Ссылка и QR отдельной карточкой — только в соло.
+
+    Тумблер приёма записей в этом режиме лежит в другой группе, поэтому
+    приписка «ссылка не работает» нужна: над блоком не видно, включён он или
+    нет. Ведёт приписка якорем в ту группу, а не в несуществующий раздел.
+    """
+    off_note = (
+        "Сейчас ссылка не работает: запись без регистрации выключена — "
+        f'включите её в <a href="#{panel_tour.ANCHOR_CARD_WORK}">рабочих настройках</a> ниже.'
+    )
+    return f"""
+            <div class="my-salon-card">
+                {render_booking_link_block(
+                    salon.id, enabled=salon.guest_booking_enabled,
+                    off_note=off_note, qr_alt=w("qr_alt"),
+                )}
+            </div>
+    """
+
+
+def _render_panel_sections_card(salon: Salon, w) -> str:
     """Блок «Разделы панели»: режим бизнеса + ссылка на настройку самой панели.
 
     Списка галочек здесь больше нет. Два интерфейса к одной настройке
@@ -178,7 +300,9 @@ def _render_panel_sections_card(salon: Salon) -> str:
     порядок владелец меняет прямо в панели (решение 0007, дополнение 30.09).
 
     Режим остаётся здесь: он не про оформление панели, а про то, как устроен
-    бизнес, и от него зависит ещё и найм.
+    бизнес, и от него зависит ещё и найм. В соло этот блок — единственная
+    дверь в режим команды, и выключить раздел, в котором он лежит, нельзя
+    (panel_sections.locked_keys).
     """
     solo = panel_sections.is_solo(salon)
 
@@ -195,74 +319,91 @@ def _render_panel_sections_card(salon: Salon) -> str:
         </label>
         <p class="my-salon-card-hint" style="margin:0.5rem 0 0.75rem">
             Смена режима вернёт набор разделов к обычному для этого режима —
-            ваши правки в панели сбросятся.{
-            " В режиме «работаю один» второго мастера завести нельзя." if solo else ""}
+            ваши правки в панели сбросятся.{w("mode_switch_hint_solo_tail")}
         </p>
         <button type="submit" class="my-salon-btn-outline">{ICON_SAVE} Сменить режим</button>
     </form>
     """
 
     return f"""
-    <div class="my-salon-card">
-        <h2 class="my-salon-card-title">Разделы панели</h2>
-        <p class="my-salon-card-hint">
-            Режим задаёт набор разделов. Какие именно разделы показывать и в каком
-            порядке — настраивается в самой панели: нажмите «Настроить панель»
-            справа над разделами. Выключенный раздел исчезает из меню — данные в
-            нём остаются.
-        </p>
-        {mode_form}
-        <a class="my-salon-btn-primary" style="display:inline-flex;align-items:center;gap:0.5rem;text-decoration:none"
-           href="/business/dashboard?salon_id={salon.id}&edit=1">{ICON_SLIDERS} Настроить панель</a>
-    </div>
+            <div class="my-salon-card">
+                <h2 class="my-salon-card-title">Разделы панели</h2>
+                <p class="my-salon-card-hint">{w("card_mode_hint")}</p>
+                {mode_form}
+                <a class="my-salon-btn-primary" style="display:inline-flex;align-items:center;gap:0.5rem;text-decoration:none"
+                   href="/business/dashboard?salon_id={salon.id}&edit=1">{ICON_SLIDERS} Настроить панель</a>
+            </div>
     """
 
 
-def _render_danger_zone(salon: Salon, can_manage_salon: bool, is_creator: bool) -> str:
-    """Блок «Видимость и удаление»: скрыть салон (обратимо) / удалить салон (безвозвратно, только создатель)."""
+def _render_danger_zone(salon: Salon, is_creator: bool, w) -> str:
+    """Блок «Видимость и удаление»: скрыть (обратимо) / удалить (безвозвратно,
+    только создатель).
+
+    Прятать этот блок в соло нельзя ни при каком упрощении интерфейса: право
+    уйти с платформы должно быть достижимо (152-ФЗ). Меняются только слова —
+    у соло-мастера удаляется не салон, а он сам.
+
+    Тексты кнопок и подсказок уходят в data-атрибуты: после переключения
+    видимости и в окне подтверждения их рисует скрипт, и зашитая в нём строка
+    в соло соврала бы (static/src/js/business/tabs/my-salon.js).
+    """
+    vis_data = (
+        f'data-label-on="{e(w("hide_btn_on"))}" data-label-off="{e(w("hide_btn_off"))}" '
+        f'data-hint-on="{e(w("hide_hint_on"))}" data-hint-off="{e(w("hide_hint_off"))}"'
+    )
     if salon.is_hidden:
-        hide_hint = "Салон скрыт: его не видно в каталоге, поиске и записи. Включите обратно в любой момент."
-        hide_btn = f'<button type="button" class="my-salon-btn-primary" id="salonVisibilityBtn" data-salon-id="{salon.id}" data-hidden="1">{ICON_EYE} Показать салон</button>'
-    else:
-        hide_hint = (
-            "Сейчас салон не скрыт — он виден клиентам в каталоге, поиске и доступен для записи. "
-            "Если нажмёте «Скрыть салон», он пропадёт из каталога и не будет виден пользователям в общем доступе."
+        hide_hint = w("hide_hint_on")
+        hide_btn = (
+            f'<button type="button" class="my-salon-btn-primary" id="salonVisibilityBtn" '
+            f'data-salon-id="{salon.id}" data-hidden="1" {vis_data}>'
+            f'{ICON_EYE} {w("hide_btn_on")}</button>'
         )
-        hide_btn = f'<button type="button" class="my-salon-btn-outline" id="salonVisibilityBtn" data-salon-id="{salon.id}" data-hidden="0">{ICON_EYE} Скрыть салон</button>'
+    else:
+        hide_hint = w("hide_hint_off")
+        hide_btn = (
+            f'<button type="button" class="my-salon-btn-outline" id="salonVisibilityBtn" '
+            f'data-salon-id="{salon.id}" data-hidden="0" {vis_data}>'
+            f'{ICON_EYE} {w("hide_btn_off")}</button>'
+        )
 
     delete_block = ""
     if is_creator:
         delete_block = f"""
         <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--color-border)">
-            <h3 style="margin:0 0 0.5rem;font-size:1rem">Удалить салон</h3>
-            <p class="my-salon-card-hint">
-                В таком случае салон уйдёт из каталога и записи безвозвратно (для вас — без возможности
-                восстановить самостоятельно). Брони, отзывы и история клиентов сохранятся в панели бизнеса —
-                салон можно будет отслеживать, но записаться в него или увидеть его в каталоге больше никто
-                не сможет, и вернуть салон будет нельзя.
-            </p>
+            <h3 style="margin:0 0 0.5rem;font-size:1rem">{w("delete_title")}</h3>
+            <p class="my-salon-card-hint">{w("delete_hint")}</p>
             <button type="button" class="my-salon-btn-outline" id="salonDeleteBtn" data-salon-id="{salon.id}"
+                    data-confirm-title="{e(w("delete_confirm_title"))}"
+                    data-confirm-text="{e(w("delete_confirm_body"))}"
+                    data-confirm-btn="{e(w("delete_btn"))}"
+                    data-done-text="{e(w("delete_done"))}"
                     style="color:#dc2626;border-color:#dc2626">
-                {ICON_TRASH} Удалить салон
+                {ICON_TRASH} {w("delete_btn")}
             </button>
         </div>
         """
 
     return f"""
-    <div class="my-salon-card">
-        <h2 class="my-salon-card-title">Видимость и удаление</h2>
-        <h3 style="margin:0 0 0.5rem;font-size:1rem">Скрыть салон</h3>
-        <p class="my-salon-card-hint" id="salonVisibilityHint">{hide_hint}</p>
-        {hide_btn}
-        {delete_block}
-    </div>
+            <div class="my-salon-card">
+                <h2 class="my-salon-card-title">{w("card_danger_title")}</h2>
+                <h3 style="margin:0 0 0.5rem;font-size:1rem">{w("hide_title")}</h3>
+                <p class="my-salon-card-hint" id="salonVisibilityHint">{hide_hint}</p>
+                {hide_btn}
+                {delete_block}
+            </div>
     """
 
 
 async def _render_chain_section(db: AsyncSession, salon: Salon, is_creator: bool) -> str:
     """Блок «Сеть салонов»: текущая сеть (если есть) + поиск партнёра и запрос
     на объединение + входящие/исходящие запросы на решение. Только для
-    создателя — это решение о бренде салона, не операционное право."""
+    создателя — это решение о бренде салона, не операционное право.
+
+    В соло-режиме блока нет вовсе (решение 0009, п. 4): предлагать объединить в
+    сеть то, чего нет, — предложение ни о чём. Решает это вызывающая сторона:
+    в соло функция просто не зовётся.
+    """
     if not is_creator:
         return ""
 
@@ -348,12 +489,64 @@ async def _render_chain_section(db: AsyncSession, salon: Salon, is_creator: bool
     """
 
 
+def _icon_script() -> str:
+    """Иконки для скрипта карточки: он перерисовывает кнопки сам."""
+    return f"""
+    <script>
+        window.ICON_EDIT = `{ICON_EDIT}`;
+        window.ICON_EYE = `{ICON_EYE}`;
+        window.ICON_SAVE = `{ICON_SAVE}`;
+        window.ICON_X = `{ICON_X}`;
+    </script>
+    """
+
+
+async def render_solo_settings_groups(
+    db: AsyncSession, salon: Salon, *,
+    can_manage_salon: bool = False, is_creator: bool = False,
+) -> tuple:
+    """Два куска разметки для «Моей карточки мастера» (соло-режим).
+
+    Возвращает (группа «Как вас видят клиенты», группа «Рабочие настройки») —
+    без обёрток с заголовками: первую группу employees.py начинает самой
+    карточкой мастера, и заголовок у группы один на оба куска.
+
+    Разделение групп — решение 0009, п. 2. Якоря на группы нужны не только
+    человеку: на них ссылаются шаги тура (panel_tour.ANCHOR_CARD_*) и действия
+    блока готовности к записи.
+    """
+    w = panel_guide.words_for(salon.panel_mode)
+    photos = (
+        await db.execute(select(SalonPhoto).where(SalonPhoto.salon_id == salon.id).order_by(SalonPhoto.id))
+    ).scalars().all()
+
+    public_html = f"""
+        {_icon_script()}
+        {_render_basic_card(salon, photos, w)}
+        {_render_booking_link_card(salon, w)}
+    """
+
+    work_html = f"""
+        {_render_hours_card(salon, w)}
+        {_render_guest_toggle_card(salon, w, with_link=False)}
+        {_render_panel_sections_card(salon, w) if can_manage_salon else ""}
+        {_render_danger_zone(salon, is_creator, w) if can_manage_salon else ""}
+    """
+    return public_html, work_html
+
+
 async def render_my_salon_tab(
     db: AsyncSession, salon: Salon, user=None, query_params=None,
     can_manage_salon: bool = False, is_creator: bool = False,
 ) -> str:
-    """Вкладка «Редактировать салон» для бизнес-панели."""
+    """Вкладка «Редактировать салон» — командный режим.
+
+    В соло этой вкладки нет: panel_sections.available_keys убирает ключ `edit`
+    из режима, а панель переводит прямой ?tab=edit в «Мою карточку мастера»
+    (решение 0009, п. 2).
+    """
     query_params = query_params or {}
+    w = panel_guide.words_for(salon.panel_mode)
 
     photos = (
         await db.execute(select(SalonPhoto).where(SalonPhoto.salon_id == salon.id).order_by(SalonPhoto.id))
@@ -385,47 +578,9 @@ async def render_my_salon_tab(
             '<div class="alert success">Мастер добавлен.</div>'
         )
 
-    parsed_hours = {}
-    if salon.working_hours:
-        try:
-            parsed_hours = json.loads(salon.working_hours)
-        except (ValueError, TypeError):
-            parsed_hours = {}
-
-    hours_rows = ""
-    for key, label in DAY_KEYS_RU:
-        raw = (parsed_hours.get(key) or "").strip()
-        is_closed = raw in ("closed", "выходной", "day off")
-        start_val, end_val = "10:00", "20:00"
-        if raw and not is_closed and "-" in raw:
-            parts = raw.split("-")
-            if len(parts) == 2:
-                start_val, end_val = parts[0].strip(), parts[1].strip()
-        checked = "checked" if is_closed else ""
-        disabled = "disabled" if is_closed else ""
-        hours_rows += f"""
-        <div class="my-salon-hours-row">
-            <span class="day-label">{label}</span>
-            <label class="closed-label">
-                <input type="checkbox" class="wh-closed" data-day="{key}" {checked} onchange="toggleDayClosed('{key}', this.checked)"> Выходной
-            </label>
-            <input type="time" id="wh-start-{key}" class="custom-date" value="{start_val}" {disabled}>
-            <span class="time-sep">—</span>
-            <input type="time" id="wh-end-{key}" class="custom-date" value="{end_val}" {disabled}>
-        </div>"""
-
-    icon_script = f"""
-    <script>
-        window.ICON_EDIT = `{ICON_EDIT}`;
-        window.ICON_EYE = `{ICON_EYE}`;
-        window.ICON_SAVE = `{ICON_SAVE}`;
-        window.ICON_X = `{ICON_X}`;
-    </script>
-    """
-
     html_content = f"""
     <div id="tab-edit" class="tab-content">
-        {icon_script}
+        {_icon_script()}
         <div class="my-salon-tab">
             <!-- Заголовок вкладки -->
             <div class="my-salon-header">
@@ -438,43 +593,20 @@ async def render_my_salon_tab(
             {error_banner}
             {success_banner}
 
-            <!-- Карточка салона с редактированием -->
-            <div class="my-salon-card">
-                <h2 class="my-salon-card-title">Основная информация</h2>
-                {_render_edit_card(salon, photos)}
-            </div>
+            <!-- Карточка с редактированием -->
+            {_render_basic_card(salon, photos, w)}
 
             <!-- Часы работы -->
-            <div class="my-salon-card">
-                <h2 class="my-salon-card-title">Часы работы</h2>
-                <p class="my-salon-card-hint">
-                    Без часов работы расписание пустое и клиенты не могут записаться — заполните хотя бы будни.
-                </p>
-                <div class="hours-container">
-                    {hours_rows}
-                </div>
-                <div class="hours-actions">
-                    <button type="button" class="my-salon-btn-primary" onclick="saveWorkingHours({salon.id})">{ICON_SAVE} Сохранить часы работы</button>
-                    <button type="button" class="my-salon-btn-outline" onclick="copyMondayToWeekdays()">{ICON_COPY} Скопировать понедельник на пн–пт</button>
-                </div>
-            </div>
+            {_render_hours_card(salon, w)}
 
             <!-- Запись без регистрации -->
-            <div class="my-salon-card">
-                <h2 class="my-salon-card-title">Запись без регистрации</h2>
-                <p class="my-salon-card-hint">Клиенты записываются по ссылке или QR без регистрации; заявка приходит вам на подтверждение.</p>
-                <label style="display:block;margin:0.5rem 0">
-                    <input type="checkbox" id="guestToggle" data-salon-id="{salon.id}" {"checked" if salon.guest_booking_enabled else ""}>
-                    Принимать записи без регистрации
-                </label>
-                {render_booking_link_block(salon.id, enabled=salon.guest_booking_enabled, heading="", off_note="", hint=False)}
-            </div>
+            {_render_guest_toggle_card(salon, w, with_link=True)}
 
-            {_render_panel_sections_card(salon) if can_manage_salon else ""}
+            {_render_panel_sections_card(salon, w) if can_manage_salon else ""}
 
             {chain_section_html}
 
-            {_render_danger_zone(salon, can_manage_salon, is_creator) if can_manage_salon else ""}
+            {_render_danger_zone(salon, is_creator, w) if can_manage_salon else ""}
 
         </div>
     </div>

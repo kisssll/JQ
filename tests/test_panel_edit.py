@@ -29,7 +29,7 @@ def _canonical(mode):
 
 def test_normalize_keeps_the_order_the_owner_sent():
     """Главное отличие от захода 1: порядок владельца — это данные, а не шум."""
-    sent = ["overview", "services", "records", "schedule", "billing", "edit", "crm"]
+    sent = ["overview", "services", "records", "schedule", "billing", "employees", "crm"]
     assert ps.normalize(SalonPanelMode.SOLO, sent) == sent
 
 
@@ -43,7 +43,7 @@ def test_normalize_appends_missing_locked_sections():
     """Обязательные добавляем всегда — но в конец, чтобы не ломать порядок."""
     stored = ps.normalize(SalonPanelMode.SOLO, ["overview", "crm"])
     assert stored[:2] == ["overview", "crm"]
-    assert ps.LOCKED_KEYS <= frozenset(stored)
+    assert ps.locked_keys(SalonPanelMode.SOLO) <= frozenset(stored)
 
 
 def test_normalize_drops_unknown_keys_and_duplicates():
@@ -72,7 +72,7 @@ def test_ordered_keys_follows_the_mode_when_nothing_is_stored():
 
 
 def test_ordered_keys_returns_the_stored_order():
-    stored = ["overview", "crm", "services", "schedule", "records", "billing", "edit"]
+    stored = ["overview", "crm", "services", "schedule", "records", "billing", "employees"]
     assert ps.ordered_keys(_salon(SalonPanelMode.SOLO, stored)) == stored
 
 
@@ -82,7 +82,7 @@ def test_ordered_keys_repairs_a_broken_stored_list():
     ordered = ps.ordered_keys(_salon(SalonPanelMode.SOLO, ["crm", "no_such_tab", "overview"]))
     assert ordered[0] == "overview"
     assert "no_such_tab" not in ordered
-    assert ps.LOCKED_KEYS <= frozenset(ordered)
+    assert ps.locked_keys(SalonPanelMode.SOLO) <= frozenset(ordered)
 
 
 def test_enabled_keys_matches_ordered_keys():
@@ -146,7 +146,7 @@ def _menu_order(html: str):
 
 
 async def test_menu_is_rendered_in_the_saved_order(client, db_session):
-    stored = ["overview", "crm", "services", "schedule", "records", "billing", "edit"]
+    stored = ["overview", "crm", "services", "schedule", "records", "billing", "employees"]
     _, salon_id = await _make_salon(
         db_session, "+79995561001", SalonPanelMode.SOLO, sections=stored,
     )
@@ -161,7 +161,7 @@ async def test_overview_stays_first_in_the_menu(client, db_session):
     """«Обзор» — вход в панель и место, куда уводит скрытая ссылка."""
     _, salon_id = await _make_salon(
         db_session, "+79995561002", SalonPanelMode.SOLO,
-        sections=["crm", "services", "schedule", "records", "billing", "edit"],
+        sections=["crm", "services", "schedule", "records", "billing", "employees"],
     )
     await _login(client, "+79995561002")
 
@@ -230,7 +230,7 @@ async def test_save_keeps_the_order_and_survives_a_reload(client, db_session):
     _, salon_id = await _make_salon(db_session, "+79995562001", SalonPanelMode.SOLO)
     await _login(client, "+79995562001")
 
-    order = ["overview", "crm", "services", "schedule", "records", "billing", "edit", "models"]
+    order = ["overview", "crm", "services", "schedule", "records", "billing", "employees", "models"]
     r = await client.post(
         "/api/v1/business/my-salon/panel-sections",
         json={"salon_id": salon_id, "sections": order},
@@ -254,7 +254,7 @@ async def test_save_puts_overview_first_and_keeps_locked_sections(client, db_ses
     assert r.status_code == 200, r.text
     saved = r.json()["sections"]
     assert saved[0] == "overview"
-    assert ps.LOCKED_KEYS <= frozenset(saved)
+    assert ps.locked_keys(SalonPanelMode.SOLO) <= frozenset(saved)
 
     r = await client.get(f"/business/dashboard?salon_id={salon_id}&tab=billing")
     assert 'id="tab-billing"' in r.text

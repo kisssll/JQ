@@ -34,3 +34,6 @@ static/images/tbank/tg_image_*.png
 CLAUDE.local.md
 docs/decisions/
 docs/status.md
+
+# Справочники по фронтенду, взятые со стороны (локально)
+docs/reference/

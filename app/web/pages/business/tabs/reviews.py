@@ -3,6 +3,7 @@ from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import Master, User as UserModel, Review, ReviewPhoto, ReviewTargetType
+from app.services import panel_guide, panel_sections, panel_words
 from app.web.components.icons import (
     ICON_CIRCLE_CHECK,
     ICON_STAR_EMPTY,
@@ -16,12 +17,22 @@ TARGET_LABELS = {
 }
 
 
+def target_label(target_type, *, solo: bool = False) -> str:
+    """Подпись «о чём отзыв». В соло отзыв «о салоне» — это отзыв о самом
+    человеке: салона у него нет (решение 0009, п. 6)."""
+    if target_type == ReviewTargetType.SALON:
+        return panel_words.word("reviews_target_salon", solo=solo)
+    return TARGET_LABELS.get(target_type, "—")
+
+
 async def render_reviews_tab(db: AsyncSession, reviews, salon) -> str:
     """Вкладка Отзывы: список с тегами (тип цели/подтверждение), фото, фильтры.
 
     Жалобы на фото сюда намеренно не выводятся — их решает только
     платформенный модератор (см. app/api/v1/endpoints/reports.py), у салона
     был бы конфликт интересов при разборе жалобы на собственное фото."""
+    solo = panel_sections.is_solo(salon)
+    w = panel_guide.words_for(getattr(salon, "panel_mode", None))
     reviews_rows = ""
     for r in reviews:
         client_result = await db.execute(select(UserModel).where(UserModel.id == r.client_id))
@@ -39,7 +50,7 @@ async def render_reviews_tab(db: AsyncSession, reviews, salon) -> str:
             su = (await db.execute(select(UserModel).where(UserModel.id == r.staff_user_id))).scalar_one_or_none()
             target_name = su.full_name if su else "Сотрудник"
         else:
-            target_name = "Салон в целом"
+            target_name = w("reviews_target_salon_whole")
 
         stars = f"{ICON_STAR_FILLED}" * r.rating + f"{ICON_STAR_EMPTY}" * (5 - r.rating)
         date_str = r.created_at.strftime("%d.%m.%Y") if r.created_at else ""
@@ -59,7 +70,7 @@ async def render_reviews_tab(db: AsyncSession, reviews, salon) -> str:
         reviews_rows += f"""
         <tr data-target-type="{r.target_type.value}" data-verified="{'1' if r.is_verified else '0'}">
             <td><strong>{e(client_name)}</strong></td>
-            <td>{TARGET_LABELS[r.target_type]}: {target_name}</td>
+            <td>{target_label(r.target_type, solo=solo)}: {target_name}</td>
             <td>{verified_html}</td>
             <td>{stars}</td>
             <td style="max-width:260px">{e(r.comment or 'Без комментария')}</td>
@@ -81,7 +92,7 @@ async def render_reviews_tab(db: AsyncSession, reviews, salon) -> str:
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
             <button class="btn-outline reviews-filter-btn active" data-filter="all" onclick="reviewsTabFilter('all', this)">Все</button>
             <button class="btn-outline reviews-filter-btn" data-filter="master" onclick="reviewsTabFilter('master', this)">О мастерах</button>
-            <button class="btn-outline reviews-filter-btn" data-filter="salon" onclick="reviewsTabFilter('salon', this)">О салоне</button>
+            <button class="btn-outline reviews-filter-btn" data-filter="salon" onclick="reviewsTabFilter('salon', this)">{w("reviews_filter_salon")}</button>
             <button class="btn-outline reviews-filter-btn" data-filter="staff" onclick="reviewsTabFilter('staff', this)">О сотрудниках</button>
             <button class="btn-outline reviews-filter-btn" data-filter="verified" onclick="reviewsTabFilter('verified', this)">Только подтверждённые</button>
         </div>

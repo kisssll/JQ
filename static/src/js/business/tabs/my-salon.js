@@ -675,14 +675,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await res.json();
                 const hint = document.getElementById('salonVisibilityHint');
                 const icon = window.ICON_EYE || '';
+                // Подписи приходят с сервера в data-атрибутах, а не живут
+                // здесь строкой: у соло-мастера салона нет, и он скрывает из
+                // ленты себя (решение 0009, п. 7). Один реестр текстов —
+                // app/services/panel_words.py.
+                const d = this.dataset;
                 if (data.is_hidden) {
-                    hint.textContent = 'Салон скрыт: его не видно в каталоге, поиске и записи. Включите обратно в любой момент.';
-                    this.innerHTML = icon + ' Показать салон';
+                    hint.textContent = d.hintOn || '';
+                    this.innerHTML = icon + ' ' + (d.labelOn || '');
                     this.classList.remove('my-salon-btn-outline');
                     this.classList.add('my-salon-btn-primary');
                 } else {
-                    hint.textContent = 'Сейчас салон не скрыт — он виден клиентам в каталоге, поиске и доступен для записи. Если нажмёте «Скрыть салон», он пропадёт из каталога и не будет виден пользователям в общем доступе.';
-                    this.innerHTML = icon + ' Скрыть салон';
+                    hint.textContent = d.hintOff || '';
+                    this.innerHTML = icon + ' ' + (d.labelOff || '');
                     this.classList.remove('my-salon-btn-primary');
                     this.classList.add('my-salon-btn-outline');
                 }
@@ -697,12 +702,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteBtn = document.getElementById('salonDeleteBtn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', async function() {
-            if (!await confirmDialog({ title: 'Удалить салон?', message: 'Он пропадёт из каталога и записи. Брони, отзывы и мастера сохранятся в истории, но самостоятельно восстановить салон будет нельзя.', confirmText: 'Удалить салон', danger: true })) return;
+            // Текст подтверждения — с сервера: в соло удаляется не салон, а
+            // сам человек (data-атрибуты ставит _render_danger_zone).
+            const d = this.dataset;
+            if (!await confirmDialog({
+                title: d.confirmTitle || 'Удалить салон?',
+                message: d.confirmText || '',
+                confirmText: d.confirmBtn || 'Удалить салон',
+                danger: true,
+            })) return;
             this.disabled = true;
             try {
                 const res = await fetch(`/api/v1/business/my-salon?salon_id=${this.dataset.salonId}`, { method: 'DELETE' });
                 if (res.ok) {
-                    alert('Салон удалён.');
+                    alert(d.doneText || 'Салон удалён.');
                     window.location.href = '/business/dashboard';
                 } else {
                     const d = await res.json().catch(() => ({}));

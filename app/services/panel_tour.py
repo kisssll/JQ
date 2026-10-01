@@ -55,6 +55,29 @@ _ACT_SECTIONS: Dict[str, Sequence[str]] = {
     ACT_WATCH: ("overview", "records", "crm", "analytics"),
 }
 
+# Якоря на группы внутри «Моей карточки мастера» (решение 0009, п. 2). Те же
+# строки стоят в разметке раздела — app/web/pages/business/tabs/my_salon.py.
+ANCHOR_CARD_PUBLIC = "panel-card-public"
+ANCHOR_CARD_WORK = "panel-card-work"
+
+# Один раздел может занимать в туре больше одного шага: (ключ реплики, якорь).
+#
+# Зачем это есть. В соло раздел «Редактировать салон» не существует — его
+# содержимое переехало в «Мою карточку мастера» (решение 0009). Шаг про «edit»
+# отфильтровался бы сам, и вместе с ним из соло-тура ушло бы всё, что он
+# рассказывал: имя, город, адрес, телефон, фото, часы работы, запись по ссылке.
+# Это ядро акта «чтобы вас было видно», и дыру надо закрыть, а не оставить.
+# Одним раздутым шагом не выйдет: реплика ограничена 300 знаками (полоса внизу
+# экрана, tests/test_panel_tour_steps.py), и содержимое двух бывших разделов в
+# неё не влезает. Поэтому в соло на раздел два шага — по одному на группу, с
+# якорем на свою группу.
+_SOLO_STEPS: Dict[str, Sequence] = {
+    "employees": (
+        ("employees", ANCHOR_CARD_PUBLIC),
+        ("employees-work", ANCHOR_CARD_WORK),
+    ),
+}
+
 #: Разделы, про которые финал говорит списком, а не отдельным шагом. Водить
 #: человека по складу в день регистрации — шум (решение 0008, п. 4).
 #: «Инструкции» в списке нет намеренно: финал на ней и заканчивается и называет
@@ -94,12 +117,15 @@ class Step:
 
     key — то, что лежит в базе; act — к какому акту относится (нужен подписи и
     кнопке «пропустить акт»); tab — раздел панели, на который тур переключает
-    (None — остаёмся там, где человек стоит); text — реплика в полосе.
+    (None — остаёмся там, где человек стоит); text — реплика в полосе;
+    anchor — якорь внутри раздела, если шаг про одну его часть (нужен там, где
+    на раздел приходится больше одного шага, см. _SOLO_STEPS).
     """
     key: str
     act: str
     tab: Optional[str]
     text: str
+    anchor: Optional[str] = None
 
     @property
     def act_title(self) -> str:
@@ -127,10 +153,11 @@ def build(salon, *, visible_keys: Iterable[str]) -> List[Step]:
         for key in _ACT_SECTIONS[act]:
             if key not in present:
                 continue
-            steps.append(Step(
-                key=f"{act}:{key}", act=act, tab=key,
-                text=panel_guide.tour_line(key, solo=solo),
-            ))
+            for part, anchor in _parts_of(key, solo):
+                steps.append(Step(
+                    key=f"{act}:{part}", act=act, tab=key, anchor=anchor,
+                    text=panel_guide.tour_line(part, solo=solo),
+                ))
 
     steps.append(Step(
         key="finale", act=ACT_FINALE,
@@ -140,6 +167,26 @@ def build(salon, *, visible_keys: Iterable[str]) -> List[Step]:
         text=_finale_text(present, mode),
     ))
     return steps
+
+
+def _parts_of(key: str, solo: bool) -> Sequence:
+    """На сколько шагов разбит раздел: [(ключ реплики, якорь), …].
+
+    По умолчанию один шаг без якоря — ключ реплики совпадает с ключом раздела.
+    """
+    if solo and key in _SOLO_STEPS:
+        return _SOLO_STEPS[key]
+    return ((key, None),)
+
+
+def line_keys(*, solo: bool) -> List[str]:
+    """Все ключи реплик, которые может спросить build(). Нужен тестам на длину
+    реплики: часть ключей — не разделы панели, по ALL_KEYS их не найти."""
+    keys: List[str] = []
+    for act in (ACT_VISIBLE, ACT_CHOSEN, ACT_WATCH):
+        for key in _ACT_SECTIONS[act]:
+            keys += [part for part, _ in _parts_of(key, solo)]
+    return keys
 
 
 def _finale_text(present: frozenset, mode: SalonPanelMode) -> str:

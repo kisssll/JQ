@@ -206,6 +206,59 @@ def test_every_issue_points_somewhere_or_explicitly_nowhere():
         assert issue.text, (over, issue.key)
 
 
+def test_every_action_leads_into_a_section_that_exists_in_this_mode():
+    """Перенос «Редактировать салон» в «Мою карточку мастера» (решение 0009)
+    сделал половину адресов здесь зависимой от режима: в соло такого раздела
+    нет, и панель молча вернула бы человека в «Обзор» — список действий,
+    которые ничего не делают.
+
+    Адрес может быть якорем (#…) — это та же страница, или «раздел#якорь» —
+    группа внутри раздела."""
+    from app.models.models import SalonPanelMode
+    from app.services import panel_sections
+
+    for over in _ALL_SCENARIOS:
+        for solo in (True, False):
+            mode = SalonPanelMode.SOLO if solo else SalonPanelMode.TEAM
+            available = panel_sections.available_keys(mode)
+            for issue in br.evaluate(**_args(**{**over, "solo": solo})).issues:
+                if not issue.target or issue.target.startswith("#"):
+                    continue
+                tab = issue.target.split("#", 1)[0]
+                assert tab in available, (
+                    f"{issue.key}: действие ведёт в «{tab}», которого в режиме "
+                    f"{mode.value} нет"
+                )
+
+
+def test_solo_sends_settings_actions_to_the_master_card_group():
+    """Не просто «в существующий раздел», а в нужную его группу: раздел в соло
+    длинный (карточка мастера + все настройки), и попадание в начало вместо
+    «Рабочих настроек» значит ручной поиск глазами."""
+    from app.services import panel_tour
+
+    solo = br.evaluate(**_args(
+        solo=True, salon_hours_set=False, is_hidden=True, guest_booking_enabled=False,
+    ))
+    for key in ("no_salon_hours", "hidden", "guest_booking_off"):
+        row = next(i for i in solo.issues if i.key == key)
+        assert row.target == f"employees#{panel_tour.ANCHOR_CARD_WORK}", key
+
+    team = br.evaluate(**_args(
+        solo=False, salon_hours_set=False, is_hidden=True, guest_booking_enabled=False,
+    ))
+    for key in ("no_salon_hours", "hidden", "guest_booking_off"):
+        assert next(i for i in team.issues if i.key == key).target == "edit", key
+
+
+def test_no_readiness_row_in_solo_talks_about_a_salon():
+    """Строки блока читает соло-мастер, у которого салона нет."""
+    for over in _ALL_SCENARIOS:
+        for issue in br.evaluate(**_args(**{**over, "solo": True})).issues:
+            assert "алон" not in issue.text, (issue.key, issue.text)
+            assert "алон" not in issue.action, (issue.key, issue.action)
+
+
 def test_solo_and_team_name_the_master_problem_differently():
     """В соло «мастер» — это сам человек, найма там нет."""
     solo = br.evaluate(**_args(solo=True, active_masters=0, bookable_masters=0))

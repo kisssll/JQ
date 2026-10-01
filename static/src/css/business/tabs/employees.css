@@ -651,3 +651,45 @@
         padding: 0 0.85rem 0.85rem;
     }
 }
+/* ===== Группы настроек в соло-режиме (решение 0009, п. 2) =====
+   В соло «Моя карточка мастера» — единственный раздел настроек, и внутри него
+   две группы: «Как вас видят клиенты» и «Рабочие настройки». Группе нужен
+   заголовок крупнее заголовков карточек внутри неё, иначе уровни читаются
+   вперемешку: подпись карточки и подпись группы выглядели бы одинаково.
+
+   Цвета — только токенами: тёмная тема обязана работать, своих цветов у групп
+   нет. Селектор НЕ привязан к .dashboard-page: этот класс стоит на самом
+   <html>, и `:root[data-theme="dark"] .dashboard-page X` не совпал бы никогда. */
+#tab-employees .panel-card-group {
+    margin-bottom: 2.5rem;
+    /* Переход по якорю (шаг тура, действие блока готовности) ставит группу в
+       самый верх окна — а там на весь экран лежит закреплённая шапка высотой
+       60px, и заголовок группы оказывается под ней. Запас чуть больше её
+       высоты. */
+    scroll-margin-top: 4.5rem;
+}
+
+#tab-employees .panel-card-group-title {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 0 0 1.25rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+/* Внутри группы заголовок секции мастеров — уже подзаголовок, а не второй
+   заголовок того же уровня. */
+#tab-employees .panel-card-group .section-header h2 {
+    font-size: 1.1rem;
+}
+
+@media (max-width: 480px) {
+    #tab-employees .panel-card-group-title {
+        font-size: 1.25rem;
+    }
+    #tab-employees .panel-card-group {
+        margin-bottom: 1.75rem;
+    }
+}

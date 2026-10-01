@@ -13,12 +13,16 @@ static/src/js/business/evening-deal.js.
 import html
 import json
 
+from app.services import panel_guide
 from app.web.components.icons import ICON_MOON
 
 WEEKDAYS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
 
 def render_evening_deal_section(salon, services, deal: dict) -> str:
+    # Подписи — из реестра: у соло-мастера салона нет, в подборке участвует он
+    # сам (решение 0009, п. 6).
+    w = panel_guide.words_for(getattr(salon, "panel_mode", None))
     enabled = bool(deal.get("enabled"))
     disc = deal.get("discount_percent", 0)
     ev_from = deal.get("evening_from", "17:00")
@@ -36,7 +40,7 @@ def render_evening_deal_section(salon, services, deal: dict) -> str:
     else:
         status = (
             '<span class="ed-status is-off">Выключено</span>'
-            '<span class="ed-status-detail">салон не участвует в подборке вечерних окон</span>'
+            f'<span class="ed-status-detail">{w("evening_off_detail")}</span>'
         )
         actions = '<button type="button" class="btn-primary ed-btn" data-ed-open>Включить</button>'
 
@@ -55,7 +59,7 @@ def render_evening_deal_section(salon, services, deal: dict) -> str:
             for s in services
         )
     else:
-        service_boxes = '<p class="ed-empty">В салоне пока нет услуг</p>'
+        service_boxes = f'<p class="ed-empty">{w("evening_no_services")}</p>'
 
     deal_json = html.escape(json.dumps(deal, ensure_ascii=True), quote=True)
 

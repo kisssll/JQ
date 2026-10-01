@@ -23,6 +23,7 @@ from app.models.models import Payment, PaymentKind, PaymentStatus, Salon, SalonS
 from app.services.subscription import (
     downgrade_available_at, has_access, suggested_downgrade,
 )
+from app.services import panel_guide
 from app.services.tariffs import TARIFF_CATALOG, compute_amount, resolve_plan_for_employee_count
 from app.web.tariff_presentation import all_plans
 
@@ -198,11 +199,11 @@ async def render_billing_tab(
     # Доступ истёк — объясняем последствия прямо, без поиска причин
     access_banner = ""
     if not has_access(salon):
+        w = panel_guide.words_for(getattr(salon, "panel_mode", None))
         access_banner = (
             '<div class="billing-banner">'
-            '<strong>Салон скрыт из каталога.</strong> Подписка закончилась — карточка '
-            'не показывается клиентам и новая запись закрыта. Уже созданные записи '
-            'сохранены: оплатите тариф, и салон вернётся в ленту.</div>'
+            f'<strong>{w("billing_hidden_head")}</strong> {w("billing_hidden_body")} '
+            'Уже созданные записи сохранены.</div>'
         )
 
     renew_line = ""

@@ -38,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.models import (
     Master, Salon, SalonModerationStatus, Schedule, Service,
 )
+from app.services import panel_tour
 from app.services.schedule_utils import (
     build_day_intervals, compute_effective_intervals, get_salon_work_hours,
 )
@@ -94,6 +95,20 @@ _TAB_EDIT = "edit"
 _TAB_BILLING = "billing"
 _ANCHOR_STATUS = "#salon-status"
 
+# Куда вести за настройками салона. В командном режиме это «Редактировать
+# салон»; в соло такой вкладки нет — её содержимое переехало в «Мою карточку
+# мастера» и легло там двумя группами, поэтому ведём якорем сразу в нужную
+# (решение 0009, п. 2 и п. 8). Без этого каждое второе действие блока
+# готовности вело бы в раздел, которого у человека нет, и панель молча
+# возвращала бы его в «Обзор».
+# Якорь берём у тура, а не пишем строкой: та же группа подсвечивается его
+# шагом, и две копии имени якоря разъехались бы при первом переименовании.
+_SOLO_SETTINGS = f"{_TAB_EMPLOYEES}#{panel_tour.ANCHOR_CARD_WORK}"
+
+
+def _settings_target(solo: bool) -> str:
+    return _SOLO_SETTINGS if solo else _TAB_EDIT
+
 
 def evaluate(
     *,
@@ -116,7 +131,11 @@ def evaluate(
     if not is_active or is_deleted:
         return Readiness((Issue(
             key="salon_deleted",
-            text="Салон удалён с платформы: запись закрыта, в каталоге его нет.",
+            text=(
+                "Ваш профиль удалён с платформы: запись закрыта, в ленте вас нет."
+                if solo else
+                "Салон удалён с платформы: запись закрыта, в каталоге его нет."
+            ),
         ),))
 
     issues: list[Issue] = []
@@ -124,12 +143,20 @@ def evaluate(
     if moderation_status == SalonModerationStatus.PENDING:
         issues.append(Issue(
             key="moderation_pending",
-            text="Заявка на салон ещё на модерации — до подтверждения запись закрыта.",
+            text=(
+                "Ваша заявка ещё на модерации — до подтверждения запись закрыта."
+                if solo else
+                "Заявка на салон ещё на модерации — до подтверждения запись закрыта."
+            ),
         ))
     elif moderation_status == SalonModerationStatus.REJECTED:
         issues.append(Issue(
             key="moderation_rejected",
-            text="Заявку на салон отклонили — напишите в поддержку hello@rrumi.ru.",
+            text=(
+                "Вашу заявку отклонили — напишите в поддержку hello@rrumi.ru."
+                if solo else
+                "Заявку на салон отклонили — напишите в поддержку hello@rrumi.ru."
+            ),
         ))
 
     # Тариф спрашиваем раньше публикации: без подписки кнопка «Опубликовать»
@@ -144,8 +171,13 @@ def evaluate(
     if published_at is None:
         issues.append(Issue(
             key="not_published",
-            text="Салон не опубликован — ни каталог, ни ссылка для записи не работают.",
-            action="Опубликовать салон", target=_ANCHOR_STATUS,
+            text=(
+                "Вас пока не видно в ленте — ни лента, ни ссылка для записи не работают."
+                if solo else
+                "Салон не опубликован — ни каталог, ни ссылка для записи не работают."
+            ),
+            action="Опубликоваться" if solo else "Опубликовать салон",
+            target=_ANCHOR_STATUS,
         ))
 
     if active_masters == 0:
@@ -171,15 +203,24 @@ def evaluate(
     if not salon_hours_set:
         issues.append(Issue(
             key="no_salon_hours",
-            text="Часы работы салона не заданы — свободных окон не бывает ни в один день.",
-            action="Задать часы работы", target=_TAB_EDIT,
+            text=(
+                "Часы приёма не заданы — свободных окон не бывает ни в один день."
+                if solo else
+                "Часы работы салона не заданы — свободных окон не бывает ни в один день."
+            ),
+            action="Задать часы приёма" if solo else "Задать часы работы",
+            target=_settings_target(solo),
         ))
     elif open_weekdays == 0 and bookable_masters > 0:
         # Часы салона есть, но недельный график мастера с ними не пересекается
         # ни в один день (compute_effective_intervals вернёт пусто всегда).
         issues.append(Issue(
             key="no_workdays",
-            text="В графике мастера нет ни одного рабочего дня внутри часов салона.",
+            text=(
+                "В вашем графике нет ни одного рабочего дня внутри часов приёма."
+                if solo else
+                "В графике мастера нет ни одного рабочего дня внутри часов салона."
+            ),
             action="Настроить график", target=_TAB_SCHEDULE,
         ))
 
@@ -187,8 +228,13 @@ def evaluate(
     if is_hidden:
         issues.append(Issue(
             key="hidden",
-            text="Салон скрыт с платформы: в каталоге его нет, запись осталась только по вашей ссылке.",
-            action="Вернуть в каталог", target=_TAB_EDIT, blocking=False,
+            text=(
+                "Вы скрыты с платформы: в ленте вас нет, запись осталась только по вашей ссылке."
+                if solo else
+                "Салон скрыт с платформы: в каталоге его нет, запись осталась только по вашей ссылке."
+            ),
+            action="Вернуться в ленту" if solo else "Вернуть в каталог",
+            target=_settings_target(solo), blocking=False,
         ))
 
     if not guest_booking_enabled:
@@ -198,7 +244,8 @@ def evaluate(
                 "Запись без регистрации выключена — ссылка и QR не работают. "
                 "Клиенты с аккаунтом записываются из каталога."
             ),
-            action="Включить запись по ссылке", target=_TAB_EDIT, blocking=False,
+            action="Включить запись по ссылке", target=_settings_target(solo),
+            blocking=False,
         ))
 
     return Readiness(tuple(issues))

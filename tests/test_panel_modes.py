@@ -26,7 +26,7 @@ def _salon(mode, stored=None):
 def test_solo_default_is_the_short_set():
     assert ps.default_keys(SalonPanelMode.SOLO) == frozenset({
         "overview", "employees", "services", "schedule", "records", "crm",
-        "reviews", "promos", "models", "billing", "edit", "instructions",
+        "reviews", "promos", "models", "billing", "instructions",
     })
 
 
@@ -35,10 +35,21 @@ def test_team_default_is_everything():
 
 
 def test_solo_hides_exactly_the_four_team_sections():
-    """Соло отличается от команды ровно четырьмя разделами — если список
-    разделов вырастет, этот тест заставит решить, куда его отнести."""
+    """Соло отличается от команды пятью разделами, и причины у них разные —
+    если список разделов вырастет, этот тест заставит решить, куда его отнести.
+
+    Четыре раздела ВЫКЛЮЧЕНЫ по умолчанию: они существуют только при штате, но
+    владелец может включить их сам. «Редактировать салон» не выключен, а НЕ
+    СУЩЕСТВУЕТ в этом режиме — его содержимое переехало в «Мою карточку
+    мастера» (решение 0009, п. 2), и вернуть раздел нельзя ничем."""
     assert frozenset(ps.ALL_KEYS) - ps.default_keys(SalonPanelMode.SOLO) == frozenset(
-        {"analytics", "payroll", "cost", "warehouse"}
+        {"analytics", "payroll", "cost", "warehouse", "edit"}
+    )
+    assert ps.unavailable_keys(SalonPanelMode.SOLO) == frozenset({"edit"})
+    assert ps.unavailable_keys(SalonPanelMode.TEAM) == frozenset()
+    # А эти четыре именно выключены: владелец их включает в самой панели.
+    assert {"analytics", "payroll", "cost", "warehouse"} <= ps.available_keys(
+        SalonPanelMode.SOLO
     )
 
 
@@ -67,8 +78,33 @@ def test_locked_sections_survive_any_stored_list():
     assert ps.LOCKED_KEYS == frozenset(
         {"overview", "services", "schedule", "records", "billing", "edit"}
     )
-    enabled = ps.enabled_keys(_salon(SalonPanelMode.SOLO, ["models"]))
+    assert ps.locked_keys(SalonPanelMode.TEAM) == ps.LOCKED_KEYS
+    enabled = ps.enabled_keys(_salon(SalonPanelMode.TEAM, ["models"]))
     assert ps.LOCKED_KEYS <= enabled
+
+
+def test_solo_cannot_switch_off_the_section_that_holds_the_mode_switch():
+    """Главный риск переноса (решение 0009, п. 3): переключатель режима живёт в
+    «Моей карточке мастера», и если бы раздел можно было выключить, соло-мастер
+    запер бы себя в соло навсегда — нанять человека стало бы нечем."""
+    assert ps.locked_keys(SalonPanelMode.SOLO) == frozenset(
+        {"overview", "services", "schedule", "records", "billing", "employees"}
+    )
+    enabled = ps.enabled_keys(_salon(SalonPanelMode.SOLO, ["models"]))
+    assert "employees" in enabled
+    # И через эндпоинт тоже не выключить — normalize дописывает обязательные.
+    assert "employees" in ps.normalize(SalonPanelMode.SOLO, ["models"])
+
+
+def test_solo_never_gets_the_edit_section_back():
+    """Ключ мог остаться в сохранённом JSON (список пережил смену режима,
+    кто-то поправил столбец руками). Возвращать раздел нельзя: его формы уже
+    живут в «Моей карточке мастера», вышло бы два источника правды."""
+    stored = ["overview", "edit", "crm"]
+    assert "edit" not in ps.ordered_keys(_salon(SalonPanelMode.SOLO, stored))
+    assert "edit" not in (ps.normalize(SalonPanelMode.SOLO, stored) or [])
+    # В команде ровно наоборот — раздел обязательный.
+    assert "edit" in ps.ordered_keys(_salon(SalonPanelMode.TEAM, stored))
 
 
 def test_unknown_stored_key_is_ignored():
@@ -92,7 +128,7 @@ def test_normalize_returns_none_when_the_choice_equals_the_mode_default():
 def test_normalize_keeps_locked_and_drops_junk():
     stored = ps.normalize(SalonPanelMode.SOLO, ["models", "no_such_tab"])
     assert stored is not None
-    assert ps.LOCKED_KEYS <= frozenset(stored)
+    assert ps.locked_keys(SalonPanelMode.SOLO) <= frozenset(stored)
     assert "no_such_tab" not in stored
     assert "models" in stored
 

@@ -33,12 +33,18 @@ def _href(base: str, value: str) -> str:
 
 
 def _step_href(base: str, steps: Sequence, key: Optional[str]) -> str:
-    """Адрес конкретного шага вместе с его разделом."""
+    """Адрес конкретного шага вместе с его разделом.
+
+    У шага может быть якорь: когда на один раздел приходится больше одного шага
+    (в соло «Моя карточка мастера» рассказывается двумя), ссылка обязана вести
+    к нужной группе, а не к началу длинного раздела.
+    """
     step = next((s for s in steps if s.key == key), None)
     if step is None:
         return _href(base, tour_service.REQUEST_ON)
     tab = f"&tab={step.tab}" if step.tab else ""
-    return f"{base}{tab}&tour={step.key}"
+    anchor = f"#{step.anchor}" if getattr(step, "anchor", None) else ""
+    return f"{base}{tab}&tour={step.key}{anchor}"
 
 
 def render_tour_bar(
