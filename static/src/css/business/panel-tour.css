@@ -1,0 +1,330 @@
+/* Знакомство с панелью: полоса снизу, приглашение и подсветка раздела.
+   См. app/web/components/panel_tour.py (решение 0008, п. 3).
+
+   Полоса висит поверх всех шестнадцати разделов, поэтому решено один раз и
+   здесь:
+
+   1. Раскладка одна на все экраны: строка-шапка (номер шага и «Выйти»), текст,
+      строка кнопок. На широком экране они стоят в ряд, на узком — в столбик.
+      Именно так, а не «на телефоне другая вёрстка»: разделов шестнадцать, и
+      вторая раскладка завела бы шестнадцать способов её сломать.
+   2. Горизонтальной прокрутки не появляется ни на одном экране: box-sizing по
+      всему проекту border-box, полоса тянется left/right:0 и внутри ничего
+      фиксированной ширины нет, кнопки переносятся.
+   3. Места под полосу просит сама страница (body.panel-tour-open), а не полоса
+      — иначе она накрыла бы кнопку сохранения в последнем блоке раздела.
+   4. Цвета только токенами. Селектор начинается с .panel-tour, а НЕ с
+      .dashboard-page: он стоит на самом <html>, и правило вида
+      :root[data-theme="dark"] .dashboard-page .panel-tour не совпало бы никогда.
+      Тёмная тема получается сама — токены в design-tokens.css уже переопределены. */
+
+.panel-tour {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 890;   /* ниже тостов (1000) и диалога (1010): они перебивают полосу */
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -0.5rem 1.5rem rgba(26, 26, 31, 0.12);
+    animation: panel-tour-in 0.2s ease-out;
+}
+
+@keyframes panel-tour-in {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+
+/* Уведомление о cookie живёт в том же углу (legal.css, bottom:1rem). Пока идёт
+   знакомство, поднимаем его над полосой: иначе один баннер закрывал бы другой,
+   а отказаться от аналитики человек должен не меньше, чем пройти тур. */
+body.panel-tour-open .cookie-notice {
+    bottom: calc(var(--panel-tour-space) + 1rem);
+}
+
+/* Запас места под полосу: без него она накрыла бы кнопку сохранения в
+   последнем блоке раздела. Точное значение ставит скрипт по реальной высоте
+   полосы (panel-tour.js) — высота зависит от длины реплики, а она у разделов
+   разная, и угаданное в CSS число оказывалось то мало, то много. Здесь остаётся
+   запас на случай, когда скрипт не отработал: лучше лишний отступ, чем
+   закрытая кнопка. */
+body.panel-tour-open {
+    --panel-tour-space: 12rem;
+    padding-bottom: var(--panel-tour-space);
+}
+
+.panel-tour-progress {
+    height: 3px;
+    background: var(--color-surface-alt);
+}
+
+.panel-tour-progress span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-accent-hover));
+    transition: width 0.3s ease-out;
+}
+
+.panel-tour-inner {
+    display: grid;
+    gap: 0.5rem;
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: 0.75rem 1rem 0.9rem;
+}
+
+.panel-tour-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.panel-tour-meta {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+}
+
+.panel-tour-exit {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+    text-decoration: none;
+    font-size: 0.78rem;
+    color: var(--color-muted);
+}
+
+.panel-tour-exit:hover {
+    color: var(--color-heading);
+}
+
+.panel-tour-exit svg {
+    width: 0.9rem;
+    height: 0.9rem;
+}
+
+.panel-tour-text {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-body);
+    /* Реплика у части разделов в пять-шесть строк. Потолок нужен на низком
+       экране (телефон в ландшафте), иначе полоса съела бы его целиком; на
+       обычном экране до него не доходит. */
+    max-height: 9rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.panel-tour-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.panel-tour-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1.2rem;
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    background: var(--color-surface);
+    color: var(--color-heading);
+    text-decoration: none;
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, filter 0.15s;
+}
+
+.panel-tour-btn:hover {
+    background: var(--color-surface-alt);
+}
+
+.panel-tour-btn.is-primary {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-btn-text);
+}
+
+.panel-tour-btn.is-primary:hover {
+    filter: brightness(0.95);
+    background: var(--color-primary);
+}
+
+/* «Назад» на первом шаге: место под кнопку остаётся, чтобы «Дальше» не ездило
+   влево-вправо между шагами, но кнопка не кликается и диктору не читается. */
+.panel-tour-btn.is-off {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* Пропуск акта — не равноправное действие, а выход из подробностей: тише
+   кнопок и отжат к правому краю. */
+.panel-tour-skip {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    text-decoration: underline;
+    text-underline-offset: 0.15rem;
+}
+
+.panel-tour-skip:hover {
+    color: var(--color-heading);
+}
+
+.panel-tour-exit:focus-visible,
+.panel-tour-btn:focus-visible,
+.panel-tour-skip:focus-visible,
+.panel-tour-invite-btn:focus-visible,
+.panel-tour-invite-close:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* ===== Подсветка раздела, про который идёт шаг =====
+   Единственная подсветка в туре. Кольцо, а не заливка: заливка спорила бы с
+   .tab-btn.active, и на активной вкладке подсветку было бы не отличить. */
+
+.tab-item.is-tour .tab-btn {
+    box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.tab-item.is-tour .tab-btn:not(.active) {
+    background: var(--color-accent-light);
+    color: var(--color-heading);
+}
+
+/* ===== Скромное приглашение ===== */
+
+.panel-tour-invite {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem 0.9rem;
+    margin: 0 0 1.5rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+}
+
+.panel-tour-invite-text {
+    flex: 1 1 14rem;
+    margin: 0;
+    font-size: 0.84rem;
+    color: var(--color-body);
+}
+
+.panel-tour-invite-btn {
+    flex-shrink: 0;
+    padding: 0.4rem 1rem;
+    border-radius: 9999px;
+    background: var(--color-primary);
+    color: var(--color-btn-text);
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.panel-tour-invite-btn:hover {
+    filter: brightness(0.95);
+}
+
+.panel-tour-invite-close {
+    flex-shrink: 0;
+    display: inline-flex;
+    padding: 0.3rem;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+}
+
+.panel-tour-invite-close:hover {
+    background: var(--color-surface);
+    color: var(--color-heading);
+}
+
+.panel-tour-invite-close svg {
+    width: 0.9rem;
+    height: 0.9rem;
+}
+
+/* Ссылка «пройти знакомство заново» во вкладке «Инструкция». */
+.instructions-restart {
+    margin: 0 0 1.25rem;
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+.instructions-restart-link {
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+/* ===== Узкий экран =====
+   На 375px лента вкладок прокручивается вбок, а полосе нужно больше высоты:
+   текст переносится сильнее, и кнопки встают в два ряда. */
+
+@media (max-width: 600px) {
+    body.panel-tour-open {
+        --panel-tour-space: 17rem;
+    }
+
+    .panel-tour-inner {
+        padding: 0.6rem 0.9rem 0.75rem;
+    }
+
+    .panel-tour-text {
+        font-size: 0.85rem;
+        /* Самая длинная реплика («Услуги») — семь строк на 375px. Обрезать её
+           на полуслове хуже, чем отдать полосе ещё сантиметр: место под полосу
+           страница всё равно резервирует по факту. */
+        max-height: 11rem;
+    }
+
+    .panel-tour-btn {
+        /* Два равных по ширине действия в первом ряду: «Назад» и «Дальше»
+           одинаковые, и палец не ищет, куда нажать. */
+        flex: 1 1 8rem;
+        padding: 0.55rem 0.8rem;
+    }
+
+    .panel-tour-skip {
+        /* Переносится на свою строку: margin-left:auto в ряду из двух кнопок
+           прижал бы ссылку к краю и склеил с «Дальше». */
+        flex: 1 1 100%;
+        margin-left: 0;
+        text-align: center;
+    }
+
+    .panel-tour-exit span {
+        /* Подпись прячем, но не display:none — иначе у ссылки не останется
+           имени для экранного диктора (title остаётся на месте). */
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .panel-tour {
+        animation: none;
+    }
+
+    .panel-tour-progress span {
+        transition: none;
+    }
+}

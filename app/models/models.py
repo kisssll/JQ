@@ -300,6 +300,17 @@ class User(Base):
     # Управляется кнопками в боте (/start → «Мои уведомления»).
     tg_notify_prefs: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
+    # Знакомство с бизнес-панелью (тур, решение 0008). Привязано к человеку, а
+    # не к салону: тур объясняет панель, а у владельца двух салонов она одна.
+    # started_at ставится при первом запуске и больше не меняется — иначе по
+    # нему нельзя было бы посчитать, сколько людей тур вообще увидели;
+    # done_at — только «дошёл до конца», выход на середине его не ставит;
+    # step — ключ шага, на котором человек сейчас (а после выхода — на котором
+    # вышел). Ключ, а не номер: состав шагов у каждого свой (panel_tour.build).
+    panel_tour_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    panel_tour_done_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    panel_tour_step: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+
     # --- Подписка «модели» (Т-Касса) — тариф из SubscriptionTier (start/pro/premium,
     # см. /model#plans), те же поля и та же механика (триал/автопродление/ручная
     # оплата), что у Salon.subscription_status и соседей — см. их комментарии.

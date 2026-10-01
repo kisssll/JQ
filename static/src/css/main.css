@@ -35,6 +35,7 @@
 
 /* Стили панели бизнеса */
 @import './business/dashboard.css';
+@import './business/panel-tour.css';
 @import './business/evening-deal.css';
 @import './business/tabs/overview.css';
 @import './business/tabs/schedule.css';

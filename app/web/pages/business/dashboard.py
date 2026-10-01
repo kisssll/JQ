@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta, timezone
 from app.services.subscription import has_access
-from app.services import booking_readiness, panel_sections
+from app.services import booking_readiness, panel_sections, panel_tour
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
     SalonMember, User as UserModel, SalonModerationStatus, SalonSubscriptionStatus,
@@ -55,6 +55,9 @@ from app.web.pages.business.tabs.promo_models import render_promo_models_tab
 from app.web.pages.business.tabs.my_salon import render_my_salon_tab
 from app.web.pages.business.tabs.billing import render_billing_tab
 from app.web.pages.business.tabs.instructions import render_instructions_tab
+from app.web.components.panel_tour import (
+    render_tour_bar, render_tour_invite,
+)
 from app.crm.tabs.clients import render_crm_tab
 
 
@@ -225,9 +228,63 @@ async def render_dashboard_tab(
         return await render_billing_tab(db, salon, perms["manage_tariff"], active_masters)
 
     if tab_name == "instructions":
-        return render_instructions_tab()
+        return render_instructions_tab(
+            salon_id=salon.id, mode=salon.panel_mode,
+            # Ссылку «пройти знакомство заново» показываем тому, кто тур в
+            # принципе увидит: у участника без manage_salon она ничего бы не
+            # открыла (см. panel_tour.decide).
+            can_tour=bool(perms.get("manage_salon")),
+        )
 
     return ""
+
+
+async def _already_working(db: AsyncSession, salon: Salon, masters, master_ids) -> bool:
+    """«У этого уже всё работает»: записаться можно и запись хотя бы одна есть.
+
+    Такому владельцу тур сам не всплывает — его ведут по шагам «как попасть в
+    ленту», которые он уже прошёл (решение 0008, п. 5). Условие «можно
+    записаться» не переписываем: его считает booking_readiness, выписанный из
+    кода самой записи.
+    """
+    readiness = await booking_readiness.collect(
+        db, salon, masters, solo=panel_sections.is_solo(salon),
+    )
+    if readiness.blocking:
+        return False
+    if not master_ids:
+        return False
+    # Существование, а не количество: выборка останавливается на первой строке.
+    return (await db.scalar(
+        select(Booking.id).where(Booking.master_id.in_(master_ids)).limit(1)
+    )) is not None
+
+
+async def _save_tour_state(db: AsyncSession, user, decision) -> None:
+    """Записать, где человек в туре.
+
+    Пишем на GET, и это намеренно: вкладки панели открываются полной
+    навигацией, поэтому шаг — обычный переход. Запись идемпотентна (тот же шаг
+    — то же значение), своих данных не удаляет и касается только самого
+    человека, так что цена такого GET — одна строка UPDATE.
+    """
+    changed = False
+    if decision.start_now and user.panel_tour_started_at is None:
+        # Только если ещё не ставили: «запустили ВПЕРВЫЕ» перезаписать нельзя,
+        # иначе по этой отметке не посчитать, сколько людей тур увидели.
+        user.panel_tour_started_at = datetime.now(timezone.utc)
+        changed = True
+    if decision.save_step and decision.save_step != user.panel_tour_step:
+        user.panel_tour_step = decision.save_step
+        changed = True
+    if decision.finish_now and user.panel_tour_done_at is None:
+        user.panel_tour_done_at = datetime.now(timezone.utc)
+        changed = True
+    if decision.clear_done and user.panel_tour_done_at is not None:
+        user.panel_tour_done_at = None
+        changed = True
+    if changed:
+        await db.commit()
 
 
 async def render_business_dashboard(db: AsyncSession, user, salon: Salon, membership: SalonMember, query_params=None) -> str:
@@ -327,8 +384,47 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     if active_tab not in visible_slugs:
         active_tab = "overview"
 
+    # ----- Знакомство с панелью (тур, решение 0008) -----
+    # Состав шагов строится из ТЕХ ЖЕ visible_slugs, что и меню: иначе тур увёл
+    # бы в раздел, которого у человека нет. Решение о показе — в panel_tour,
+    # здесь остаются только чтение запроса, запись состояния и разметка.
+    # При partial=1 тура нет вовсе: ответ состоит из одного тела вкладки, полоса
+    # и приглашение живут за его пределами.
+    tour_steps = []
+    tour_decision = panel_tour.Decision()
+    if not partial:
+        tour_steps = panel_tour.build(salon, visible_keys=visible_slugs)
+        tour_requested = query_params.get("tour") or None
+        tour_decision = panel_tour.decide(
+            steps=tour_steps,
+            requested=tour_requested,
+            stored_step=user.panel_tour_step,
+            started=user.panel_tour_started_at is not None,
+            done=user.panel_tour_done_at is not None,
+            can_manage=bool(perms.get("manage_salon")),
+            # «У этого уже всё работает» спрашиваем только тогда, когда это
+            # может повлиять на ответ, — у кандидата на автозапуск. Проверка
+            # стоит нескольких запросов, а после первого запуска ответ на неё
+            # уже ничего не меняет.
+            already_working=(
+                await _already_working(db, salon, masters, master_ids)
+                if (perms.get("manage_salon") and tour_requested is None
+                    and user.panel_tour_started_at is None
+                    and user.panel_tour_done_at is None)
+                else False
+            ),
+        )
+        await _save_tour_state(db, user, tour_decision)
+
+    tour_step = tour_decision.step
+    tour_on = tour_step is not None
+
     def _tab_href(slug: str) -> str:
-        return f"/business/dashboard?salon_id={salon.id}&tab={slug}"
+        # Пока идёт знакомство, к ссылкам вкладок подклеивается tour=on: человек
+        # вправе уйти в другой раздел прямо посреди шага (панель живая, решение
+        # 0008, п. 8), и полоса не должна от этого исчезать.
+        tail = f"&tour={panel_tour.REQUEST_ON}" if tour_on else ""
+        return f"/business/dashboard?salon_id={salon.id}&tab={slug}{tail}"
 
     def _edit_controls(slug: str) -> str:
         """Минус и стрелки порядка у плитки. Разметку даёт сервер, а не скрипт:
@@ -358,6 +454,11 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     def _tab_item(slug: str, *, href: bool = True) -> str:
         active_class = " active" if slug == active_tab else ""
         aria_current = ' aria-current="page"' if active_class else ""
+        # Подсвечиваем ровно одну кнопку — ту, про которую идёт шаг. Это
+        # единственная подсветка в туре: ни затемнения, ни выреза (решение
+        # 0008, п. 3). Класс на обёртке, а не на ссылке: у неё уже есть
+        # .active, и два разных состояния на одном элементе путались бы.
+        tour_class = " is-tour" if (tour_step is not None and slug == tour_step.tab) else ""
         # Ссылка, а не <button onclick=window.location>: вкладка и так грузится
         # полной навигацией, но кнопкой её нельзя было открыть в новой вкладке,
         # средним кликом или без JS, и скринридер не читал её как переход.
@@ -365,7 +466,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         locked = ' data-locked="1"' if slug in panel_sections.LOCKED_KEYS else ""
         pinned = ' data-pinned="1"' if slug == "overview" else ""
         return (
-            f'<div class="tab-item" data-key="{slug}" '
+            f'<div class="tab-item{tour_class}" data-key="{slug}" '
             f'data-label="{e(panel_sections.label(slug, mode))}"{locked}{pinned}>'
             f'<a class="tab-btn{active_class}"{href_attr}{aria_current}>'
             f'{_icons[slug]} {_label_of(slug)}</a>'
@@ -598,6 +699,23 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             </div>
         </div>"""
 
+    # Полоса знакомства и приглашение — ровно одно из двух: полоса уже ведёт по
+    # шагам, звать в неё отдельной строкой было бы повтором.
+    tour_bar_html = ""
+    tour_invite_html = ""
+    if tour_step is not None:
+        tour_bar_html = render_tour_bar(
+            salon_id=salon.id, steps=tour_steps, step=tour_step, current_tab=active_tab,
+        )
+    elif tour_decision.invite_step is not None:
+        tour_invite_html = render_tour_invite(
+            salon_id=salon.id, steps=tour_steps, step=tour_decision.invite_step,
+        )
+
+    # Полоса закреплена снизу, поэтому странице нужен запас места: иначе она
+    # накрыла бы кнопки сохранения в последнем блоке раздела.
+    body_class = "panel-tour-open" if tour_bar_html else ""
+
     header_html = f"""
     <div class="dashboard-header">
         <div class="dashboard-header-inner">
@@ -624,7 +742,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     {get_base_styles()}
     {render_yandex_maps_script()}
 </head>
-<body>
+<body class="{body_class}">
     {render_header("business")}
     {render_sidebar("business_dashboard", user)}
     <main style="margin-right:0;padding-top:0">
@@ -639,11 +757,13 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
                 {gear_html}
             </div>
             {panel_edit_html}
+            {tour_invite_html}
             {tabs_body_html}
         </div>
     </main>
     {render_footer(user)}
     {publish_gate_modal_html}
+    {tour_bar_html}
 </body>
 </html>"""
 
