@@ -29,6 +29,7 @@ from app.web.components.icons import (
     ICON_X,
     ICON_EYE,
     ICON_CHECK,
+    ICON_SLIDERS,
 )
 
 _ERROR_MESSAGES = {
@@ -169,21 +170,19 @@ def _render_edit_card(salon: Salon, photos: list) -> str:
 
 
 def _render_panel_sections_card(salon: Salon) -> str:
-    """Блок «Разделы панели»: режим бизнеса + переключатели разделов.
+    """Блок «Разделы панели»: режим бизнеса + ссылка на настройку самой панели.
 
-    Обычные формы, без JS: обе настройки перестраивают меню целиком, поэтому
-    страницу всё равно нужно перечитать — от AJAX выигрыша нет, зато он
-    сломался бы без собранного бандла.
+    Списка галочек здесь больше нет. Два интерфейса к одной настройке
+    разъезжаются, а порядок разделов галочками не задать вовсе — состав и
+    порядок владелец меняет прямо в панели (решение 0007, дополнение 30.09).
 
-    Обязательные разделы показываем как отмеченные и заблокированные, а не
-    прячем: иначе непонятно, почему их нет в списке. disabled-чекбокс браузер
-    не отправляет — обязательные всё равно добавляет сервер (panel_sections).
+    Режим остаётся здесь: он не про оформление панели, а про то, как устроен
+    бизнес, и от него зависит ещё и найм.
     """
     solo = panel_sections.is_solo(salon)
-    enabled = panel_sections.enabled_keys(salon)
 
     mode_form = f"""
-    <form method="post" action="/api/v1/business/my-salon/panel-mode" style="margin:0 0 1.5rem">
+    <form method="post" action="/api/v1/business/my-salon/panel-mode" style="margin:0 0 1.25rem">
         <input type="hidden" name="salon_id" value="{salon.id}">
         <label style="display:block;margin:0.4rem 0">
             <input type="radio" name="mode" value="solo" {"checked" if solo else ""}>
@@ -195,37 +194,25 @@ def _render_panel_sections_card(salon: Salon) -> str:
         </label>
         <p class="my-salon-card-hint" style="margin:0.5rem 0 0.75rem">
             Смена режима вернёт набор разделов к обычному для этого режима —
-            ваши правки ниже сбросятся.
+            ваши правки в панели сбросятся.{
+            " В режиме «работаю один» второго мастера завести нельзя." if solo else ""}
         </p>
         <button type="submit" class="my-salon-btn-outline">{ICON_SAVE} Сменить режим</button>
     </form>
     """
 
-    rows = ""
-    for key in panel_sections.ALL_KEYS:
-        locked = key in panel_sections.LOCKED_KEYS
-        checked = " checked" if key in enabled else ""
-        attrs = ' disabled title="Без этого раздела панель не работает"' if locked else ""
-        suffix = ' <span class="text-muted">— обязательный</span>' if locked else ""
-        rows += (
-            '<label style="display:block;margin:0.35rem 0">'
-            f'<input type="checkbox" name="sections" value="{key}"{checked}{attrs}> '
-            f'{panel_sections.label(key, salon.panel_mode)}{suffix}</label>'
-        )
-
     return f"""
     <div class="my-salon-card">
         <h2 class="my-salon-card-title">Разделы панели</h2>
         <p class="my-salon-card-hint">
-            Режим задаёт набор разделов, а список ниже можно поправить под себя.
-            Выключенный раздел исчезает из меню — данные в нём остаются.
+            Режим задаёт набор разделов. Какие именно разделы показывать и в каком
+            порядке — настраивается в самой панели: нажмите «Настроить панель»
+            справа над разделами. Выключенный раздел исчезает из меню — данные в
+            нём остаются.
         </p>
         {mode_form}
-        <form method="post" action="/api/v1/business/my-salon/panel-sections">
-            <input type="hidden" name="salon_id" value="{salon.id}">
-            {rows}
-            <button type="submit" class="my-salon-btn-primary" style="margin-top:0.9rem">{ICON_SAVE} Сохранить разделы</button>
-        </form>
+        <a class="my-salon-btn-primary" style="display:inline-flex;align-items:center;gap:0.5rem;text-decoration:none"
+           href="/business/dashboard?salon_id={salon.id}&edit=1">{ICON_SLIDERS} Настроить панель</a>
     </div>
     """
 

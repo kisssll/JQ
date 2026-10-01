@@ -3,6 +3,7 @@
 from app.core.security import get_password_hash
 from app.models.models import (
     User, UserRole, Salon, SalonMember, SalonRole, SalonModerationStatus, Master,
+    SalonPanelMode,
 )
 from app.services import notifications
 
@@ -13,9 +14,12 @@ async def _owner_salon(db, phone="+79994441000", salon_phone="+70000000960", ema
     db.add(owner)
     await db.commit()
     await db.refresh(owner)
+    # Режим «у меня команда» здесь не деталь: наём мастеров есть только в нём
+    # (решение 0007, дополнение 30.09), а по умолчанию у салона стоит solo.
     salon = Salon(name="S", address="a", phone=salon_phone, latitude=1.0, longitude=1.0,
                   timezone="Europe/Moscow", moderation_status=SalonModerationStatus.APPROVED,
-                  is_active=True, creator_id=owner.id, email=email)
+                  is_active=True, creator_id=owner.id, email=email,
+                  panel_mode=SalonPanelMode.TEAM)
     db.add(salon)
     await db.commit()
     await db.refresh(salon)

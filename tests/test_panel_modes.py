@@ -78,8 +78,14 @@ def test_unknown_stored_key_is_ignored():
 
 
 def test_normalize_returns_none_when_the_choice_equals_the_mode_default():
-    """Вернул набор к «как по режиму» — храним пусто, а не копию списка."""
-    assert ps.normalize(SalonPanelMode.SOLO, ps.default_keys(SalonPanelMode.SOLO)) is None
+    """Вернул набор к «как по режиму» — храним пусто, а не копию списка.
+
+    Сравнивается и порядок: с тех пор как порядок разделов принадлежит
+    владельцу (дополнение 30.09), «как по режиму» — это канонический порядок,
+    а не любой набор тех же ключей. Подробнее — tests/test_panel_edit.py.
+    """
+    canonical_solo = [k for k in ps.ALL_KEYS if k in ps.default_keys(SalonPanelMode.SOLO)]
+    assert ps.normalize(SalonPanelMode.SOLO, canonical_solo) is None
     assert ps.normalize(SalonPanelMode.TEAM, ps.ALL_KEYS) is None
 
 
@@ -89,8 +95,6 @@ def test_normalize_keeps_locked_and_drops_junk():
     assert ps.LOCKED_KEYS <= frozenset(stored)
     assert "no_such_tab" not in stored
     assert "models" in stored
-    # Порядок канонический, а не в котором прислал браузер.
-    assert stored == [k for k in ps.ALL_KEYS if k in set(stored)]
 
 
 def test_employees_section_is_renamed_in_solo():
@@ -241,10 +245,9 @@ async def test_owner_turns_a_section_on_and_it_appears(client, db_session):
     keys = sorted(ps.default_keys(SalonPanelMode.SOLO) | {"warehouse"})
     r = await client.post(
         "/api/v1/business/my-salon/panel-sections",
-        data={"salon_id": str(salon_id), "sections": keys},
-        follow_redirects=False,
+        json={"salon_id": salon_id, "sections": keys},
     )
-    assert r.status_code == 302, r.text
+    assert r.status_code == 200, r.text
 
     r = await client.get(f"/business/dashboard?salon_id={salon_id}")
     assert "&tab=warehouse" in r.text
@@ -260,10 +263,9 @@ async def test_locked_section_cannot_be_turned_off_through_the_endpoint(client, 
 
     r = await client.post(
         "/api/v1/business/my-salon/panel-sections",
-        data={"salon_id": str(salon_id), "sections": ["models"]},
-        follow_redirects=False,
+        json={"salon_id": salon_id, "sections": ["models"]},
     )
-    assert r.status_code == 302
+    assert r.status_code == 200, r.text
     r = await client.get(f"/business/dashboard?salon_id={salon_id}&tab=billing")
     assert 'id="tab-billing"' in r.text
 
@@ -332,8 +334,7 @@ async def test_section_toggle_is_logged(client, db_session):
     keys = sorted(ps.default_keys(SalonPanelMode.SOLO) | {"cost"})
     await client.post(
         "/api/v1/business/my-salon/panel-sections",
-        data={"salon_id": str(salon_id), "sections": keys},
-        follow_redirects=False,
+        json={"salon_id": salon_id, "sections": keys},
     )
     async with db_session() as db:
         from sqlalchemy import select
@@ -345,20 +346,17 @@ async def test_section_toggle_is_logged(client, db_session):
     assert len(rows) == 1
 
 
-async def test_settings_tab_has_the_switches(client, db_session):
+async def test_settings_tab_has_the_mode_switch(client, db_session):
+    """Набор разделов из настроек переехал в саму панель (дополнение 30.09,
+    проверка — tests/test_panel_edit.py), а выбор режима остался здесь: он про
+    устройство бизнеса, а не про оформление панели."""
     _, salon_id = await _make_salon(db_session, "+79995553005", SalonPanelMode.SOLO)
     await _login(client, "+79995553005")
 
     r = await client.get(f"/business/dashboard?salon_id={salon_id}&tab=edit")
     assert r.status_code == 200
     assert "Разделы панели" in r.text
-    assert 'name="sections" value="models"' in r.text
-    # Необязательный раздел — живой переключатель.
-    assert 'value="models" disabled' not in r.text
-    # Обязательный показан (иначе непонятно, куда он делся), но переключить
-    # его нельзя: disabled-чекбокс браузер даже не отправляет.
-    assert 'value="overview" checked disabled' in r.text
-    # И выбор режима здесь же.
+    assert 'name="mode" value="solo"' in r.text
     assert 'name="mode" value="team"' in r.text
 
 

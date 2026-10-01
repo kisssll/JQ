@@ -244,6 +244,25 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
         // Иконка галочки для вставки в список
         const checkIcon = `{ICON_CIRCLE_CHECK}`;
 
+        // Режим бизнеса решает не только состав панели: в «работаю один»
+        // второго мастера завести нельзя (решение 0007, дополнение 30.09),
+        // поэтому и спрашивать про количество сотрудников нечестно — человек
+        // заплатил бы за троих и не смог их добавить. Отправляем 1.
+        function panelModeIsSolo() {{
+            const checked = document.querySelector('input[name="panel_mode"]:checked');
+            return !checked || checked.value === 'solo';
+        }}
+
+        function currentPlan() {{
+            return forMaster ? 'lite'
+                : (document.querySelector('.tariff-btn.active') || {{dataset: {{}}}}).dataset.plan
+                  || new URLSearchParams(window.location.search).get('plan') || 'business';
+        }}
+
+        document.querySelectorAll('input[name="panel_mode"]').forEach(function (input) {{
+            input.addEventListener('change', function () {{ switchTariff(currentPlan()); }});
+        }});
+
         function switchTariff(planId) {{
             document.querySelectorAll('.tariff-btn').forEach(btn => {{
                 btn.classList.toggle('active', btn.dataset.plan === planId);
@@ -263,7 +282,8 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
                 `<li>${{checkIcon}}<span>${{f}}</span></li>`
             ).join('');
 
-            document.getElementById('employee-count-wrap').style.display = (planId === 'lite' && !forMaster) ? '' : 'none';
+            document.getElementById('employee-count-wrap').style.display =
+                (planId === 'lite' && !forMaster && !panelModeIsSolo()) ? '' : 'none';
             // Переключатель автопродления убран (d3538e4 — всегда ручная оплата),
             // а обращение к нему осталось и роняло функцию на каждом клике.
             const renewalWrap = document.getElementById('renewal-mode-wrap');
@@ -355,10 +375,12 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
             let employeeCount = null;
             if (forMaster) {{
                 employeeCount = 1;   // частный мастер — это один человек
+            }} else if (panelModeIsSolo()) {{
+                employeeCount = 1;   // «работаю один» — это один человек
             }} else if (plan === 'lite') {{
                 employeeCount = parseInt(document.getElementById('cx-employees').value, 10);
                 if (!employeeCount || employeeCount < 1 || employeeCount > 5) {{
-                    alert('Укажите количество сотрудников от 1 до 5 для тарифа «Лайт».');
+                    window.rumiToastError('Укажите количество сотрудников от 1 до 5 для тарифа «Лайт».');
                     return;
                 }}
             }}

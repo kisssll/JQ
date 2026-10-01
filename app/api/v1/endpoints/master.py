@@ -15,6 +15,7 @@ from app.api.deps import (
 )
 from app.core.security import get_password_hash
 from app.schemas.user import try_normalize_phone
+from app.services import panel_sections
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -124,6 +125,16 @@ async def create_master_web(
     salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
     if salon is None:
         return JSONResponse({"status": "error", "detail": "Салон не найден"}, status_code=404)
+
+    # В режиме «работаю один» найма нет (решение 0007, дополнение 30.09).
+    # Кнопки в панели там и нет — но кнопка это удобство, а запрет правило:
+    # страницу можно держать открытой в двух вкладках и сменить режим в одной
+    # из них, а форму — послать и без панели.
+    if panel_sections.is_solo(salon):
+        return JSONResponse({
+            "status": "error", "code": "solo_mode",
+            "detail": "Сначала переключитесь на режим «у меня команда» в настройках салона.",
+        }, status_code=409)
 
     # Телефон нормализуем к +7XXXXXXXXXX — это же логин мастера.
     norm_phone = try_normalize_phone(phone)

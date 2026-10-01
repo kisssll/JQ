@@ -66,7 +66,9 @@ export const toastNetworkError = () => toastError(NETWORK_ERROR);
 
 /**
  * Диалог подтверждения. Возвращает Promise<boolean>.
- * @param {Object|string} options — текст или {title, message, confirmText, cancelText, danger}
+ * @param {Object|string} options — текст или
+ *   {title, message, confirmText, cancelText, danger, onlyConfirm}
+ *   onlyConfirm — диалог-объяснение без выбора (см. alertDialog ниже).
  */
 export function confirmDialog(options) {
     const opts = typeof options === 'string' ? { message: options } : (options || {});
@@ -76,6 +78,7 @@ export function confirmDialog(options) {
         confirmText = 'Подтвердить',
         cancelText = 'Отмена',
         danger = false,
+        onlyConfirm = false,
     } = opts;
 
     return new Promise((resolve) => {
@@ -109,7 +112,9 @@ export function confirmDialog(options) {
         okBtn.className = `rumi-dialog-confirm${danger ? ' is-danger' : ''}`;
         okBtn.textContent = confirmText;
 
-        actions.append(cancelBtn, okBtn);
+        // Диалог-объяснение: отменять нечего, кнопка одна.
+        if (onlyConfirm) actions.append(okBtn);
+        else actions.append(cancelBtn, okBtn);
         box.appendChild(titleEl);
         if (message) {
             const msgEl = document.createElement('p');
@@ -139,7 +144,7 @@ export function confirmDialog(options) {
                 return;
             }
             if (e.key !== 'Tab') return;
-            const focusable = [cancelBtn, okBtn];
+            const focusable = onlyConfirm ? [okBtn] : [cancelBtn, okBtn];
             const first = focusable[0];
             const last = focusable[focusable.length - 1];
             if (e.shiftKey && document.activeElement === first) {
@@ -162,6 +167,21 @@ export function confirmDialog(options) {
         document.body.classList.add('rumi-dialog-open');
         document.body.appendChild(overlay);
         okBtn.focus();
+    });
+}
+
+/**
+ * Диалог-объяснение: рассказывает, почему действие не получилось, и закрывается
+ * одной кнопкой. Нужен вместо alert() там, где сообщение длиннее строки и его
+ * стоит прочитать — системное окно выглядит как сбой браузера, а не как ответ
+ * Руми.
+ */
+export function alertDialog(options) {
+    const opts = typeof options === 'string' ? { message: options } : (options || {});
+    return confirmDialog({
+        confirmText: 'Понятно',
+        ...opts,
+        onlyConfirm: true,
     });
 }
 
@@ -194,3 +214,4 @@ window.rumiToastError = toastError;
 window.rumiToastSuccess = toastSuccess;
 window.rumiToastNetworkError = toastNetworkError;
 window.rumiConfirm = confirmDialog;
+window.rumiAlert = alertDialog;

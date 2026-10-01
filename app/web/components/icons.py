@@ -940,3 +940,43 @@ ICON_MOON = (
     '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'
     '</svg>'
 )
+
+
+# «Настроить панель» в ленте вкладок. Намеренно НЕ шестерёнка: рядом стоит
+# вкладка «Редактировать салон» с ICON_SETTINGS_GEAR_SMALL, и две шестерёнки
+# в одной ленте не различить — а это разные вещи (данные салона против
+# состава панели). Ползунки — обычный знак «настроить вид».
+ICON_SLIDERS = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/>'
+    '<line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/>'
+    '<line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/>'
+    '<line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/>'
+    '<line x1="16" x2="16" y1="18" y2="22"/>'
+    '</svg>'
+)
+
+# Минус в кружке на плитке раздела (образец — домашний экран iOS). Кружок
+# рисует CSS, здесь только сама черта.
+ICON_MINUS_SMALL = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="3.5" stroke-linecap="round" aria-hidden="true">'
+    '<line x1="5" x2="19" y1="12" y2="12"/>'
+    '</svg>'
+)
+
+# Стрелки порядка разделов: маленькие, под кнопку 1.5rem.
+ICON_ARROW_UP_TINY = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="m18 15-6-6-6 6"/>'
+    '</svg>'
+)
+
+ICON_ARROW_DOWN_TINY = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="m6 9 6 6 6-6"/>'
+    '</svg>'
+)

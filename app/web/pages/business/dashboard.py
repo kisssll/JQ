@@ -33,6 +33,11 @@ from app.web.components.icons import (
     ICON_PLUS,
     ICON_CREDIT_CARD,
     ICON_MESSAGE_CIRCLE,
+    ICON_SLIDERS,
+    ICON_MINUS_SMALL,
+    ICON_ARROW_UP_TINY,
+    ICON_ARROW_DOWN_TINY,
+    ICON_CHECK_SMALL,
 )
 from app.web.pages.business.utils import get_masters_data, get_master_ids, get_overview_revenue_data
 from app.web.pages.business.tabs.overview import render_overview_tab
@@ -273,38 +278,127 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     }
     _counts = {'promos': promos_count, 'reviews': reviews_count}
 
-    tab_buttons = []
-    for slug in panel_sections.ALL_KEYS:
+    def _permitted(slug: str) -> bool:
+        """Право на раздел — вторая, независимая причина его не показывать."""
+        return bool(_perm_of.get(slug, True))
+
+    def _label_of(slug: str) -> str:
         text = panel_sections.label(slug, mode)
-        if slug in _counts:
-            text = f'{text} ({_counts[slug]})'
-        tab_buttons.append((
-            slug, _icons[slug], text,
-            _perm_of.get(slug, True) and slug in enabled_sections,
-        ))
+        return f'{text} ({_counts[slug]})' if slug in _counts else text
+
+    # Порядок разделов — настройка владельца (он расставляет их в самой панели),
+    # поэтому идём по ordered_keys, а не по каноническому ALL_KEYS.
+    visible_slugs = [slug for slug in panel_sections.ordered_keys(salon) if _permitted(slug)]
+    # Вернуть предлагаем только те скрытые разделы, которые человеку в принципе
+    # покажут: плюс на разделе без права ничего бы не изменил.
+    hidden_slugs = [
+        slug for slug in panel_sections.ALL_KEYS
+        if slug not in enabled_sections and _permitted(slug)
+    ]
 
     # Выключенный раздел не открывается и по прямой ссылке — проверка стоит ДО
     # рендера вкладки, поэтому и ?tab=, и ?tab=&partial=1 уходят в «Обзор».
-    visible_slugs = [slug for slug, _, _, visible in tab_buttons if visible]
     if active_tab not in visible_slugs:
         active_tab = "overview"
 
     def _tab_href(slug: str) -> str:
         return f"/business/dashboard?salon_id={salon.id}&tab={slug}"
 
-    nav_buttons_html = ""
-    for slug, icon, label, visible in tab_buttons:
-        if not visible:
-            continue
+    def _edit_controls(slug: str) -> str:
+        """Минус и стрелки порядка у плитки. Разметку даёт сервер, а не скрипт:
+        подписи для экранного диктора должны быть на русском и в одном месте.
+        Пока режим редактирования выключен, кнопки скрыты через CSS — значит,
+        и табом до них не дойти, возиться с tabindex не нужно."""
+        name = e(panel_sections.label(slug, mode))
+        out = ""
+        if slug not in panel_sections.LOCKED_KEYS:
+            out += (
+                f'<button type="button" class="tab-item-minus" '
+                f'aria-label="Убрать раздел «{name}» из панели" '
+                f'title="Убрать из панели">{ICON_MINUS_SMALL}</button>'
+            )
+        # «Обзор» закреплён первым: двигать его некуда.
+        if slug != "overview":
+            out += (
+                '<span class="tab-item-move">'
+                f'<button type="button" class="tab-item-up" '
+                f'aria-label="Переместить «{name}» выше" title="Выше">{ICON_ARROW_UP_TINY}</button>'
+                f'<button type="button" class="tab-item-down" '
+                f'aria-label="Переместить «{name}» ниже" title="Ниже">{ICON_ARROW_DOWN_TINY}</button>'
+                '</span>'
+            )
+        return out
+
+    def _tab_item(slug: str, *, href: bool = True) -> str:
         active_class = " active" if slug == active_tab else ""
+        aria_current = ' aria-current="page"' if active_class else ""
         # Ссылка, а не <button onclick=window.location>: вкладка и так грузится
         # полной навигацией, но кнопкой её нельзя было открыть в новой вкладке,
         # средним кликом или без JS, и скринридер не читал её как переход.
-        aria_current = ' aria-current="page"' if active_class else ""
-        nav_buttons_html += (
-            f'<a class="tab-btn{active_class}" href="{_tab_href(slug)}"{aria_current}>'
-            f'{icon} {label}</a>'
+        href_attr = f' href="{_tab_href(slug)}"' if href else ""
+        locked = ' data-locked="1"' if slug in panel_sections.LOCKED_KEYS else ""
+        pinned = ' data-pinned="1"' if slug == "overview" else ""
+        return (
+            f'<div class="tab-item" data-key="{slug}" '
+            f'data-label="{e(panel_sections.label(slug, mode))}"{locked}{pinned}>'
+            f'<a class="tab-btn{active_class}"{href_attr}{aria_current}>'
+            f'{_icons[slug]} {_label_of(slug)}</a>'
+            f'{_edit_controls(slug)}</div>'
         )
+
+    nav_items_html = "".join(_tab_item(slug) for slug in visible_slugs)
+
+    # ----- Режим редактирования панели (решение 0007, дополнение 30.09) -----
+    # Разметка всегда в странице, но скрыта: скрипт только показывает её и
+    # переставляет готовые плитки. Кто не вправе менять салон, тот и кнопки не
+    # видит — сохранение всё равно требует manage_salon.
+    gear_html = ""
+    panel_edit_html = ""
+    if perms.get("manage_salon"):
+        gear_html = (
+            '<button type="button" class="panel-edit-gear" id="panelEditBtn" '
+            'aria-pressed="false" aria-controls="panelEditPanel" '
+            f'title="Настроить панель">{ICON_SLIDERS}'
+            '<span class="panel-edit-gear-text">Настроить панель</span></button>'
+        )
+        if hidden_slugs:
+            chips_html = "".join(
+                f'<button type="button" class="panel-edit-chip" data-key="{slug}" '
+                f'aria-label="Вернуть раздел «{e(panel_sections.label(slug, mode))}» в панель">'
+                f'{_icons[slug]}'
+                f'<span class="panel-edit-chip-text">{e(panel_sections.label(slug, mode))}</span>'
+                '<span class="panel-edit-chip-plus" aria-hidden="true">+</span>'
+                '</button>'
+                for slug in hidden_slugs
+            )
+        else:
+            chips_html = '<p class="panel-edit-empty">Скрытых разделов нет — в панели все.</p>'
+        # Готовая плитка для каждого скрытого раздела лежит в <template>:
+        # вернуть раздел — значит достать её, а не собирать разметку в скрипте.
+        # Адрес вкладки скрипт подставит сам (data-href-base у ленты): пока
+        # раздел выключен, ссылки на него в странице быть не должно.
+        templates_html = "".join(
+            f'<template class="panel-edit-template" data-key="{slug}">'
+            f'{_tab_item(slug, href=False)}</template>'
+            for slug in hidden_slugs
+        )
+        panel_edit_html = f"""
+            <div class="panel-edit" id="panelEditPanel" hidden>
+                <p class="panel-edit-hint">
+                    Перетащите раздел на новое место или переставьте кнопками «выше» и «ниже».
+                    Минус убирает раздел из панели, плюс возвращает. «Обзор» всегда первый.
+                </p>
+                <h3 class="panel-edit-subtitle">Скрытые разделы</h3>
+                <div class="panel-edit-chips">{chips_html}</div>
+                <div class="panel-edit-actions">
+                    <button type="button" class="btn-primary panel-edit-done" id="panelEditDone">
+                        {ICON_CHECK_SMALL} Готово
+                    </button>
+                    <button type="button" class="btn-outline panel-edit-cancel" id="panelEditCancel">Отмена</button>
+                    <span class="panel-edit-note" id="panelEditNote" role="status" aria-live="polite"></span>
+                </div>
+                {templates_html}
+            </div>"""
 
     # Рендерим ТОЛЬКО активную вкладку
     active_body = await render_dashboard_tab(
@@ -511,9 +605,14 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         {header_html}
         <div class="section-container" style="padding-top: 0;">{moderation_banner}</div>
         <div class="section-container" style="padding-top: 1.5rem;">
-            <div class="tab-nav">
-                {nav_buttons_html}
+            <div class="tab-nav-row">
+                <div class="tab-nav" id="panelNav" data-salon-id="{salon.id}"
+                     data-href-base="/business/dashboard?salon_id={salon.id}&tab=">
+                    {nav_items_html}
+                </div>
+                {gear_html}
             </div>
+            {panel_edit_html}
             {tabs_body_html}
         </div>
     </main>

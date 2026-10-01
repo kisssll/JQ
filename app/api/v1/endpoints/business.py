@@ -445,39 +445,59 @@ async def set_panel_mode(
     return _settings_redirect(salon_id)
 
 
+class PanelSectionsRequest(BaseModel):
+    """Набор и порядок разделов панели, присланные кнопкой «Готово»."""
+    salon_id: int
+    sections: List[str] = []
+
+
 @router.post("/my-salon/panel-sections")
 async def set_panel_sections(
-    salon_id: int = Form(...),
-    sections: List[str] = Form(default=[]),
+    body: PanelSectionsRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Какие разделы панели показывать. Обязательные добавляются независимо от
-    присланного списка — переключателя у них нет, но и подделанная форма не
-    должна оставить салон без «Тарифа» или «Настроек» (см. panel_sections)."""
-    await check_salon_permission(db, current_user, salon_id, "manage_salon")
-    salon = (await db.execute(select(Salon).where(Salon.id == salon_id))).scalar_one_or_none()
+    """Какие разделы панели показывать и в каком порядке.
+
+    Одним запросом на всю правку, а не после каждого действия: шесть
+    перестановок — шесть шансов сохранить половину на плохой связи.
+
+    Обязательные разделы и «Обзор» первым сервер расставляет сам, независимо
+    от присланного списка (см. panel_sections): подделанный запрос не должен
+    оставить салон без «Тарифа» или «Настроек».
+    """
+    await check_salon_permission(db, current_user, body.salon_id, "manage_salon")
+    salon = (await db.execute(select(Salon).where(Salon.id == body.salon_id))).scalar_one_or_none()
     if salon is None:
         raise HTTPException(status_code=404, detail="Салон не найден")
 
-    before = panel_sections.enabled_keys(salon)
-    salon.panel_sections = panel_sections.normalize(salon.panel_mode, sections)
-    after = panel_sections.enabled_keys(salon)
-    if after != before:
-        turned_on = sorted(panel_sections.LABELS[k] for k in after - before)
-        turned_off = sorted(panel_sections.LABELS[k] for k in before - after)
-        parts = []
-        if turned_on:
-            parts.append("включены: " + ", ".join(turned_on))
-        if turned_off:
-            parts.append("выключены: " + ", ".join(turned_off))
+    before_order = panel_sections.ordered_keys(salon)
+    before = frozenset(before_order)
+    salon.panel_sections = panel_sections.normalize(salon.panel_mode, body.sections)
+    after_order = panel_sections.ordered_keys(salon)
+    after = frozenset(after_order)
+
+    parts = []
+    turned_on = sorted(panel_sections.LABELS[k] for k in after - before)
+    turned_off = sorted(panel_sections.LABELS[k] for k in before - after)
+    if turned_on:
+        parts.append("включены: " + ", ".join(turned_on))
+    if turned_off:
+        parts.append("выключены: " + ", ".join(turned_off))
+    # Перестановку тоже записываем: состав не менялся, а панель у владельца
+    # выглядит иначе — без записи потом не ответить, почему.
+    if [k for k in before_order if k in after] != [k for k in after_order if k in before]:
+        parts.append("изменён порядок: " + ", ".join(
+            panel_sections.LABELS[k] for k in after_order
+        ))
+    if parts:
         db.add(AdminAudit(
             actor_id=current_user.id, action="salon_panel_sections",
             target_type="salon", target_id=salon.id, salon_id=salon.id,
             detail="Разделы панели — " + "; ".join(parts),
         ))
     await db.commit()
-    return _settings_redirect(salon_id)
+    return {"ok": True, "sections": after_order}
 
 
 @router.post("/my-salon/master-card")

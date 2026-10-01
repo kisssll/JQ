@@ -17,8 +17,10 @@ from typing import Iterable, List, Optional
 
 from app.models.models import SalonPanelMode
 
-# Канонический порядок разделов — он же порядок вкладок в меню и порядок
-# переключателей в настройках. Ключи совпадают с ?tab=<key> в панели.
+# Канонический порядок разделов: с него салон начинает и к нему же возвращается,
+# когда своего порядка нет. Дальше порядок принадлежит владельцу — он переставляет
+# разделы в самой панели, и тогда список лежит в salons.panel_sections.
+# Ключи совпадают с ?tab=<key> в панели.
 ALL_KEYS: tuple = (
     "overview", "analytics", "schedule", "employees", "services", "payroll",
     "cost", "records", "warehouse", "models", "promos", "reviews", "crm",
@@ -72,20 +74,46 @@ def default_keys(mode: SalonPanelMode) -> frozenset:
     return _DEFAULTS.get(mode, _DEFAULTS[SalonPanelMode.TEAM])
 
 
-def enabled_keys(salon) -> frozenset:
-    """Включённые разделы салона.
+def ordered_keys(salon) -> List[str]:
+    """Разделы салона по порядку — так, как их расставил владелец.
 
-    Пустое salon.panel_sections означает «как по режиму» — именно поэтому смена
-    режима сама обновляет набор, а не оставляет застывшую копию. Неизвестные
-    ключи в сохранённом списке отбрасываем (раздел могли переименовать), а
-    обязательные добавляем всегда.
+    Пустое salon.panel_sections означает «как по режиму»: тогда берём
+    канонический порядок. Иначе порядок из списка — это и есть настройка,
+    сделанная в панели, и приводить его к каноническому нельзя.
+
+    Список чиним, а не доверяем: в JSON могли остаться переименованный раздел,
+    потерянный обязательный или «Обзор» не на первом месте. Панель обязана
+    открыться при любом содержимом столбца.
     """
     stored = getattr(salon, "panel_sections", None)
     mode = getattr(salon, "panel_mode", None) or SalonPanelMode.TEAM
     if not stored:
-        return default_keys(mode)
-    known = frozenset(k for k in stored if k in LABELS)
-    return known | LOCKED_KEYS
+        return [k for k in ALL_KEYS if k in default_keys(mode)]
+    return _repair(stored)
+
+
+def _repair(requested: Iterable[str]) -> List[str]:
+    """Присланный порядок → порядок, который панель точно выдержит.
+
+    Неизвестные ключи и повторы отбрасываем, обязательные дописываем в конец
+    (в начало нельзя: это сдвинуло бы порядок владельца), «Обзор» ставим
+    первым — он вход в панель и место, куда уводит скрытая ссылка.
+    """
+    result: List[str] = []
+    for key in requested:
+        if key in LABELS and key not in result:
+            result.append(key)
+    result += [k for k in ALL_KEYS if k in LOCKED_KEYS and k not in result]
+    return ["overview"] + [k for k in result if k != "overview"]
+
+
+def enabled_keys(salon) -> frozenset:
+    """Включённые разделы салона.
+
+    Отвечает о том же списке, что ordered_keys, — иначе раздел появился бы в
+    меню и не открывался (или наоборот).
+    """
+    return frozenset(ordered_keys(salon))
 
 
 def is_enabled(salon, key: str) -> bool:
@@ -103,16 +131,17 @@ def label(key: str, mode: SalonPanelMode) -> str:
 
 
 def normalize(mode: SalonPanelMode, requested: Iterable[str]) -> Optional[List[str]]:
-    """Что положить в salon.panel_sections по присланному формой выбору.
+    """Что положить в salon.panel_sections по присланному из панели порядку.
 
-    Отбрасывает неизвестные ключи, добавляет обязательные, раскладывает в
-    канонический порядок. Возвращает None, если выбор совпал с набором режима:
-    хранить копию defaults нельзя — тогда смена режима перестала бы работать.
+    Возвращает None, если и состав, и порядок совпали с набором режима: хранить
+    копию defaults нельзя — тогда смена режима перестала бы обновлять набор.
+    Именно поэтому сравниваем со списком, а не с множеством: тот же состав,
+    но переставленный, — это правка владельца, и потерять её нельзя.
     """
-    chosen = frozenset(k for k in requested if k in LABELS) | LOCKED_KEYS
-    if chosen == default_keys(mode):
+    ordered = _repair(requested)
+    if ordered == [k for k in ALL_KEYS if k in default_keys(mode)]:
         return None
-    return [k for k in ALL_KEYS if k in chosen]
+    return ordered
 
 
 def mode_for_master_count(active_masters: int) -> SalonPanelMode:

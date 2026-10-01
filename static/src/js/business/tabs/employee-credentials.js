@@ -1,7 +1,7 @@
 // static/src/js/business/tabs/employee-credentials.js
 // Реквизиты нового сотрудника/мастера: AJAX-добавление (пароль не в URL) →
 // попап с логином/паролем, копирование, отправка на почту салона, сброс пароля.
-import { confirmDialog } from '../../ui-feedback.js';
+import { confirmDialog, alertDialog } from '../../ui-feedback.js';
 
 (function () {
     let current = null; // {name, login, password}
@@ -31,7 +31,17 @@ import { confirmDialog } from '../../ui-feedback.js';
         let data = {};
         try { data = await res.json(); } catch (e) { /* not json */ }
         if (!res.ok || data.status === 'error') {
-            alert(errText(data));
+            // «Работаю один» — не ошибка ввода, а правило: в этом режиме найма
+            // нет вовсе (решение 0007). Объясняем окном, а не строкой в углу:
+            // человеку нужно знать, что делать дальше — сменить режим.
+            if (data.code === 'solo_mode') {
+                await alertDialog({
+                    title: 'В режиме «работаю один» мастеров не добавляют',
+                    message: errText(data) + ' После этого появится кнопка «Добавить мастера».',
+                });
+            } else {
+                await alertDialog({ title: 'Не получилось', message: errText(data) });
+            }
             return null;
         }
         return data;
