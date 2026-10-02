@@ -34,7 +34,6 @@ redis==5.2.1
 httpx==0.28.1
 
 # Прочее
-geopy==2.4.1                  # геопоиск салонов (раньше отсутствовал в requirements)
 tzdata==2026.2
 
 # Фоновые задачи: очередь на Redis (async-native, один event-loop с FastAPI)

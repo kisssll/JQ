@@ -462,6 +462,7 @@ async def render_overview_tab(
             {today_html}
         </div>
         {booking_link_html}
+        {_render_models_invite(salon.id) if show_models_invite else ""}
         """
 
     return f"""

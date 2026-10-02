@@ -172,6 +172,16 @@ async def test_team_overview_keeps_the_old_blocks_and_adds_the_link(client, db_s
     assert BOOKING_LINK in body
 
 
+async def test_team_overview_invites_to_models_too(client, db_session):
+    """Решение владельца 03.10.2026: приглашение в «Модели» показываем в обоих
+    режимах. Раздел включён по умолчанию везде (решение 0007, п. 2), а узнать о
+    нём человеку больше негде: за 25 дней его открывали один раз."""
+    _, salon_id = await _salon(db_session, "+79996660012", SalonPanelMode.TEAM, booking=True)
+    body = (await _open(client, "+79996660012", salon_id))
+    body = body[body.index('id="tab-overview"'):]
+    assert MODELS_INVITE in body
+
+
 async def test_team_overview_stays_quiet_while_nothing_is_wrong(client, db_session):
     """Салону с командой первый экран занимать нечем: блок готовности
     появляется, только когда есть что исправлять."""
