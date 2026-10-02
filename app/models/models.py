@@ -127,6 +127,7 @@ class InventoryAuditStatus(str, enum.Enum):
 class EquipmentStatus(str, enum.Enum):
     WORKING = "working"
     BROKEN = "broken"
+    LOST = "lost"
 
 class WarehouseRequestType(str, enum.Enum):
     CONSUMABLE_LOW = "consumable_low"    # расходник заканчивается (без точного остатка)
@@ -1115,29 +1116,33 @@ class AdminAudit(Base):
 
 # ========== Склад расходников (мини-склад на каждого мастера) ==========
 class InventoryItem(Base):
-    """Позиция номенклатуры на мини-складе конкретного мастера."""
+    """Расходник на складе салона, мастера или выбранных услуг."""
     __tablename__ = "inventory_items"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    master_id: Mapped[int] = mapped_column(ForeignKey("masters.id", ondelete="CASCADE"))
+    salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"))
+    master_id: Mapped[Optional[int]] = mapped_column(ForeignKey("masters.id", ondelete="SET NULL"), nullable=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     unit: Mapped[str] = mapped_column(String(20), nullable=False)  # мл / г / шт / уп
     # Текущий остаток — денормализованная сумма всех InventoryMovement.delta
     # по этой позиции; движения остаются источником истины и историей.
     quantity: Mapped[float] = mapped_column(Float, default=0.0, server_default="0", nullable=False)
+    target_quantity: Mapped[float] = mapped_column(Float, default=0.0, server_default="0", nullable=False)
     cost_per_unit: Mapped[int] = mapped_column(Integer, nullable=False)  # для себестоимости
     min_quantity: Mapped[float] = mapped_column(Float, default=0.0, server_default="0", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    master: Mapped["Master"] = relationship()
+    salon: Mapped["Salon"] = relationship()
+    master: Mapped[Optional["Master"]] = relationship()
 
 class InventoryMovement(Base):
     """Журнал движений по складу — единый источник истины для остатка и COGS."""
     __tablename__ = "inventory_movements"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"))
+    item_id: Mapped[Optional[int]] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=True)
+    equipment_id: Mapped[Optional[int]] = mapped_column(ForeignKey("equipment.id", ondelete="CASCADE"), nullable=True)
     type: Mapped[InventoryMovementType] = mapped_column(Enum(InventoryMovementType), nullable=False)
     delta: Mapped[float] = mapped_column(Float, nullable=False)  # знак = направление движения
     # Цена за единицу на момент движения — чтобы себестоимость прошлых
@@ -1148,21 +1153,29 @@ class InventoryMovement(Base):
     comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    item: Mapped["InventoryItem"] = relationship()
+    item: Mapped[Optional["InventoryItem"]] = relationship()
+    equipment: Mapped[Optional["Equipment"]] = relationship()
     booking: Mapped[Optional["Booking"]] = relationship()
     created_by: Mapped["User"] = relationship()
 
     __table_args__ = (
         Index("ix_inventory_movements_item", "item_id"),
         Index("ix_inventory_movements_booking", "booking_id"),
+        CheckConstraint(
+            "(item_id IS NOT NULL) != (equipment_id IS NOT NULL)",
+            name="check_inventory_movement_one_target",
+        ),
     )
 
 class InventoryAudit(Base):
-    """Акт инвентаризации мини-склада мастера."""
+    """Акт инвентаризации склада мастера или всего салона."""
     __tablename__ = "inventory_audits"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    master_id: Mapped[int] = mapped_column(ForeignKey("masters.id", ondelete="CASCADE"))
+    salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"))
+    master_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("masters.id", ondelete="CASCADE"), nullable=True
+    )
     status: Mapped[InventoryAuditStatus] = mapped_column(
         Enum(InventoryAuditStatus), default=InventoryAuditStatus.DRAFT, nullable=False
     )
@@ -1172,34 +1185,52 @@ class InventoryAudit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     master: Mapped["Master"] = relationship()
+    salon: Mapped["Salon"] = relationship()
     created_by: Mapped["User"] = relationship()
     items: Mapped[List["InventoryAuditItem"]] = relationship(back_populates="audit", cascade="all, delete-orphan")
 
 class InventoryAuditItem(Base):
-    """Строка акта: системный остаток на старте пересчёта vs фактический."""
+    """Позиция расходника или техники в акте инвентаризации."""
     __tablename__ = "inventory_audit_items"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     audit_id: Mapped[int] = mapped_column(ForeignKey("inventory_audits.id", ondelete="CASCADE"))
-    item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"))
+    item_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=True
+    )
+    equipment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("equipment.id", ondelete="CASCADE"), nullable=True
+    )
     expected_quantity: Mapped[float] = mapped_column(Float, nullable=False)
     actual_quantity: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    is_reviewed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    is_adjusted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     audit: Mapped["InventoryAudit"] = relationship(back_populates="items")
     item: Mapped["InventoryItem"] = relationship()
+    equipment: Mapped["Equipment"] = relationship()
+
+    __table_args__ = (
+        CheckConstraint(
+            "(item_id IS NOT NULL) != (equipment_id IS NOT NULL)",
+            name="check_inventory_audit_item_one_product",
+        ),
+    )
 
 # ========== Техника и инструменты (общий склад салона) ==========
 class Equipment(Base):
-    """Единица техники/инструментов салона (кресла, фены и т.п.) — общий
-    склад на весь салон, не привязан к конкретному мастеру (в отличие от
-    расходников в InventoryItem)."""
+    """Техника и инструменты, учитываемые в едином каталоге склада."""
     __tablename__ = "equipment"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     salon_id: Mapped[int] = mapped_column(ForeignKey("salons.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    quantity: Mapped[float] = mapped_column(Float, default=1.0, server_default="1", nullable=False)
+    unit: Mapped[str] = mapped_column(String(20), default="шт", server_default="шт", nullable=False)
+    target_quantity: Mapped[float] = mapped_column(Float, default=0.0, server_default="0", nullable=False)
+    min_quantity: Mapped[float] = mapped_column(Float, default=0.0, server_default="0", nullable=False)
     status: Mapped[EquipmentStatus] = mapped_column(
         Enum(EquipmentStatus), default=EquipmentStatus.WORKING, server_default="WORKING", nullable=False
     )
@@ -1210,6 +1241,39 @@ class Equipment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     salon: Mapped["Salon"] = relationship()
+
+
+class WarehouseAssignment(Base):
+    """One product can be assigned to multiple masters or services."""
+    __tablename__ = "warehouse_assignments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    inventory_item_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=True
+    )
+    equipment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("equipment.id", ondelete="CASCADE"), nullable=True
+    )
+    master_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("masters.id", ondelete="CASCADE"), nullable=True
+    )
+    service_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("services.id", ondelete="CASCADE"), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "(inventory_item_id IS NOT NULL) != (equipment_id IS NOT NULL)",
+            name="check_warehouse_assignment_one_product",
+        ),
+        CheckConstraint(
+            "(master_id IS NOT NULL) != (service_id IS NOT NULL)",
+            name="check_warehouse_assignment_one_target",
+        ),
+        Index("ix_warehouse_assignments_inventory_item", "inventory_item_id"),
+        Index("ix_warehouse_assignments_equipment", "equipment_id"),
+    )
+
 
 # ========== Заявки склада: расходник заканчивается / техника сломалась ==========
 class WarehouseRequest(Base):

@@ -347,6 +347,40 @@ async def notify_warehouse_request_created(db: AsyncSession, request: WarehouseR
         logger.exception("notify_warehouse_request_created(%s): не поставлено", request.id)
 
 
+async def notify_warehouse_low_stock(
+    db: AsyncSession, *, salon_id: int, item_name: str, quantity: float, unit: str,
+    min_quantity: float,
+) -> None:
+    """Notify salon managers when an item reaches its minimum stock level."""
+    if not settings.TG_NOTIFY_ENABLED:
+        return
+    try:
+        rows = (
+            await db.execute(
+                select(User, SalonMember)
+                .join(SalonMember, SalonMember.user_id == User.id)
+                .where(
+                    SalonMember.salon_id == salon_id,
+                    SalonMember.is_active == True,  # noqa: E712
+                    SalonMember.notify_warehouse_requests == True,  # noqa: E712
+                    has_channel_clause(),
+                )
+            )
+        ).all()
+        fanout = _Fanout()
+        for member_user, member in rows:
+            if not (member.is_creator or bool((member.permissions or {}).get("manage_inventory"))):
+                continue
+            await fanout.send(
+                member_user,
+                f"⚠️ Нужно пополнить склад салона: «{item_name}» — "
+                f"остаток {quantity:g} {unit}, минимум {min_quantity:g} {unit}.",
+                topic=TOPIC_WAREHOUSE,
+            )
+    except Exception:
+        logger.exception("notify_warehouse_low_stock(%s, %s): не поставлено", salon_id, item_name)
+
+
 async def notify_warehouse_request_resolved(db: AsyncSession, request: WarehouseRequest) -> None:
     """Заявку разобрали → автору-мастеру."""
     if not settings.TG_NOTIFY_ENABLED:
