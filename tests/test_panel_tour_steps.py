@@ -341,9 +341,12 @@ def test_every_section_of_the_panel_has_a_tour_line():
 
 
 def test_manual_sections_use_the_panel_labels():
-    solo = dict((k, label) for k, label, _ in panel_guide.manual_sections(SalonPanelMode.SOLO))
+    """Остальное про справочник — в tests/test_panel_manual.py; здесь остаётся
+    связка с реестром, потому что подпись раздела у тура и у справочника одна
+    и та же."""
+    solo = {s.key: s.label for s in panel_guide.manual_sections(SalonPanelMode.SOLO)}
     assert solo["employees"] == "Моя карточка мастера"
-    team = dict((k, label) for k, label, _ in panel_guide.manual_sections(SalonPanelMode.TEAM))
+    team = {s.key: s.label for s in panel_guide.manual_sections(SalonPanelMode.TEAM)}
     assert team["employees"] == "Сотрудники"
 
 
@@ -380,13 +383,36 @@ def test_tour_lines_fit_into_the_bar():
             assert len(line) <= 300, f"{key} (solo={solo}): {len(line)} знаков"
 
 
+#: Слова, которыми обещание объёма клиентов, выручки или срока обычно и
+#: пишется. Список грубый намеренно: он не разбирает смысл, а ловит оборот.
+FORBIDDEN_PROMISES = (
+    "больше клиентов", "лучше, чем", "лучше чем", "гарантиру",
+    "тысячи", "в разы", "вырастет", "окупится", "обязательно придут",
+)
+
+
 def test_no_forbidden_promises_in_the_tour_texts():
     """Обещания объёма клиентов, выручки и сроков запрещены (ч. 7 ст. 5 закона
-    «О рекламе» и CLAUDE.local.md). Тест грубый — он ловит слова, которыми
-    такое обещание обычно и пишется."""
-    forbidden = ("больше клиентов", "лучше, чем", "лучше чем", "гарантиру",
-                 "тысячи", "в разы", "вырастет", "окупится", "обязательно придут")
+    «О рекламе» и CLAUDE.local.md)."""
     for key in panel_guide.TOUR_KEYS:
         text = panel_guide.tour_line(key).lower() + panel_guide.tour_line(key, solo=True).lower()
-        for word in forbidden:
+        for word in FORBIDDEN_PROMISES:
             assert word not in text, f"{key}: «{word}»"
+
+
+def test_no_forbidden_promises_in_the_manual_texts():
+    """Та же защита на прозу справочника (заход 5). Раньше она покрывала только
+    реплики тура, а описания длиннее реплик — обещание проще спрятать как раз
+    в них. Сюда же попадают шаги «с чего начать»: это такой же текст панели."""
+    for key in panel_guide.MANUAL_KEYS:
+        for solo in (False, True):
+            why, body = panel_guide.manual_text(key, solo=solo)
+            text = (why + body).lower()
+            for word in FORBIDDEN_PROMISES:
+                assert word not in text, f"{key} (solo={solo}): «{word}»"
+
+    for mode in (SalonPanelMode.SOLO, SalonPanelMode.TEAM):
+        for title, _keys, step_text in panel_guide.start_steps(mode):
+            text = (title + step_text).lower()
+            for word in FORBIDDEN_PROMISES:
+                assert word not in text, f"«{title}»: «{word}»"

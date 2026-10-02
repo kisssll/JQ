@@ -415,15 +415,17 @@ def _strip_allowed(text: str) -> str:
 
 @pytest.mark.parametrize("tab", [
     "overview", "employees", "services", "schedule", "records",
-    "models", "promos", "reviews", "crm", "billing",
+    "models", "promos", "reviews", "crm", "billing", "instructions",
 ])
 async def test_no_panel_caption_in_solo_calls_the_person_a_salon(client, db_session, tab):
     """130 подписей панели говорили «салон». У соло-мастера салона нет.
 
     Смотрим только содержимое <main> — шапка сайта, боковое меню и подвал общие
     для всего сервиса и этой задачей не правятся (решение 0009, п. 5).
-    Вкладка «Инструкция» исключена намеренно: её текст целиком переписывает
-    заход 5, и ослаблять этот тест под неё нельзя — он должен ловить панель.
+
+    «Инструкция» была исключением, пока её текст ждал захода 5: ослаблять тест
+    под неё было нельзя, он должен ловить панель. Заход 5 прозу переписал, и
+    исключение снято — справочник теперь под той же защитой, что и остальное.
     """
     _, salon_id = await _make_salon(db_session, f"+7999557{6000 + hash(tab) % 900}")
     phone = f"+7999557{6000 + hash(tab) % 900}"

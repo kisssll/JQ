@@ -55,10 +55,13 @@ _ACT_SECTIONS: Dict[str, Sequence[str]] = {
     ACT_WATCH: ("overview", "records", "crm", "analytics"),
 }
 
-# Якоря на группы внутри «Моей карточки мастера» (решение 0009, п. 2). Те же
-# строки стоят в разметке раздела — app/web/pages/business/tabs/my_salon.py.
-ANCHOR_CARD_PUBLIC = "panel-card-public"
-ANCHOR_CARD_WORK = "panel-card-work"
+# Якоря на группы внутри «Моей карточки мастера» (решение 0009, п. 2) живут в
+# panel_sections: их спрашивает ещё и справочник, а он строится в panel_guide,
+# откуда сюда ходу нет (panel_tour импортирует panel_guide, не наоборот).
+# Имена остаются здесь, потому что на panel_tour.ANCHOR_* ссылаются разметка
+# раздела и тесты.
+ANCHOR_CARD_PUBLIC = panel_sections.ANCHOR_CARD_PUBLIC
+ANCHOR_CARD_WORK = panel_sections.ANCHOR_CARD_WORK
 
 # Один раздел может занимать в туре больше одного шага: (ключ реплики, якорь).
 #

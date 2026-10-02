@@ -99,8 +99,16 @@ async def _evening_deal_html(db: AsyncSession, salon: Salon, perms: dict) -> str
 async def render_dashboard_tab(
     db: AsyncSession, user, salon: Salon, membership: SalonMember,
     perms: dict, masters, master_ids, tab_name: str, query_params: dict,
+    visible_keys=None, tour_on: bool = False,
 ) -> str:
-    """Рендер ОДНОЙ вкладки бизнес-панели."""
+    """Рендер ОДНОЙ вкладки бизнес-панели.
+
+    visible_keys и tour_on нужны одной вкладке — «Инструкции»: справочник
+    описывает ТЕ разделы, которые у человека есть, и ведёт в них живыми
+    ссылками (решение 0009, п. 7). Список передаётся готовым, тот же, по
+    которому строится меню: иначе у справочника и у панели разошлось бы
+    представление о том, что человеку доступно.
+    """
     qp = query_params
 
     if tab_name == "overview":
@@ -235,6 +243,8 @@ async def render_dashboard_tab(
             # принципе увидит: у участника без manage_salon она ничего бы не
             # открыла (см. panel_tour.decide).
             can_tour=bool(perms.get("manage_salon")),
+            visible_keys=visible_keys,
+            tour_on=tour_on,
         )
 
     return ""
@@ -547,6 +557,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     # Рендерим ТОЛЬКО активную вкладку
     active_body = await render_dashboard_tab(
         db, user, salon, membership, perms, masters, master_ids, active_tab, query_params,
+        visible_keys=visible_slugs, tour_on=tour_on,
     )
     # Помечаем её active (её показ управляется классом .tab-content.active)
     pattern = re.compile(f'(id="tab-{active_tab}" class="tab-content)([^"]*)"')

@@ -11,6 +11,8 @@
 каждой вкладки не падает, — набор ему нужен полный. Видимость разделов по
 режиму проверяется отдельно, в tests/test_panel_modes.py.
 """
+import re
+
 from app.core.security import get_password_hash
 from app.models.models import (
     User, UserRole, Salon, SalonMember, SalonRole, SalonModerationStatus,
@@ -61,12 +63,17 @@ async def test_all_business_dashboard_tabs_render(client, db_session):
         assert r.status_code == 200, f"вкладка {tab!r} → {r.status_code}: {r.text[:400]}"
         assert f'id="tab-{tab}"' in r.text, f"вкладка {tab!r}: контент не отрендерился"
 
-    # «Инструкция» — по разделу на каждую остальную вкладку панели (15: все
+    # «Инструкция» — по секции на каждую остальную вкладку панели (15: все
     # DASHBOARD_TABS кроме самой «instructions», плюс «billing» — она не в
     # DASHBOARD_TABS выше, но есть в панели, см. tab_buttons в dashboard.py).
+    # Заход 5 заменил аккордеон открытыми секциями с якорями, поэтому считаем
+    # якоря секций: группы и «с чего начать» сюда не попадают.
     r = await client.get("/business/dashboard?tab=instructions")
     assert r.status_code == 200
-    assert r.text.count('class="accordion-item"') == 15
+    anchors = [
+        a for a in re.findall(r'id="manual-([a-z]+)"', r.text) if a != "start"
+    ]
+    assert len(anchors) == 15, anchors
 
 
 async def test_all_solo_dashboard_tabs_render(client, db_session):

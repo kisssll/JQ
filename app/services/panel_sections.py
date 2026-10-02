@@ -122,6 +122,16 @@ def locked_keys(mode: SalonPanelMode) -> frozenset:
     return (LOCKED_KEYS | _LOCKED_EXTRA[m]) & available_keys(m)
 
 
+# Якоря на группы внутри раздела настроек соло-режима (решение 0009, п. 2).
+# Те же строки стоят в разметке раздела (tabs/employees.py) и нужны трём
+# читателям сразу: шагам тура, действиям блока готовности и ссылкам «где это»
+# в справочнике. Лежат здесь, а не в panel_tour, потому что panel_tour
+# импортирует panel_guide, а справочнику они нужны тоже — из panel_guide в
+# panel_tour пути нет, в panel_sections есть у обоих.
+ANCHOR_CARD_PUBLIC = "panel-card-public"
+ANCHOR_CARD_WORK = "panel-card-work"
+
+
 def settings_key(mode: SalonPanelMode) -> str:
     """Раздел, в котором в этом режиме лежат настройки салона.
 

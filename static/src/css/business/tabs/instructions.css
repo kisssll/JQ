@@ -1,8 +1,165 @@
 /* static/src/css/business/tabs/instructions.css */
-/* Вкладка «Инструкция»: нумерованный гайд «с чего начать» + аккордеон
-   (сам аккордеон — общие .settings-accordion/.accordion-*, свои стили не нужны). */
+/* Вкладка «Инструкция» — справочник по панели (решение 0009, п. 7).
 
-.dashboard-page .instructions-guide-steps {
+   Решено один раз и здесь:
+
+   1. Селекторы начинаются с #tab-instructions, а НЕ с .dashboard-page: этот
+      класс стоит на самом <html>, и правило вида
+      :root[data-theme="dark"] .dashboard-page X не совпало бы никогда.
+      Тёмная тема получается сама — токены в design-tokens.css переопределены.
+   2. Своих цветов нет, только токены. Единственное «оформление» — толщина и
+      размер: справочник должен читаться уровнями (группа → раздел → текст),
+      иначе полтора десятка открытых секций сливаются в одну простыню.
+   3. Якорям нужен scroll-margin-top: переход по ссылке ставит заголовок в
+      самый верх окна, а там лежит закреплённая шапка высотой 60px. Запас
+      чуть больше её высоты — тот же приём, что у групп карточки мастера
+      (business/tabs/employees.css).
+   4. Горизонтальной прокрутки не появляется ни на одном экране: box-sizing по
+      проекту border-box, ничего фиксированной ширины внутри нет, оглавление
+      переносится. Место под полосу тура резервирует сама страница
+      (body.panel-tour-open, business/panel-tour.css) — ни оглавление, ни
+      ссылки «где это» она не закрывает. */
+
+/* ===== Оглавление ===== */
+
+#tab-instructions .instructions-toc {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-border);
+}
+
+#tab-instructions .instructions-toc-first {
+    display: inline-block;
+    margin-bottom: 1rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--color-heading);
+}
+
+#tab-instructions .instructions-toc-first:hover {
+    color: var(--color-primary);
+}
+
+#tab-instructions .instructions-toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1rem 1.5rem;
+    align-items: start;
+}
+
+#tab-instructions .instructions-toc-title {
+    display: block;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--color-heading);
+    margin-bottom: 0.4rem;
+}
+
+#tab-instructions .instructions-toc-title:hover {
+    color: var(--color-primary);
+}
+
+#tab-instructions .instructions-toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+#tab-instructions .instructions-toc a {
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+#tab-instructions .instructions-toc ul a:hover {
+    color: var(--color-primary);
+}
+
+/* ===== Группа секций ===== */
+
+#tab-instructions .instructions-group {
+    margin-top: 2.5rem;
+}
+
+#tab-instructions .instructions-group-title {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 0 0 0.4rem;
+    /* Запас под закреплённую шапку: иначе якорь прячет заголовок под ней. */
+    scroll-margin-top: 4.5rem;
+}
+
+#tab-instructions .instructions-group-lead {
+    margin: 0 0 1.25rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-muted);
+    max-width: 44rem;
+}
+
+/* ===== Секция одного раздела ===== */
+
+#tab-instructions .instructions-section {
+    scroll-margin-top: 4.5rem;
+}
+
+/* «Зачем это вам» — первая фраза секции. Крупнее основного текста, потому что
+   именно на неё человек смотрит, решая, читать ли дальше. */
+#tab-instructions .instructions-why {
+    margin: 0 0 0.9rem;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--color-heading);
+    max-width: 44rem;
+}
+
+#tab-instructions .instructions-body {
+    color: var(--color-body, var(--color-heading));
+    font-size: 0.92rem;
+    line-height: 1.6;
+    max-width: 44rem;
+}
+
+#tab-instructions .instructions-body p {
+    margin: 0 0 0.75rem;
+}
+
+#tab-instructions .instructions-body ul {
+    margin: 0 0 0.75rem;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#tab-instructions .instructions-body p:last-child,
+#tab-instructions .instructions-body ul:last-child {
+    margin-bottom: 0;
+}
+
+/* «Где это» — живая ссылка в раздел панели. Отделена линией: это не часть
+   объяснения, а действие, и глаз должен находить её не читая. */
+#tab-instructions .instructions-where {
+    margin: 1rem 0 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.85rem;
+    color: var(--color-muted);
+}
+
+#tab-instructions .instructions-where-link {
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+/* ===== Гайд «с чего начать» ===== */
+
+#tab-instructions .instructions-guide-steps {
     list-style: none;
     counter-reset: instructions-step;
     margin: 0;
@@ -10,9 +167,10 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    max-width: 44rem;
 }
 
-.dashboard-page .instructions-guide-steps li {
+#tab-instructions .instructions-guide-steps li {
     counter-increment: instructions-step;
     position: relative;
     padding-left: 2.5rem;
@@ -20,7 +178,7 @@
     line-height: 1.5;
 }
 
-.dashboard-page .instructions-guide-steps li::before {
+#tab-instructions .instructions-guide-steps li::before {
     content: counter(instructions-step);
     position: absolute;
     left: 0;
@@ -35,4 +193,23 @@
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+/* ===== Узкий экран =====
+   На 375px оглавление встаёт в одну колонку, а заголовки уменьшаются: три
+   уровня (группа → раздел → текст) должны остаться различимы и там. */
+
+@media (max-width: 480px) {
+    #tab-instructions .instructions-toc-grid {
+        grid-template-columns: 1fr;
+        gap: 0.9rem;
+    }
+
+    #tab-instructions .instructions-group-title {
+        font-size: 1.25rem;
+    }
+
+    #tab-instructions .instructions-why {
+        font-size: 0.95rem;
+    }
 }

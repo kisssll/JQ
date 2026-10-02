@@ -413,16 +413,17 @@ async def test_the_instructions_tab_offers_to_take_the_tour_again(client, db_ses
 
 
 async def test_the_instructions_guide_does_not_name_a_tab_that_is_gone(client, db_session):
-    """В _GUIDE_STEPS были зашиты «вкладка „Редактировать салон"» и «вкладки
-    „Сотрудники" и „Услуги"». В соло после переноса это ложь: такой вкладки нет,
-    а настройки лежат в «Моей карточке мастера». Вкладку целиком переписывает
-    заход 5, но врать в проде заход 4 не имеет права (решение 0009, дополнение
-    02.10)."""
+    """В шагах «с чего начать» были зашиты «вкладка „Редактировать салон"» и
+    «вкладки „Сотрудники" и „Услуги"». В соло это ложь: такой вкладки нет, а
+    настройки лежат в «Моей карточке мастера» (решение 0009, дополнение 02.10).
+
+    Заход 5 вкладку переписал — границы блока теперь по его якорю, — но
+    проверка остаётся здесь: ровно из-за неё заход 4 не оставил ложь в проде."""
     _, salon_id = await _salon(db_session, "+79995559001", published=False)
     await _login(client, "+79995559001")
     html = await _get(client, salon_id, "&tab=instructions&tour=off")
-    guide = html[html.index("С чего начать"):]
-    guide = guide[:guide.index("Инструкция по разделам")]
+    guide = html[html.index('id="manual-start"'):]
+    guide = guide[:guide.index("</section>")]
     assert "Редактировать салон" not in guide
     assert "«Сотрудники»" not in guide
     assert "«Моя карточка мастера»" in guide
@@ -433,8 +434,8 @@ async def test_the_instructions_guide_is_unchanged_for_a_team(client, db_session
                                published=False)
     await _login(client, "+79995559002")
     html = await _get(client, salon_id, "&tab=instructions&tour=off")
-    guide = html[html.index("С чего начать"):]
-    guide = guide[:guide.index("Инструкция по разделам")]
+    guide = html[html.index('id="manual-start"'):]
+    guide = guide[:guide.index("</section>")]
     assert "«Редактировать салон»" in guide
     assert "«Сотрудники»" in guide
 
@@ -446,9 +447,10 @@ async def test_the_instructions_tab_does_not_describe_a_section_that_is_gone(cli
     await _login(client, "+79995559003")
     html = await _get(client, salon_id, "&tab=instructions&tour=off")
     body = html[html.index('id="tab-instructions"'):]
-    accordion = body[body.index("Инструкция по разделам"):]
-    assert "Редактировать салон" not in accordion
-    assert "Моя карточка мастера" in accordion
+    assert 'id="manual-edit"' not in body
+    assert "Редактировать салон" not in body
+    assert 'id="manual-employees"' in body
+    assert "Моя карточка мастера" in body
 
 
 async def test_the_instructions_tab_in_solo_mode_uses_the_solo_label(client, db_session):
