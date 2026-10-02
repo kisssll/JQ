@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import (
     Booking, MasterPayrollSettings, PayrollAdjustment,
-    InventoryMovement, InventoryMovementType, InventoryItem, PAID_BOOKING_STATUSES,
+    InventoryMovement, InventoryMovementType, PAID_BOOKING_STATUSES,
 )
 
 
@@ -193,9 +193,9 @@ class PayrollService:
             start, end = _month_bounds(period_month)
             result = await db.execute(
                 select(func.coalesce(func.sum(InventoryMovement.delta * InventoryMovement.unit_cost_snapshot), 0))
-                .join(InventoryItem, InventoryItem.id == InventoryMovement.item_id)
+                .join(Booking, Booking.id == InventoryMovement.booking_id)
                 .where(
-                    InventoryItem.master_id == master_id,
+                    Booking.master_id == master_id,
                     InventoryMovement.type == InventoryMovementType.CONSUMPTION,
                     InventoryMovement.created_at >= start, InventoryMovement.created_at < end,
                 )
@@ -212,9 +212,9 @@ class PayrollService:
         start, end, _ = _range_bounds(month_from, month_to)
         result = await db.execute(
             select(func.coalesce(func.sum(InventoryMovement.delta * InventoryMovement.unit_cost_snapshot), 0))
-            .join(InventoryItem, InventoryItem.id == InventoryMovement.item_id)
+            .join(Booking, Booking.id == InventoryMovement.booking_id)
             .where(
-                InventoryItem.master_id == master_id,
+                Booking.master_id == master_id,
                 InventoryMovement.type == InventoryMovementType.CONSUMPTION,
                 InventoryMovement.created_at >= start, InventoryMovement.created_at < end,
             )

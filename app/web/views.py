@@ -362,7 +362,9 @@ async def master_inventory_page_route(request: Request, db: AsyncSession = Depen
     if user.role != UserRole.MASTER:
         return RedirectResponse(url="/", status_code=302)
 
-    return HTMLResponse(content=await render_master_inventory(db, user))
+    return HTMLResponse(content=await render_master_inventory(
+        db, user, audit_id=request.query_params.get("audit_id")
+    ))
 
 
 @router.get("/admin", response_class=HTMLResponse)

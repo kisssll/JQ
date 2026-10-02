@@ -3,8 +3,12 @@ from app.web.components.escaping import e
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.models.models import Master, InventoryItem, InventoryMovement, InventoryMovementType
+from app.models.models import (
+    Master, InventoryItem, InventoryMovement, InventoryMovementType,
+    InventoryAudit, InventoryAuditItem, InventoryAuditStatus, Equipment,
+)
 from app.services.inventory_service import InventoryService
+from app.web.components.inventory_audit import render_inventory_audit_flow
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
@@ -17,7 +21,7 @@ MOVEMENT_LABELS = {
 }
 
 
-async def render_master_inventory(db: AsyncSession, user) -> str:
+async def render_master_inventory(db: AsyncSession, user, audit_id: str | None = None) -> str:
     """Мой склад: остатки + история движений."""
 
     master = (await db.execute(select(Master).where(Master.user_id == user.id))).scalar_one_or_none()
@@ -29,6 +33,52 @@ async def render_master_inventory(db: AsyncSession, user) -> str:
         </div></main>{render_footer(user)}</body></html>"""
 
     stock = await InventoryService.get_master_stock(db, master.id)
+    audit = None
+    if audit_id and audit_id.isdigit():
+        audit = (await db.execute(
+            select(InventoryAudit).where(
+                InventoryAudit.id == int(audit_id),
+                InventoryAudit.master_id == master.id,
+                InventoryAudit.status == InventoryAuditStatus.DRAFT,
+            )
+        )).scalar_one_or_none()
+    if audit is None:
+        audit = (await db.execute(
+            select(InventoryAudit)
+            .where(
+                InventoryAudit.master_id == master.id,
+                InventoryAudit.status == InventoryAuditStatus.DRAFT,
+            )
+            .order_by(InventoryAudit.created_at.desc())
+        )).scalars().first()
+
+    audit_html = ""
+    if audit:
+        audit_items = (await db.execute(
+            select(InventoryAuditItem, InventoryItem, Equipment)
+            .outerjoin(InventoryItem, InventoryItem.id == InventoryAuditItem.item_id)
+            .outerjoin(Equipment, Equipment.id == InventoryAuditItem.equipment_id)
+            .where(InventoryAuditItem.audit_id == audit.id)
+            .order_by(InventoryItem.name, Equipment.name)
+        )).all()
+        audit_html = render_inventory_audit_flow(
+            audit,
+            [(audit_item, item or equipment) for audit_item, item, equipment in audit_items],
+            title="Инвентаризация моего склада",
+            return_url="/master/inventory",
+        )
+        start_audit_html = ""
+    else:
+        start_audit_html = f"""
+        <div class="card" style="margin-bottom:1.5rem">
+            <h3 style="margin-bottom:.5rem">Инвентаризация</h3>
+            <p style="color:var(--color-muted);margin-bottom:1rem">
+                Проверьте свои материалы по одному: подтвердите количество, исправьте его или отправьте позицию в архив.
+            </p>
+            <form method="post" action="/api/v1/inventory/master/{master.id}/audit/start">
+                <button type="submit" class="btn-outline">Начать инвентаризацию</button>
+            </form>
+        </div>"""
     stock_rows = "".join(f"""
         <tr>
             <td>{e(i.name)}</td>
@@ -42,7 +92,7 @@ async def render_master_inventory(db: AsyncSession, user) -> str:
         result = await db.execute(
             select(InventoryMovement, InventoryItem)
             .join(InventoryItem, InventoryItem.id == InventoryMovement.item_id)
-            .where(InventoryItem.master_id == master.id)
+            .where(InventoryItem.id.in_(item_ids))
             .order_by(InventoryMovement.created_at.desc())
             .limit(50)
         )
@@ -81,6 +131,9 @@ async def render_master_inventory(db: AsyncSession, user) -> str:
         <div class="section-container">
             <a href="/master/dashboard" class="text-muted" style="font-size:0.875rem">← Кабинет мастера</a>
             <h1 class="text-display" style="font-size:2rem;margin:0.5rem 0 1.5rem">Мой склад</h1>
+
+            {start_audit_html}
+            {audit_html}
 
             <div class="card" style="overflow-x:auto;margin-bottom:1.5rem">
                 <h3 style="margin-bottom:1rem">Остатки</h3>

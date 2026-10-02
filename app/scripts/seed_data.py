@@ -539,31 +539,31 @@ async def seed_database():
         # ========== СКЛАД И ЗАРПЛАТА ==========
         # Для мастера m1 (Александр)
         session.add_all([
-            InventoryItem(master_id=m1.id, name="Шампунь профессиональный", unit="мл",
+            InventoryItem(salon_id=s1.id, master_id=m1.id, name="Шампунь профессиональный", unit="мл",
                           quantity=1500.0, cost_per_unit=2, min_quantity=300.0),
-            InventoryItem(master_id=m1.id, name="Воск для укладки", unit="г",
+            InventoryItem(salon_id=s1.id, master_id=m1.id, name="Воск для укладки", unit="г",
                           quantity=200.0, cost_per_unit=8, min_quantity=50.0),
-            InventoryItem(master_id=m1.id, name="Лезвия для бритвы", unit="шт",
+            InventoryItem(salon_id=s1.id, master_id=m1.id, name="Лезвия для бритвы", unit="шт",
                           quantity=18.0, cost_per_unit=45, min_quantity=20.0),
-            InventoryItem(master_id=m1.id, name="Гель для бороды", unit="мл",
+            InventoryItem(salon_id=s1.id, master_id=m1.id, name="Гель для бороды", unit="мл",
                           quantity=300.0, cost_per_unit=5, min_quantity=100.0),
         ])
         session.add(MasterPayrollSettings(master_id=m1.id, base_salary=40000, commission_percent=30.0))
         
         # Для мастера m4 (Елена)
         session.add_all([
-            InventoryItem(master_id=m4.id, name="Краска для волос", unit="мл",
+            InventoryItem(salon_id=s1.id, master_id=m4.id, name="Краска для волос", unit="мл",
                           quantity=500.0, cost_per_unit=15, min_quantity=100.0),
-            InventoryItem(master_id=m4.id, name="Окислитель", unit="мл",
+            InventoryItem(salon_id=s1.id, master_id=m4.id, name="Окислитель", unit="мл",
                           quantity=800.0, cost_per_unit=8, min_quantity=200.0),
         ])
         session.add(MasterPayrollSettings(master_id=m4.id, base_salary=50000, commission_percent=25.0))
         
         # Для мастера m5 (Ольга)
         session.add_all([
-            InventoryItem(master_id=m5.id, name="База под гель-лак", unit="мл",
+            InventoryItem(salon_id=s1.id, master_id=m5.id, name="База под гель-лак", unit="мл",
                           quantity=100.0, cost_per_unit=20, min_quantity=30.0),
-            InventoryItem(master_id=m5.id, name="Топ-покрытие", unit="мл",
+            InventoryItem(salon_id=s1.id, master_id=m5.id, name="Топ-покрытие", unit="мл",
                           quantity=80.0, cost_per_unit=25, min_quantity=20.0),
         ])
         session.add(MasterPayrollSettings(master_id=m5.id, base_salary=35000, commission_percent=20.0))

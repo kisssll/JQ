@@ -79,7 +79,7 @@ async def _render_master_warehouse_card(db: AsyncSession, salon: Salon, master: 
     from app.models.models import EquipmentStatus
 
     my_stock = await InventoryService.get_master_stock(db, master.id)
-    equipment_list = await InventoryService.get_salon_equipment(db, salon.id)
+    equipment_list = await InventoryService.get_salon_equipment(db, salon.id, master.id)
 
     stock_rows = "".join(
         f'<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;'
@@ -93,7 +93,7 @@ async def _render_master_warehouse_card(db: AsyncSession, salon: Salon, master: 
     equipment_rows = "".join(
         f'<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;'
         f'border-bottom:1px solid var(--color-border)">'
-        f'<span>{e(eq.name)} <span class="text-muted" style="font-size:0.8rem">({eq.quantity} шт)</span></span>'
+        f'<span>{e(eq.name)} <span class="text-muted" style="font-size:0.8rem">({eq.quantity:g} {e(eq.unit)})</span></span>'
         f'<button class="btn-outline" style="font-size:0.75rem;padding:0.3rem 0.7rem" '
         f'onclick="reportWarehouseIssue(\'equipment_broken\', null, {eq.id})">{ICON_FLAG} Сломалось</button>'
         f'</div>'
