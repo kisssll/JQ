@@ -628,6 +628,126 @@
     color: var(--color-body);
 }
 
+/* ===== Свёртка и линия прогресса (решение 0010, дополнение 03.10.2026) =====
+   Шапка блока — вердикт, кнопка и полоса — видна всегда. Внутрь свёртки уходят
+   только группы: свёрнутый блок не должен быть способом спрятать «записаться
+   нельзя», поэтому цветной кант и вердикт остаются снаружи.
+
+   Правила свёртки висят на .is-collapsible, который ставит СКРИПТ. Без JS этого
+   класса нет, ни одно правило ниже не срабатывает, и блок читается целиком. */
+.dashboard-page .growth-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    /* Кнопка во всю ширину блока и высотой от 44 точек: на телефоне это
+       единственная цель в шапке, и попадать в неё нужно пальцем, а не ногтем. */
+    min-height: 2.75rem;
+    margin: 0.85rem 0 0;
+    padding: 0.5rem 0;
+    background: none;
+    border: 0;
+    /* Серая рамка сверху отделяет шапку от того, что кнопка открывает. */
+    border-top: 1px solid var(--color-border);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-body);
+    text-align: left;
+    cursor: pointer;
+    /* Телефонные грабли: синяя вспышка при тапе и задержка перед обработчиком. */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+.dashboard-page .growth-toggle[hidden] {
+    display: none;
+}
+/* Подсветку даём только там, где курсор есть: на тач-экране :hover залипает
+   после тапа, и кнопка остаётся «нажатой» до касания в другом месте. */
+@media (hover: hover) {
+    .dashboard-page .growth-toggle:hover {
+        color: var(--color-heading);
+    }
+}
+.dashboard-page .growth-toggle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+}
+.dashboard-page .growth-toggle-chevron {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--color-muted);
+    transition: transform 0.2s ease;
+}
+.dashboard-page .growth-toggle-chevron svg {
+    width: 1rem;
+    height: 1rem;
+}
+/* Шеврон смотрит вниз, когда блок свёрнут («раскроется вниз»), и вверх, когда
+   развёрнут. Состояние берём у самой кнопки, а не у секции: атрибут
+   aria-expanded уже обязан быть верным, и второй источник правды не нужен. */
+.dashboard-page .growth-toggle[aria-expanded="true"] .growth-toggle-chevron {
+    transform: rotate(180deg);
+}
+
+.dashboard-page .growth-progress {
+    margin-top: 0.6rem;
+}
+.dashboard-page .growth-progress-track {
+    height: 0.4rem;
+    border-radius: 0.2rem;
+    /* Жёлоб — нейтральный, заливка — цветом состояния блока: полоса говорит о
+       том же, о чём вердикт, и спорить с ним не должна. */
+    background: var(--color-border);
+    overflow: hidden;
+}
+.dashboard-page .growth-progress-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--readiness-rule);
+    transition: width 0.3s ease;
+}
+/* Подпись читается без цвета и без самой полосы — в ней всё число целиком. */
+.dashboard-page .growth-progress-note {
+    margin: 0.4rem 0 0;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+
+/* Свёртка. Высота едет через grid-template-rows: 1fr → 0fr — иначе переход с
+   max-height потребовал бы знать высоту содержимого и считать её скриптом.
+   Там, где интерполяция 0fr не поддерживается, блок просто схлопывается без
+   анимации: это по-прежнему работающая свёртка. */
+.dashboard-page .growth.is-collapsible .growth-body {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.28s ease;
+}
+.dashboard-page .growth.is-collapsible .growth-body-inner {
+    min-height: 0;
+    overflow: hidden;
+    /* visibility, а не только нулевая высота: без неё ссылки внутри свёрнутых
+       групп остаются в обходе по Tab и в дереве доступности — человек уходил бы
+       фокусом в невидимое. Переход держит её видимой до конца анимации. */
+    transition: visibility 0.28s;
+}
+.dashboard-page .growth.is-collapsible.is-collapsed .growth-body {
+    grid-template-rows: 0fr;
+}
+.dashboard-page .growth.is-collapsible.is-collapsed .growth-body-inner {
+    visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-page .growth.is-collapsible .growth-body,
+    .dashboard-page .growth-progress-fill,
+    .dashboard-page .growth-toggle-chevron {
+        transition: none;
+    }
+}
+
 /* На узком экране подпись действия перестаёт быть «справа»: при flex-wrap она
    уезжает на вторую строку, и без этого прижималась к левому краю вплотную к
    тексту. Горизонтальной прокрутки у блока нет ни при какой длине строки —

@@ -47,7 +47,10 @@ def _checklist_texts(mode):
     """
     solo = mode is SalonPanelMode.SOLO
     out = [panel_guide.CHECKLIST_TITLE, panel_guide.CHECK_VISIBLE_CLEAR,
-           panel_guide.CHECK_PROMO_ACTION, panel_guide.check_promo_text(solo=solo)]
+           panel_guide.CHECK_PROMO_ACTION, panel_guide.check_promo_text(solo=solo),
+           # Шапка свёртки (заход 6.5) — такой же текст панели, и под теми же
+           # защитами: подпись кнопки и подпись линии прогресса.
+           panel_guide.CHECK_IMPROVE, panel_guide.check_progress(3, 12)]
     items = list(panel_guide.check_items(solo=solo))
     items.append(panel_guide.check_review_item(solo=solo))
     for _key, text, action, _role in items:

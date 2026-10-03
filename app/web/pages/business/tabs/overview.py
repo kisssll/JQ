@@ -27,6 +27,7 @@ from app.web.components.icons import (
     ICON_ALERT_TRIANGLE,
     ICON_HEART,
     ICON_ARROW_RIGHT,
+    ICON_CHEVRON_DOWN,
 )
 
 
@@ -66,6 +67,93 @@ def _group(title: str, lead: str, rows: str, css: str = "") -> str:
             <h3 class="growth-group-title">{title}</h3>
             {lead_html}
             <ul class="readiness-list">{rows}</ul>
+        </div>"""
+
+
+# Условия группы 1, сведённые в «ворота». Нужны линии прогресса: сервис
+# booking_readiness отдаёт только НЕЗАКРЫТЫЕ причины, а «сделано N из M» просит
+# ещё и знаменатель. Пересчитывать условия второй раз здесь нельзя — две копии
+# правил разъедутся при первой правке, — поэтому считаем по ключам причин.
+#
+# Почему ворота, а не одиннадцать причин по штуке. В booking_readiness причины
+# внутри ворот стоят через elif, то есть ОДНО условие показывается двумя разными
+# фразами, смотря что именно не так: нет мастера → «нет карточки мастера», есть
+# мастер без услуг → «ни одной услуги». Считая их за два пункта, мы бы получили
+# прыжок назад: человек заводит карточку мастера, закрывает одну причину — и
+# тут же открывается вторая, прогресс стоит на месте, а «всего» растёт. С
+# воротами «всего» не меняется вовсе: оно равно числу ворот, одному и тому же у
+# любого салона, и прогресс двигается только когда условие реально закрыто.
+#
+# «Сделано» = ворота, в которых ни одна причина не открыта. Это честно: ворота
+# закрыты — значит состояние верное, независимо от того, кто его таким сделал
+# (запись по ссылке включена по умолчанию, и это всё равно работающее условие).
+_VISIBLE_GATES = (
+    ("exists", ("salon_deleted",)),
+    ("moderation", ("moderation_pending", "moderation_rejected")),
+    ("tariff", ("no_tariff",)),
+    ("published", ("not_published",)),
+    ("masters", ("no_master", "no_services")),
+    ("hours", ("no_salon_hours", "no_workdays")),
+    ("catalog", ("hidden",)),
+    ("link", ("guest_booking_off",)),
+)
+
+#: Причина, после которой evaluate() обрывается и больше ничего не проверяет.
+_SHORT_CIRCUIT = "salon_deleted"
+
+
+def _path_progress(readiness, checklist):
+    """«сделано N из M» по ПРИМЕНИМЫМ пунктам обеих групп (решение 0010,
+    дополнение 03.10.2026, п. 2).
+
+    Группа 1 — ворота выше: M всегда одно и то же, N — закрытые.
+    Группа 2 — пункты как есть: growth_checklist уже выбросил неприменимые
+    (акцию без услуг, вечерние окна без часов приёма), и считать их здесь было
+    бы прямым обманом — человек увидел бы дела, которых ему не показывают.
+
+    «Всего» группы 2 всё же может вырасти — когда появляется первая услуга,
+    акция и вечерние окна становятся применимы. Это рост С ПРИЧИНОЙ: путь
+    действительно стал длиннее, и обе новые строки человек видит рядом с
+    полосой. Прыжков БЕЗ причины — от того, что мы что-то скрыли, — здесь нет.
+
+    Удалённый салон — особый случай: evaluate() обрывается на первой причине и
+    остальных условий не проверяет вовсе. Записать их в «сделано» значило бы
+    отчитаться за проверки, которых не было, поэтому группа 1 сжимается до
+    единственных известных ворот: 0 из 1.
+    """
+    open_keys = {i.key for i in readiness.issues}
+    if _SHORT_CIRCUIT in open_keys:
+        done, total = 0, 1
+    else:
+        total = len(_VISIBLE_GATES)
+        done = sum(
+            1 for _gate, keys in _VISIBLE_GATES
+            if not open_keys.intersection(keys)
+        )
+
+    if checklist is not None:
+        total += len(checklist.items)
+        done += checklist.done_count
+    return done, total
+
+
+def _render_progress(done: int, total: int) -> str:
+    """Полоса и подпись под ней.
+
+    Подпись — не украшение полосы, а её содержание: полоса без подписи читается
+    только глазами и только у того, кто различает цвета. Поэтому role у
+    полосы, а текст стоит рядом обычным абзацем.
+    """
+    note = panel_guide.check_progress(done, total)
+    pct = round(done * 100 / total) if total else 0
+    return f"""
+        <div class="growth-progress">
+            <div class="growth-progress-track" role="progressbar"
+                 aria-valuemin="0" aria-valuemax="{total}" aria-valuenow="{done}"
+                 aria-valuetext="{note}">
+                <span class="growth-progress-fill" style="width:{pct}%"></span>
+            </div>
+            <p class="growth-progress-note">{note}</p>
         </div>"""
 
 
@@ -150,13 +238,45 @@ def _render_path(salon, readiness, checklist, next_links, solo: bool) -> str:
         html += _group(title, lead, rows, "growth-group-next")
 
     sub_html = f'<p class="readiness-sub">{sub}</p>' if sub else ""
+
+    # ── Шапка: вердикт, свёртка и линия прогресса ──
+    # Шапка видна в ЛЮБОМ состоянии блока, и вердикт в ней один и тот же.
+    # Жёсткое условие решения 0010 (п. 1 и п. 4 дополнения): свёрнутый блок —
+    # не способ спрятать «записаться нельзя». Поэтому вердикт, его класс
+    # состояния (значит, цвет) и приписка под ним остаются снаружи свёртки, а
+    # внутрь уходят только группы.
+    done, total = _path_progress(readiness, checklist)
+
+    # По умолчанию блок развёрнут, пока есть незакрытые дела, и свёрнут, когда
+    # дел не осталось: там уже только «куда смотреть дальше» (решение 0010,
+    # дополнение, п. 3). Решает это сервер, а не скрипт, — иначе человек,
+    # у которого всё закрыто, успевал бы увидеть вспышку развёрнутого списка.
+    pending = bool(readiness.issues) or bool(checklist and checklist.pending)
+    collapsed = " is-collapsed" if not pending else ""
+
+    # Класс is-collapsible не ставится здесь намеренно: его добавляет скрипт.
+    # Правила свёртки в CSS висят только на нём, поэтому без JS блок остаётся
+    # развёрнутым и читаемым целиком — серверный HTML у нас основа, а не
+    # прогрессивное улучшение поверх пустой страницы. По той же причине кнопка
+    # приходит с hidden (мёртвый орган управления хуже его отсутствия) и
+    # aria-expanded="true": без скрипта блок действительно развёрнут.
+    body_id = f"growth-body-{salon.id}"
     return f"""
-    <section class="readiness readiness-{state} growth"
-             aria-label="{panel_guide.CHECKLIST_TITLE}">
+    <section class="readiness readiness-{state} growth{collapsed}"
+             aria-label="{panel_guide.CHECKLIST_TITLE}"
+             data-growth-path="{salon.id}">
         <p class="growth-kicker">{panel_guide.CHECKLIST_TITLE}</p>
         <p class="readiness-verdict"><span class="readiness-mark">{mark}</span>{verdict}</p>
         {sub_html}
-        {html}
+        <button class="growth-toggle" type="button" hidden
+                aria-expanded="true" aria-controls="{body_id}">
+            <span class="growth-toggle-label">{panel_guide.CHECK_IMPROVE}</span>
+            <span class="growth-toggle-chevron">{ICON_CHEVRON_DOWN}</span>
+        </button>
+        {_render_progress(done, total)}
+        <div class="growth-body" id="{body_id}">
+            <div class="growth-body-inner">{html}</div>
+        </div>
     </section>
     """
 

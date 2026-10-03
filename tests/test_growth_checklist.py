@@ -43,6 +43,7 @@ from app.models.models import (
     SalonPanelMode, SalonRole, Schedule, Service, User, UserRole,
 )
 from app.services import booking_readiness, growth_checklist, panel_guide
+from app.web.pages.business.tabs import overview
 
 _WEEK_OPEN = json.dumps({d: "10:00-20:00" for d in
                          ("mon", "tue", "wed", "thu", "fri", "sat", "sun")})
@@ -639,3 +640,271 @@ async def test_nothing_is_queried_per_master_or_per_service(client, db_session,
         return len(after) - len(before)
 
     assert await _cost("+79995550050", 0) == await _cost("+79995550051", 4)
+
+
+# ═════════ свёртка и линия прогресса (решение 0010, дополнение 03.10.2026) ═════════
+#
+# Заход 6.5 — про подачу, а не про пункты. Поэтому проверяется ровно то, что
+# подача может сломать:
+#
+#   1. **Вердикт нельзя спрятать.** Свёрнутый блок — не способ убрать с экрана
+#      «записаться нельзя» (п. 4 дополнения). Значит, вердикт и его класс
+#      состояния обязаны лежать СНАРУЖИ свёртки: не «такие же», а те же самые.
+#   2. **Прогресс считает применимое.** Линия, считающая скрытые пункты,
+#      соврала бы дважды: показала бы «сделано» за то, чего человек не делал, и
+#      прыгнула бы при любой нашей правке применимости.
+#   3. **Без JS ничего не потеряно.** Серверный HTML у нас основа. Свёртка
+#      включается классом из скрипта, и без него блок читается целиком.
+
+PROGRESS = 'class="growth-progress-track"'
+BODY_SPLIT = '<div class="growth-body"'
+
+
+def _split_header(body):
+    """Шапка блока и его свёртываемое тело — отдельно.
+
+    Шапка — это то, что видно в ЛЮБОМ состоянии. Разделять по разметке, а не
+    верить глазам: «вердикт остался красным» проверяется именно тем, что он
+    лежит вне свёртки, и никакой CSS его оттуда не уберёт.
+    """
+    section = body[body.index(BLOCK) - len('class="'):]
+    section = section[:section.index("</section>")]
+    assert BODY_SPLIT in section, "у блока нет свёртываемого тела"
+    head, _, tail = section.partition(BODY_SPLIT)
+    return head, tail
+
+
+# ─────────── вердикт лежит снаружи свёртки ───────────
+
+@pytest.mark.parametrize("flags,state,words", [
+    (dict(master=False, service=False), "bad", "Записаться к вам сейчас нельзя"),
+    (dict(), "ok", "Записаться к вам можно"),
+])
+async def test_the_verdict_stays_outside_the_collapse(client, db_session, flags,
+                                                      state, words):
+    """Жёсткое условие п. 4 дополнения. Вердикт, его класс состояния и приписка
+    под ним — в шапке, а не в свёртываемом теле: в свёрнутом виде они читаются
+    теми же словами и тем же цветом, потому что это ровно тот же HTML."""
+    phone = "+7999555060" + ("1" if state == "bad" else "2")
+    salon_id = await _salon(db_session, phone, SalonPanelMode.SOLO, **flags)
+    body = await _open(client, phone, salon_id)
+    head, tail = _split_header(body)
+
+    assert f"readiness-{state} growth" in head, "класс состояния уехал в тело"
+    assert words in head
+    assert words not in tail
+    # Линия прогресса тоже в шапке: иначе в свёрнутом виде её не было бы видно.
+    assert PROGRESS in head
+    # А группы — в теле: свёртке нечего было бы скрывать.
+    assert "Чтобы вас было видно" in tail
+
+
+async def test_the_red_verdict_is_not_softened_by_the_progress_line(client, db_session):
+    """Полоса рядом с красным вердиктом не должна превращать его в «почти всё
+    хорошо»: слова и приписка про «заявок не будет» остаются на месте."""
+    salon_id = await _salon(db_session, "+79995550603", SalonPanelMode.SOLO,
+                            master=False, service=False, hours=False,
+                            published=False, tariff=False)
+    body = await _open(client, "+79995550603", salon_id)
+    head, _tail = _split_header(body)
+    assert "Записаться к вам сейчас нельзя" in head
+    assert "Пока это не исправлено, заявок не будет — даже по ссылке." in head
+    assert "выполнено" not in body.lower()
+
+
+# ─────────── «сделано N из M» по применимым пунктам обеих групп ───────────
+
+def test_the_progress_counts_the_gates_of_the_first_group():
+    """«Всего» группы 1 — число ворот, и оно одно и то же у любого салона.
+
+    Иначе линия прыгала бы на ровном месте: причины внутри ворот стоят через
+    elif, и закрытие одной открывает другую (нет мастера → мастер без услуг).
+    """
+    keys = set()
+    for _gate, gate_keys in overview._VISIBLE_GATES:
+        keys |= set(gate_keys)
+    assert keys == booking_readiness.ISSUE_KEYS, (
+        "в booking_readiness появилась причина, не попавшая ни в одни ворота — "
+        "линия прогресса молча перестанет её считать"
+    )
+
+
+def _readiness(**kw):
+    base = dict(
+        solo=True, is_active=True, is_deleted=False, is_hidden=False,
+        moderation_status=SalonModerationStatus.APPROVED,
+        published_at=datetime(2026, 1, 1), has_tariff=True,
+        guest_booking_enabled=True, active_masters=1, bookable_masters=1,
+        salon_hours_set=True, open_weekdays=5,
+    )
+    base.update(kw)
+    return booking_readiness.evaluate(**base)
+
+
+def test_the_progress_of_a_clean_first_group_is_full():
+    done, total = overview._path_progress(_readiness(), None)
+    assert (done, total) == (8, 8)
+
+
+@pytest.mark.parametrize("broken,open_gates", [
+    (dict(has_tariff=False), 1),
+    (dict(published_at=None), 1),
+    (dict(active_masters=0, bookable_masters=0), 1),
+    (dict(salon_hours_set=False), 1),
+    (dict(is_hidden=True), 1),
+    (dict(guest_booking_enabled=False), 1),
+    (dict(moderation_status=SalonModerationStatus.PENDING), 1),
+    (dict(has_tariff=False, published_at=None, is_hidden=True), 3),
+])
+def test_each_broken_gate_costs_exactly_one(broken, open_gates):
+    done, total = overview._path_progress(_readiness(**broken), None)
+    assert total == 8
+    assert done == 8 - open_gates
+
+
+def test_closing_one_reason_inside_a_gate_does_not_move_the_line_backwards():
+    """Человек заводит карточку мастера — и вместо «записываться не к кому»
+    появляется «ни одной услуги». Это одно и то же условие, рассказанное двумя
+    фразами, и прогресс обязан остаться на месте, а не отчитаться и отобрать."""
+    before = overview._path_progress(
+        _readiness(active_masters=0, bookable_masters=0), None)
+    after = overview._path_progress(
+        _readiness(active_masters=1, bookable_masters=0), None)
+    assert before == after == (7, 8)
+    # А настоящее закрытие ворот прогресс двигает.
+    assert overview._path_progress(_readiness(), None) == (8, 8)
+
+
+def test_a_deleted_salon_does_not_get_credit_for_unchecked_conditions():
+    """evaluate() обрывается на удалённом салоне и остальных условий не
+    проверяет вовсе. Записать их в «сделано» значило бы отчитаться за проверки,
+    которых не было, — поэтому группа 1 сжимается до 0 из 1."""
+    done, total = overview._path_progress(_readiness(is_deleted=True), None)
+    assert (done, total) == (0, 1)
+
+
+def _checklist(**kw):
+    base = dict(
+        solo=True, has_cover=False, has_description=False, services_total=1,
+        has_active_promo=False, evening_on=False, salon_hours_set=True,
+        promoted_tier=False, has_completed_booking=False, has_review=False,
+    )
+    base.update(kw)
+    return growth_checklist.evaluate(**base)
+
+
+def test_the_progress_adds_up_both_groups():
+    """Группа 2 идёт в линию как есть: применимых пунктов шесть, выполнена
+    одна («услуги добавлены»), и к восьми закрытым воротам прибавляется она."""
+    done, total = overview._path_progress(_readiness(), _checklist())
+    assert (done, total) == (9, 14)
+
+
+def test_nothing_done_and_everything_done():
+    nothing = overview._path_progress(
+        _readiness(has_tariff=False, published_at=None, active_masters=0,
+                   bookable_masters=0, salon_hours_set=False),
+        _checklist(services_total=0, salon_hours_set=False),
+    )
+    # Четыре открытых ворот из восьми; в группе 2 применимы только четыре
+    # пункта из шести — акция и вечерние окна без услуг не сработают.
+    assert nothing == (4, 12)
+
+    everything = overview._path_progress(
+        _readiness(),
+        _checklist(has_cover=True, has_description=True, has_active_promo=True,
+                   evening_on=True, promoted_tier=True),
+    )
+    assert everything == (14, 14)
+
+
+def test_an_inapplicable_item_falls_out_of_both_n_and_m():
+    """Скрытый пункт не попадает ни в «сделано», ни в «всего». Иначе человек с
+    пустым салоном увидел бы «сделано 4 из 14» и пошёл искать дела, которых ему
+    не показывают."""
+    shown = overview._path_progress(_readiness(), _checklist(services_total=1))
+    hidden = overview._path_progress(
+        _readiness(active_masters=1, bookable_masters=0),
+        _checklist(services_total=0),
+    )
+    assert shown[1] - hidden[1] == 2, "акция и вечерние окна должны выпасть из «всего»"
+    # И в «сделано» они тоже не попали: единственное, что было сделано в
+    # группе 2 — услуги, и без них «сделано» группы 2 равно нулю.
+    assert hidden[0] == 7, "за скрытые пункты начислили «сделано»"
+
+
+def test_the_review_item_counts_in_the_total_but_never_as_done():
+    """Условный пункт про отзыв — такое же дело, как остальные: он в «всего» и
+    он не «сделано» (сделанным он быть не может, он для этого и появился)."""
+    without = overview._path_progress(_readiness(), _checklist())
+    withit = overview._path_progress(
+        _readiness(), _checklist(has_completed_booking=True))
+    assert withit[1] == without[1] + 1
+    assert withit[0] == without[0]
+
+
+# ─────────── состояние по умолчанию и жизнь без JS ───────────
+
+async def test_by_default_the_block_is_open_while_there_are_things_to_do(
+        client, db_session):
+    salon_id = await _salon(db_session, "+79995550610", SalonPanelMode.SOLO)
+    body = await _open(client, "+79995550610", salon_id)
+    head, _tail = _split_header(body)
+    assert "is-collapsed" not in head, "блок с делами пришёл свёрнутым"
+    assert 'aria-expanded="true"' in head
+
+
+async def test_by_default_the_block_is_collapsed_when_nothing_is_left(
+        client, db_session):
+    """Дел не осталось — внутри только «куда смотреть дальше», и держать его
+    раскрытым незачем (решение 0010, дополнение, п. 3)."""
+    salon_id = await _salon(db_session, "+79995550611", SalonPanelMode.SOLO,
+                            cover=True, description=True, promo=True, evening=True,
+                            tier="business")
+    body = await _open(client, "+79995550611", salon_id)
+    head, tail = _split_header(body)
+    assert "is-collapsed" in head
+    # Но содержимое на месте — свёрнут, а не выпотрошен.
+    assert GROUP_NEXT in tail
+    assert panel_guide.check_progress(14, 14) in head
+
+
+async def test_without_js_the_block_is_readable_whole(client, db_session):
+    """Класс is-collapsible ставит скрипт, и правила свёртки в CSS висят только
+    на нём. В серверной разметке его нет — значит страница без JS (или до
+    загрузки бандла) показывает блок целиком, включая свёрнутый по умолчанию."""
+    salon_id = await _salon(db_session, "+79995550612", SalonPanelMode.SOLO,
+                            cover=True, description=True, promo=True, evening=True,
+                            tier="business")
+    body = await _open(client, "+79995550612", salon_id)
+    assert "is-collapsible" not in body
+    # Все группы и итоги — в разметке, а не подгружаются по клику.
+    assert panel_guide.CHECK_VISIBLE_CLEAR in body
+    assert "Чтобы вас было видно" in body
+    assert "Чтобы выбирали вас" in body
+    assert GROUP_NEXT in body
+    assert f"{panel_guide.CHECK_DONE_PREFIX}: 6" in body
+    # Кнопка без скрипта не притворяется работающей.
+    assert "<button class=\"growth-toggle\" type=\"button\" hidden" in body
+
+
+async def test_the_toggle_is_a_real_button_tied_to_the_body(client, db_session):
+    """Свёртка — кнопка с aria-expanded и aria-controls, а не div с onclick:
+    иначе её не видно ни с клавиатуры, ни с экранного диктора."""
+    salon_id = await _salon(db_session, "+79995550613", SalonPanelMode.SOLO)
+    body = await _open(client, "+79995550613", salon_id)
+    head, _tail = _split_header(body)
+    assert f'aria-controls="growth-body-{salon_id}"' in head
+    assert f'<div class="growth-body" id="growth-body-{salon_id}"' in body
+    assert panel_guide.CHECK_IMPROVE in head
+
+
+async def test_the_progress_line_is_readable_without_colour(client, db_session):
+    """Полоса — не единственный носитель числа: рядом стоит подпись, и то же
+    число лежит в aria-valuetext для тех, кто полосу не видит вовсе."""
+    salon_id = await _salon(db_session, "+79995550614", SalonPanelMode.SOLO)
+    body = await _open(client, "+79995550614", salon_id)
+    note = panel_guide.check_progress(9, 14)
+    assert f'aria-valuetext="{note}"' in body
+    assert f'<p class="growth-progress-note">{note}</p>' in body
+    assert 'aria-valuemax="14"' in body and 'aria-valuenow="9"' in body

@@ -138,4 +138,74 @@ import { esc } from '../../escape-html.js';
             }
         }
     });
+
+    // ===== Свёртка блока «Путь к первому клиенту» =====
+    // Решение 0010, дополнение 03.10.2026, п. 3. Состояние помнит браузер, а не
+    // база: это оформление, а не данные, и колонку ради «свёрнуто» потом не
+    // выкинуть. Ключ привязан к салону — у человека их может быть несколько, и
+    // свёрнутый путь одного не означает свёрнутого пути другого.
+    const PATH_KEY = 'rumiGrowthPath:';
+    const OPEN = 'open';
+    const CLOSED = 'closed';
+
+    // Приватное окно умеет запрещать хранилище, и тогда обращение к нему
+    // БРОСАЕТ, а не возвращает null. Без этой обёртки свёртка уронила бы весь
+    // скрипт «Обзора» (тот же приём, что в cookie-notice.js).
+    function storage() {
+        try {
+            localStorage.getItem(PATH_KEY);
+            return localStorage;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function initGrowthPath() {
+        const section = document.querySelector('[data-growth-path]');
+        if (!section) return;
+        const toggle = section.querySelector('.growth-toggle');
+        const body = section.querySelector('.growth-body');
+        if (!toggle || !body) return;
+
+        const key = PATH_KEY + section.dataset.growthPath;
+        const store = storage();
+
+        // Сервер уже поставил состояние по умолчанию (развёрнут, пока есть
+        // дела). Свой выбор человека оно не перебивает: тот, кто осознанно
+        // свернул блок, не должен разворачивать его каждый раз.
+        const saved = store && store.getItem(key);
+        let collapsed = section.classList.contains('is-collapsed');
+        if (saved === OPEN) collapsed = false;
+        if (saved === CLOSED) collapsed = true;
+
+        function apply(next, remember) {
+            collapsed = next;
+            section.classList.toggle('is-collapsed', collapsed);
+            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            if (remember && store) {
+                try {
+                    store.setItem(key, collapsed ? CLOSED : OPEN);
+                } catch (e) {
+                    // Квота кончилась или запись запрещена — свёртка всё равно
+                    // работает, просто не переживёт перезагрузку.
+                }
+            }
+        }
+
+        // Класс включает правила свёртки в CSS: до этой строки блок развёрнут
+        // любой ценой, и страница без JS остаётся читаемой целиком.
+        section.classList.add('is-collapsible');
+        apply(collapsed, false);
+        toggle.hidden = false;
+
+        toggle.addEventListener('click', function () {
+            apply(!collapsed, true);
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGrowthPath);
+    } else {
+        initGrowthPath();
+    }
 })();
