@@ -404,12 +404,21 @@ def salon_card(
             + (f"{e(where)} " if where else "")
             + rating_html + "</span>"
         )
-    # Акция — плашка нейтрального тона: акцентных плашек на карточке уже есть
-    # одна (метка конкурса), и три розовых пятна в ряд превращают акцент в фон.
-    tags = "".join(badges) + "".join(
-        status(f"{tag} {title}".strip() if tag else title, "neutral") for tag, title in promos[:2]
-    )
-    tags_html = f'<div class="r-salon__tags">{tags}</div>' if tags else ""
+    tags_html = f'<div class="r-salon__tags">{"".join(badges)}</div>' if badges else ""
+
+    # Акция — СТРОКА, а не пилюля. Метка салона коротка по смыслу («Победитель
+    # конкурса Руми»), а акция — это предложение целиком: «Новым клиентам»
+    # плюс «Скидка первым посетителям 20%». В пилюле такой текст не переносится
+    # и вылезает за край карточки, а радиус 999 по договорённости вообще только
+    # для небольших управляющих элементов (docs/design.md).
+    promos_html = ""
+    if promos:
+        items = "".join(
+            f'<li><span class="r-salon__promo-tag">{e(tag)}</span>{e(title)}</li>'
+            if tag else f"<li>{e(title)}</li>"
+            for tag, title in promos[:2]
+        )
+        promos_html = f'<ul class="r-salon__promos">{items}</ul>'
 
     svc_html = ""
     if services:
@@ -446,7 +455,7 @@ def salon_card(
         + "</span></a>"
         f'<div class="r-salon__aside">{fav}</div>'
         "</div>"
-        f"{tags_html}{svc_html}{slots_html}"
+        f"{tags_html}{promos_html}{svc_html}{slots_html}"
         f'<a class="r-salon__all" href="{e(href)}">{e(all_label)}</a>'
         "</article>"
     )

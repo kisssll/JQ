@@ -442,9 +442,20 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None,
         salon.contest_winner_until.tzinfo
     ):
         badges.append(ui.status("Победитель конкурса Руми", "accent"))
-    for promo in promotions[:3]:
-        badges.append(ui.status(f"{promo.tag} {promo.title}".strip(), "neutral"))
     badges_html = f'<div class="salon-marks">{"".join(badges)}</div>' if badges else ""
+
+    # Акции — строками, а не плашками: это предложение целиком («Новым
+    # клиентам» плюс «Скидка первым посетителям 20%»), и в пилюле такой текст
+    # не переносится и уезжает за край.
+    promos_html = ""
+    if promotions:
+        items = "".join(
+            f'<li><span class="salon-promo__tag">{e(p.tag)}</span>{e(p.title)}'
+            + (f'<small>{e(p.description)}</small>' if (p.description or "").strip() else "")
+            + "</li>"
+            for p in promotions[:3]
+        )
+        promos_html = f'<ul class="salon-promos">{items}</ul>' 
 
     desc = (salon.description or "").strip()
     about_html = ""
@@ -560,6 +571,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None,
                             </div>
                             {rating_html}
                             {badges_html}
+                            {promos_html}
                             {loyalty_html}
                             <dl class="salon-facts">
                                 <div><dt>{ICON_MAP_PIN}Адрес</dt>

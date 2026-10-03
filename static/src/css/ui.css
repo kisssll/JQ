@@ -731,6 +731,40 @@
     margin-top: var(--space-12);
 }
 
+/* Подстраховка: у плашки-статуса white-space: nowrap, и длинная подпись в ней
+   вылезала за край карточки. В карточке плашке разрешено переноситься — здесь
+   её ширина ограничена колонкой, а не содержимым. */
+.r-salon__tags .r-status {
+    max-width: 100%;
+    white-space: normal;
+}
+
+/* Акции строками: предложение целиком в пилюлю не помещается. */
+.r-salon__promos {
+    margin: var(--space-8) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.r-salon__promos li {
+    margin-top: var(--space-4);
+    color: var(--color-body);
+    font-size: var(--text-13);
+    line-height: var(--leading-text);
+    overflow-wrap: break-word;
+}
+
+.r-salon__promo-tag {
+    color: var(--color-accent-hover);
+    font-weight: 600;
+}
+
+.r-salon__promo-tag::after {
+    content: " — ";
+    color: var(--color-muted);
+    font-weight: 400;
+}
+
 .r-salon__slots {
     margin-top: var(--space-16);
 }

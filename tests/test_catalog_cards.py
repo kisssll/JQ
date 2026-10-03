@@ -15,6 +15,7 @@ import contextlib
 import itertools
 import json
 import re
+from pathlib import Path
 from datetime import datetime, timedelta
 
 from sqlalchemy import event
@@ -26,6 +27,7 @@ from app.models.models import (
 from app.services.catalog_slots import SERVICES_PER_CARD, SLOTS_PER_CARD
 from app.web.pages.home import HOME_CARDS
 
+ROOT = Path(__file__).resolve().parent.parent
 _phone = itertools.count(1)
 
 # Круглосуточный график: иначе тест зависел бы от часа, в который его запустили,
@@ -36,7 +38,7 @@ _ALL_DAY = json.dumps({d: "00:00-23:59" for d in
 
 async def _stand(db_session, name, *, services=(("Маникюр", 1500, 60),),
                  mode=SalonPanelMode.SOLO, masters=1, logo=None, description="",
-                 hours=_ALL_DAY, city="Томск"):
+                 hours=_ALL_DAY, city="Томск", promo=None):
     """Опубликованный салон с мастерами и услугами.
 
     Имена стендов тест задаёт сам и с уникальным хвостом — чистки «по шаблону»
@@ -59,6 +61,12 @@ async def _stand(db_session, name, *, services=(("Маникюр", 1500, 60),),
         db.add(salon)
         await db.commit()
         await db.refresh(salon)
+
+        if promo:
+            from app.models.models import Promotion
+            db.add(Promotion(salon_id=salon.id, tag=promo[0], title=promo[1],
+                             is_active=True))
+            await db.commit()
 
         master_ids = []
         for i in range(masters):
@@ -356,3 +364,42 @@ async def test_home_with_no_salons_invites_instead_of_apologising(client, db_ses
     html = (await client.get("/")).text
     assert "Здесь появятся мастера и салоны" in html
     assert 'class="r-salon salon-card"' not in html
+
+
+# ─────────────────────── акция не ломает карточку ───────────────────────
+
+#: Настоящая акция с прода: метка и заголовок вместе — это предложение
+#: целиком, а не слово. Именно на ней плашка и вылезла за край карточки.
+_LONG_PROMO = ("Новым клиентам", "Скидка первым посетителям 20%")
+
+
+async def test_a_long_promotion_does_not_sit_in_a_nowrap_pill(client, db_session):
+    """Плашка-статус не переносится по строкам (white-space: nowrap), и акция
+    в ней уезжала за край карточки. Акция — строка, а не пилюля; радиус 999 по
+    договорённости вообще только для небольших управляющих элементов."""
+    salon_id, _ = await _stand(db_session, "АкцияZZ", promo=_LONG_PROMO)
+    card = _card((await client.get("/salons")).text, salon_id)
+
+    assert "Скидка первым посетителям 20%" in card
+    assert 'class="r-salon__promos"' in card
+    # Ни метка, ни заголовок акции не должны оказаться внутри плашки.
+    pills = re.findall(r'<span class="r-status[^"]*">(.*?)</span>', card)
+    assert not any("Скидка первым" in p or "Новым клиентам" in p for p in pills), pills
+
+
+async def test_the_card_pill_is_allowed_to_wrap_anyway(client, db_session):
+    """Подстраховка на случай длинной МЕТКИ: в карточке плашке разрешено
+    переноситься, иначе она снова упрётся в край."""
+    css = (ROOT / "static" / "src" / "css" / "ui.css").read_text()
+    block = css[css.index(".r-salon__tags .r-status {"):]
+    block = block[:block.index("}")]
+    assert "white-space: normal" in block
+    assert "max-width: 100%" in block
+
+
+async def test_the_salon_page_shows_promotions_as_lines_too(client, db_session):
+    salon_id, _ = await _stand(db_session, "АкцияСалонZZ", promo=_LONG_PROMO)
+    page = (await client.get(f"/salons/{salon_id}")).text
+    assert 'class="salon-promos"' in page
+    pills = re.findall(r'<span class="r-status[^"]*">(.*?)</span>', page)
+    assert not any("Скидка первым" in p for p in pills), pills
