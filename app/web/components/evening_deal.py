@@ -13,7 +13,7 @@ static/src/js/business/evening-deal.js.
 import html
 import json
 
-from app.services import panel_guide
+from app.services import growth_checklist, panel_guide
 from app.web.components.icons import ICON_MOON
 
 WEEKDAYS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
@@ -64,7 +64,8 @@ def render_evening_deal_section(salon, services, deal: dict) -> str:
     deal_json = html.escape(json.dumps(deal, ensure_ascii=True), quote=True)
 
     return f"""
-    <section class="my-salon-card evening-deal-block" data-salon-id="{salon.id}" data-deal="{deal_json}">
+    <section class="my-salon-card evening-deal-block" id="{growth_checklist.ANCHOR_EVENING}"
+             data-salon-id="{salon.id}" data-deal="{deal_json}">
         <h2 class="my-salon-card-title">{ICON_MOON} Вечерние окна со скидкой</h2>
         <p class="my-salon-card-hint">
             Свободные вечерние слоты на сегодня попадут в публичную подборку со скидкой,

@@ -19,9 +19,14 @@
 
 Тексты живут не здесь, а в app/services/panel_guide.py: тот же реестр читает
 тур (решение 0008, п. 7), и два описания одного раздела не должны со временем
-разойтись. Названия разделов приходят из panel_sections.label по режиму —
-зашитое строкой название отправило бы человека искать вкладку, которой у него
-нет.
+разойтись. Названия разделов приходят из panel_sections.label по режиму (их
+подставляет сам реестр) — зашитое строкой название отправило бы человека искать
+вкладку, которой у него нет.
+
+Шагов «С чего начать» текстом здесь больше нет (решение 0010, п. 6): тот же
+путь считается из базы и живёт блоком в «Обзоре», а здесь от него осталась
+врезка со ссылкой. Текст, который не знает, что половина уже сделана, — второй
+источник правды, и он разошёлся бы с блоком при первой же правке.
 
 Картинок здесь нет намеренно (решение 0009, п. 7–8): через неделю-две
 начинается переделка фронта целиком, и любая картинка умрёт вместе с ним, а
@@ -31,7 +36,7 @@
 from typing import Iterable, Optional
 
 from app.models.models import SalonPanelMode
-from app.services import panel_guide, panel_sections
+from app.services import panel_guide
 from app.web.components.escaping import e
 from app.web.components.panel_tour import render_restart_link
 
@@ -64,60 +69,30 @@ def _where_html(section, salon_id: int, tour_on: bool) -> str:
     return f'<p class="instructions-where"><span>Где это:</span> {links}</p>'
 
 
-def _start_html(mode: SalonPanelMode, salon_id: int, visible: frozenset,
-                tour_on: bool) -> str:
-    """«С чего начать» — порядок заполнения текстом, с живыми ссылками.
+def _start_html(mode: SalonPanelMode, salon_id: int, tour_on: bool) -> str:
+    """Врезка на месте прежнего гайда «С чего начать» (решение 0010, п. 6).
 
-    Живого чек-листа здесь нет намеренно: тот считает состояние из базы и это
-    отдельная задача (решение 0009, «Нумерация»). Половина чек-листа — галочки,
-    которые ничего не знают, — хуже честного текста.
+    Шагов текстом здесь больше нет. Они жили рядом с живым блоком в «Обзоре»,
+    который считает то же самое из базы, и это были два источника правды о том,
+    что человеку осталось сделать: текст не знал, что половина уже сделана, и
+    через месяц правок разошёлся бы с блоком.
+
+    Убирать пункт совсем тоже нельзя: человек, читающий справочник сверху вниз,
+    потерял бы единственное место, где виден весь путь, — поэтому остаётся
+    врезка со ссылкой. Якорь прежний (#manual-start): на него уже могли дать
+    ссылку в поддержке.
     """
-    steps_html = ""
-    for title, keys, text in panel_guide.start_steps(mode):
-        where = _where_links(keys, mode, salon_id, visible, tour_on)
-        where_html = f' <span class="text-muted">({where})</span>' if where else ""
-        steps_html += f"""
-        <li>
-            <strong>{e(title)}</strong>{where_html}
-            — {e(text)}
-        </li>"""
+    href = _tab_href(salon_id, "overview", None, tour_on)
     return f"""
-    <section class="my-salon-card instructions-section" id="manual-start">
-        <h2 class="my-salon-card-title">С чего начать</h2>
-        <p class="instructions-why">Пока не сделан каждый из этих шагов, записаться
-            к вам нельзя — ни по ссылке, ни из общей ленты.</p>
-        <ol class="instructions-guide-steps">
-            {steps_html}
-        </ol>
+    <section class="my-salon-card instructions-section instructions-path" id="manual-start">
+        <h2 class="my-salon-card-title">{e(panel_guide.CHECKLIST_TITLE)}</h2>
+        <p class="instructions-why">{e(panel_guide.check_promo_text(
+            solo=mode is SalonPanelMode.SOLO))}</p>
+        <p class="instructions-where">
+            <a class="instructions-where-link" href="{href}">{e(
+                panel_guide.CHECK_PROMO_ACTION)}</a>
+        </p>
     </section>"""
-
-
-def _where_links(keys, mode: SalonPanelMode, salon_id: int, visible: frozenset,
-                 tour_on: bool) -> str:
-    """«Где искать» для шага гайда: названия разделов живыми ссылками.
-
-    ``settings`` — не раздел, а роль: в команде это «Редактировать салон», в
-    соло — «Моя карточка мастера» (panel_sections.settings_key). Раздел, которого
-    у человека нет, ссылкой не становится: такая ссылка молча вернула бы его в
-    «Обзор».
-    """
-    if not keys:
-        return ""
-    if keys == panel_guide.SAME_PLACE:
-        return "там же"
-    out = []
-    for key in keys:
-        slug = panel_sections.settings_key(mode) if key == "settings" else key
-        name = e(panel_sections.label(slug, mode))
-        if slug in visible:
-            out.append(
-                f'<a class="instructions-where-link" '
-                f'href="{_tab_href(salon_id, slug, None, tour_on)}">«{name}»</a>'
-            )
-        else:
-            out.append(f"«{name}»")
-    word = "вкладка" if len(out) == 1 else "вкладки"
-    return word + " " + " и ".join(out)
 
 
 def _toc_html(groups) -> str:
@@ -143,7 +118,7 @@ def _toc_html(groups) -> str:
     # ширины.
     return f"""
     <nav class="instructions-toc" aria-label="Содержание справочника">
-        <a class="instructions-toc-first" href="#manual-start">С чего начать</a>
+        <a class="instructions-toc-first" href="#manual-start">{e(panel_guide.CHECKLIST_TITLE)}</a>
         <div class="instructions-toc-grid">{blocks}</div>
     </nav>"""
 
@@ -165,7 +140,6 @@ def render_instructions_tab(
     """
     visible = frozenset(visible_keys) if visible_keys is not None else None
     groups = panel_guide.manual_groups(mode, visible)
-    present = visible if visible is not None else panel_sections.available_keys(mode)
 
     body = ""
     for group in groups:
@@ -201,7 +175,7 @@ def render_instructions_tab(
             {_toc_html(groups)}
         </section>
 
-        {_start_html(mode, salon_id, present, tour_on)}
+        {_start_html(mode, salon_id, tour_on)}
 
         {body}
     </div>"""

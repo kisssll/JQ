@@ -182,12 +182,19 @@ async def test_team_overview_invites_to_models_too(client, db_session):
     assert MODELS_INVITE in body
 
 
-async def test_team_overview_stays_quiet_while_nothing_is_wrong(client, db_session):
-    """Салону с командой первый экран занимать нечем: блок готовности
-    появляется, только когда есть что исправлять."""
+async def test_team_overview_keeps_the_path_below_the_numbers(client, db_session):
+    """Прежде блок появлялся у команды, только когда было что исправлять, —
+    теперь он не исчезает никогда (решение 0010, п. 4): он перестал быть
+    предупреждением и стал местом, где написано, что делать дальше.
+
+    Зато у команды он не первый: первый экран ей занимать есть чем (решение
+    0010, «место блока»). Проверяем позициями в разметке, а не глазами."""
     _, salon_id = await _salon(db_session, "+79996660011", SalonPanelMode.TEAM, booking=True)
     html = await _open(client, "+79996660011", salon_id)
-    assert READINESS not in html[html.index('id="tab-overview"'):]
+    body = html[html.index('id="tab-overview"'):]
+    assert READINESS in body, "блок исчез у здорового салона с командой"
+    positions = _order(body, STATS, CHART, READINESS)
+    assert positions == sorted(positions), positions
 
 
 async def test_team_overview_warns_when_booking_is_broken(client, db_session):

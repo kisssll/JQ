@@ -568,6 +568,79 @@
     height: 0.9rem;
 }
 
+/* ===== «Путь к первому клиенту»: группы внутри того же блока (решение 0010) =====
+   Блок один, групп в нём три, и они разные по смыслу: «чтобы вас было видно» —
+   без этого записаться нельзя, «чтобы выбирали вас» — можно, но не выбирают,
+   «куда смотреть дальше» — дел не осталось. Поэтому у групп есть заголовки, а
+   не одна простыня из десяти строк.
+
+   Цветной кант и подложка остаются у блока целиком (.readiness выше): состояние
+   у него одно — вердикт про запись. Группы его не перекрашивают, иначе красный
+   кант спорил бы с нейтральной серединой. */
+.dashboard-page .growth-kicker {
+    margin: 0 0 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+.dashboard-page .growth-group {
+    margin-top: 1.25rem;
+}
+.dashboard-page .growth-group-title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-heading);
+}
+.dashboard-page .growth-group-lead {
+    margin: 0.3rem 0 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--color-muted);
+}
+/* Список внутри группы начинается сразу под заголовком: отступ сверху даёт
+   сама группа, второй сдвигал бы первую строку в пустоту. */
+.dashboard-page .growth .growth-group .readiness-list {
+    margin-top: 0.5rem;
+}
+
+/* Пункты группы 2 — не проблема и не предупреждение: записаться можно. Поэтому
+   они тише строк готовности, но текст остаётся читаемым. */
+.dashboard-page .growth-row .readiness-text {
+    color: var(--color-body);
+}
+
+/* «Сделано: N» и «Здесь всё сделано» — итог, а не дело. Строка тихая
+   намеренно: она отвечает на вопрос «а это вы видите?», и больше от неё
+   ничего не нужно. */
+.dashboard-page .growth-done .readiness-text {
+    color: var(--color-muted);
+    font-size: 0.85rem;
+}
+
+/* Группа 3. Галочек в ней нет, поэтому фраза слева, название раздела —
+   ссылкой справа, как действие в остальных строках: одна грамматика на весь
+   блок. */
+.dashboard-page .growth-next .readiness-text {
+    color: var(--color-body);
+}
+
+/* На узком экране подпись действия перестаёт быть «справа»: при flex-wrap она
+   уезжает на вторую строку, и без этого прижималась к левому краю вплотную к
+   тексту. Горизонтальной прокрутки у блока нет ни при какой длине строки —
+   переносится и текст, и подпись. */
+@media (max-width: 480px) {
+    .dashboard-page .growth .readiness-row {
+        gap: 0.35rem 1rem;
+    }
+    .dashboard-page .growth .readiness-action {
+        white-space: normal;
+    }
+}
+
 /* ===== Ссылка и QR для записи (components/booking_link.py) ===== */
 .dashboard-page .booking-link {
     background: var(--color-surface);

@@ -39,14 +39,54 @@ def _tab_url(salon_id: int, target: str) -> str:
     return f"/business/dashboard?salon_id={salon_id}&tab={target}"
 
 
-def _render_readiness(salon, readiness, solo: bool) -> str:
-    """«Можно ли к вам записаться» — вердикт и список того, что мешает.
+def _action_html(salon_id: int, action: str, target: str) -> str:
+    """Подпись действия ссылкой в нужный раздел. Без адреса подписи тоже нет:
+    кнопка, которая никуда не ведёт, хуже её отсутствия."""
+    if not target or not action:
+        return ""
+    return (
+        f'<a class="readiness-action" href="{_tab_url(salon_id, target)}">'
+        f'{action} {ICON_ARROW_RIGHT}</a>'
+    )
 
-    Условия считает app/services/booking_readiness.py, здесь только показ:
-    иначе правила разъехались бы с кодом записи, из которого они выписаны.
-    Пользовательских данных в строках нет (тексты — литералы сервиса), поэтому
-    экранировать нечего; если в строку когда-нибудь попадёт причина отказа
-    модерации или имя салона — её придётся пропустить через e().
+
+def _row(text: str, action: str = "", css: str = "") -> str:
+    return (
+        f'<li class="readiness-row {css}">'
+        f'<span class="readiness-text">{text}</span>{action}</li>'
+    )
+
+
+def _group(title: str, lead: str, rows: str, css: str = "") -> str:
+    if not rows:
+        return ""
+    lead_html = f'<p class="growth-group-lead">{lead}</p>' if lead else ""
+    return f"""
+        <div class="growth-group {css}">
+            <h3 class="growth-group-title">{title}</h3>
+            {lead_html}
+            <ul class="readiness-list">{rows}</ul>
+        </div>"""
+
+
+def _render_path(salon, readiness, checklist, next_links, solo: bool) -> str:
+    """«Путь к первому клиенту» — один блок на три группы (решение 0010).
+
+    До захода 6 здесь было два блока: «Можно ли к вам записаться» и текстовый
+    гайд в «Инструкции». Списки у них пересекались, и через месяц правок они
+    начали говорить об одном разными словами — та же болезнь, от которой лечили
+    заходы 3 и 5.
+
+    Вердикт сверху — ТОТ ЖЕ, что был у блока готовности: те же слова, тот же
+    класс состояния и, значит, тот же цвет (решение 0010, п. 1). Растворять
+    «записаться нельзя» в бодром «выполнено 4 из 11» нельзя: это единственная
+    строка в панели, из которой человек узнаёт, что заявок не будет.
+
+    Что считается — booking_readiness (группа 1) и growth_checklist (группа 2);
+    тексты — panel_guide. Здесь только показ, и пользовательских данных в
+    строках нет (все тексты — литералы реестра), поэтому экранировать нечего:
+    если в строку когда-нибудь попадёт имя салона или причина отказа модерации,
+    её придётся пропустить через e().
     """
     who = "к вам" if solo else "в ваш салон"
     if not readiness.issues:
@@ -63,27 +103,62 @@ def _render_readiness(salon, readiness, solo: bool) -> str:
         verdict = f"Записаться {who} сейчас нельзя"
         sub = "Пока это не исправлено, заявок не будет — даже по ссылке."
 
-    rows = ""
-    for issue in readiness.issues:
-        action = (
-            f'<a class="readiness-action" href="{_tab_url(salon.id, issue.target)}">'
-            f'{issue.action} {ICON_ARROW_RIGHT}</a>'
-        ) if issue.target else ""
-        rows += (
-            f'<li class="readiness-row readiness-row-{"bad" if issue.blocking else "warn"}">'
-            f'<span class="readiness-text">{issue.text}</span>{action}</li>'
-        )
-    rows_html = f'<ul class="readiness-list">{rows}</ul>' if rows else ""
-    sub_html = f'<p class="readiness-sub">{sub}</p>' if sub else ""
+    groups = dict(
+        (key, (title, lead)) for key, title, lead in panel_guide.check_groups()
+    )
 
+    # ── Группа 1: то, без чего записаться нельзя (booking_readiness как есть) ──
+    rows = "".join(
+        _row(
+            issue.text,
+            _action_html(salon.id, issue.action, issue.target),
+            f'readiness-row-{"bad" if issue.blocking else "warn"}',
+        )
+        for issue in readiness.issues
+    )
+    if not rows:
+        # Группа не исчезает: исчезающий заголовок дёргал бы разметку при
+        # каждом исправлении, а пустой — обещал бы содержимое, которого нет.
+        rows = _row(panel_guide.CHECK_VISIBLE_CLEAR, css="growth-done")
+    title, lead = groups[panel_guide.CHECK_GROUP_VISIBLE]
+    html = _group(title, lead, rows)
+
+    # ── Группа 2: то, из-за чего выбирают вас ──
+    if checklist is not None:
+        rows = "".join(
+            _row(item.text, _action_html(salon.id, item.action, item.target),
+                 "growth-row")
+            for item in checklist.pending
+        )
+        # Выполненные схлопываются в одну строку (решение 0010, п. 5):
+        # шесть галочек подряд — это обои, а не список дел.
+        if checklist.done_count:
+            rows += _row(
+                f"{panel_guide.CHECK_DONE_PREFIX}: {checklist.done_count}",
+                css="growth-done",
+            )
+        title, lead = groups[panel_guide.CHECK_GROUP_CHOSEN]
+        html += _group(title, lead, rows)
+
+    # ── Группа 3: появляется, только когда в первых двух дел не осталось ──
+    if next_links:
+        rows = "".join(
+            _row(phrase, _action_html(salon.id, label, key), "growth-next")
+            for key, label, phrase in next_links
+        )
+        title, lead = groups[panel_guide.CHECK_GROUP_NEXT]
+        html += _group(title, lead, rows, "growth-group-next")
+
+    sub_html = f'<p class="readiness-sub">{sub}</p>' if sub else ""
     return f"""
-    <section class="readiness readiness-{state}" aria-label="Готовность к записи">
+    <section class="readiness readiness-{state} growth"
+             aria-label="{panel_guide.CHECKLIST_TITLE}">
+        <p class="growth-kicker">{panel_guide.CHECKLIST_TITLE}</p>
         <p class="readiness-verdict"><span class="readiness-mark">{mark}</span>{verdict}</p>
         {sub_html}
-        {rows_html}
+        {html}
     </section>
     """
-
 
 def _render_models_invite(salon_id: int) -> str:
     """Приглашение в раздел «Модели» — его за 25 дней открыли один раз, и это
@@ -134,6 +209,8 @@ async def render_overview_tab(
     *,
     solo: bool = False,
     readiness=None,
+    checklist=None,
+    next_links=(),
     show_booking_link: bool = False,
     show_models_invite: bool = False,
     has_any_booking: bool = True,
@@ -143,9 +220,16 @@ async def render_overview_tab(
 
     Собирается из блоков, и порядок у режимов разный (решение 0007, п. 6):
 
-      соло: можно ли записаться → ссылка и QR → сегодня → «Модели» → выручка;
-      команда: можно ли записаться (только если есть проблемы) → привычные
-      счётчики, график и «сегодня» → ссылка и QR.
+      соло: путь к первому клиенту → ссылка и QR → сегодня → «Модели» →
+      выручка;
+      команда: привычные счётчики, график и «сегодня» → путь к первому клиенту
+      → ссылка и QR.
+
+    Место блока у режимов разное намеренно (решение 0010, «место блока»): в
+    соло первый экран занимать больше нечем, а салону с командой есть чем —
+    поэтому там путь встаёт НИЖЕ счётчиков и графика. Исчезать блоку нельзя ни
+    в одном состоянии: он успел стать местом, куда человек смотрит, и пустота
+    на его месте читается как поломка.
 
     Соло-мастеру деньги показываем, только когда записи вообще существуют:
     пустой график и четыре нуля — не информация, а шум на первом экране.
@@ -157,7 +241,14 @@ async def render_overview_tab(
 
       solo             — режим салона «работаю один» (panel_sections.is_solo);
       readiness        — Readiness из services/booking_readiness.py или None,
-                         если блок показывать не нужно;
+                         если блок «путь к первому клиенту» показывать не нужно
+                         (наёмный мастер, участник без manage_salon);
+      checklist        — Checklist из services/growth_checklist.py: группа 2
+                         «чтобы выбирали вас». None — группы не будет: у
+                         удалённого профиля «обложка не выбрана» это шум;
+      next_links       — группа 3 «куда смотреть дальше», готовым списком
+                         (ключ, название, фраза). Пустой — группы нет: она
+                         появляется, только когда дел не осталось;
       show_booking_link — рисовать ли ссылку и QR;
       show_models_invite — приглашать ли в «Модели». Раздел владелец может
                          выключить в самой панели, и звать в выключенный
@@ -419,12 +510,14 @@ async def render_overview_tab(
     """
 
     # --- 4. Собираем всё ---
-    # Блок готовности: соло-мастеру отвечаем всегда (он за этим и зашёл —
-    # «можно ли ко мне записаться»), команде — только когда есть что исправлять:
-    # у салона с командой первый экран и так занят делом.
-    readiness_html = ""
-    if readiness is not None and (solo or readiness.issues):
-        readiness_html = _render_readiness(salon, readiness, solo)
+    # Путь к первому клиенту показываем всегда, в обоих режимах и во всех
+    # состояниях (решение 0010, п. 4). Прежнее «команде — только когда есть что
+    # исправлять» больше не действует: блок перестал быть предупреждением и
+    # стал местом, где написано, что делать дальше. Нет его только у того, кому
+    # нечего в нём нажать, — см. readiness=None.
+    path_html = ""
+    if readiness is not None:
+        path_html = _render_path(salon, readiness, checklist, next_links, solo)
 
     booking_link_html = ""
     if show_booking_link:
@@ -447,7 +540,7 @@ async def render_overview_tab(
         {revenue_html}
         """ if has_any_booking else ""
         body = f"""
-        {readiness_html}
+        {path_html}
         {booking_link_html}
         {today_html}
         {_render_models_invite(salon.id) if show_models_invite else ""}
@@ -455,12 +548,12 @@ async def render_overview_tab(
         """
     else:
         body = f"""
-        {readiness_html}
         {stats_cards}
         <div class="overview-grid-2-1">
             {revenue_html}
             {today_html}
         </div>
+        {path_html}
         {booking_link_html}
         {_render_models_invite(salon.id) if show_models_invite else ""}
         """

@@ -3,10 +3,12 @@ from app.web.components.escaping import e
 import re
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import func, or_, select
 from datetime import datetime, timedelta, timezone
 from app.services.subscription import has_access
-from app.services import booking_readiness, panel_guide, panel_sections, panel_tour
+from app.services import (
+    booking_readiness, growth_checklist, panel_guide, panel_sections, panel_tour,
+)
 from app.models.models import (
     Salon, Master, Service, Promotion, Booking, Review, BookingStatus,
     SalonMember, User as UserModel, SalonModerationStatus, SalonSubscriptionStatus,
@@ -103,20 +105,33 @@ async def render_dashboard_tab(
 ) -> str:
     """Рендер ОДНОЙ вкладки бизнес-панели.
 
-    visible_keys и tour_on нужны одной вкладке — «Инструкции»: справочник
+    visible_keys и tour_on нужны двум вкладкам. «Инструкции»: справочник
     описывает ТЕ разделы, которые у человека есть, и ведёт в них живыми
-    ссылками (решение 0009, п. 7). Список передаётся готовым, тот же, по
-    которому строится меню: иначе у справочника и у панели разошлось бы
-    представление о том, что человеку доступно.
+    ссылками (решение 0009, п. 7). «Обзору»: группа 3 пути к первому клиенту
+    зовёт в «Записи», «Аналитику», «Отзывы» и «Клиентов», а раздел, которого у
+    человека нет, ссылкой становиться не должен. Список передаётся готовым, тот
+    же, по которому строится меню: иначе у справочника, у панели и у пути
+    разошлось бы представление о том, что человеку доступно.
     """
     qp = query_params
 
     if tab_name == "overview":
+        # Услуги, которые клиент МОЖЕТ выбрать: активные и не модельные, тем же
+        # набором условий, что отбирает гостевая страница записи (у услуги
+        # бывает и master_id, и назначение — в форме заполняется и то, и то, но
+        # исторические строки бывают только с master_id). Прежний запрос считал
+        # все услуги по одному назначению: число никуда не выводилось, а теперь
+        # по нему живёт пункт «услуг нет» — и он не имеет права соврать.
         services_count = 0
         if master_ids:
             services_count = (await db.execute(
                 select(func.count(Service.id)).where(
-                    Service.assigned_masters.any(Master.id.in_(master_ids))
+                    or_(
+                        Service.master_id.in_(master_ids),
+                        Service.assigned_masters.any(Master.id.in_(master_ids)),
+                    ),
+                    Service.is_active == True,  # noqa: E712
+                    Service.is_model_practice == False,  # noqa: E712
                 )
             )).scalar() or 0
         promotions = (await db.execute(
@@ -136,13 +151,42 @@ async def render_dashboard_tab(
         # каждое действие в блоке ведёт в раздел, который иначе ему не откроется,
         # — получился бы список ссылок, возвращающих человека обратно в «Обзор».
         can_manage = bool(perms.get("manage_salon"))
+        # Путь к первому клиенту: группу 1 считает booking_readiness, группу 2
+        # — growth_checklist. Второй получает на руки всё, что панель уже
+        # посчитала (услуги, акции, причины готовности, «записи вообще есть»), и
+        # добавляет не больше двух своих запросов: «Обзор» — самый посещаемый
+        # раздел панели, и его однажды разгоняли с девяти секунд до двух с
+        # половиной.
+        readiness = (
+            await booking_readiness.collect(db, salon, masters, solo=solo)
+            if can_manage else None
+        )
+        checklist = None
+        next_links = ()
+        if readiness is not None:
+            # Удалённому профилю группа 2 не показывается вовсе: «обложка не
+            # выбрана» салону, которого публично нет, — ровно тот шум, от
+            # которого booking_readiness закрывается одной строкой.
+            deleted = any(i.key == "salon_deleted" for i in readiness.issues)
+            if not deleted:
+                checklist = await growth_checklist.collect(
+                    db, salon, solo=solo, master_ids=master_ids,
+                    services_total=services_count, promotions=promotions,
+                    readiness=readiness, has_any_booking=has_any_booking,
+                )
+                # Группа 3 — только когда в первых двух дел не осталось
+                # (решение 0010, п. 4). Warnings тоже дело: закрытый путь
+                # записи из двух — не «всё готово».
+                if not readiness.issues and checklist.all_done:
+                    next_links = growth_checklist.next_links(
+                        salon, solo=solo, visible_keys=visible_keys,
+                    )
         return await render_overview_tab(
             db, salon, masters, master_ids, services_count, promotions, **overview_data,
             solo=solo,
-            readiness=(
-                await booking_readiness.collect(db, salon, masters, solo=solo)
-                if can_manage else None
-            ),
+            readiness=readiness,
+            checklist=checklist,
+            next_links=next_links,
             show_booking_link=can_manage,
             # Та же видимость, что у вкладки: раздел включён у салона И право
             # есть (см. _perm_of ниже — у «Моделей» это manage_masters).

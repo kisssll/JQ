@@ -32,9 +32,31 @@ from app.models.models import (
     SalonPanelMode, SalonRole, User, UserRole,
 )
 from app.services import panel_guide, panel_sections, panel_tour
+from app.web.pages.business.tabs.instructions import render_instructions_tab
 
 
 _MODES = (SalonPanelMode.SOLO, SalonPanelMode.TEAM)
+
+
+def _checklist_texts(mode):
+    """Все тексты живого блока «Путь к первому клиенту» одним списком.
+
+    Нужен защитам ниже: пункты, их подписи действий, заголовки и фразы групп,
+    строки группы 3 и врезка справочника. Без такого списка новый пункт попал
+    бы в панель, не пройдя ни одной проверки.
+    """
+    solo = mode is SalonPanelMode.SOLO
+    out = [panel_guide.CHECKLIST_TITLE, panel_guide.CHECK_VISIBLE_CLEAR,
+           panel_guide.CHECK_PROMO_ACTION, panel_guide.check_promo_text(solo=solo)]
+    items = list(panel_guide.check_items(solo=solo))
+    items.append(panel_guide.check_review_item(solo=solo))
+    for _key, text, action, _role in items:
+        out += [text, action]
+    for _key, title, lead in panel_guide.check_groups():
+        out += [title, lead]
+    for _key, phrase in panel_guide.check_next(solo=solo):
+        out.append(phrase)
+    return out
 
 
 def _keys(mode, visible=None):
@@ -172,32 +194,26 @@ def test_the_manual_does_not_repeat_the_tour_word_for_word():
             assert line.strip() not in section.body, section.key
 
 
-def test_start_steps_follow_the_same_path_as_the_tour():
-    """«С чего начать» — тот же порядок, что у акта «чтобы вас было видно»."""
+def test_the_manual_sends_the_path_to_the_overview_instead_of_printing_it():
+    """Шагов «С чего начать» текстом здесь больше нет (решение 0010, п. 6).
+
+    Прежний гайд перечислял путь словами и не знал, что половина уже сделана, —
+    а живой блок в «Обзоре» знает. Два источника правды об одном и том же
+    расходятся при первой правке, поэтому в справочнике осталась врезка.
+
+    Якорь прежний: на #manual-start уже могли дать ссылку в поддержке.
+    """
     for mode in _MODES:
-        steps = panel_guide.start_steps(mode)
-        settings = panel_sections.settings_key(mode)
-        named = []
-        for _title, keys, _text in steps:
-            if not keys or keys == panel_guide.SAME_PLACE:
-                continue
-            named += [settings if k == "settings" else k for k in keys]
-        tour_path = [
-            k for k in panel_tour._ACT_SECTIONS[panel_tour.ACT_VISIBLE]
-            if k in panel_sections.available_keys(mode)
-        ]
-        assert [k for k in named if k in tour_path] == tour_path, mode
-
-
-@pytest.mark.parametrize("mode", _MODES)
-def test_start_steps_never_name_a_section_the_mode_has_not_got(mode):
-    available = panel_sections.available_keys(mode)
-    for _title, keys, _text in panel_guide.start_steps(mode):
-        if not keys or keys == panel_guide.SAME_PLACE:
-            continue
-        for key in keys:
-            slug = panel_sections.settings_key(mode) if key == "settings" else key
-            assert slug in available, (mode, slug)
+        html = render_instructions_tab(salon_id=5, mode=mode)
+        assert 'id="manual-start"' in html, mode
+        assert panel_guide.CHECKLIST_TITLE in html, mode
+        assert panel_guide.CHECK_PROMO_ACTION in html, mode
+        assert "tab=overview" in html, mode
+        # Прежний гайд ушёл целиком, а не остался рядом с врезкой.
+        assert "С чего начать" not in html, mode
+        assert "instructions-guide-steps" not in html, mode
+        assert not hasattr(panel_guide, "start_steps"), \
+            "реестр шагов остался — значит есть кому разойтись с блоком"
 
 
 # ═══════════════ 4. Что текст себе не позволяет ═══════════════
@@ -243,11 +259,8 @@ def test_no_section_promises_a_deadline_for_the_moderation():
     everything = " ".join(
         panel_guide.manual_text(k, solo=s)[0] + panel_guide.manual_text(k, solo=s)[1]
         for k in panel_guide.MANUAL_KEYS for s in (False, True)
-    ) + " ".join(
-        t for _h, _k, t in
-        tuple(panel_guide.start_steps(SalonPanelMode.SOLO))
-        + tuple(panel_guide.start_steps(SalonPanelMode.TEAM))
-    )
+    ) + " ".join(_checklist_texts(SalonPanelMode.SOLO)
+                 + _checklist_texts(SalonPanelMode.TEAM))
     for banned in ("рабочих дня", "рабочих дней", "за сутки", "в течение дня"):
         assert banned not in everything.lower(), banned
 
@@ -263,7 +276,9 @@ def test_solo_texts_do_not_call_the_person_a_salon():
             continue
         why, body = panel_guide.manual_text(key, solo=True)
         assert "алон" not in (why + body).lower(), key
-    for _title, _keys, text in panel_guide.start_steps(SalonPanelMode.SOLO):
+    # Тексты живого блока — такой же текст панели (решение 0010, п. 8): защита
+    # обязана покрывать и его, иначе новый пункт соврал бы первым.
+    for text in _checklist_texts(SalonPanelMode.SOLO):
         assert "алон" not in text.lower(), text[:60]
     for _slug, title, lead, _keys in panel_guide._GROUPS:
         assert "алон" not in (title + lead).lower(), title

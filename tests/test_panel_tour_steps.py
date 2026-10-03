@@ -411,8 +411,17 @@ def test_no_forbidden_promises_in_the_manual_texts():
             for word in FORBIDDEN_PROMISES:
                 assert word not in text, f"{key} (solo={solo}): «{word}»"
 
-    for mode in (SalonPanelMode.SOLO, SalonPanelMode.TEAM):
-        for title, _keys, step_text in panel_guide.start_steps(mode):
-            text = (title + step_text).lower()
+    # Тексты живого блока «Путь к первому клиенту» (решение 0010, п. 8) — под
+    # той же защитой: они говорят про каталог и поиск, то есть ровно про то, где
+    # обещание объёма клиентов и появляется.
+    for solo in (False, True):
+        items = list(panel_guide.check_items(solo=solo))
+        items.append(panel_guide.check_review_item(solo=solo))
+        texts = [t for _k, t, a, _r in items for t in (t, a)]
+        texts += [t for _k, title, lead in panel_guide.check_groups()
+                  for t in (title, lead)]
+        texts += [p for _k, p in panel_guide.check_next(solo=solo)]
+        texts.append(panel_guide.check_promo_text(solo=solo))
+        for text in texts:
             for word in FORBIDDEN_PROMISES:
-                assert word not in text, f"«{title}»: «{word}»"
+                assert word not in text.lower(), f"«{text[:40]}»: «{word}»"
