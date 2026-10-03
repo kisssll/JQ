@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "choices.js": "^11.2.3",
-    "flatpickr": "^4.6.13"
+    "flatpickr": "^4.6.13",
+    "motion": "^14.0.0"
   }
 }

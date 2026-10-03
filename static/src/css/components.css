@@ -22,7 +22,10 @@
        читалась. Уводим во --color-accent-hover: тот же бренд-градиент, что у
        промо-плашек, но подпись видна. */
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: white;
+    /* Было color: white. В тёмной теме розовый светлеет (чтобы не слепить на
+       чёрном), и белая подпись давала на нём 2,64:1 — главная кнопка сервиса
+       не читалась. Токен подставляет белый в светлой теме и тёмный в тёмной. */
+    color: var(--color-btn-text);
     padding: 10px 24px;
     border-radius: 9999px;
     text-decoration: none;
@@ -280,7 +283,6 @@
 }
 
 .sidebar-logo {
-    font-family: var(--font-heading);
     font-size: 1.25rem;
     font-weight: 800;
     color: var(--color-primary);
@@ -523,11 +525,12 @@
     color: var(--color-heading);
 }
 
-/* Кнопка «Войти» (неавторизованный пользователь) — фиолетовая заливка,
-   белый жирный текст, а не наоборот, как раньше (белый фон, сиреневый текст). */
+/* Кнопка «Войти» (неавторизованный пользователь) — заливка акцентом,
+   контрастная подпись, а не наоборот, как раньше (белый фон, сиреневый текст).
+   Подпись через токен: в тёмной теме заливка светлая и белым по ней не видно. */
 .sidebar-user-login {
     background: var(--color-primary);
-    color: #ffffff;
+    color: var(--color-btn-text);
     font-weight: 700;
     justify-content: center;
 }
@@ -535,7 +538,7 @@
 .sidebar-user-login:hover::before,
 .sidebar-user-login:hover::after {
     background: var(--color-primary);
-    color: #ffffff;
+    color: var(--color-btn-text);
     opacity: 0.92;
 }
 
@@ -561,7 +564,9 @@
 .sidebar-user .sidebar-avatar-placeholder {
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--color-primary);
+    /* Не --color-primary: подложка кружка — --color-accent-light, и акцент
+       на ней даёт 4,08:1. Затемнённый вариант того же цвета — 5,65:1. */
+    color: var(--color-accent-hover);
 }
 
 .sidebar-user .sidebar-user-info {
@@ -608,7 +613,13 @@
 
 /* components/footer.py */
 .comp-footer {
-    background: linear-gradient(135deg, #33232a 0%, #3d2530 60%, #a8677e 100%);
+    /* Был розовый градиент во всю ширину (#33232a → #a8677e). Два повода его
+       убрать. Первый — docs/design.md: розовый у нас акцент, а не атмосфера,
+       а подвал стоит на каждой странице сервиса. Второй — контраст: на
+       светлом краю градиента даже чистый белый давал 4,28:1, то есть подпись
+       в подвале не проходила по минимуму нигде, какой цвет ей ни задай.
+       Плоская глубокая поверхность решает оба: белый на ней 18,5:1. */
+    background: var(--color-dark);
     color: var(--color-on-dark-muted);
     position: relative;
     overflow: hidden;
@@ -629,7 +640,7 @@
     font-family: var(--font-heading);
     max-width: 64rem;
     font-size: 3.5rem; 
-    font-weight: 700;
+    font-weight: 400;
     line-height: 1.1;
     color: var(--color-on-dark);
     margin-bottom: 2.5rem;
@@ -640,7 +651,7 @@
 }
 
 .footer-banner-text span {
-    color: rgba(255, 255, 255, 0.45);
+    color: var(--color-on-dark-muted);
 }
 
 .footer-banner-text .dot {
@@ -745,7 +756,7 @@
 .footer-support-icon {
     display: flex;
     flex-shrink: 0;
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--color-on-dark-muted);
 }
 
 .footer-support-icon svg {
@@ -768,7 +779,7 @@
 
 .footer-support-addr {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.55);
+    color: var(--color-on-dark-muted);
     /* Длинное имя бота не должно расталкивать плитку. */
     overflow: hidden;
     text-overflow: ellipsis;
@@ -778,7 +789,7 @@
 .footer-support-hint {
     margin: 0.75rem 0 0;
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.45);
+    color: var(--color-on-dark-muted);
 }
 
 @media (max-width: 480px) {
@@ -840,7 +851,6 @@
 }
 
 .footer-logo {
-    font-family: var(--font-heading); 
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--color-on-dark);
@@ -855,17 +865,16 @@
     font-family: var(--font-body); 
     font-size: 0.875rem;
     line-height: 1.625;
-    color: rgba(255, 255, 255, 0.55);
+    color: var(--color-on-dark-muted);
     max-width: 280px;
 }
 
 .footer-col-title {
-    font-family: var(--font-heading);
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--color-on-dark-muted);
     margin-bottom: 1.25rem;
 }
 
@@ -894,7 +903,7 @@
 .footer-meta {
     font-family: var(--font-body);
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--color-on-dark-muted);
 }
 
 .footer-meta-flex {

@@ -1,0 +1,402 @@
+/* static/src/css/guest-booking.css — страница записи /book/{id} и управление
+   бронью /guest-booking/{token}.
+
+   Раньше эти стили лежали инлайновым <style> внутри guest_booking.py: они не
+   минифицировались, не кэшировались отдельно и приезжали в каждом ответе.
+   Здесь они живут в бандле вместе со всем остальным.
+
+   Собственных «кнопок», «полей» и «карточек» на этой странице больше нет —
+   их даёт слой ui.css. Тут только то, что принадлежит именно этому экрану:
+   шапка, шаги, сетка свободных окон, итог.
+
+   Это показательный экран подложки: на нём проверяется, что набора хватает,
+   а не что он красив на бумаге. Поведение страницы прежнее — те же шаги, те
+   же проверки, те же тексты; изменилась только форма. */
+
+.gb-body {
+    background: var(--color-background);
+    color: var(--color-body);
+    min-height: 100vh;
+    /* dvh там, где он есть: на телефоне адресная строка то появляется, то
+       уходит, и 100vh оставляет под страницей пустую полосу. */
+    min-height: 100dvh;
+}
+
+/* ---------- Шапка ----------
+   Тонкая линия вместо рамки и тени: шапка не должна читаться как ещё одна
+   карточка поверх страницы. */
+.gb-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-16);
+    padding: var(--space-12) var(--space-16);
+    /* safe-area: на айфоне с вырезом шапка иначе уезжает под него. */
+    padding-left: max(var(--space-16), env(safe-area-inset-left));
+    padding-right: max(var(--space-16), env(safe-area-inset-right));
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.gb-header a#header-logo {
+    font-family: var(--font-heading);
+    font-size: var(--text-22);
+    font-weight: 400;
+    letter-spacing: var(--tracking-title);
+    text-decoration: none;
+    color: var(--color-heading);
+}
+
+.gb-header .gb-login {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-h);
+    padding: 0 var(--space-8);
+    font-size: var(--text-14);
+    color: var(--color-muted);
+    text-decoration: none;
+}
+
+@media (hover: hover) {
+    .gb-header .gb-login:hover { color: var(--color-heading); }
+}
+
+/* ---------- Полотно ---------- */
+.gb-wrap {
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: var(--space-32) var(--space-16) var(--space-64);
+    padding-bottom: max(var(--space-64), env(safe-area-inset-bottom));
+}
+
+.gb-intro {
+    margin-bottom: var(--space-32);
+}
+
+.gb-intro .r-display {
+    /* Длинное название салона не должно оставлять в заголовке висячее слово. */
+    text-wrap: balance;
+}
+
+.gb-intro p {
+    margin: var(--space-12) 0 0;
+    max-width: var(--measure);
+    color: var(--color-muted);
+    font-size: var(--text-16);
+    line-height: var(--leading-text);
+}
+
+/* ---------- Шаги ----------
+   Нумерация остаётся, потому что здесь порядок несёт смысл: человеку надо
+   знать, сколько ещё осталось до «Записаться». Но несёт её полоса и подпись
+   «Шаг 2 из 4», а не кружок с цифрой перед каждым заголовком. */
+.gb-progress {
+    display: flex;
+    gap: var(--space-4);
+    margin-bottom: var(--space-12);
+}
+
+.gb-progress span {
+    flex: 1;
+    height: 3px;
+    border-radius: var(--radius-pill);
+    background: var(--color-border);
+    transition: background-color var(--duration-2) var(--ease-out);
+}
+
+.gb-progress span.is-done {
+    background: var(--color-accent);
+}
+
+.gb-step-count {
+    margin: 0 0 var(--space-4);
+    color: var(--color-muted);
+    font-size: var(--text-13);
+    font-weight: 600;
+}
+
+.gb-step h2 {
+    margin: 0 0 var(--space-24);
+    font-size: var(--text-22);
+    font-weight: 600;
+    line-height: var(--leading-title);
+    letter-spacing: var(--tracking-title);
+    color: var(--color-heading);
+}
+
+.gb-step[hidden] {
+    display: none;
+}
+
+/* Шаг назад — именно ссылка-кнопка, а не стрелка-иконка: подпись говорит,
+   куда вернёшься. Цель 44px даже при мелком кегле. */
+.gb-back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: var(--control-h);
+    margin-bottom: var(--space-8);
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-muted);
+    font-family: var(--font-body);
+    font-size: var(--text-14);
+    cursor: pointer;
+}
+
+@media (hover: hover) {
+    .gb-back:hover { color: var(--color-heading); }
+}
+
+/* ---------- Список выбора ---------- */
+.gb-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+/* Крупная буква вместо фотографии. Фото у мастеров почти нет, и заглушка
+   должна выглядеть намеренной, а не сломанной: спокойный круг и инициал
+   антиквой — это решение, а не прочерк. */
+.gb-ava {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface-alt);
+    color: var(--color-accent-hover);
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-size: var(--text-18);
+    line-height: 1;
+}
+
+.gb-card-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.gb-card-body strong {
+    display: block;
+    font-size: var(--text-16);
+    font-weight: 600;
+    color: var(--color-heading);
+}
+
+.gb-card-body small {
+    display: block;
+    margin-top: 2px;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+.gb-card-price {
+    flex-shrink: 0;
+    font-size: var(--text-16);
+    font-weight: 600;
+    color: var(--color-heading);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.gb-card-photos {
+    display: flex;
+    gap: var(--space-4);
+    flex-shrink: 0;
+}
+
+.gb-card-photos img {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: var(--radius-8);
+    cursor: zoom-in;
+}
+
+/* ---------- Дата и свободные окна ---------- */
+.gb-date {
+    margin-bottom: var(--space-16);
+    /* input[type=date] в Safari/iOS имеет собственную минимальную ширину и
+       не сжимается по width:100% — поле «съезжает» за пределы колонки.
+       appearance:none снимает нативный размер, ::-webkit-date-and-time-value
+       прижимает значение влево (иначе оно центрируется и прыгает). */
+    max-width: 100%;
+}
+
+.gb-date::-webkit-date-and-time-value { text-align: left; margin: 0; }
+.gb-date::-webkit-calendar-picker-indicator { cursor: pointer; }
+
+.gb-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: var(--space-8);
+}
+
+/* Сообщение «Нет свободных окон» кладётся в ту же сетку, что и слоты, и
+   становилось ячейкой в 84px — текст сыпался по слову в строку. */
+.gb-slots > p {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-14);
+}
+
+.gb-slot {
+    min-height: var(--control-h);
+    padding: 0 var(--space-8);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-8);
+    background: var(--color-surface);
+    color: var(--color-heading);
+    font-family: var(--font-body);
+    font-size: var(--text-16);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition:
+        border-color var(--duration-1) var(--ease-out),
+        background-color var(--duration-1) var(--ease-out),
+        transform var(--duration-1) var(--ease-out);
+}
+
+.gb-slot:active { transform: scale(0.96); }
+
+@media (hover: hover) {
+    .gb-slot:hover {
+        border-color: var(--color-accent);
+        background: var(--color-surface-alt);
+    }
+}
+
+/* ---------- Итог перед отправкой ----------
+   Не карточка: внутри шага, у которого уже есть своя рамка у полей, ещё одна
+   рамка дала бы вложенную карточку. Достаточно подложки и линии слева? Нет —
+   цветная полоса слева тоже из списка запрещённого. Просто спокойная заливка. */
+.gb-summary {
+    margin-bottom: var(--space-24);
+    padding: var(--space-12) var(--space-16);
+    border-radius: var(--radius-8);
+    background: var(--color-surface-alt);
+    color: var(--color-heading);
+    font-size: var(--text-14);
+    line-height: var(--leading-text);
+}
+
+/* Место под ошибку зарезервировано, иначе её появление уводит кнопку
+   «Записаться» из-под пальца. */
+.gb-error {
+    display: block;
+    min-height: 1.2em;
+    margin: 0 0 var(--space-12);
+    color: var(--color-danger);
+    font-size: var(--text-14);
+    line-height: 1.4;
+}
+
+.gb-consent {
+    margin-bottom: var(--space-16);
+}
+
+/* ---------- Готово ---------- */
+.gb-done {
+    text-align: center;
+    padding: var(--space-32) 0;
+}
+
+.gb-done-check {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto var(--space-24);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-success-light);
+    color: var(--color-success);
+}
+
+.gb-done-check svg { width: 28px; height: 28px; }
+
+.gb-manage-link {
+    display: inline-block;
+    margin-top: var(--space-16);
+    padding: var(--space-12) var(--space-16);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-8);
+    word-break: break-all;
+    font-size: var(--text-13);
+    color: var(--color-accent-hover);
+    text-decoration: none;
+}
+
+/* ---------- Управление бронью ---------- */
+.gb-manage-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-16);
+    padding: var(--space-12) 0;
+    border-top: 1px solid var(--color-border);
+    font-size: var(--text-14);
+}
+
+.gb-manage-row dt {
+    color: var(--color-muted);
+}
+
+.gb-manage-row dd {
+    margin: 0;
+    color: var(--color-heading);
+    font-weight: 600;
+    text-align: right;
+}
+
+.gb-foot {
+    margin-top: var(--space-32);
+    text-align: center;
+    font-size: var(--text-14);
+}
+
+.gb-foot a {
+    color: var(--color-muted);
+    text-decoration: none;
+}
+
+@media (hover: hover) {
+    .gb-foot a:hover { color: var(--color-heading); }
+}
+
+.gb-done-text {
+    margin: var(--space-8) auto 0;
+    max-width: 38ch;
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    line-height: var(--leading-text);
+}
+
+.gb-manage-who {
+    display: flex;
+    align-items: center;
+    gap: var(--space-16);
+}
+
+.gb-manage-list {
+    margin: var(--space-16) 0 0;
+}
+
+.gb-manage-act {
+    margin-top: var(--space-24);
+}
+
+.gb-manage-msg {
+    min-height: 1.2em;
+    margin: var(--space-12) 0 0;
+    color: var(--color-body);
+    font-size: var(--text-14);
+}

@@ -12,6 +12,10 @@ RUN npm ci
 
 COPY vite.config.js ./
 COPY static/src ./static/src
+# Шрифты — тоже вход сборки: на них ссылается @font-face в static/src/css,
+# и без них Vite не найдёт файл по url() и оставит путь как есть. В образ
+# попадут копии, которые Vite положит рядом с бандлом в static/dist.
+COPY static/fonts ./static/fonts
 RUN npm run build
 
 # ─────────────────────────────────────────────────────────────

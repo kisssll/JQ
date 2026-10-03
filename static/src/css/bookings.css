@@ -16,7 +16,7 @@
 .bookings-header h1 {
     font-family: var(--font-heading);
     font-size: 2rem;
-    font-weight: 700;
+    font-weight: 400;
     color: var(--color-heading);
     margin-bottom: 0.25rem;
 }
@@ -233,7 +233,7 @@
 }
 .booking-review-edit-btn:hover {
     background: var(--color-primary);
-    color: white;
+    color: var(--color-btn-text);
 }
 
 /* Модальное окно отзыва */
@@ -273,7 +273,6 @@
     color: var(--color-heading);
 }
 .review-modal-box h2 {
-    font-family: var(--font-heading);
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 1.5rem;

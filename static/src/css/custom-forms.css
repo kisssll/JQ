@@ -352,7 +352,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
 .flatpickr-calendar .flatpickr-day.past-day.selected {
     background: var(--color-primary);
-    color: #fff !important;
+    color: var(--color-btn-text) !important;
     border-color: var(--color-primary);
     opacity: 1;
 }
@@ -360,7 +360,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 /* Выбранный и сегодняшний день */
 .flatpickr-calendar .flatpickr-day.selected {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-btn-text);
     border-color: var(--color-primary);
 }
 
@@ -456,6 +456,6 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
 .flatpickr-monthSelect-month.selected {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-btn-text);
     border-color: var(--color-primary);
 }

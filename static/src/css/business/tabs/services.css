@@ -143,7 +143,7 @@
 .services-add-btn {
     padding: 0.6rem 1.2rem;
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: white;
+    color: var(--color-btn-text);
     border: none;
     border-radius: 2rem;
     font-size: 0.875rem;
@@ -386,7 +386,6 @@
 }
 
 .services-modal-box h2 {
-    font-family: var(--font-heading);
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -461,7 +460,7 @@
 
 .services-btn-save {
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: white;
+    color: var(--color-btn-text);
 }
 .services-btn-save:hover {
     transform: scale(1.02);

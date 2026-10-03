@@ -8,6 +8,8 @@
 // confirm() синхронный и возвращает boolean, а диалог здесь асинхронный:
 // на каждой точке вызова нужен await, поэтому функция и называется иначе.
 
+import { enter, exit, sheetIn, move, EASE } from './motion.js';
+
 const TOAST_TIMEOUT = 5000;
 
 // Единая формулировка: в продукте было четыре разных текста про одно и то же
@@ -48,14 +50,20 @@ export function toast(message, kind = 'info') {
     const remove = () => {
         if (removed) return;
         removed = true;
-        el.classList.add('is-leaving');
-        // Уходим по окончании анимации, но не зависаем, если её нет.
-        setTimeout(() => el.remove(), 200);
+        // Снимаем узел по окончании ухода, а не через setTimeout на глазок:
+        // раньше здесь стояло 200 мс против 180 мс анимации, и при любой
+        // задержке кадра тост исчезал рывком, не доиграв.
+        exit(el, { y: 6 }).finished.then(() => el.remove());
     };
     close.addEventListener('click', remove);
 
     el.append(text, close);
     toastHost().appendChild(el);
+    // Пружина, а не выезд по кривой: тост появляется там же, где палец закрыл
+    // предыдущий, и жёсткая кривая на фоне инерции списка читается как рывок.
+    // Если человек закроет тост на середине появления, уход начнётся с текущей
+    // позиции — Motion подхватывает живые значения, движение не дёргается.
+    enter(el, { y: 10 });
     setTimeout(remove, TOAST_TIMEOUT);
     return remove;
 }
@@ -130,10 +138,12 @@ export function confirmDialog(options) {
             if (settled) return;
             settled = true;
             document.removeEventListener('keydown', onKeydown, true);
-            overlay.remove();
             document.body.classList.remove('rumi-dialog-open');
             if (previouslyFocused && previouslyFocused.focus) previouslyFocused.focus();
+            // Ответ отдаём СРАЗУ, а узел снимаем, когда диалог ушёл: вызывающий
+            // код не должен ждать картинку, чтобы начать запрос к серверу.
             resolve(result);
+            move(overlay, { opacity: [1, 0] }, EASE.quick).finished.then(() => overlay.remove());
         }
 
         // Клавиатура: Escape отменяет, Tab не выпускает фокус из диалога.
@@ -166,6 +176,11 @@ export function confirmDialog(options) {
 
         document.body.classList.add('rumi-dialog-open');
         document.body.appendChild(overlay);
+        // Затемнение просто проявляется, карточка приезжает пружиной «лист
+        // снизу» (0.8/0.3): она появляется по решению человека, то есть это
+        // отклик на его палец, а не заставка.
+        move(overlay, { opacity: [0, 1] }, EASE.base);
+        sheetIn(box);
         okBtn.focus();
     });
 }

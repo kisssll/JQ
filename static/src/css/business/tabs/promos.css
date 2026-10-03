@@ -14,7 +14,6 @@
 }
 
 .promos-header h2 {
-    font-family: var(--font-heading);
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -29,7 +28,7 @@
     padding: 0.125rem 0.6rem;
     font-size: 0.7rem;
     font-weight: 700;
-    color: white;
+    color: var(--color-btn-text);
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
 }
 
@@ -147,7 +146,6 @@
 }
 
 .promos-modal-box h2 {
-    font-family: var(--font-heading);
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -252,7 +250,6 @@
 }
 
 .promos-tab .my-salon-card-title {
-    font-family: var(--font-heading);
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -467,7 +464,6 @@
 }
 
 .my-salon-modal-box h2 {
-    font-family: var(--font-heading);
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--color-heading);

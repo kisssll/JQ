@@ -1,4 +1,5 @@
 import { esc } from './escape-html.js';
+import { enter, prefersReducedMotion } from './motion.js';
 // static/src/js/guest-booking.js — запись без регистрации (страница /book/{salon})
 // и управление бронью по токену (/guest-booking/{token}).
 import { confirmDialog } from './ui-feedback.js';
@@ -46,6 +47,7 @@ import { confirmDialog } from './ui-feedback.js';
         cancelBtn.addEventListener('click', async function () {
             if (!await confirmDialog({ title: 'Отменить запись?', message: 'Запись будет отменена, время освободится.', confirmText: 'Отменить запись', cancelText: 'Оставить', danger: true })) return;
             cancelBtn.disabled = true;
+            cancelBtn.classList.add('is-loading');
             const msg = document.getElementById('gb-cancel-msg');
             try {
                 const res = await fetch(`/api/v1/guest/booking/${cancelBtn.dataset.token}/cancel`, { method: 'POST' });
@@ -57,10 +59,12 @@ import { confirmDialog } from './ui-feedback.js';
                     const d = await res.json();
                     msg.textContent = d.detail || 'Не удалось отменить';
                     cancelBtn.disabled = false;
+                    cancelBtn.classList.remove('is-loading');
                 }
             } catch (e) {
                 msg.textContent = 'Сеть недоступна, попробуйте ещё раз';
                 cancelBtn.disabled = false;
+                cancelBtn.classList.remove('is-loading');
             }
         });
     }
@@ -72,10 +76,31 @@ import { confirmDialog } from './ui-feedback.js';
     const masters = JSON.parse(root.dataset.masters);
     const state = { master: null, service: null, slot: null };
 
+    // Единственный продуманный момент этой поверхности — переход между шагами.
+    // Не въезд по прокрутке и не анимация каждой карточки: человек идёт по
+    // короткому пути к «Записаться», и движение здесь нужно только затем,
+    // чтобы показать, что экран сменился, а не просто перерисовался.
     function show(step) {
+        let shown = null;
         root.querySelectorAll('.gb-step').forEach(s => {
-            s.style.display = (s.dataset.step === step) ? 'block' : 'none';
+            const active = s.dataset.step === step;
+            s.hidden = !active;
+            if (active) shown = s;
         });
+        if (!shown) return;
+        enter(shown, { y: 12 });
+
+        // Длинный список мастеров прокручен вниз; следующий шаг короче, и без
+        // этого человек оказывается в пустоте под ним и думает, что ничего
+        // не произошло. Прокручиваем, только если шаг действительно ушёл
+        // выше окна, — иначе дёргали бы страницу на каждом клике.
+        const top = shown.getBoundingClientRect().top;
+        if (top < 0) {
+            window.scrollTo({
+                top: window.scrollY + top - 16,
+                behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+            });
+        }
     }
     root.querySelectorAll('.gb-back').forEach(b => b.addEventListener('click', () => show(b.dataset.to)));
 
@@ -83,8 +108,9 @@ import { confirmDialog } from './ui-feedback.js';
     const mList = document.getElementById('gb-masters');
     masters.forEach(m => {
         const b = document.createElement('button');
-        b.className = 'gb-card';
-        b.innerHTML = `<div class="gb-ava">${esc(m.name[0] || 'М')}</div>` +
+        b.type = 'button';
+        b.className = 'r-card r-card--pick';
+        b.innerHTML = `<div class="gb-ava" aria-hidden="true">${esc(m.name[0] || 'М')}</div>` +
             `<div class="gb-card-body"><strong>${esc(m.name)}</strong><small>${esc(m.spec)}</small></div>`;
         b.addEventListener('click', () => { state.master = m; renderServices(); show('service'); });
         mList.appendChild(b);
@@ -96,12 +122,15 @@ import { confirmDialog } from './ui-feedback.js';
         el.innerHTML = '';
         state.master.services.forEach(s => {
             const b = document.createElement('button');
-            b.className = 'gb-card';
+            b.type = 'button';
+            b.className = 'r-card r-card--pick';
+            // Размеры снимка — классом, а не инлайновым style: до этого их
+            // было не видно ни из CSS, ни из темы.
             const photos = (s.photos || []).map(url =>
-                `<img src="${esc(url)}" alt="${esc(s.name)}" loading="lazy" data-lightbox-src="${esc(url)}" data-lightbox-alt="${esc(s.name)}" data-lightbox-group="service-${s.id}" style="width:88px;height:88px;object-fit:cover;border-radius:0.6rem;cursor:zoom-in">`
+                `<img src="${esc(url)}" alt="${esc(s.name)}" loading="lazy" data-lightbox-src="${esc(url)}" data-lightbox-alt="${esc(s.name)}" data-lightbox-group="service-${s.id}">`
             ).join('');
             b.innerHTML = `<div class="gb-card-body"><strong>${esc(s.name)}</strong><small>${esc(s.duration)} мин</small></div>` +
-                (photos ? `<div style="display:flex;gap:0.25rem;margin-right:0.5rem">${photos}</div>` : '') +
+                (photos ? `<div class="gb-card-photos">${photos}</div>` : '') +
                 `<div class="gb-card-price">${s.price_max == null ? s.price.toLocaleString('ru-RU') : `от ${s.price.toLocaleString('ru-RU')} до ${s.price_max.toLocaleString('ru-RU')}`} ₽</div>`;
             b.addEventListener('click', () => { state.service = s; setupDate(); show('slot'); });
             el.appendChild(b);
@@ -123,7 +152,7 @@ import { confirmDialog } from './ui-feedback.js';
 
     async function loadSlots() {
         const grid = document.getElementById('gb-slots');
-        grid.innerHTML = '<p class="text-muted">Загрузка…</p>';
+        grid.innerHTML = '<p>Загрузка…</p>';
         try {
             const res = await fetch(`/api/v1/bookings/available/${state.master.id}?date=${dateInput.value}&service_id=${state.service.id}`);
             const data = await res.json();
@@ -131,16 +160,17 @@ import { confirmDialog } from './ui-feedback.js';
             if (data.slots && data.slots.length) {
                 data.slots.forEach(slot => {
                     const b = document.createElement('button');
+                    b.type = 'button';
                     b.className = 'gb-slot';
                     b.textContent = new Date(slot).toTimeString().slice(0, 5);
                     b.addEventListener('click', () => { state.slot = slot; renderDetails(); show('details'); });
                     grid.appendChild(b);
                 });
             } else {
-                grid.innerHTML = '<p class="text-muted">Нет свободных окон на эту дату</p>';
+                grid.innerHTML = '<p>Нет свободных окон на эту дату</p>';
             }
         } catch (e) {
-            grid.innerHTML = '<p class="text-muted">Ошибка загрузки</p>';
+            grid.innerHTML = '<p>Ошибка загрузки</p>';
         }
     }
 
@@ -165,8 +195,18 @@ import { confirmDialog } from './ui-feedback.js';
             err.textContent = 'Отметьте согласие на обработку персональных данных';
             return;
         }
+        // Кнопка уходит в загрузку, а не просто гаснет: между нажатием и
+        // ответом сервера проходит секунда, и без признака работы человек
+        // жмёт второй раз (ровно этим был инцидент двойной регистрации).
         this.disabled = true;
+        this.classList.add('is-loading');
+        this.setAttribute('aria-busy', 'true');
         err.textContent = '';
+        const stopLoading = () => {
+            this.disabled = false;
+            this.classList.remove('is-loading');
+            this.removeAttribute('aria-busy');
+        };
         try {
             const res = await fetch('/api/v1/guest/booking', {
                 method: 'POST',
@@ -178,7 +218,7 @@ import { confirmDialog } from './ui-feedback.js';
                 }),
             });
             const data = await res.json();
-            if (!res.ok) { err.textContent = data.detail || 'Не удалось записаться'; this.disabled = false; return; }
+            if (!res.ok) { err.textContent = data.detail || 'Не удалось записаться'; stopLoading(); return; }
             const link = `${location.origin}/guest-booking/${data.manage_token}`;
             const a = document.getElementById('gb-manage-link');
             a.href = link;
@@ -186,7 +226,7 @@ import { confirmDialog } from './ui-feedback.js';
             show('done');
         } catch (e) {
             err.textContent = 'Сеть недоступна, попробуйте ещё раз';
-            this.disabled = false;
+            stopLoading();
         }
     });
 })();

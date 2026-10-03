@@ -18,7 +18,6 @@
 }
 
 .tariffs-group-title {
-    font-family: var(--font-heading);
     font-size: 1.3rem;
     font-weight: 700;
     color: var(--color-heading);
@@ -188,7 +187,7 @@
     /* background задаём явно: у .plan-btn в model-landing.css градиентная
        заливка, и без сброса розовый текст лёг бы на розовый фон. */
     background: var(--color-accent);
-    color: #fff;
+    color: var(--color-btn-text);
     font-size: 0.85rem;
     font-weight: 600;
     text-decoration: none;

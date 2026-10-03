@@ -45,7 +45,7 @@
 
 .dashboard-page .schedule-nav-desktop .schedule-nav-btn:hover:not(:disabled) {
     background: var(--color-primary);
-    color: white;
+    color: var(--color-btn-text);
     border-color: var(--color-primary);
 }
 
@@ -811,7 +811,7 @@
 
 .dashboard-page .schedule-mobile-nav-btn:hover:not(:disabled) {
     background: var(--color-primary);
-    color: white;
+    color: var(--color-btn-text);
     border-color: var(--color-primary);
 }
 

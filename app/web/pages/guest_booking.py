@@ -1,11 +1,16 @@
 # app/web/pages/guest_booking.py
 """Публичные страницы записи без регистрации: /book/{salon_id} и /guest-booking/{token}.
 
-Оформлены в брендинг Руми (лого + дизайн-токены приложения), чтобы выглядеть
-как основная запись, а не сырая форма.
+Показательный экран подложки (заход 03.10.2026): страница короткая, её видит
+клиент, и она единственная, что приносит деньги. Собрана на слое
+app/web/components/ui.py + static/src/css/ui.css — это и есть проверка, что
+набора хватает на настоящий экран.
+
+Поведение не менялось: те же четыре шага, те же проверки, те же отказы и те
+же тексты. Изменилась только форма. Стили переехали из инлайнового <style>
+в static/src/css/guest-booking.css.
 """
 from app.web.components.escaping import e, ejson
-import json
 
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
@@ -15,86 +20,20 @@ from app.models.models import (
     SalonModerationStatus, BookingStatus,
 )
 from app.web.components.styles import get_base_styles
-from app.web.components.icons import (
-    ICON_CALENDAR_DAYS,
-    ICON_CHECK,
-    ICON_CIRCLE_CHECK,
-)
+from app.web.components.icons import ICON_ARROW_LEFT, ICON_CHECK
+from app.web.components import ui
 from app.web.pages.legal import LEGAL_VERSION
 
 
-_STYLE = """
-<style>
-    .gb-body{background:var(--color-background);color:var(--color-body);min-height:100vh}
-    .gb-header{display:flex;align-items:center;justify-content:space-between;
-        padding:0.9rem 1.25rem;background:var(--color-surface);
-        border-bottom:1px solid var(--color-border);position:sticky;top:0;z-index:5}
-    .gb-header a#header-logo{font-size:1.4rem;font-weight:700;text-decoration:none;color:var(--color-primary)}
-    .gb-header .gb-login{font-size:0.9rem;color:var(--color-muted);text-decoration:none}
-    .gb-wrap{max-width:560px;margin:1.5rem auto;padding:0 1rem}
-    .gb-panel{background:var(--color-surface);border:1px solid var(--color-border);
-        border-radius:18px;padding:1.5rem;box-shadow:0 2px 14px rgba(20,10,40,0.04)}
-    .gb-title{font-size:1.5rem;font-weight:700;margin:0 0 0.25rem}
-    .gb-sub{color:var(--color-muted);margin:0 0 1.25rem;font-size:0.95rem}
-    .gb-step-h{display:flex;align-items:center;gap:0.6rem;margin:0 0 1rem}
-    .gb-step-num{width:26px;height:26px;border-radius:50%;background:var(--color-primary);
-        color:#fff;font-size:0.85rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .gb-step-h h2{font-size:1.1rem;margin:0;font-weight:600}
-    .gb-list{display:flex;flex-direction:column;gap:0.6rem}
-    .gb-card{display:flex;align-items:center;gap:0.85rem;text-align:left;padding:0.9rem 1rem;
-        border:1px solid var(--color-border);border-radius:14px;background:var(--color-surface);
-        color:var(--color-heading);font-family:inherit;
-        cursor:pointer;width:100%;transition:border-color .15s,box-shadow .15s}
-    .gb-card:hover{border-color:var(--color-primary);box-shadow:0 2px 10px rgba(124,58,237,0.08)}
-    .gb-ava{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#a78bfa,#7c3aed);
-        color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1rem}
-    .gb-card-body{flex:1;min-width:0}
-    .gb-card-body strong{display:block;font-size:0.98rem}
-    .gb-card-body small{color:var(--color-muted);font-size:0.85rem}
-    .gb-card-price{font-weight:700;color:var(--color-primary);white-space:nowrap}
-    .gb-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:0.5rem}
-    /* Сообщение «Нет свободных окон» кладётся в ту же сетку, что и слоты,
-       и становилось ячейкой в 90px — текст сыпался по слову в строку.
-       Растягиваем на всю строку. */
-    .gb-slots > p{grid-column:1/-1;margin:0;color:var(--color-muted)}
-    .gb-slot{padding:0.55rem 0;border:1px solid var(--color-border);border-radius:10px;
-        background:var(--color-surface);color:var(--color-heading);font-family:inherit;
-        cursor:pointer;font-size:0.95rem;transition:.15s}
-    .gb-slot:hover{border-color:var(--color-primary);background:rgba(124,58,237,0.05)}
-    .gb-back{background:none;border:none;color:var(--color-muted);font-family:inherit;
-        cursor:pointer;padding:0;margin-bottom:0.9rem;font-size:0.9rem}
-    .gb-back:hover{color:var(--color-primary)}
-    .gb-field{margin-bottom:0.85rem}
-    .gb-field label{display:block;font-size:0.85rem;color:var(--color-muted);margin-bottom:0.3rem}
-    .gb-input{width:100%;padding:0.7rem 0.85rem;border:1px solid var(--color-border);
-        border-radius:11px;font-size:1rem;background:var(--color-surface);
-        color:var(--color-heading);font-family:inherit;box-sizing:border-box;
-        /* min-width:0 обязателен: у input своя минимальная внутренняя ширина,
-           и width:100% её не перебивает — поле вылезает из колонки. */
-        min-width:0}
-    .gb-input:focus{outline:none;border-color:var(--color-primary)}
-    .gb-summary{background:rgba(124,58,237,0.06);border-radius:12px;padding:0.8rem 1rem;
-        margin-bottom:1rem;font-size:0.92rem}
-    .gb-primary{width:100%;padding:0.85rem;border:none;border-radius:12px;background:var(--color-primary);
-        color:#fff;font-family:inherit;font-size:1rem;font-weight:600;cursor:pointer;transition:.15s}
-    .gb-primary:hover{filter:brightness(1.05)}
-    .gb-primary:disabled{opacity:.5;cursor:not-allowed}
-    .gb-error{color:#c0392b;font-size:0.9rem;min-height:1.2em;margin:0.3rem 0 0.6rem}
-    /* input[type=date] в Safari/iOS имеет собственную минимальную ширину и
-       не сжимается по width:100% — поле «съезжает» за пределы карточки.
-       appearance:none снимает нативный размер, ::-webkit-date-and-time-value
-       прижимает значение влево (иначе оно центрируется и прыгает). */
-    .gb-date{margin-bottom:0.9rem;-webkit-appearance:none;appearance:none;max-width:100%}
-    .gb-date::-webkit-date-and-time-value{text-align:left;margin:0}
-    .gb-date::-webkit-calendar-picker-indicator{cursor:pointer}
-    .gb-done{text-align:center;padding:1.5rem 0.5rem}
-    .gb-done-check{width:64px;height:64px;border-radius:50%;background:rgba(39,174,96,0.12);
-        color:#27ae60;font-size:2rem;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
-    .gb-manage-link{display:inline-block;margin-top:0.75rem;padding:0.6rem 1rem;border:1px solid var(--color-border);
-        border-radius:10px;word-break:break-all;font-size:0.85rem;color:var(--color-primary);text-decoration:none}
-    .gb-muted{color:var(--color-muted)}
-</style>
-"""
+# Подписи шагов. Порядок здесь задаёт и номера в полосе прогресса, и подписи
+# «Шаг N из 4» — чтобы счётчик нельзя было рассинхронизировать с шагами.
+_STEPS = [
+    ("master", "Выберите мастера"),
+    ("service", "Услуга"),
+    ("slot", "Дата и время"),
+    ("details", "Ваши данные"),
+]
+_TOTAL = len(_STEPS)
 
 
 def _shell(title: str, inner: str) -> str:
@@ -102,30 +41,68 @@ def _shell(title: str, inner: str) -> str:
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{title} — руми</title>
     {get_base_styles()}
-    {_STYLE}
 </head>
 <body class="gb-body" data-legal-version="{LEGAL_VERSION}">
     <header class="gb-header">
         <a href="/" id="header-logo">руми.</a>
         <a href="/login" class="gb-login">Войти</a>
     </header>
-    <div class="gb-wrap">
+    <main class="gb-wrap">
         {inner}
-    </div>
+    </main>
 </body>
 </html>"""
 
 
 def _notice(title: str, text: str) -> str:
-    return _shell(title, f"""
-        <div class="gb-panel" style="text-align:center">
-            <h1 class="gb-title">{title}</h1>
-            <p class="gb-sub" style="margin-bottom:0">{text}</p>
-            <p style="margin-top:1.25rem"><a href="/" class="gb-manage-link">На главную руми</a></p>
-        </div>""")
+    """Отказ — это тоже экран, а не сообщение об ошибке: он называет причину
+    и даёт следующий шаг."""
+    return _shell(title, ui.empty_state(
+        title, text=text, action_label="На главную руми", action_href="/",
+    ))
+
+
+def _progress(index: int) -> str:
+    """Полоса прогресса и подпись «Шаг N из 4».
+
+    Нумерация здесь остаётся, потому что последовательность несёт смысл:
+    человеку надо знать, сколько ещё до «Записаться». Но несёт её полоса и
+    подпись, а не кружок с цифрой перед каждым заголовком — кружки повторяли
+    то, что и так видно, и забирали строку у самого заголовка.
+
+    Смысл не передаётся одним цветом: рядом с полосой всегда есть текст.
+    """
+    cells = "".join(
+        f'<span class="{"is-done" if i <= index else ""}"></span>'
+        for i in range(_TOTAL)
+    )
+    return (
+        f'<div class="gb-progress" role="presentation">{cells}</div>'
+        f'<p class="gb-step-count">Шаг {index + 1} из {_TOTAL}</p>'
+    )
+
+
+def _step(index: int, *, back_to: str = "", back_label: str = "", body: str = "") -> str:
+    key, title = _STEPS[index]
+    back = ""
+    if back_to:
+        back = (
+            f'<button class="gb-back" type="button" data-to="{back_to}">'
+            f'{ICON_ARROW_LEFT}{e(back_label)}</button>'
+        )
+    # hidden, а не style="display:none": атрибут читается скринридером как
+    # «этого сейчас нет», инлайновый стиль — нет.
+    hidden = "" if index == 0 else " hidden"
+    return f"""
+        <section class="gb-step" data-step="{key}" data-index="{index}"{hidden}>
+            {back}
+            {_progress(index)}
+            <h2>{e(title)}</h2>
+            {body}
+        </section>"""
 
 
 async def render_guest_booking_page(db, salon_id: int) -> str:
@@ -181,41 +158,19 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
 
     masters_json = ejson(data)
 
-    inner = f"""
-        <h1 class="gb-title">{title}</h1>
-        <p class="gb-sub">Без регистрации — оставьте имя и телефон, {confirmer} подтвердит запись.</p>
-
-        <div id="guest-book" data-salon-id="{salon.id}" data-masters='{masters_json}'>
-
-            <div class="gb-panel gb-step" data-step="master">
-                <div class="gb-step-h"><span class="gb-step-num">1</span><h2>Выберите мастера</h2></div>
-                <div id="gb-masters" class="gb-list"></div>
-            </div>
-
-            <div class="gb-panel gb-step" data-step="service" style="display:none">
-                <button class="gb-back" data-to="master">← Назад к мастерам</button>
-                <div class="gb-step-h"><span class="gb-step-num">2</span><h2>Услуга</h2></div>
-                <div id="gb-services" class="gb-list"></div>
-            </div>
-
-            <div class="gb-panel gb-step" data-step="slot" style="display:none">
-                <button class="gb-back" data-to="service">← Назад к услугам</button>
-                <div class="gb-step-h"><span class="gb-step-num">3</span><h2>Дата и время</h2></div>
-                <input type="date" id="gb-date" class="gb-input gb-date">
-                <div id="gb-slots" class="gb-slots"></div>
-            </div>
-
-            <div class="gb-panel gb-step" data-step="details" style="display:none">
-                <button class="gb-back" data-to="slot">← Назад ко времени</button>
-                <div class="gb-step-h"><span class="gb-step-num">4</span><h2>Ваши данные</h2></div>
-                <div id="gb-summary" class="gb-summary"></div>
-                <div class="gb-field"><label>Имя *</label>
-                    <input type="text" id="gb-name" class="gb-input" autocomplete="name" required></div>
-                <div class="gb-field"><label>Телефон *</label>
-                    <input type="tel" id="gb-phone" class="gb-input phone-input" value="+7" placeholder="+7 (___) ___-__-__" required></div>
-                <div class="gb-field"><label>Email — для уведомлений, необязательно</label>
-                    <input type="email" id="gb-email" class="gb-input" autocomplete="email" placeholder="example@mail.ru"></div>
-                <div class="consent-block">
+    details = (
+        '<div id="gb-summary" class="gb-summary"></div>'
+        + ui.field("Имя", element_id="gb-name", type_="text",
+                   autocomplete="name", required=True)
+        + ui.field("Телефон", element_id="gb-phone", type_="tel",
+                   value="+7", placeholder="+7 (___) ___-__-__",
+                   autocomplete="tel", inputmode="tel", required=True,
+                   input_classes="phone-input")
+        + ui.field("Email", element_id="gb-email", type_="email",
+                   autocomplete="email", placeholder="example@mail.ru",
+                   hint="Для уведомлений, необязательно")
+        + """
+                <div class="consent-block gb-consent">
                     <label class="consent-check">
                         <input type="checkbox" id="gb-consent" class="consent-check-input" required>
                         <span class="consent-check-text">Я даю согласие на обработку персональных данных на условиях
@@ -226,18 +181,36 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
                         и подтверждаете, что ознакомились с
                         <a href="/privacy" target="_blank" rel="noopener">Политикой обработки персональных данных</a>.</p>
                 </div>
-                <p id="gb-error" class="gb-error"></p>
-                <button id="gb-submit" class="gb-primary">Записаться</button>
-            </div>
+                <p id="gb-error" class="gb-error" role="alert"></p>
+        """
+        + ui.button("Записаться", element_id="gb-submit", block=True)
+    )
 
-            <div class="gb-panel gb-step" data-step="done" style="display:none">
-                <div class="gb-done">
-                    <div class="gb-done-check">{ICON_CHECK}</div>
-                    <h2 class="gb-title" style="font-size:1.25rem">Заявка отправлена</h2>
-                    <p class="gb-muted">Салон подтвердит запись. Сохраните ссылку — по ней можно посмотреть или отменить бронь:</p>
-                    <a id="gb-manage-link" class="gb-manage-link" href="#"></a>
-                </div>
-            </div>
+    done = f"""
+            <div class="gb-done">
+                <div class="gb-done-check" aria-hidden="true">{ICON_CHECK}</div>
+                <h2 class="r-subtitle">Заявка отправлена</h2>
+                <p class="gb-done-text">Салон подтвердит запись.
+                    Сохраните ссылку — по ней можно посмотреть или отменить бронь:</p>
+                <a id="gb-manage-link" class="gb-manage-link" href="#"></a>
+            </div>"""
+
+    inner = f"""
+        <div class="gb-intro">
+            <h1 class="r-display">{title}</h1>
+            <p>Без регистрации — оставьте имя и телефон, {confirmer} подтвердит запись.</p>
+        </div>
+
+        <div id="guest-book" data-salon-id="{salon.id}" data-masters='{masters_json}'>
+            {_step(0, body='<div id="gb-masters" class="gb-list"></div>')}
+            {_step(1, back_to="master", back_label="Назад к мастерам",
+                   body='<div id="gb-services" class="gb-list"></div>')}
+            {_step(2, back_to="service", back_label="Назад к услугам",
+                   body='<input type="date" id="gb-date" class="r-input gb-date" aria-label="Дата записи">'
+                        '<div id="gb-slots" class="gb-slots"></div>')}
+            {_step(3, back_to="slot", back_label="Назад ко времени", body=details)}
+
+            <section class="gb-step" data-step="done" data-index="{_TOTAL}" hidden>{done}</section>
         </div>
     """
     return _shell(f"Запись в {e(salon.name)}", inner)
@@ -255,38 +228,48 @@ async def render_guest_manage_page(db, token: str) -> str:
     muser = (await db.execute(select(User).where(User.id == master.user_id))).scalar_one_or_none() if master else None
     salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none() if master else None
 
+    # Статус — плашка слоя ui: слово плюс тон. Раньше тут был инлайновый
+    # color по словарю, и цвета не совпадали ни с токенами, ни между собой
+    # (#27ae60 против --color-success), а в тёмной теме не читались вовсе.
     status_ru = {
-        BookingStatus.PENDING: ("Ожидает подтверждения салона", "#e67e22"),
-        BookingStatus.CONFIRMED: (f"Подтверждена {ICON_CIRCLE_CHECK}", "#27ae60"),
-        BookingStatus.COMPLETED: ("Выполнена", "#888"),
-        BookingStatus.CANCELLED: ("Отменена", "#c0392b"),
-        BookingStatus.NO_SHOW: ("Неявка", "#c0392b"),
-    }.get(booking.status, (str(booking.status), "#888"))
+        BookingStatus.PENDING: ("Ожидает подтверждения салона", "warning"),
+        BookingStatus.CONFIRMED: ("Подтверждена", "success"),
+        BookingStatus.COMPLETED: ("Выполнена", "neutral"),
+        BookingStatus.CANCELLED: ("Отменена", "danger"),
+        BookingStatus.NO_SHOW: ("Неявка", "danger"),
+    }.get(booking.status, (str(booking.status), "neutral"))
 
     when = booking.start_time.strftime("%d.%m.%Y в %H:%M") if booking.start_time else ""
     can_cancel = booking.status in (BookingStatus.PENDING, BookingStatus.CONFIRMED)
-    cancel_btn = (
-        f'<button id="gb-cancel" class="gb-primary" data-token="{token}" '
-        f'style="background:#fff;color:#c0392b;border:1px solid #c0392b;margin-top:1rem">Отменить запись</button>'
-        if can_cancel else ""
+    cancel_btn = ui.button(
+        "Отменить запись", kind="danger", element_id="gb-cancel",
+        block=True, data={"token": token},
+    ) if can_cancel else ""
+
+    letter = e(((muser.full_name if muser else "М") or "М")[0])
+    rows = (
+        f'<div class="gb-manage-row"><dt>Когда</dt><dd class="tabular-nums">{e(when)}</dd></div>'
+        f'<div class="gb-manage-row"><dt>Статус</dt>'
+        f'<dd>{ui.status(status_ru[0], status_ru[1])}</dd></div>'
     )
 
     inner = f"""
-        <div class="gb-panel">
-            <h1 class="gb-title">Ваша запись</h1>
-            <p class="gb-sub">«{e(salon.name if salon else "")}»</p>
-            <div class="gb-card" style="cursor:default">
-                <div class="gb-ava">{e(((muser.full_name if muser else "М") or "М")[0])}</div>
+        <div class="gb-intro">
+            <h1 class="r-display">Ваша запись</h1>
+            <p>«{e(salon.name if salon else "")}»</p>
+        </div>
+        <div class="r-card">
+            <div class="gb-manage-who">
+                <div class="gb-ava" aria-hidden="true">{letter}</div>
                 <div class="gb-card-body">
                     <strong>{e((muser.full_name if muser else "") or "Мастер")}</strong>
                     <small>{e(service.name if service else "")}</small>
                 </div>
             </div>
-            <p style="margin:1rem 0 0.25rem">{ICON_CALENDAR_DAYS} <strong>{when}</strong></p>
-            <p style="margin:0.5rem 0">Статус: <strong style="color:{status_ru[1]}">{status_ru[0]}</strong></p>
-            {cancel_btn}
-            <p id="gb-cancel-msg" class="gb-error" style="color:inherit"></p>
+            <dl class="gb-manage-list">{rows}</dl>
+            {f'<div class="gb-manage-act">{cancel_btn}</div>' if cancel_btn else ""}
+            <p id="gb-cancel-msg" class="gb-manage-msg" role="status"></p>
         </div>
-        <p style="margin-top:1.25rem;text-align:center"><a href="/" class="gb-muted" style="text-decoration:none">На главную руми</a></p>
+        <p class="gb-foot"><a href="/">На главную руми</a></p>
     """
     return _shell("Ваша запись", inner)

@@ -305,7 +305,7 @@
 .filter-chip.active {
     background: var(--color-accent);
     border-color: var(--color-accent);
-    color: #fff;
+    color: var(--color-btn-text);
 }
 
 /* Радио внутри чипа: скрыто визуально, но остаётся в потоке фокуса —
@@ -503,10 +503,10 @@
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: #fff;
+    color: var(--color-btn-text);
     font-family: var(--font-heading);
     font-size: 3rem;
-    font-weight: 700;
+    font-weight: 400;
     line-height: 1;
 }
 
@@ -717,7 +717,7 @@
     align-items: center;
     gap: 0.5rem;
     background: var(--color-accent);
-    color: white;
+    color: var(--color-btn-text);
     padding: 0.5rem 1.25rem;
     border-radius: 9999px;
     font-size: 0.875rem;
@@ -784,7 +784,9 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--color-primary);
+    /* Подпись лежит на подкрашенной подложке блока акций, где акцент даёт
+       4,43:1. Затемнённый вариант того же цвета — 6,13:1. */
+    color: var(--color-accent-hover);
     margin-bottom: 0.5rem;
 }
 
@@ -812,7 +814,7 @@
     font-weight: 700;
     line-height: 1.2;
     white-space: nowrap;
-    color: #fff;
+    color: var(--color-btn-text);
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
 }
 
@@ -892,7 +894,7 @@
 .category-apply-btn {
     background: var(--color-accent);
     border: 1px solid var(--color-accent);
-    color: #fff;
+    color: var(--color-btn-text);
     border-radius: 9999px;
     padding: 0.35rem 1rem;
     font-size: 0.8rem;
@@ -925,7 +927,7 @@
 .filter-chip:has(input:checked) {
     background: var(--color-accent);
     border-color: var(--color-accent);
-    color: #fff;
+    color: var(--color-btn-text);
 }
 #salons-list { transition: opacity 0.15s ease; }
 

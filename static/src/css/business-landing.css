@@ -346,7 +346,6 @@
     height: 1.5rem;
 }
 .bl-feature-card h3 {
-    font-family: var(--font-heading);
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -418,7 +417,7 @@
 .bl-partner-title {
     font-family: var(--font-heading);
     font-size: 1.5rem;
-    font-weight: 700;
+    font-weight: 400;
     color: #000;
     line-height: 1.3;
     margin: 0 0 0.5rem;
@@ -672,7 +671,6 @@
     border-radius: 50%;
     background: var(--color-accent-light);
     color: var(--color-accent-hover);
-    font-family: var(--font-heading);
     font-size: 1.05rem;
     font-weight: 700;
     line-height: 1;
@@ -703,7 +701,6 @@
 }
 
 .bl-step-title {
-    font-family: var(--font-heading);
     font-size: 1.125rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -789,7 +786,7 @@
     .bl-how-step:hover .bl-step-num,
     .bl-how-step:focus-within .bl-step-num {
         background: var(--color-accent);
-        color: #fff;
+        color: var(--color-btn-text);
     }
 }
 
@@ -837,7 +834,7 @@
 }
 .bl-pricing-card.bl-popular {
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: #fff;
+    color: var(--color-btn-text);
     border-color: transparent;
     box-shadow: 0 10px 15px -3px rgba(192, 129, 184, 0.3);
 }
@@ -862,7 +859,7 @@
     text-align: center;
     font-family: var(--font-heading);
     font-size: 1.5rem;
-    font-weight: 700;
+    font-weight: 400;
     color: var(--color-heading);
 }
 .bl-pricing-card.bl-popular .bl-plan-name {
@@ -938,7 +935,7 @@
     font-weight: 600;
     text-decoration: none;
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: #fff;
+    color: var(--color-btn-text);
     transition: transform 0.2s;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }

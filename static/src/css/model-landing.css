@@ -75,7 +75,7 @@
     border-radius: 9999px;
     font-size: 0.875rem;
     font-weight: 600;
-    color: #fff;
+    color: var(--color-btn-text);
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     text-decoration: none;
@@ -158,7 +158,6 @@
 }
 
 .how-step-item h3 {
-    font-family: var(--font-heading);
     font-size: 1.125rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -210,7 +209,7 @@
 
 .plan-card.popular {
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: #fff;
+    color: var(--color-btn-text);
     border-color: transparent;
     box-shadow: 0 10px 15px -3px rgba(202, 62, 116, 0.28);
 }
@@ -238,7 +237,6 @@
 }
 
 .plan-name {
-    font-family: var(--font-heading);
     font-size: 1.125rem;
     font-weight: 700;
     color: var(--color-heading);
@@ -329,7 +327,7 @@
     font-weight: 600;
     text-decoration: none;
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: #fff;
+    color: var(--color-btn-text);
     transition: transform 0.2s;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     margin-top: auto; /* прижимает кнопку вниз */

@@ -23,7 +23,6 @@
 }
 
 .header-title h1 {
-    font-family: var(--font-heading);
     font-size: 1.4rem;
     font-weight: 700;
     color: var(--color-heading);
@@ -687,7 +686,7 @@
     padding: 0.125rem 0.5rem;
     font-size: 0.625rem;
     font-weight: 700;
-    color: white;
+    color: var(--color-btn-text);
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
 }
 
@@ -862,7 +861,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: var(--color-btn-text);
     font-weight: 700;
     font-size: 0.8rem;
     flex-shrink: 0;
@@ -1116,7 +1115,6 @@
 }
 
 .publish-gate-modal-box h2 {
-    font-family: var(--font-heading);
     font-size: 1.15rem;
     font-weight: 600;
     color: var(--color-heading);

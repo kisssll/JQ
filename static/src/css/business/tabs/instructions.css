@@ -86,7 +86,7 @@
 #tab-instructions .instructions-group-title {
     font-family: var(--font-heading);
     font-size: 1.5rem;
-    font-weight: 700;
+    font-weight: 400;
     color: var(--color-heading);
     margin: 0 0 0.4rem;
     /* Запас под закреплённую шапку: иначе якорь прячет заголовок под ней. */

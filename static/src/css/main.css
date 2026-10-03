@@ -3,8 +3,17 @@
 /* Глобальные переменные для стилей */
 @import './design-tokens.css';
 
+/* Шрифты: @font-face раньше всех, кто ими пользуется */
+@import './fonts.css';
+
 /* Глобальные стили */
 @import './global.css';
+
+/* Базовый слой компонентов (кнопка, поле, карточка, плашка, пустое
+   состояние) — добавляется рядом со старым, страницы переходят на него
+   в свои заходы. Идёт ДО components.css: старые правила при равной
+   специфичности должны перекрывать новые, пока страница не переехала. */
+@import './ui.css';
 
 /* Компоненты (footer, header, sidebar) */
 @import './components.css';
@@ -31,6 +40,7 @@
 @import './salons.css';
 @import './salon-detail.css';
 @import './bookings.css';
+@import './guest-booking.css';
 @import './favorites.css';
 
 /* Стили панели бизнеса */

@@ -142,11 +142,11 @@ self.addEventListener('fetch', (e) => {
 
 _OFFLINE_HTML = """<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Нет сети — Руми</title></head>
-<body style="font-family:system-ui,-apple-system,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:#faf9fb;color:#1a1523">
+<body style="font-family:system-ui,-apple-system,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:#ffffff;color:#1a1115">
 <div style="text-align:center;padding:2rem">
-<div style="font-size:1.6rem;font-weight:800;color:#c081b8">руми.</div>
-<p style="color:#6b6577">Нет подключения к интернету.<br>Проверьте связь и попробуйте снова.</p>
-<button onclick="location.reload()" style="background:#c081b8;color:#fff;border:none;border-radius:10px;padding:.6rem 1.2rem;font-size:1rem;cursor:pointer">Обновить</button>
+<div style="font-size:1.6rem;font-weight:700;color:#ca3e74">руми.</div>
+<p style="color:#6b5c63">Нет подключения к интернету.<br>Проверьте связь и попробуйте снова.</p>
+<button onclick="location.reload()" style="background:#ca3e74;color:#fff;border:none;border-radius:12px;padding:.7rem 1.3rem;min-height:44px;font-size:1rem;cursor:pointer">Обновить</button>
 </div></body></html>"""
 
 
@@ -163,8 +163,11 @@ async def pwa_manifest():
         "display": "standalone",
         "orientation": "portrait",
         "lang": "ru",
-        "background_color": "#faf9fb",
-        "theme_color": "#c081b8",
+        # Те же значения, что у --color-background и --color-accent: с этими
+        # цветами система рисует заставку и полосу состояния установленного
+        # приложения, и расхождение видно в первую секунду запуска.
+        "background_color": "#ffffff",
+        "theme_color": "#ca3e74",
         "icons": [
             {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
             {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},

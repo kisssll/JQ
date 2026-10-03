@@ -55,7 +55,7 @@ input::placeholder, textarea::placeholder {
 
 .text-display {
     font-family: var(--font-heading);
-    font-weight: 700;
+    font-weight: 400;
     letter-spacing: -0.02em;
     color: var(--color-heading);
 }
@@ -91,4 +91,87 @@ input::placeholder, textarea::placeholder {
 
 .text-link:hover {
     opacity: 0.7;
+}
+/* ===================================================================
+   ПОДЛОЖКА: правила, общие для всего сервиса (заход 03.10.2026)
+   =================================================================== */
+
+/* ---------- Антиква не имитируется ----------
+   У Prata единственный вес 400. Там, где в старом CSS осталось
+   font-weight: 700, браузер иначе рисует синтетический жир: обводит контур
+   второй раз, и тонкие штрихи антиквы превращаются в кашу. Запрещаем
+   подделку веса везде; подделку наклона оставляем — у Inter курсива мы не
+   возим, а <em> должен оставаться наклонным. */
+html {
+    font-synthesis-weight: none;
+    font-synthesis: style small-caps;
+    /* Сглаживание: Inter на светлом фоне без него выглядит жирнее, чем он есть. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Движение выключается ОДНИМ местом ----------
+   Человек, который попросил систему убрать анимацию, просит об этом один раз,
+   а не у каждого компонента. Здесь глушится всё, что умеет CSS; JS-пружины
+   (static/src/js/motion.js) читают тот же запрос сами и возвращают конечное
+   состояние мгновенно.
+
+   Не display:none и не animation:none: исчезнувший переход не должен ломать
+   код, который ждёт события transitionend/animationend — поэтому 0.01ms. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ---------- Поверхности, которые рисует браузер ----------
+   Выделение, каретка, полоса прокрутки и подчёркивание ссылок приезжают с
+   умолчаниями, не принадлежащими никакому дизайну. Это самое дешёвое место,
+   где видно, страницу собрали или сделали. */
+::selection {
+    background: var(--color-accent-muted);
+    color: var(--color-heading);
+}
+
+html {
+    caret-color: var(--color-accent);
+    scrollbar-color: var(--color-border-strong) transparent;
+}
+
+/* Цифры в таблицах и ценах — моноширинные по ширине знака: иначе столбец
+   сумм «пляшет» при обновлении значения. */
+.tabular-nums {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Телефон ----------
+   Серая вспышка по тапу на iOS/Android — браузерное умолчание, которое
+   выдаёт «сайт в браузере». Своё состояние нажатия компоненты рисуют сами. */
+html {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Залипший hover: на тач-экране :hover остаётся после тапа до следующего
+   касания в другом месте. Эффекты наведения включаем только там, где
+   указатель действительно наводится. */
+@media (hover: none) {
+    .text-link:hover {
+        opacity: 1;
+    }
+}
+
+/* Длинное нажатие на кнопке выделяет её подпись и показывает меню
+   «Скопировать» — для управляющего элемента это мусор. У полей ввода и
+   текста выделение, разумеется, остаётся. */
+button,
+.btn-primary,
+.btn-outline,
+.btn-mini {
+    -webkit-user-select: none;
+    user-select: none;
 }

@@ -36,7 +36,6 @@
 
 /* ===== Заголовок таблицы ===== */
 .payroll-section-title {
-    font-family: var(--font-heading);
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -220,7 +219,6 @@
     box-shadow: 0 10px 30px rgba(0,0,0,0.15);
 }
 .payroll-modal-box h3 {
-    font-family: var(--font-heading);
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--color-heading);

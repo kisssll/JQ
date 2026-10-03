@@ -87,7 +87,6 @@ body.ed-modal-open {
 
 .ed-modal-title {
     margin: 0 0 0.35rem;
-    font-family: var(--font-heading);
     font-size: 1.2rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -221,7 +220,7 @@ body.ed-modal-open {
 .ed-day input:checked + span {
     background: var(--color-accent);
     border-color: var(--color-accent);
-    color: #fff;
+    color: var(--color-btn-text);
 }
 
 .ed-day input:focus-visible + span {
