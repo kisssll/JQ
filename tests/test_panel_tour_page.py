@@ -16,7 +16,7 @@ from app.models.models import (
     Booking, BookingStatus, Master, OWNER_DEFAULT_PERMISSIONS, Salon, SalonMember,
     SalonModerationStatus, SalonPanelMode, SalonRole, Schedule, Service, User, UserRole,
 )
-from app.services import panel_sections, panel_tour
+from app.services import panel_guide, panel_sections, panel_tour
 
 _WEEK_OPEN = json.dumps({d: "10:00-20:00" for d in
                          ("mon", "tue", "wed", "thu", "fri", "sat", "sun")})
@@ -412,32 +412,34 @@ async def test_the_instructions_tab_offers_to_take_the_tour_again(client, db_ses
     assert "tour=restart" in html
 
 
-async def test_the_instructions_guide_does_not_name_a_tab_that_is_gone(client, db_session):
-    """В шагах «с чего начать» были зашиты «вкладка „Редактировать салон"» и
-    «вкладки „Сотрудники" и „Услуги"». В соло это ложь: такой вкладки нет, а
-    настройки лежат в «Моей карточке мастера» (решение 0009, дополнение 02.10).
+@pytest.mark.parametrize("mode", [SalonPanelMode.SOLO, SalonPanelMode.TEAM])
+async def test_the_start_block_names_no_tab_at_all_any_more(client, db_session, mode):
+    """Здесь были два теста на шаги «с чего начать»: один держал, что в соло они
+    не называют исчезнувшую вкладку «Редактировать салон», второй — что в
+    команде называют. Шагов больше нет (решение 0010, п. 6): на их месте врезка
+    со ссылкой в «Обзор», где тот же путь считается из базы.
 
-    Заход 5 вкладку переписал — границы блока теперь по его якорю, — но
-    проверка остаётся здесь: ровно из-за неё заход 4 не оставил ложь в проде."""
-    _, salon_id = await _salon(db_session, "+79995559001", published=False)
-    await _login(client, "+79995559001")
+    Проверка остаётся — ровно из-за неё заход 4 не оставил ложь в проде, — но
+    теперь она жёстче и одна на оба режима: врезка не называет НИ ОДНОЙ вкладки,
+    поэтому и соврать про состав панели ей нечем. Единственная ссылка ведёт в
+    «Обзор», а он есть у всех.
+    """
+    phone = "+7999555900" + ("1" if mode is SalonPanelMode.SOLO else "2")
+    _, salon_id = await _salon(db_session, phone, mode, published=False)
+    await _login(client, phone)
     html = await _get(client, salon_id, "&tab=instructions&tour=off")
-    guide = html[html.index('id="manual-start"'):]
-    guide = guide[:guide.index("</section>")]
-    assert "Редактировать салон" not in guide
-    assert "«Сотрудники»" not in guide
-    assert "«Моя карточка мастера»" in guide
+    block = html[html.index('id="manual-start"'):]
+    block = block[:block.index("</section>")]
 
-
-async def test_the_instructions_guide_is_unchanged_for_a_team(client, db_session):
-    _, salon_id = await _salon(db_session, "+79995559002", SalonPanelMode.TEAM,
-                               published=False)
-    await _login(client, "+79995559002")
-    html = await _get(client, salon_id, "&tab=instructions&tour=off")
-    guide = html[html.index('id="manual-start"'):]
-    guide = guide[:guide.index("</section>")]
-    assert "«Редактировать салон»" in guide
-    assert "«Сотрудники»" in guide
+    assert panel_guide.CHECKLIST_TITLE in block
+    assert "tab=overview" in block
+    # Ни одного названия раздела — ни того, что в этом режиме есть, ни того,
+    # чего нет: врезка про них просто не говорит.
+    for name in ("Редактировать салон", "Сотрудники", "Моя карточка мастера",
+                 "Услуги", "Расписание", "Тариф"):
+        assert name not in block, name
+    # И самих шагов не осталось.
+    assert "instructions-guide-steps" not in block
 
 
 async def test_the_instructions_tab_does_not_describe_a_section_that_is_gone(client, db_session):

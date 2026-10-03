@@ -69,7 +69,7 @@ def _where_html(section, salon_id: int, tour_on: bool) -> str:
     return f'<p class="instructions-where"><span>Где это:</span> {links}</p>'
 
 
-def _start_html(mode: SalonPanelMode, salon_id: int, tour_on: bool) -> str:
+def _path_promo_html(mode: SalonPanelMode, salon_id: int, tour_on: bool) -> str:
     """Врезка на месте прежнего гайда «С чего начать» (решение 0010, п. 6).
 
     Шагов текстом здесь больше нет. Они жили рядом с живым блоком в «Обзоре»,
@@ -175,7 +175,7 @@ def render_instructions_tab(
             {_toc_html(groups)}
         </section>
 
-        {_start_html(mode, salon_id, tour_on)}
+        {_path_promo_html(mode, salon_id, tour_on)}
 
         {body}
     </div>"""

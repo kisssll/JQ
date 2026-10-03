@@ -160,6 +160,7 @@ def _render_path(salon, readiness, checklist, next_links, solo: bool) -> str:
     </section>
     """
 
+
 def _render_models_invite(salon_id: int) -> str:
     """Приглашение в раздел «Модели» — его за 25 дней открыли один раз, и это
     при том, что он включён в обоих режимах (решение 0007, п. 2).
