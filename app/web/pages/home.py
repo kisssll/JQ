@@ -1,79 +1,91 @@
 # app/web/pages/home.py
-from app.web.components.escaping import e
+"""Главная — вход в каталог (решение 0011, п. 12).
+
+Порядок экранов: крупный поиск, сразу под ним ЖИВЫЕ карточки салонов, ниже
+«как записаться», в конце приглашение стать моделью. Партнёрский блок Т‑Банка и
+блок для бизнеса стоят после клиентской части: они адресованы не клиенту, и у
+бизнесового мира свой заход.
+
+Карточки — ТОТ ЖЕ компонент, что в каталоге (``salons.render_cards``), с тем же
+порядком (победители конкурса → платные → рейтинг). Второй похожий список на
+главной через месяц разошёлся бы с каталогом и по виду, и по подъёму.
+
+Сколько карточек: шесть и ссылка «смотреть все». Салонов на проде девять —
+сетка на тридцать мест с четырьмя заполненными выглядела бы сломанной, а шесть
+карточек в поток по 300px честны и при девяти салонах, и при девятистах.
+"""
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.models.models import Salon, SalonModerationStatus
-from app.services.subscription import access_clause
+
+from app.web.components import ui
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.structured_data import render_site_schema
-from app.web.components.icons import (
-    ICON_SEARCH,
-    ICON_SCISSORS,
-    ICON_SPARKLES,
-    ICON_PERCENT,
-    ICON_STORE,
-    ICON_ARROW_RIGHT,
-    ICON_MAP_PIN,
-    ICON_STAR_FILLED,
-)
+from app.web.components.icons import ICON_SEARCH, ICON_ARROW_RIGHT
 from app.web.components.tbank import render_tbank_partner_banner
+
+#: Сколько карточек показываем на главной.
+HOME_CARDS = 6
+
+#: Как записаться. Нумерация здесь оправдана: последовательность и есть смысл
+#: блока. Это список шагов, а не четыре одинаковые карточки «иконка + заголовок
+#: + текст» — такой структуры страницы мы не делаем (docs/design.md).
+_STEPS = [
+    ("Мастер", "Выберите мастера или салон — цены и свободные окна видны в списке."),
+    ("Услуга", "Отметьте, что нужно сделать."),
+    ("Время", "Возьмите свободное окно."),
+    ("Готово", "Приходите. Заявку подтвердят."),
+]
+
+#: Что даёт подписка модели. Утверждения проверяемые: скидка задаётся салоном в
+#: услуге для отработки, окна и фото — часть того же сценария. Обещаний объёма
+#: клиентов и выручки здесь нет и быть не может (ч. 7 ст. 5 «О рекламе»).
+_MODEL_POINTS = [
+    "Услуги мастеров со скидкой — цену назначает сам мастер",
+    "Новые процедуры и техники раньше остальных",
+    "Фотографии работы после визита",
+]
 
 
 async def render_home_page(db: AsyncSession, user=None) -> str:
-    """Главная страница руми."""
-
-    # Получаем популярные салоны (топ-3 по рейтингу)
+    """Главная страница Руми."""
+    # Карточки берём той же функцией, что каталог: один компонент, один порядок,
+    # одна цена в запросах (выборка + содержимое карточек).
     try:
-        result = await db.execute(
-            select(Salon).where(
-                Salon.is_active == True, Salon.moderation_status == SalonModerationStatus.APPROVED,
-                Salon.published_at.isnot(None), Salon.is_hidden == False,
-                access_clause(Salon),  # тариф: доступ открыт
-            ).order_by(Salon.rating.desc()).limit(3)
-        )
-        salons = result.scalars().all()
+        from app.web.pages.salons import SalonQuery, render_cards
+        cards, _has_more = await render_cards(db, SalonQuery(limit=HOME_CARDS))
     except Exception as exc:
-        # имя exc, а не e: e — экранировщик HTML, импортированный выше
+        # имя exc, а не e: e — экранировщик HTML в остальных модулях страниц
         print(f"Ошибка загрузки салонов: {exc}")
-        salons = []
+        cards = ""
 
-    # Карточки салонов
-    salon_cards = ""
-    for s in salons:
-        logo_html = ""
-        if s.logo_url:
-            logo_html = f'<img src="{s.logo_url}" alt="{e(s.name)}" class="popular-salon-avatar-img" loading="lazy">'
-        else:
-            logo_html = f'<span class="popular-salon-avatar-letter">{e(s.name[0].upper())}</span>'
+    if cards:
+        catalog_block = f"""
+                {ui.section_head(
+                    "Кто принимает сейчас",
+                    text="Цены и ближайшие свободные окна — сразу в карточке.",
+                    link_label="Смотреть все", link_href="/salons")}
+                <div class="salons-grid">{cards}</div>"""
+    else:
+        # Пусто бывает не только «пока»: так же выглядит страница, если упала
+        # выборка. Поэтому приглашение, а не сообщение об отсутствии данных.
+        catalog_block = ui.empty_state(
+            "Здесь появятся мастера и салоны",
+            text="Пока никого нет рядом. Если вы мастер — заведите страницу, "
+                 "и вас начнут находить.",
+            action_label="Подключиться", action_href="/business",
+        )
 
-        city = s.address.split(',')[0].strip() if s.address else "Адрес не указан"
+    steps_html = "".join(
+        f'<li class="home-step"><h3 class="home-step__name">{title}</h3>'
+        f'<p class="home-step__text">{text}</p></li>'
+        for title, text in _STEPS
+    )
 
-        salon_cards += f"""
-        <a href="/salons/{s.id}" class="popular-salon-link">
-            <div class="popular-salon-card">
-                <div class="popular-salon-avatar">
-                    {logo_html}
-                </div>
-                <h3 class="popular-salon-name">{e(s.name)}</h3>
-                <p class="popular-salon-address">
-                    {ICON_MAP_PIN} {city}
-                </p>
-                <div class="popular-salon-rating">
-                    {ICON_STAR_FILLED}
-                    <span class="rating-value">{s.rating or 0.0:.1f}</span>
-                    <span class="rating-count">({s.reviews_count or 0} отзывов)</span>
-                </div>
-            </div>
-        </a>
-        """
+    model_points = "".join(f"<li>{point}</li>" for point in _MODEL_POINTS)
 
-    if not salons:
-        salon_cards = '<p class="salon-empty">Пока нет салонов. <a href="/register">Зарегистрируйтесь</a> как владелец, чтобы добавить первый салон!</p>'
-
-    html = f"""<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
@@ -88,169 +100,55 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
     {render_sidebar("home", user)}
 
     <main class="home-main">
-        <!-- Hero секция -->
         <section class="home-hero">
-        
-            <img src="/static/images/flower-home.jpg" alt="" class="home-hero-bg-img">
-            <div class="home-hero-gradient"></div>
-
             <div class="section-container">
-                <div class="home-hero-content">
-                    <h1 class="home-hero-title text-display">
-                        Красота — это просто<span class="dot-primary">.</span>
-                    </h1>
-                    <p class="home-hero-subtitle text-body-lg">
-                        Салон, услуга, время — готово. Без звонков и ожиданий.
-                    </p>
+                <h1 class="r-display home-hero__title">Запись к мастеру<br>без звонков</h1>
+                <p class="r-text r-muted home-hero__text">Услуги, цены и свободные окна
+                    видно сразу — выберите время и приходите.</p>
+                <form class="home-search" action="/salons" method="get" role="search">
+                    <span class="home-search__icon" aria-hidden="true">{ICON_SEARCH}</span>
+                    <input type="search" name="q" class="home-search__input"
+                           placeholder="Маникюр, стрижка, имя мастера"
+                           aria-label="Что нужно сделать" enterkeyhint="search">
+                    {ui.button("Найти", type_="submit")}
+                </form>
+            </div>
+        </section>
 
-                    <!-- Поиск -->
-                    <div class="home-search-card">
-                        <a href="/salons" class="home-search-link group">
-                            <div class="home-search-icon-wrapper">
-                                {ICON_SEARCH}
-                            </div>
-                            <div class="home-search-info">
-                                <span class="home-search-title">Найти салон или услугу</span>
-                                <span class="home-search-desc">Маникюр, стрижка, окрашивание, брови...</span>
-                            </div>
-                            <div class="home-search-btn">Найти</div>
-                        </a>
+        <section class="home-catalog">
+            <div class="section-container">{catalog_block}</div>
+        </section>
+
+        <section class="home-how">
+            <div class="section-container">
+                {ui.section_head("Как записаться")}
+                <ol class="home-steps">{steps_html}</ol>
+            </div>
+        </section>
+
+        <section class="home-model" id="become-model">
+            <div class="section-container">
+                <div class="home-model__grid">
+                    <div>
+                        {ui.section_head("Стать моделью",
+                                         text="Мастерам нужна практика, вам — работа мастера "
+                                              "дешевле. Подписка открывает такие записи.")}
+                        {ui.button("Оформить подписку", href="/model", icon=ICON_ARROW_RIGHT)}
                     </div>
-
-                    <!-- Теги удалены по запросу -->
+                    <ul class="home-model__list">{model_points}</ul>
                 </div>
             </div>
         </section>
 
-        <!-- Как записаться -->
-        <section class="section-py" style="background:var(--color-surface);">
-            <div class="section-container">
-                <div class="how-title-wrapper">
-                    <h2 class="how-title">
-                        Как записаться<span class="how-title-dot">?</span>
-                    </h2>
-                    <p class="how-subtitle">
-                        Никаких звонков. Никаких форм с десятью полями. Ничего лишнего.
-                    </p>
-                </div>
-
-                <!-- Блок с 4 шагами -->
-                <div class="steps-grid">
-                    <div class="step-item">
-                        <span class="step-num" style="display: inline-block; vertical-align: middle;">1</span> 
-                        <h3 class="step-headline" style="display: inline-block; vertical-align: middle; margin-left: 14px;">Салон</h3>
-                        <p class="step-desc">Выберите подходящий салон с нужным мастером.</p>
-                    </div>
-                    <div class="step-item">
-                        <span class="step-num" style="display: inline-block; vertical-align: middle;">2</span> 
-                        <h3 class="step-headline" style="display: inline-block; vertical-align: middle; margin-left: 14px;">Услуга</h3>
-
-                        <p class="step-desc">Выберите что нужно сделать.</p>
-                    </div>
-                    <div class="step-item">
-                        <span class="step-num" style="display: inline-block; vertical-align: middle;">3</span> 
-                        <h3 class="step-headline" style="display: inline-block; vertical-align: middle; margin-left: 14px;">Время</h3>
-                        <p class="step-desc">Возьмите свободное окно.</p>
-                    </div>
-                    <div class="step-item">
-                        <span class="step-num" style="display: inline-block; vertical-align: middle;">4</span>
-                        <h3 class="step-headline" style="display: inline-block; vertical-align: middle; margin-left: 14px;">Готово</h3>
-                        <p class="step-desc">Приходите. Напоминание придёт само.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-        
-        <!-- Популярные салоны -->
-        <section class="section-py popular-salons-section">
-            <div class="section-container">
-                <div class="popular-salons-header">
-                    <h2 class="text-display popular-salons-title">Популярные салоны</h2>
-                    <p class="text-muted popular-salons-subtitle">Лучшие салоны красоты по отзывам пользователей руми</p>
-                </div>
-                <div class="popular-salons-grid">
-                    {salon_cards}
-                </div>
-                <div class="popular-salons-footer">
-                    <a href="/salons" class="btn-outline popular-salons-btn">Смотреть все салоны →</a>
-                </div>
-            </div>
-        </section>
-
-        <!-- Партнёрство с Т‑Банком -->
         {render_tbank_partner_banner()}
 
-        <!-- Стать моделью -->
-        <section class="section-py" id="become-model">
+        <section class="home-business" id="for-business">
             <div class="section-container">
-                <div class="model-label">Для клиентов</div>
-                <div class="model-header">
-                    <div class="model-title-wrap">
-                        <h2 class="model-title">Стать моделью —<br />и платить меньше<span class="model-title-dot">.</span></h2>
-                        <p class="model-subtitle">Мастерам нужна практика. Вам — красивая стрижка или новая техника. Подписка — и услуги до 70% дешевле.</p>
-                    </div>
-                </div>
-                <div class="model-grid">
-                    <div class="model-item">
-                        <p class="model-item-desc">Услуги от мастеров со скидкой до <span class="model-item-highlight">70%</span></p>
-                    </div>
-                    <div class="model-item">
-                        <p class="model-item-desc"><span class="model-item-highlight">Первыми</span> получаете лучшие окна записи</p>
-                    </div>
-                    <div class="model-item">
-                        <p class="model-item-desc"><span class="model-item-highlight">Первые</span> тестируете процедуры и техники</p>
-                    </div>
-                    <div class="model-item">
-                        <p class="model-item-desc"><span class="model-item-highlight">Профессиональные</span> фото после визита</p>
-                    </div>
-                </div>
-                <div class="model-cta">
-                    <a href="/model" class="btn-primary model-btn">
-                        Оформить подписку
-                        {ICON_ARROW_RIGHT}
-                    </a>
-                </div>
-            </div>
-        </section>
-
-        <!-- Для бизнеса -->
-        <section class="section-py section-gradient" id="for-business">
-            <div class="section-container">
-                <div class="business-label">Для бизнеса</div>
-                <div class="business-header">
-                    <div class="business-title-wrap">
-                        <h2 class="business-title">Управлять салоном —<br />тоже просто<span class="business-title-dot">.</span></h2>
-                        <p class="business-subtitle">Расписание, оплаты, клиенты, аналитика — всё в одном окне. Подключение за 15 минут. Первые 14 дней бесплатно.</p>
-                    </div>
-                </div>
-                <div class="business-grid">
-                    <div class="business-item">
-                        <span class="business-number" style="display: inline-block; vertical-align: middle;">1</span>
-                        <h3 class="business-item-title" style="display: inline-block; vertical-align: middle; margin-left: 10px;">Расписание</h3>
-                        <p class="business-item-desc">Записи мастеров — в одном окне.</p>
-                    </div>
-                    <div class="business-item">
-                        <span class="business-number" style="display: inline-block; vertical-align: middle;">2</span>
-                        <h3 class="business-item-title" style="display: inline-block; vertical-align: middle; margin-left: 10px;">Клиенты</h3>
-                        <p class="business-item-desc">История, заметки, повторные визиты.</p>
-                    </div>
-                    <div class="business-item">
-                        <span class="business-number" style="display: inline-block; vertical-align: middle;">3</span>
-                        <h3 class="business-item-title" style="display: inline-block; vertical-align: middle; margin-left: 10px;">Оплата</h3>
-                        <p class="business-item-desc">Касса, чаевые, отчёты — внутри.</p>
-                    </div>
-                    <div class="business-item">
-                        <span class="business-number" style="display: inline-block; vertical-align: middle;">4</span>
-                        <h3 class="business-item-title" style="display: inline-block; vertical-align: middle; margin-left: 10px;">Аналитика</h3>
-                        <p class="business-item-desc">Выручка, загрузка, эффективность.</p>
-                    </div>
-                </div>
-                <div class="business-cta">
-                    <a href="/business" class="btn-primary business-btn">
-                        Подробнее
-                        {ICON_ARROW_RIGHT}
-                    </a>
-                </div>
+                {ui.section_head("Веду записи сам",
+                                 text="Расписание, клиенты, оплата и аналитика — в одном окне. "
+                                      "Первые 14 дней бесплатно.")}
+                {ui.button("Подробнее", kind="secondary", href="/business",
+                           icon=ICON_ARROW_RIGHT)}
             </div>
         </section>
 
@@ -258,5 +156,3 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
     </main>
 </body>
 </html>"""
-
-    return html

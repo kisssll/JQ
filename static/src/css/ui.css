@@ -443,3 +443,524 @@
     .r-display { font-size: var(--text-48); }
     .r-title { font-size: var(--text-36); }
 }
+
+/* =====================================================================
+   МОНОГРАММА
+   Крупная буква вместо фотографии. Фото у нас почти нет, и место под снимок
+   не должно выглядеть пустым: буква антиквой занимает его осмысленно.
+   Градиентных и узорных заглушек не рисуем — декорация на месте содержания
+   видна сразу (docs/design.md).
+   ===================================================================== */
+.r-mark {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: var(--radius-12);
+    background: var(--color-surface-alt);
+    color: var(--color-accent-hover);
+    font-family: var(--font-heading);
+    font-weight: 400;
+    line-height: 1;
+    /* Цифры и буквы в монограмме не должны прыгать по вертикали между
+       карточками: буква центрируется flex'ом, а не базовой линией. */
+    user-select: none;
+}
+
+.r-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.r-mark--sm { width: 36px; height: 36px; font-size: var(--text-16); border-radius: var(--radius-8); }
+.r-mark--md { width: 44px; height: 44px; font-size: var(--text-18); }
+.r-mark--lg { width: 56px; height: 56px; font-size: var(--text-28); }
+.r-mark--xl { width: 88px; height: 88px; font-size: var(--text-36); border-radius: var(--radius-16); }
+
+/* =====================================================================
+   СПИСОК УСЛУГ
+   Внутри карточки это список, а не вложенные карточки: строки держат тонкие
+   линии. Цена набрана табличными цифрами, иначе столбец «дышит» от строки к
+   строке и перестаёт читаться как столбец.
+   ===================================================================== */
+.r-svc {
+    list-style: none;
+    margin: var(--space-16) 0 0;
+    padding: 0;
+}
+
+.r-svc__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    column-gap: var(--space-12);
+    padding: var(--space-8) 0;
+    border-top: 1px solid var(--color-border);
+    font-size: var(--text-14);
+}
+
+.r-svc__name {
+    color: var(--color-heading);
+    font-weight: 600;
+    /* Длинное название услуги не должно расталкивать цену за край карточки. */
+    overflow-wrap: anywhere;
+}
+
+.r-svc__dur {
+    grid-column: 1;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+.r-svc__price {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    color: var(--color-heading);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.r-svc__more {
+    padding: var(--space-8) 0 0;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+.r-svc__none {
+    margin: var(--space-16) 0 0;
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+/* =====================================================================
+   СВОБОДНОЕ ОКНО
+   Та же плашка, что на странице записи: человек должен узнать её, перейдя из
+   каталога внутрь. Цель 44px — по ней целятся пальцем.
+   ===================================================================== */
+.r-slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+}
+
+.r-slot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--control-h);
+    padding: 0 var(--space-12);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-8);
+    background: var(--color-surface);
+    color: var(--color-heading);
+    font-family: var(--font-body);
+    font-size: var(--text-14);
+    font-variant-numeric: tabular-nums;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+        border-color var(--duration-1) var(--ease-out),
+        background-color var(--duration-1) var(--ease-out),
+        transform var(--duration-1) var(--ease-out);
+}
+
+.r-slot:active { transform: scale(0.96); }
+
+.r-slot.is-active {
+    border-color: var(--color-accent);
+    background: var(--color-accent-light);
+    color: var(--color-accent-hover);
+}
+
+@media (hover: hover) {
+    .r-slot:hover {
+        border-color: var(--color-accent);
+        background: var(--color-surface-alt);
+    }
+}
+
+/* =====================================================================
+   КАРТОЧКА САЛОНА (каталог и главная — один компонент)
+   Граница, а не тень: карточек на экране много, и двадцать мягких теней дают
+   «ватный» список. Тень остаётся приподнятым поверхностям.
+   ===================================================================== */
+.r-salon {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-16);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-16);
+    background: var(--color-surface);
+    transition: border-color var(--duration-2) var(--ease-out);
+}
+
+@media (hover: hover) {
+    .r-salon:hover { border-color: var(--color-border-strong); }
+}
+
+.r-salon__top {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-12);
+}
+
+/* Ссылка покрывает имя и монограмму — и ровно их: карточка целиком ссылкой
+   быть не может, внутри уже есть и «в избранное», и окна записи. */
+.r-salon__face {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    flex: 1;
+    min-width: 0;
+    text-decoration: none;
+    color: inherit;
+}
+
+.r-salon__id {
+    min-width: 0;
+}
+
+.r-salon__name {
+    display: block;
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-size: var(--text-22);
+    line-height: var(--leading-title);
+    letter-spacing: var(--tracking-title);
+    color: var(--color-heading);
+    /* break-word, а не anywhere: длинное название должно переноситься целым
+       словом и только при полной безвыходности рваться — anywhere рвал
+       «Радугу» по слогам на обычной ширине колонки. */
+    overflow-wrap: break-word;
+}
+
+.r-salon__where {
+    display: block;
+    margin-top: var(--space-4);
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+@media (hover: hover) {
+    .r-salon__face:hover .r-salon__name { color: var(--color-accent-hover); }
+}
+
+.r-salon__aside {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    flex-shrink: 0;
+}
+
+.r-salon__rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--color-heading);
+    font-size: var(--text-13);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ICON_STAR_FILLED приезжает с зашитым золотым #facc15 — он стоит ещё в
+   полудюжине мест панели, и менять сам файл иконок значило бы трогать чужие
+   разделы. Поэтому цвет перекрывается здесь: третьего цвета в палитре нет,
+   оценка окрашена акцентом, как и всё остальное акцентное. */
+.r-salon__star {
+    display: inline-flex;
+    color: var(--color-accent);
+}
+
+.r-salon__star svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+    stroke: currentColor;
+}
+
+.r-salon__reviews {
+    color: var(--color-muted);
+    font-weight: 400;
+}
+
+/* Сердце прижато к верхнему краю карточки, а не к середине строки имени:
+   имя бывает в две строки, и кнопка тогда уезжала вниз. */
+.r-salon__aside { align-self: flex-start; }
+
+/* «В избранное» — настоящая кнопка 44px, а не иконка 24px поверх снимка:
+   на телефоне по маленькому сердцу попадают с третьего раза. */
+.r-salon__fav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--control-h);
+    height: var(--control-h);
+    margin: calc(var(--space-8) * -1) calc(var(--space-8) * -1) 0 0;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: none;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: color var(--duration-1) var(--ease-out),
+                background-color var(--duration-1) var(--ease-out);
+}
+
+.r-salon__fav svg { width: 20px; height: 20px; }
+
+.r-salon__fav.liked { color: var(--color-accent); }
+
+@media (hover: hover) {
+    .r-salon__fav:hover {
+        background: var(--color-surface-alt);
+        color: var(--color-accent);
+    }
+}
+
+.r-salon__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-top: var(--space-12);
+}
+
+.r-salon__slots {
+    margin-top: var(--space-16);
+}
+
+.r-salon__slots-label {
+    margin: 0 0 var(--space-8);
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+/* Ссылка «все услуги и запись» прижата к низу: карточки в сетке имеют разную
+   высоту, и без этого нижняя строка плясала бы по ряду. */
+.r-salon__all {
+    margin-top: auto;
+    padding-top: var(--space-16);
+    color: var(--color-accent-hover);
+    font-size: var(--text-14);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.r-salon__all::after {
+    content: " →";
+}
+
+@media (hover: hover) {
+    .r-salon__all:hover { text-decoration: underline; text-underline-offset: 3px; }
+}
+
+/* Сетка карточек. Одна колонка на телефоне, дальше — сколько поместится по
+   320px. Фиксированного числа колонок нет намеренно: сетка на тридцать мест с
+   четырьмя заполненными выглядит сломанной, а эта — нет. */
+.r-salon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--space-16);
+    /* Карточка по своему содержанию, а не по самой высокой в ряду: у салона
+       без услуг иначе остаётся пустое поле в полэкрана — ровно тот вид
+       «сломано», которого мы избегаем. */
+    align-items: start;
+}
+
+/* =====================================================================
+   ЗАГОЛОВОК РАЗДЕЛА
+   ===================================================================== */
+.r-sechead {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-16);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-24);
+}
+
+.r-sechead__main { min-width: 0; }
+
+.r-sechead__text { margin-top: var(--space-8); font-size: var(--text-16); }
+
+.r-seclink {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-h);
+    color: var(--color-accent-hover);
+    font-size: var(--text-14);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.r-seclink::after { content: " →"; }
+
+@media (hover: hover) {
+    .r-seclink:hover { text-decoration: underline; text-underline-offset: 3px; }
+}
+
+/* =====================================================================
+   ЛИСТ СНИЗУ
+   Приезжает оттуда, где палец. Пружина и прерываемость — в motion.js; здесь
+   только раскладка и конечные состояния, чтобы лист работал и до того, как
+   догрузится бандл.
+   ===================================================================== */
+.r-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+}
+
+.r-sheet[hidden] { display: none; }
+
+.r-sheet__scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(26, 17, 21, 0.45);
+}
+
+.r-sheet__panel {
+    position: relative;
+    width: 100%;
+    max-height: 88vh;
+    max-height: 88dvh;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--radius-16) var(--radius-16) 0 0;
+    background: var(--color-surface);
+    /* Тень без границы: граница по верхнему краю листа на тёмной подложке
+       читается как шов, а не как край. */
+    box-shadow: var(--shadow-3);
+    /* Запас под полосу жеста «домой» на айфоне. */
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (min-width: 640px) {
+    /* На планшете лист не растягивается во всю ширину: диалог шириной 900px
+       перестаёт читаться как лист и становится вторым экраном. */
+    .r-sheet { align-items: center; justify-content: center; padding: var(--space-24); }
+    .r-sheet__panel { max-width: 32rem; border-radius: var(--radius-16); }
+}
+
+.r-sheet__head {
+    position: relative;
+    flex-shrink: 0;
+    padding: var(--space-16) var(--space-16) var(--space-12);
+    border-bottom: 1px solid var(--color-border);
+}
+
+/* Полоска-ручка: она говорит «это тянется вниз» раньше любой подписи. */
+.r-sheet__grip {
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: 0 auto var(--space-12);
+    border-radius: var(--radius-pill);
+    background: var(--color-border-strong);
+}
+
+@media (min-width: 640px) {
+    .r-sheet__grip { display: none; }
+}
+
+.r-sheet__title {
+    margin: 0;
+    padding-right: var(--control-h);
+    font-size: var(--text-18);
+    font-weight: 600;
+    line-height: var(--leading-title);
+    letter-spacing: var(--tracking-title);
+    color: var(--color-heading);
+}
+
+.r-sheet__close {
+    position: absolute;
+    top: var(--space-8);
+    right: var(--space-8);
+    width: var(--control-h);
+    height: var(--control-h);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: none;
+    color: var(--color-muted);
+    cursor: pointer;
+}
+
+@media (hover: hover) {
+    .r-sheet__close:hover { background: var(--color-surface-alt); color: var(--color-heading); }
+}
+
+.r-sheet__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    /* Инерция прокрутки внутри листа как в iOS, и она не «протекает» в
+       страницу под листом. */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: var(--space-16);
+}
+
+/* =====================================================================
+   ЗАКРЕПЛЁННАЯ СНИЗУ ПОЛОСА С ГЛАВНЫМ ДЕЙСТВИЕМ
+   ===================================================================== */
+.r-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    padding: var(--space-12) var(--space-16);
+    padding-bottom: max(var(--space-12), env(safe-area-inset-bottom));
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+}
+
+.r-dock[hidden] { display: none; }
+
+/* На тёмной подложке затемнение листа должно быть плотнее: полупрозрачный
+   тёмный поверх тёмного почти не отделяет лист от страницы. */
+:root[data-theme="dark"] .r-sheet__scrim {
+    background: rgba(0, 0, 0, 0.66);
+}
+
+/* =====================================================================
+   ПЕРЕХОД «КАРТОЧКА КАТАЛОГА → СТРАНИЦА САЛОНА»
+   Единственное авторское движение клиентского мира (docs/design.md). Браузер
+   переносит монограмму и имя из карточки в шапку страницы сам — ему нужны
+   одинаковые view-transition-name по обе стороны; имя той карточки, по которой
+   нажали, проставляет static/src/js/card-transition.js.
+
+   Правило навигации объявлено внутри prefers-reduced-motion: no-preference —
+   так человек, попросивший систему убрать анимацию, получает обычный переход,
+   и отдельного выключателя для этого не нужно.
+   ===================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+    @view-transition { navigation: auto; }
+}
+
+::view-transition-group(salon-mark),
+::view-transition-group(salon-title) {
+    animation-duration: 320ms;
+    animation-timing-function: var(--ease-out);
+}
+
+/* Остальная страница просто сменяется, и быстро: длинное затухание всего
+   полотна читается как медленный сайт, а не как плавность. */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 160ms;
+    animation-timing-function: var(--ease-out);
+}

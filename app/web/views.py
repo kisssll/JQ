@@ -72,10 +72,26 @@ async def evening_deals_page(request: Request, city: str = None, db: AsyncSessio
 
 @router.get("/salons/{salon_id}", response_class=HTMLResponse)
 async def salon_detail_page(salon_id: int, request: Request, db: AsyncSession = Depends(get_db)):
-    """Страница конкретного салона."""
+    """Страница конкретного салона.
+
+    ?master=&service=&slot= — предвыбор из карточки каталога: человек нажал на
+    свободное окно в списке, и повторять за него те же три шага незачем.
+    Значения проверяет сам виджет записи по своим данным; здесь они только
+    приводятся к числу, чтобы в разметку не уехала чужая строка.
+    """
     user = await get_current_user_from_cookie(request, db)
     from app.web.pages.salon_detail import render_salon_detail
-    html = await render_salon_detail(db, salon_id, user)
+
+    def _int(name: str):
+        raw = request.query_params.get(name)
+        try:
+            return int(raw) if raw else None
+        except (TypeError, ValueError):
+            return None
+
+    slot = (request.query_params.get("slot") or "")[:16]
+    preset = {"master": _int("master"), "service": _int("service"), "slot": slot or None}
+    html = await render_salon_detail(db, salon_id, user, preset=preset)
     return HTMLResponse(content=html)
 
 

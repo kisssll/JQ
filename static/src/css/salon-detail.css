@@ -1,22 +1,775 @@
-/* static/src/css/salon-detail.css */
+/* static/src/css/salon-detail.css — страница салона и страница мастера
+   (заход «витрина», решение 0011, п. 13).
 
-/* --- Базовые утилиты --- */
-.hidden {
-    display: none !important;
-}
+   Раскладка: слева представление, справа липкая колонка записи. На телефоне
+   колонки нет — её содержимое уезжает в лист снизу (разметка одна, узел
+   переносит static/src/js/salon-detail.js), а внизу экрана стоит закреплённая
+   кнопка.
+
+   Прежний файл был на 1481 строку и описывал пять шагов записи с пятью
+   наборами сводок и «хлебных крошек». Шагов теперь четыре (или три в соло),
+   сводка одна, и половина прежних правил описывала разметку, которой больше
+   нет.
+
+   В конце файла — правила, которые читает НЕ эта страница; они оставлены
+   дословно, их страницы ждут своих заходов. */
 
 .page-body {
-    background-color: var(--color-surface);
+    background-color: var(--color-background);
     min-height: 100vh;
 }
 
+/* Место под боковое меню — оно fixed шириной 16rem и появляется с 1024px. */
 @media (min-width: 1024px) {
     .main-wrapper {
         padding-right: 16rem;
     }
 }
 
-/* --- Кнопки --- */
+/* Шапка сервиса fixed и прозрачная, но плашка с логотипом занимает левые
+   180×60px. Поэтому страница начинается ниже её, а не под ней. */
+.salon-page .main-wrapper > main {
+    padding-top: 5rem;
+    padding-bottom: var(--space-48);
+}
+
+.salon-back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: var(--control-h);
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    text-decoration: none;
+}
+
+.salon-back svg { width: 16px; height: 16px; }
+
+@media (hover: hover) {
+    .salon-back:hover { color: var(--color-heading); }
+}
+
+/* ---------- Две колонки ----------
+   900px, а не 1024: между 900 и 1023 бокового меню ещё нет, ширины хватает, и
+   прятать запись в лист там было бы уже лишним. */
+.salon-cols {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-32);
+    margin-top: var(--space-16);
+}
+
+@media (min-width: 900px) {
+    .salon-cols {
+        /* 18rem, а не 20: на 1024px справа ещё стоит боковое меню в 16rem, и
+           широкая колонка записи оставляла представлению 400px — заголовок в
+           ней ломался на четыре строки. */
+        grid-template-columns: minmax(0, 1fr) 18rem;
+        gap: var(--space-32);
+        align-items: start;
+    }
+}
+
+@media (min-width: 1280px) {
+    .salon-cols {
+        grid-template-columns: minmax(0, 1fr) 20rem;
+        gap: var(--space-48);
+    }
+}
+
+.salon-main { min-width: 0; }
+
+/* На телефоне колонка пуста — её содержимое в листе. display:none, а не
+   visibility: пустой блок всё равно забирал бы отступ сетки. */
+.salon-aside { display: none; }
+
+@media (min-width: 900px) {
+    .salon-aside {
+        display: block;
+        position: sticky;
+        /* 60px шапки плюс воздух: иначе колонка подлезает под плашку лого. */
+        top: calc(60px + var(--space-24));
+    }
+}
+
+/* Вторая половина единственного авторского движения: монограмма и имя
+   получают те же имена, что проставляет карточке static/src/js/card-transition.js.
+   Браузер переносит их из списка в шапку сам; без пары на этой стороне
+   переход превращается в обычную смену страниц.
+
+   Имена уникальны в документе — на странице одна шапка и один заголовок.
+   Под prefers-reduced-motion правило навигации выключено в ui.css, и имена
+   тогда просто ни на что не влияют. */
+.salon-page .salon-head .r-mark { view-transition-name: salon-mark; }
+.salon-page .salon-title { view-transition-name: salon-title; }
+
+/* ---------- Шапка страницы ---------- */
+.salon-head {
+    padding-bottom: var(--space-24);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.salon-head__top {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-16);
+}
+
+.salon-head__id {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Кегль заголовка задан здесь, а не взят из .r-display: рядом стоит колонка
+   записи, и 48px в оставшейся ширине разрывали имя на четыре строки.
+   Полный размер возвращается там, где место правда есть. */
+.salon-title {
+    font-size: var(--text-28);
+    overflow-wrap: break-word;
+    text-wrap: balance;
+}
+
+@media (min-width: 640px) {
+    .salon-title { font-size: var(--text-36); }
+}
+
+@media (min-width: 1280px) {
+    .salon-title { font-size: var(--text-48); }
+}
+
+.salon-who {
+    margin: var(--space-8) 0 0;
+    color: var(--color-body);
+    font-size: var(--text-16);
+}
+
+.salon-where {
+    margin: var(--space-4) 0 0;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+.salon-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+    margin-top: var(--space-16);
+    font-size: var(--text-14);
+}
+
+/* Тот же случай, что в карточке: у ICON_STAR_FILLED зашит золотой #facc15. */
+.salon-rating svg {
+    width: 16px;
+    height: 16px;
+    color: var(--color-accent);
+    fill: currentColor;
+    stroke: currentColor;
+}
+
+.salon-marks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-top: var(--space-16);
+}
+
+/* «В избранное» — настоящая кнопка 44px: иконкой в 20px на телефоне не
+   попадают с первого раза. */
+.favorite-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--control-h);
+    height: var(--control-h);
+    border: none;
+    border-radius: var(--radius-pill);
+    background: none;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: color var(--duration-1) var(--ease-out),
+                background-color var(--duration-1) var(--ease-out);
+}
+
+.favorite-btn svg { width: 20px; height: 20px; }
+.favorite-btn.liked { color: var(--color-accent); }
+
+@media (hover: hover) {
+    .favorite-btn:hover { background: var(--color-surface-alt); color: var(--color-accent); }
+}
+
+/* ---------- Факты: адрес, телефон, часы ----------
+   Список определений, а не карточки: это три подписанных значения. */
+/* auto-fit по ширине КОЛОНКИ, а не экрана: на 1024px представление занимает
+   чуть больше 400px, и три жёсткие колонки ломали адрес по слогам. */
+.salon-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: var(--space-16);
+    margin: var(--space-24) 0 0;
+}
+
+.salon-facts dt {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+.salon-facts dt svg { width: 14px; height: 14px; }
+
+.salon-facts dd {
+    margin: var(--space-4) 0 0;
+    color: var(--color-heading);
+    font-size: var(--text-14);
+    line-height: var(--leading-text);
+}
+
+.salon-map {
+    height: 220px;
+    margin-top: var(--space-24);
+    border-radius: var(--radius-12);
+    overflow: hidden;
+}
+
+/* ---------- Блоки представления ---------- */
+.salon-block {
+    padding: var(--space-32) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.salon-block:last-child { border-bottom: none; }
+
+.salon-block > .r-subtitle { margin-bottom: var(--space-16); }
+
+.salon-about { white-space: pre-line; }
+
+/* ---------- Фотографии работ ----------
+   Полоса с прокруткой, а не сетка: снимков у большинства нет вовсе, а у одного
+   салона их девять — сетка выглядела бы то пустой, то рваной. */
+.salon-photos,
+.shots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+}
+
+.salon-photos img {
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: var(--radius-12);
+    cursor: zoom-in;
+}
+
+.shot { position: relative; }
+
+.shot img {
+    display: block;
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: var(--radius-12);
+    cursor: zoom-in;
+}
+
+.portfolio-photo-delete {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-4);
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(26, 17, 21, 0.72);
+    color: #fff;
+    cursor: pointer;
+}
+
+.portfolio-photo-delete svg { width: 14px; height: 14px; }
+
+.master-manage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    margin-bottom: var(--space-16);
+}
+
+.master-works__sub {
+    margin: var(--space-24) 0 var(--space-8);
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    font-weight: 600;
+}
+
+/* ---------- Команда ---------- */
+.team-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-16);
+}
+
+@media (min-width: 640px) {
+    .team-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+}
+
+.team-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    padding: var(--space-16);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-12);
+}
+
+.team-card__top {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-12);
+}
+
+.team-card__id { flex: 1; min-width: 0; }
+
+.team-card__name {
+    color: var(--color-heading);
+    font-size: var(--text-16);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+@media (hover: hover) {
+    .team-card__name:hover { color: var(--color-accent-hover); }
+}
+
+.team-card__meta {
+    margin: 2px 0 0;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+.team-card__shots {
+    display: flex;
+    gap: var(--space-4);
+}
+
+.team-card__shots img {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: var(--radius-8);
+    cursor: zoom-in;
+}
+
+.team-card .r-btn { margin-top: auto; }
+
+/* ---------- Сеть салонов ---------- */
+.salon-chain__links {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.salon-chain__link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: var(--control-h);
+    color: var(--color-accent-hover);
+    font-size: var(--text-14);
+    text-decoration: none;
+}
+
+.salon-chain__link svg { width: 14px; height: 14px; }
+
+/* ---------- Отзывы ---------- */
+.review-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    margin-bottom: var(--space-24);
+}
+
+.review-filter-btn {
+    min-height: var(--control-h-sm);
+    padding: 0 var(--space-12);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-body);
+    font-family: var(--font-body);
+    font-size: var(--text-13);
+    cursor: pointer;
+    transition: border-color var(--duration-1) var(--ease-out),
+                background-color var(--duration-1) var(--ease-out);
+}
+
+.review-filter-btn.is-active {
+    border-color: var(--color-accent);
+    background: var(--color-accent-light);
+    color: var(--color-accent-hover);
+    font-weight: 600;
+}
+
+.reviews-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+}
+
+.review-item[hidden] { display: none; }
+
+.review-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-8);
+}
+
+.review-author {
+    color: var(--color-heading);
+    font-size: var(--text-16);
+}
+
+.review-date {
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+.review-marks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin: var(--space-8) 0;
+}
+
+.review-stars svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+    stroke: currentColor;
+}
+
+.review-photos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    margin-top: var(--space-12);
+}
+
+.review-photo-item { position: relative; }
+
+.review-photo-item img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: var(--radius-8);
+    cursor: zoom-in;
+}
+
+.review-photo-delete,
+.review-photo-report {
+    position: absolute;
+    top: var(--space-4);
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(26, 17, 21, 0.72);
+    color: #fff;
+    cursor: pointer;
+}
+
+.review-photo-delete { right: var(--space-4); }
+.review-photo-report { left: var(--space-4); }
+
+.review-photo-delete svg,
+.review-photo-report svg { width: 12px; height: 12px; }
+
+/* =====================================================================
+   ЗАПИСЬ: колонка справа и то же самое в листе снизу
+   ===================================================================== */
+.book {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+}
+
+/* В колонке запись оформлена как поверхность, в листе — нет: лист сам уже
+   поверхность, и рамка внутри него дала бы вложенную карточку. */
+#bookingHost > .book {
+    padding: var(--space-24);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-16);
+    background: var(--color-surface);
+}
+
+#bookingHost > .book .book__body {
+    /* Колонка липкая, и длинная сетка дней не должна выталкивать её за экран:
+       прокручивается она сама. */
+    max-height: 60vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.book__head { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.book__title {
+    margin: 0;
+    font-size: var(--text-18);
+    font-weight: 600;
+    line-height: var(--leading-title);
+    letter-spacing: var(--tracking-title);
+    color: var(--color-heading);
+}
+
+/* В листе заголовок уже есть в его шапке — второй подряд не нужен. */
+#bookingSheetHost .book__title { display: none; }
+
+.book__hint {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+    line-height: var(--leading-text);
+}
+
+.book__back {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: var(--control-h);
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-muted);
+    font-family: var(--font-body);
+    font-size: var(--text-14);
+    cursor: pointer;
+}
+
+.book__back[hidden] { display: none; }
+.book__back svg { width: 16px; height: 16px; }
+
+@media (hover: hover) {
+    .book__back:hover { color: var(--color-heading); }
+}
+
+.book__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.book__empty {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    line-height: var(--leading-text);
+}
+
+/* ---------- Строка выбора (мастер, услуга) ---------- */
+.pick {
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+    width: 100%;
+    min-height: var(--control-h);
+    padding: var(--space-12);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-12);
+    background: var(--color-surface);
+    color: var(--color-heading);
+    font-family: var(--font-body);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color var(--duration-1) var(--ease-out),
+                background-color var(--duration-1) var(--ease-out),
+                transform var(--duration-1) var(--ease-out);
+}
+
+.pick:active { transform: scale(0.99); }
+
+@media (hover: hover) {
+    .pick:hover { border-color: var(--color-accent); background: var(--color-surface-alt); }
+}
+
+.pick__body { flex: 1; min-width: 0; }
+
+.pick__body strong {
+    display: block;
+    font-size: var(--text-16);
+    font-weight: 600;
+}
+
+.pick__body small {
+    display: block;
+    margin-top: 2px;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+}
+
+.pick__price {
+    flex-shrink: 0;
+    font-size: var(--text-16);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ---------- Дни ----------
+   Полоса с инерционной прокруткой и прилипанием: запись открыта на два месяца
+   вперёд, и шестьдесят кнопок сеткой превратили бы шаг в календарь. */
+.days {
+    display: flex;
+    gap: var(--space-8);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-inline: calc(var(--space-4) * -1);
+    padding: var(--space-4);
+}
+
+.days::-webkit-scrollbar { display: none; }
+
+.day {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 56px;
+    min-height: 64px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-12);
+    background: var(--color-surface);
+    color: var(--color-heading);
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: border-color var(--duration-1) var(--ease-out),
+                background-color var(--duration-1) var(--ease-out),
+                transform var(--duration-1) var(--ease-out);
+}
+
+.day:active { transform: scale(0.96); }
+
+.day__dow { color: var(--color-muted); font-size: var(--text-12); }
+.day__num { font-size: var(--text-18); font-weight: 600; font-variant-numeric: tabular-nums; }
+.day__mon { color: var(--color-muted); font-size: var(--text-12); }
+
+.day.is-active {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-btn-text);
+}
+
+.day.is-active .day__dow,
+.day.is-active .day__mon { color: var(--color-btn-text); opacity: 0.8; }
+
+@media (hover: hover) {
+    .day:not(.is-active):hover { border-color: var(--color-accent); }
+}
+
+/* Сообщение вместо окон кладётся в ту же сетку, что и окна, и становилось
+   ячейкой в 84px — текст сыпался по слову в строку. */
+.r-slots > .book__empty { flex-basis: 100%; }
+
+/* ---------- Итог ---------- */
+.book__sum { margin: 0; }
+
+.book__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-16);
+    padding: var(--space-8) 0;
+    border-top: 1px solid var(--color-border);
+    font-size: var(--text-14);
+}
+
+.book__row dt { color: var(--color-muted); }
+
+.book__row dd {
+    margin: 0;
+    color: var(--color-heading);
+    font-weight: 600;
+    text-align: right;
+}
+
+/* Место под ошибку есть всегда: её появление не должно уводить кнопку
+   «Записаться» из-под пальца. */
+.book__error {
+    display: block;
+    min-height: 1.2em;
+    margin: var(--space-12) 0;
+    color: var(--color-danger);
+    font-size: var(--text-13);
+    line-height: 1.45;
+}
+
+.book__done-title {
+    margin: 0;
+    color: var(--color-success);
+    font-size: var(--text-18);
+    font-weight: 600;
+    line-height: var(--leading-title);
+}
+
+.book__done-text {
+    margin: var(--space-4) 0 var(--space-16);
+    color: var(--color-body);
+    font-size: var(--text-14);
+    line-height: var(--leading-text);
+}
+
+.book__done-title + .book__done-text + .book__sum + .r-btn {
+    margin-top: var(--space-16);
+}
+
+.book__note {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+    line-height: var(--leading-text);
+}
+
+.book__note p { margin: 0 0 var(--space-8); }
+
+.book__note-act {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+}
+
+/* ---------- Закреплённая кнопка: только там, где нет колонки ---------- */
+@media (min-width: 900px) {
+    .r-dock { display: none; }
+}
+
+/* Чтобы подвал не оказался под закреплённой кнопкой на телефоне. */
+@media (max-width: 899px) {
+    .salon-page .main-wrapper > main {
+        padding-bottom: calc(var(--control-h) + var(--space-48));
+    }
+}
+
+/* =====================================================================
+   НИЖЕ — ЧУЖОЕ. Эти правила читают другие страницы, у них свои заходы.
+   ===================================================================== */
+.hidden {
+    display: none !important;
+}
+
+
 .btn-primary {
     display: inline-flex;
     align-items: center;
@@ -44,86 +797,6 @@
    оно — и по всему сайту кнопки выходили 0.75rem с рамкой 1px вместо
    задуманных 0.875rem и 2px. Здесь компактный розовый вид уместен (чипы
    выбора времени и мастера), в остальных местах — нет. */
-.page-body .btn-outline {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background-color: transparent;
-    color: var(--color-primary);
-    border: 1px solid var(--color-primary);
-    padding: 0.375rem 1rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border-radius: 9999px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.page-body .btn-outline:hover,
-.page-body .btn-outline.selected {
-    background-color: var(--color-primary);
-    color: var(--color-btn-text);
-}
-
-/* --- Иконки и общие элементы --- */
-.icon-arrow {
-    width: 1rem;
-    height: 1rem;
-}
-
-.icon-star {
-    width: 1.25rem;
-    height: 1.25rem;
-    fill: var(--color-primary);
-    color: var(--color-primary);
-}
-
-.fav-btn {
-    position: absolute;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    background-color: var(--color-surface);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    transition: transform 0.2s ease;
-}
-
-.fav-btn:hover {
-    transform: scale(1.1);
-}
-
-.fav-btn:active {
-    transform: scale(0.95);
-}
-
-.heart-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    color: #9ca3af;
-}
-
-.heart-wrapper svg {
-    width: 1.25rem;
-    height: 1.25rem;
-    transition: color 0.2s;
-}
-
-.fav-btn.liked .heart-wrapper {
-    color: #ef4444;
-}
-
-.fav-btn.liked .heart-wrapper svg {
-    fill: #ef4444;
-}
 
 .badge-tag {
     background-color: var(--color-accent-light);
@@ -133,6 +806,7 @@
     font-weight: 500;
     border-radius: 9999px;
 }
+
 
 .section-title {
     font-size: 1.125rem;
@@ -146,100 +820,6 @@
 /* Верхний отступ больше нижнего: шапка зафиксирована и её плашка с логотипом
    занимает первые 60px, а ссылка «Все салоны» стоит первой в секции и уходила
    под неё. */
-.salon-top-section {
-    background-color: var(--color-surface-alt);
-    padding: 6rem 0 3rem;
-}
-
-.back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--color-muted);
-    text-decoration: none;
-    margin-bottom: 1.5rem;
-    transition: color 0.2s;
-}
-
-.back-link:hover {
-    color: var(--color-heading);
-}
-
-.salon-header-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-@media (min-width: 768px) {
-    .salon-header-grid {
-        flex-direction: row;
-        align-items: flex-start;
-        gap: 2.5rem;
-    }
-}
-
-.salon-image-wrapper {
-    position: relative;
-    width: 9rem;
-    height: 9rem;
-    flex-shrink: 0;
-    border-radius: 1rem;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-@media (min-width: 768px) {
-    .salon-image-wrapper {
-        width: 14rem;
-        height: 14rem;
-    }
-}
-
-.salon-image-wrapper img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 1rem;
-    cursor: zoom-in;
-}
-
-.top-fav-btn {
-    top: -0.5rem;
-    right: -0.5rem;
-}
-
-.salon-info-wrapper {
-    flex: 1;
-}
-
-.salon-title {
-    font-family: var(--font-heading);
-    font-size: 1.875rem;
-    color: var(--color-heading);
-    margin-bottom: 0.75rem;
-    line-height: 1.1;
-}
-
-@media (min-width: 1024px) {
-    .salon-title {
-        font-size: 2.25rem;
-    }
-}
-
-.salon-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.salon-rating {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-}
 
 .rating-val {
     font-weight: 600;
@@ -251,174 +831,6 @@
     color: var(--color-muted);
 }
 
-.salon-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.salon-desc {
-    font-size: 0.875rem;
-    color: var(--color-muted);
-    line-height: 1.625;
-    max-width: 42rem;
-    margin-bottom: 1rem;
-}
-
-.salon-contacts {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-}
-
-.contact-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--color-muted);
-}
-
-.contact-item svg {
-    width: 0.9375rem;
-    height: 0.9375rem;
-    color: var(--color-primary);
-}
-
-.salon-chain-note {
-    margin-top: 0.75rem;
-    padding: 0.75rem 1rem;
-    background: var(--color-accent-light);
-    border-radius: 0.75rem;
-}
-
-.salon-chain-label {
-    display: block;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--color-heading);
-    margin-bottom: 0.4rem;
-}
-
-.salon-chain-links {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-}
-
-.chain-sibling-link {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.85rem;
-    color: var(--color-primary);
-    text-decoration: none;
-}
-
-.chain-sibling-link:hover {
-    text-decoration: underline;
-}
-
-.chain-sibling-link svg {
-    width: 0.9rem;
-    height: 0.9rem;
-}
-
-/* --- Акции --- */
-.promos-section {
-    padding: 2rem 1.25rem;
-}
-
-.promos-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-}
-
-@media (min-width: 640px) {
-    .promos-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-.promo-card {
-    position: relative;
-    border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
-    padding: 1rem;
-    overflow: hidden;
-    transition: box-shadow 0.2s ease;
-}
-
-.promo-card:hover {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.promo-badge {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    background-color: var(--color-primary);
-    color: var(--color-btn-text);
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.125rem 0.625rem;
-    border-radius: 9999px;
-}
-
-.promo-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    padding-right: 4rem;
-    margin-bottom: 0.375rem;
-}
-
-.promo-desc {
-    font-size: 0.75rem;
-    color: var(--color-muted);
-}
-
-/* --- Отзывы --- */
-.reviews-section {
-    padding-bottom: 4rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--color-border);
-}
-
-.reviews-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.review-item {
-    border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
-    padding: 1rem;
-    background-color: var(--color-surface);
-}
-
-.review-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-}
-
-.review-author {
-    font-size: 0.875rem;
-}
-
-.review-date {
-    font-size: 0.75rem;
-    color: var(--color-muted);
-}
-
-.review-stars {
-    color: var(--color-primary);
-    font-size: 0.875rem;
-    margin-bottom: 0.5rem;
-}
 
 .review-text {
     font-size: 0.875rem;
@@ -426,1057 +838,9 @@
 }
 
 /* --- Фото в отзывах --- */
-.review-photos {
-    display: flex;
-    flex-wrap: wrap;
-    margin-top: 0.5rem;
-}
-
-.review-photo-item {
-    position: relative;
-    display: inline-block;
-}
-
-.review-photo-item img {
-    width: 100px;
-    height: 100px;
-    object-fit: cover;
-    border-radius: 0.5rem;
-    margin: 0.25rem;
-}
-
-.review-photo-delete,
-.review-photo-report {
-    position: absolute;
-    top: 0.25rem;
-    right: 0.25rem;
-    border: none;
-    border-radius: 50%;
-    width: 1.5rem;
-    height: 1.5rem;
-    background: rgba(0, 0, 0, 0.6);
-    color: #fff;
-    cursor: pointer;
-    font-size: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.review-photo-delete {
-    right: 0.25rem;
-}
-
-.review-photo-report {
-    right: 2rem;
-}
-
-/* --- Блок лояльности --- */
-.salon-loyalty {
-    margin-top: 0.75rem;
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.loyalty-chip {
-    background: var(--color-accent-light);
+.review-stars {
     color: var(--color-primary);
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
-    font-size: 0.85rem;
-}
-
-/* --- Фото галерея --- */
-.salon-photos {
-    display: flex;
-    gap: 0.75rem;
-    overflow-x: auto;
-    padding: 1rem 0;
-}
-
-.salon-photos img {
-    height: 180px;
-    border-radius: 0.75rem;
-    flex-shrink: 0;
-    cursor: zoom-in;
-}
-
-.master-portfolio-preview {
-    display: flex;
-    gap: 0.35rem;
-    margin-top: 0.5rem;
-    overflow: hidden;
-}
-
-.master-portfolio-preview img {
-    width: 3.25rem;
-    height: 3.25rem;
-    border-radius: 0.45rem;
-    object-fit: cover;
-    cursor: zoom-in;
-}
-
-/* --- Заглушка для логотипа салона --- */
-.salon-logo-placeholder {
-    width: 100%;
-    height: 100%;
-    min-height: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-    color: var(--color-btn-text);
-    font-size: 4rem;
-    font-weight: 700;
-    border-radius: 1rem;
-}
-
-/* --- Отзывы: мета-информация --- */
-.review-meta {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin: 0.35rem 0;
-}
-
-/* --- Карточка отзыва форма --- */
-.review-form-card {
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-
-.review-form-card h3 {
-    margin-bottom: 1rem;
-}
-
-.review-form-group {
-    margin-bottom: 0.75rem;
-}
-
-.review-form-group label {
-    display: block;
-    font-weight: 500;
-    margin-bottom: 0.4rem;
-}
-
-.review-form-group select,
-.review-form-group textarea,
-.review-form-group input[type="file"] {
-    width: 100%;
-    padding: 0.6rem;
-    border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
-    background: var(--color-surface);
-    color: var(--color-heading);
-    font-size: 0.95rem;
-}
-
-.review-form-group textarea {
-    resize: vertical;
-}
-
-/* --- Фильтры отзывов --- */
-.review-filters {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-}
-
-.review-filter-btn.active {
-    background: var(--color-primary);
-    color: var(--color-btn-text);
-}
-
-/* ==================== ПОШАГОВАЯ ЗАПИСЬ ==================== */
-.booking-flow {
-    padding: 2rem 0;
-}
-
-.booking-step {
-    width: 100%;
-    padding: 0 1rem;
-    margin: 0 auto;
-}
-
-.step-title {
-    font-family: var(--font-heading);
-    font-size: 1.5rem;
-    font-weight: 400;
-    color: var(--color-heading);
-    margin-bottom: 1.5rem;
-}
-
-.step-subtitle {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--color-heading);
-    margin: 1.5rem 0 1rem;
-}
-
-/* Хлебные крошки */
-.breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    color: var(--color-muted);
-    flex-wrap: wrap;
-    margin-bottom: 1rem;
-}
-
-.breadcrumb-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--color-muted);
-    transition: color 0.2s;
-    font-size: inherit;
-}
-
-.breadcrumb-btn:hover {
-    color: var(--color-heading);
-}
-
-.breadcrumb-current {
-    font-weight: 600;
-    color: var(--color-heading);
-}
-
-.breadcrumb svg {
-    width: 0.9rem;
-    height: 0.9rem;
-    flex-shrink: 0;
-}
-
-/* Кнопка назад */
-.back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: none;
-    border: none;
-    color: var(--color-muted);
     font-size: 0.875rem;
-    cursor: pointer;
-    transition: color 0.2s;
-    margin-bottom: 1rem;
-}
-
-.back-btn:hover {
-    color: var(--color-heading);
-}
-
-.back-btn svg {
-    width: 1rem;
-    height: 1rem;
-}
-
-/* ===== КАРТОЧКИ МАСТЕРОВ (стили как у карточек салонов) ===== */
-.masters-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.master-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 1rem;
-    overflow: hidden;
-    transition: box-shadow 0.2s;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    cursor: pointer;
-}
-
-.master-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-    border-color: var(--color-primary);
-}
-
-.master-card-inner {
-    display: flex;
-    flex-direction: column;
-}
-
-@media (min-width: 640px) {
-    .master-card-inner {
-        flex-direction: row;
-    }
-}
-
-.master-image-box {
-    position: relative;
-    width: 100%;
-    height: 10rem;
-    flex-shrink: 0;
-    overflow: hidden;
-}
-
-@media (min-width: 640px) {
-    .master-image-box {
-        width: 12rem;
-        height: auto;
-        min-height: 12rem;
-    }
-}
-
-.master-image-box img,
-.master-avatar-placeholder {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.master-avatar-placeholder {
-    background: var(--color-accent-light);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 3rem;
-    font-weight: 700;
-    color: var(--color-primary);
-}
-
-.master-image-box .favorite-btn {
-    position: absolute;
-    right: 0.5rem;
-    top: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.9);
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(4px);
-    padding: 0;
-    transition: transform 0.2s ease;
-}
-
-.master-image-box .favorite-btn .heart-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-}
-
-.master-image-box .favorite-btn .heart-icon svg {
-    width: 1.125rem;
-    height: 1.125rem;
-    color: #9ca3af;
-    transition: color 0.2s;
-}
-
-.master-image-box .favorite-btn:hover {
-    transform: scale(1.1);
-}
-
-.master-image-box .favorite-btn:active {
-    transform: scale(0.95);
-}
-
-.master-image-box .favorite-btn.liked .heart-icon svg {
-    color: #ef4444;
-    fill: #ef4444;
-}
-
-/* Бейдж с рейтингом и опытом — можно разместить на фото, но пока убираем, оставляем в тексте */
-
-.master-info-box {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.75rem;
-    padding: 1.25rem;
-}
-
-.master-name {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--color-heading);
-    margin: 0;
-}
-
-.master-spec {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    color: var(--color-muted);
-    font-size: 0.875rem;
-    margin-top: 0.25rem;
-}
-
-.master-spec svg {
-    color: var(--color-primary);
-    width: 0.875rem;
-    height: 0.875rem;
-}
-
-.master-desc {
-    color: var(--color-body);
-    font-size: 0.875rem;
-    margin: 0;
-    min-height: 1.5rem;
-}
-
-.master-stats-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.master-stats-chips .chip {
-    background: var(--color-accent-light);
-    border-radius: 9999px;
-    padding: 0.25rem 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--color-heading);
-}
-
-.master-book-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: var(--color-primary);
-    color: var(--color-btn-text);
-    padding: 0.5rem 1.25rem;
-    border-radius: 9999px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    text-decoration: none;
-    transition: opacity 0.2s;
-    width: fit-content;
-    border: none;
-    cursor: pointer;
-}
-
-.master-book-btn:hover {
-    opacity: 0.9;
-}
-
-@media (max-width: 640px) {
-    .master-image-box {
-        height: 10rem;
-        width: 100%;
-    }
-
-    .master-info-box {
-        padding: 1rem;
-    }
-
-    .master-name {
-        font-size: 1rem;
-    }
-
-    .master-stats-chips .chip {
-        font-size: 0.7rem;
-        padding: 0.15rem 0.6rem;
-    }
-
-    .master-book-btn {
-        font-size: 0.8rem;
-        padding: 0.4rem 1rem;
-    }
-}
-
-/* Детальный профиль мастера (после выбора) */
-.master-detail {
-    margin-top: 2rem;
-}
-
-.master-detail-profile {
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-    margin-bottom: 1.5rem;
-}
-
-.master-detail-avatar {
-    width: 5rem;
-    height: 5rem;
-    border-radius: 50%;
-    overflow: hidden;
-    flex-shrink: 0;
-    background: var(--color-accent-light);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    color: var(--color-primary);
-}
-
-.master-detail-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.master-detail-name {
-    font-size: 1.25rem;
-    font-weight: 600;
-}
-
-.back-to-masters {
-    background: none;
-    border: none;
-    color: var(--color-muted);
-    cursor: pointer;
-    font-size: 0.875rem;
-    padding: 0;
-    margin-bottom: 1rem;
-}
-
-.back-to-masters:hover {
-    color: var(--color-heading);
-}
-
-/* Сводка выбранного мастера и услуги */
-.master-summary {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: var(--color-surface-alt);
-    border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-}
-
-.master-avatar-sm {
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 50%;
-    overflow: hidden;
-    flex-shrink: 0;
-    background: var(--color-accent-light);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    color: var(--color-primary);
-}
-
-.master-avatar-sm img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.master-name-sm {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--color-heading);
-}
-
-.master-spec-sm {
-    font-size: 0.8rem;
-    color: var(--color-muted);
-}
-
-.service-summary {
-    font-weight: 500;
-    font-size: 0.95rem;
-    color: var(--color-heading);
-}
-
-.service-price {
-    font-weight: 700;
-    font-size: 1rem;
-    color: var(--color-primary);
-}
-
-.date-summary,
-.time-summary {
-    font-weight: 500;
-    font-size: 0.9rem;
-    color: var(--color-heading);
-}
-
-.master-summary svg {
-    color: #22c55e;
-    width: 1.2rem;
-    height: 1.2rem;
-    flex-shrink: 0;
-}
-
-/* Услуги */
-.services-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-/* Кнопки в пошаговой записи. <button> НЕ наследует ни шрифт, ни размер, ни
-   цвет — браузер подставляет свои: Arial 13px и чёрный текст. В тёмной теме
-   список услуг из-за этого был чёрным по тёмному и вдвое мельче остального
-   текста. Цвет и шрифт задаём явно; ни один из этих трёх параметров нельзя
-   опустить, иначе вернётся значение браузера. */
-.booking-flow button {
-    font-family: inherit;
-}
-
-.service-btn {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.25rem;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    color: var(--color-heading);
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    width: 100%;
-    text-align: left;
-}
-
-.service-btn:hover,
-.service-btn.selected {
-    border-color: var(--color-primary);
-    background: var(--color-accent-light);
-}
-
-.service-btn .service-info {
-    flex: 1;
-}
-
-.service-btn .service-name {
-    font-weight: 500;
-}
-
-.service-btn .service-duration {
-    color: var(--color-muted);
-    font-size: 0.8rem;
-    margin-left: 0.5rem;
-}
-
-.service-btn .service-price {
-    font-weight: 700;
-    color: var(--color-primary);
-    font-size: 1.1rem;
-}
-
-.service-btn .chevron {
-    color: var(--color-muted);
-    margin-left: 0.5rem;
-}
-
-.service-btn .chevron svg {
-    width: 1rem;
-    height: 1rem;
-}
-
-/* Слоты (даты и время) */
-.slots-container {
-    margin-top: 1.5rem;
-}
-
-.slots-title {
-    font-weight: 600;
-    font-size: 1rem;
     margin-bottom: 0.5rem;
 }
 
-.slots-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 0.5rem;
-}
-
-/* Даты */
-.dates-grid {
-    display: flex;
-    gap: 0.5rem;
-    overflow-x: auto;
-    padding-bottom: 0.5rem;
-}
-
-/* color и font-family обязательны: это <button>, а он не наследует их от
-   родителя — берёт системные (чёрный текст, шрифт браузера). Фон при этом
-   тематизирован, поэтому в тёмной теме выходил чёрный текст на тёмной
-   карточке, контраст 1.24:1. */
-.date-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0.5rem 0.75rem;
-    min-width: 4rem;
-    border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
-    background: var(--color-surface);
-    color: var(--color-heading);
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.date-btn:hover {
-    border-color: var(--color-primary);
-}
-
-.date-btn.active {
-    border-color: var(--color-primary);
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: var(--color-btn-text);
-}
-
-.date-btn .day-label {
-    font-size: 0.7rem;
-    color: var(--color-muted);
-}
-
-.date-btn.active .day-label {
-    color: rgba(255, 255, 255, 0.8);
-}
-
-/* Цвет наследуется от кнопки (у той он теперь задан явно) — отдельного
-   правила не нужно, но фиксируем, чтобы не появился системный. */
-.date-btn .day-number {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: inherit;
-}
-
-.date-btn .month-label {
-    font-size: 0.65rem;
-    color: var(--color-muted);
-}
-
-.date-btn.active .month-label {
-    color: rgba(255, 255, 255, 0.8);
-}
-
-/* Время — под сеткой дат на том же шаге */
-.date-times {
-    margin-top: 1.5rem;
-    /* scrollIntoView не должен прятать заголовок под липкой шапкой */
-    scroll-margin-top: 5rem;
-}
-
-.times-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 0.5rem;
-}
-
-/* Тот же случай, что и у .date-btn: без явных color/font-family <button>
-   рисуется системным чёрным поверх тематизированного фона. */
-.time-btn {
-    padding: 0.5rem;
-    border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
-    background: var(--color-surface);
-    color: var(--color-heading);
-    font-family: inherit;
-    text-align: center;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.time-btn:hover {
-    border-color: var(--color-primary);
-}
-
-/* «Нет свободных окон» / «Ошибка загрузки» кладутся в ту же сетку, что и
-   слоты, и становились ячейкой в 80px — текст сыпался по слову в строку. */
-.times-grid > p {
-    grid-column: 1 / -1;
-    margin: 0;
-}
-
-.time-btn.active {
-    border-color: var(--color-primary);
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: var(--color-btn-text);
-}
-
-/* Напоминание */
-.reminder-box {
-    border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
-    padding: 1rem;
-    background: var(--color-surface);
-    margin-bottom: 1.5rem;
-}
-
-.reminder-toggle {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.reminder-info {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.reminder-info svg {
-    width: 1.25rem;
-    height: 1.25rem;
-    color: var(--color-primary);
-}
-
-.reminder-title {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--color-heading);
-}
-
-.reminder-desc {
-    font-size: 0.8rem;
-    color: var(--color-muted);
-}
-
-.toggle-switch {
-    width: 2.75rem;
-    height: 1.5rem;
-    border-radius: 1rem;
-    border: none;
-    background: var(--color-border);
-    cursor: pointer;
-    position: relative;
-    transition: background 0.3s;
-}
-
-.toggle-switch::after {
-    content: '';
-    position: absolute;
-    top: 0.15rem;
-    left: 0.15rem;
-    width: 1.2rem;
-    height: 1.2rem;
-    border-radius: 50%;
-    background: white;
-    transition: transform 0.3s;
-}
-
-.toggle-switch.active {
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-}
-
-.toggle-switch.active::after {
-    transform: translateX(1.25rem);
-}
-
-.reminder-options {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    flex-wrap: wrap;
-}
-
-.reminder-option {
-    padding: 0.3rem 0.8rem;
-    border: 1px solid var(--color-border);
-    border-radius: 2rem;
-    background: transparent;
-    /* Та же болезнь, что у .service-btn: без явного цвета <button> получает
-       чёрный от браузера и в тёмной теме пропадает. У .active цвет задан. */
-    color: var(--color-body);
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.reminder-option:hover {
-    border-color: var(--color-primary);
-}
-
-.reminder-option.active {
-    border-color: var(--color-primary);
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: var(--color-btn-text);
-}
-
-/* Подтверждение */
-.confirm-box {
-    border: 1px solid var(--color-border);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    background: var(--color-surface);
-}
-
-.confirm-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--color-heading);
-    text-align: center;
-    margin-bottom: 1.5rem;
-}
-
-.confirm-items {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.confirm-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    background: var(--color-surface-alt);
-    border-radius: 0.75rem;
-}
-
-.confirm-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 0.5rem;
-    background: var(--color-accent-light);
-    color: var(--color-primary);
-    flex-shrink: 0;
-}
-
-.confirm-icon svg {
-    width: 1.2rem;
-    height: 1.2rem;
-}
-
-.confirm-label {
-    font-size: 0.7rem;
-    color: var(--color-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.confirm-value {
-    font-weight: 400;
-    color: var(--color-body);
-}
-
-.confirm-sub {
-    font-size: 0.8rem;
-    color: var(--color-muted);
-}
-
-.confirm-price {
-    font-weight: 700;
-    font-size: 1.1rem;
-    color: var(--color-primary);
-    margin-left: auto;
-}
-
-.confirm-item svg:last-child {
-    color: #22c55e;
-    width: 1.2rem;
-    height: 1.2rem;
-    flex-shrink: 0;
-}
-
-.confirm-user {
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--color-border);
-}
-
-.confirm-user-label {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--color-heading);
-    margin-bottom: 0.5rem;
-}
-
-.confirm-user-info {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.confirm-user-info span {
-    font-size: 0.95rem;
-}
-
-.confirm-edit-link {
-    font-size: 0.8rem;
-    color: var(--color-primary);
-    text-decoration: none;
-}
-
-.confirm-edit-link:hover {
-    text-decoration: underline;
-}
-
-.confirm-submit {
-    width: 100%;
-    margin-top: 1.5rem;
-    padding: 0.75rem;
-    font-size: 1rem;
-}
-
-.confirm-cancel {
-    width: 100%;
-    margin-top: 0.75rem;
-    padding: 0.75rem;
-    font-size: 0.9rem;
-}
-
-/* --- Адаптив для остальных элементов --- */
-@media (max-width: 640px) {
-    .master-detail-profile {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.75rem;
-    }
-
-    .master-detail-avatar {
-        width: 4rem;
-        height: 4rem;
-    }
-
-    .dates-grid {
-        gap: 0.3rem;
-    }
-
-    .date-btn {
-        min-width: 3.2rem;
-        padding: 0.4rem 0.5rem;
-    }
-
-    .times-grid {
-        grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-    }
-
-    .confirm-item {
-        flex-wrap: wrap;
-    }
-
-    .booking-step {
-        padding: 0 0.5rem;
-    }
-
-    .review-photo-item img {
-        width: 70px;
-        height: 70px;
-    }
-
-    .salon-logo-placeholder {
-        font-size: 2.5rem;
-        min-height: 120px;
-    }
-}
-
-@media (max-width: 767px) {
-    .salon-top-section {
-        padding-top: 5rem;
-    }
-
-    .salon-info-wrapper {
-        margin-top: 2rem;
-    }
-}

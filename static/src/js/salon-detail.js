@@ -1,494 +1,460 @@
+// static/src/js/salon-detail.js — запись на странице салона и мастера.
+//
+// Заход «витрина» (решение 0011, п. 13). Что изменилось по сравнению с прежней
+// версией:
+//
+//   * шагов четыре, а не пять: шаг «Напоминание» убран, потому что его выбор
+//     («за 30 минут / за час / за два / за день» и выключатель) никуда не
+//     уходил — POST /api/v1/bookings принимает только мастера, услугу и время,
+//     а напоминание сервер ставит сам за два часа. Страница теперь говорит об
+//     этом словами вместо шага, которого нет;
+//   * сводка одна. Раньше в разметке лежали четыре её копии с id вида
+//     selected-master-name-4, и каждый шаг переписывал имя мастера в пяти
+//     местах;
+//   * виджет ОДИН на страницу и переезжает между липкой колонкой (широкий
+//     экран) и листом снизу (телефон). Две копии одних и тех же полей — это
+//     две копии одних и тех же id;
+//   * в соло (один мастер) шага выбора мастера нет вовсе.
 import { esc } from './escape-html.js';
-// static/src/js/salon-detail.js
 import { toastNetworkError } from './ui-feedback.js';
+import { open as openSheet, close as closeSheet } from './sheet.js';
 
-(function () {
-    function formatServicePrice(service) {
-        const lower = service.price.toLocaleString('ru-RU');
-        return service.price_max === null || service.price_max === undefined
-            ? `${lower} ₽`
-            : `от ${lower} до ${service.price_max.toLocaleString('ru-RU')} ₽`;
+const MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн',
+                'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+const WEEKDAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+
+/** Ширина, с которой запись живёт в колонке справа, а не в листе снизу.
+ *  То же число стоит в salon-detail.css — здесь оно нужно, чтобы перенести
+ *  узел, и держать его в двух местах неизбежно; поэтому оно одно и названо. */
+const WIDE = '(min-width: 900px)';
+
+function money(service) {
+    const low = service.price.toLocaleString('ru-RU');
+    return service.price_max === null || service.price_max === undefined
+        ? `${low} ₽`
+        : `от ${low} до ${service.price_max.toLocaleString('ru-RU')} ₽`;
+}
+
+/** Локальная дата YYYY-MM-DD. Не toISOString: он переводит в UTC, и в поясах
+ *  впереди UTC кнопка «27» отправляла «26». */
+function ymd(d) {
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function hhmm(value) {
+    // Слот приходит как «2026-10-04T15:00» — местное время салона, без зоны.
+    // new Date() на такой строке в части браузеров трактует её как UTC, поэтому
+    // время берём из самой строки, а не из объекта даты.
+    const m = /T(\d{2}:\d{2})/.exec(value);
+    return m ? m[1] : '';
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    setupFavorites();
+
+    const widget = document.getElementById('bookingWidget');
+    if (!widget) return;
+
+    const masters = JSON.parse(widget.dataset.masters || '[]');
+    const userData = JSON.parse(widget.dataset.user || 'null');
+    const preset = JSON.parse(widget.dataset.preset || '{}');
+    // Текст подтверждения берём из data-атрибута, а не из строки здесь: он
+    // разный у соло и команды и живёт в одном реестре (public_words).
+    const doneText = widget.dataset.done || '';
+    const maxDays = parseInt(widget.dataset.maxDays, 10) || 60;
+    const solo = widget.dataset.solo === '1';
+    const body = widget.querySelector('#bookBody');
+    const back = widget.querySelector('[data-book-back]');
+    const backLabel = widget.querySelector('[data-book-back-label]');
+
+    const state = { master: solo ? masters[0] : null, service: null, date: null, time: null };
+
+    // ---------- Перенос виджета между колонкой и листом ----------
+    // Один узел на страницу: на широком экране он стоит в липкой колонке, на
+    // телефоне — внутри листа. hostFor возвращает тот, что нужен сейчас.
+    const wide = window.matchMedia(WIDE);
+    function hostFor() {
+        return document.getElementById(wide.matches ? 'bookingHost' : 'bookingSheetHost');
+    }
+    function place() {
+        const host = hostFor();
+        if (host && widget.parentElement !== host) host.appendChild(widget);
+    }
+    place();
+    // Поворот телефона и изменение окна меняют ответ: виджет переезжает, а не
+    // остаётся в спрятанном листе.
+    wide.addEventListener('change', function () {
+        place();
+        if (wide.matches) closeSheet();
+    });
+
+    // ---------- Шаги ----------
+    const STEPS = solo ? ['service', 'time', 'confirm'] : ['master', 'service', 'time', 'confirm'];
+    const BACK_LABEL = { service: 'К мастерам', time: 'К услугам', confirm: 'К времени' };
+    let step = STEPS[0];
+
+    function go(next) {
+        step = next;
+        const index = STEPS.indexOf(step);
+        back.hidden = index <= 0;
+        if (!back.hidden) backLabel.textContent = BACK_LABEL[step] || 'Назад';
+        render();
     }
 
-    const container = document.getElementById('booking-flow-container');
-    if (!container) return;
+    back.addEventListener('click', function () {
+        const index = STEPS.indexOf(step);
+        if (index <= 0) return;
+        const prev = STEPS[index - 1];
+        if (prev === 'master') { state.master = null; state.service = null; }
+        if (prev === 'service') { state.service = null; }
+        if (prev === 'time') { state.time = null; }
+        go(prev);
+    });
 
-    const masters = JSON.parse(container.dataset.masters);
-    const userData = JSON.parse(container.dataset.user || 'null');
-
-    // Состояние
-    const state = {
-        master: null,
-        service: null,
-        date: null,
-        time: null,
-        reminder: 60,
-        reminderEnabled: true,
-    };
-
-    // DOM элементы шагов
-    const steps = {
-        masters: document.getElementById('step-masters'),
-        services: document.getElementById('step-services'),
-        date: document.getElementById('step-date'),
-        reminder: document.getElementById('step-reminder'),
-        confirm: document.getElementById('step-confirm'),
-    };
-
-    function goToStep(stepName) {
-        Object.keys(steps).forEach(key => {
-            steps[key].style.display = (key === stepName) ? 'block' : 'none';
-        });
+    function render() {
+        if (step === 'master') return renderMasters();
+        if (step === 'service') return renderServices();
+        if (step === 'time') return renderTime();
+        return renderConfirm();
     }
 
-    // Всегда показываем список мастеров
-    goToStep('masters');
-    renderMasters();
-
-    // ---- Шаг 1: Мастера ----
+    // ---------- Мастер ----------
     function renderMasters() {
-        document.querySelectorAll('.master-card .master-book-btn').forEach(btn => {
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                const id = parseInt(this.dataset.masterId);
-                selectMaster(id);
-            });
-        });
-        document.querySelectorAll('.master-card').forEach(card => {
-            card.addEventListener('click', function (event) {
-                if (event.target.closest('[data-lightbox-src]')) return;
-                const id = parseInt(this.dataset.masterId);
-                selectMaster(id);
-            });
-        });
+        body.innerHTML = masters.map(function (m) {
+            const meta = [m.specialization, m.experience ? `опыт ${m.experience} лет` : '']
+                .filter(Boolean).join(' · ');
+            return `
+                <button type="button" class="pick" data-master="${m.id}">
+                    <span class="r-mark r-mark--md" aria-hidden="true">${esc(m.name[0] || '?')}</span>
+                    <span class="pick__body">
+                        <strong>${esc(m.name)}</strong>
+                        <small>${esc(meta)}</small>
+                    </span>
+                </button>`;
+        }).join('') || '<p class="r-text r-muted">Мастеров пока нет.</p>';
     }
 
-    function selectMaster(id) {
-        const master = masters.find(m => m.id === id);
-        if (!master) return;
-        state.master = master;
-        goToStep('services');
-        renderServices();
-    }
-
-    // ---- Шаг 2: Услуги ----
+    // ---------- Услуга ----------
     function renderServices() {
-        const master = state.master;
-        document.getElementById('breadcrumb-master').textContent = master.name;
-        document.getElementById('selected-master-name').textContent = master.name;
-        document.getElementById('selected-master-spec').textContent = master.specialization;
-        const avatar = document.getElementById('selected-master-avatar');
-        avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
-
-        const list = document.getElementById('services-list');
-        list.innerHTML = '';
-        master.services.forEach(service => {
-            const btn = document.createElement('button');
-            btn.className = 'service-btn';
-            btn.dataset.serviceId = service.id;
-            const photos = (service.photos || []).map(url =>
-                `<img src="${esc(url)}" alt="${esc(service.name)}" loading="lazy" data-lightbox-src="${esc(url)}" data-lightbox-alt="${esc(service.name)}" data-lightbox-group="service-${service.id}" style="width:88px;height:88px;object-fit:cover;border-radius:0.6rem;cursor:zoom-in">`
-            ).join('');
-            btn.innerHTML = `
-                ${photos ? `<div style="display:flex;gap:0.25rem;margin-right:0.5rem">${photos}</div>` : ''}
-                <div class="service-info">
-                    <span class="service-name">${esc(service.name)}</span>
-                    <span class="service-duration">${esc(service.duration)} мин</span>
-                </div>
-                <div class="service-price">${formatServicePrice(service)}</div>
-                <span class="chevron">${getIcon('chevron-right')}</span>
-            `;
-            btn.addEventListener('click', () => selectService(service.id));
-            list.appendChild(btn);
-        });
-        goToStep('services');
-    }
-
-    function selectService(id) {
-        const service = state.master.services.find(s => s.id === id);
-        if (!service) return;
-        state.service = service;
-        goToStep('date');
-        renderDateSelection();
-    }
-
-    // ---- Шаг 3: Дата ----
-    function renderDateSelection() {
-        const master = state.master;
-        const service = state.service;
-        document.getElementById('breadcrumb-master-2').textContent = master.name;
-        document.getElementById('breadcrumb-service').textContent = service.name;
-        document.getElementById('selected-master-name-2').textContent = master.name;
-        document.getElementById('selected-master-spec-2').textContent = master.specialization;
-        const avatar = document.getElementById('selected-master-avatar-2');
-        avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
-        document.getElementById('selected-service-summary').textContent = service.name;
-        document.getElementById('selected-service-price').textContent = formatServicePrice(service);
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const dates = [];
-        for (let i = 0; i < window.maxBookingDays; i++) {
-            const d = new Date(today);
-            d.setDate(d.getDate() + i);
-            dates.push(d);
-        }
-
-        const grid = document.getElementById('dates-grid');
-        grid.innerHTML = '';
-        const todayStr = today.toDateString();
-        dates.forEach((d, index) => {
-            const btn = document.createElement('button');
-            btn.className = 'date-btn';
-            const isToday = d.toDateString() === todayStr;
-            const dayLabel = isToday ? 'Сегодня' : ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][d.getDay()];
-            const dayNumber = d.getDate();
-            const month = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][d.getMonth()];
-            btn.innerHTML = `
-                <span class="day-label">${dayLabel}</span>
-                <span class="day-number">${dayNumber}</span>
-                <span class="month-label">${month}</span>
-            `;
-            // Локальная дата (не toISOString — он переводит в UTC и в TZ впереди
-            // UTC сдвигает дату на день назад, из-за чего кнопка «27» слала «26»).
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            btn.dataset.date = `${yyyy}-${mm}-${dd}`;
-            btn.addEventListener('click', () => selectDate(btn.dataset.date));
-            grid.appendChild(btn);
-        });
-        // Вернулись с напоминания «Назад» — выбранный день и окна остаются на месте.
-        markActiveDate();
-        renderTimeSelection();
-    }
-
-    function selectDate(dateStr) {
-        state.date = dateStr;
-        state.time = null;
-        markActiveDate();
-        renderTimeSelection();
-        // Окна появляются под сеткой дат — подтягиваем их в поле зрения, иначе
-        // на телефоне после длинной сетки дат человек не заметит, что они есть.
-        document.getElementById('date-times').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    function markActiveDate() {
-        document.querySelectorAll('.date-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.date === state.date);
-        });
-    }
-
-    // ---- Время: под датами, на том же шаге ----
-    // Раньше время было отдельным шагом, и чтобы сравнить окна разных дней,
-    // приходилось каждый раз возвращаться «Назад к дате». Теперь выбор даты
-    // просто подменяет список окон ниже.
-    let slotsRequest = 0;
-
-    function renderTimeSelection() {
-        const master = state.master;
-        const service = state.service;
-        const date = state.date;
-        const box = document.getElementById('date-times');
-        if (!date) {
-            box.hidden = true;
+        const list = (state.master && state.master.services) || [];
+        if (!list.length) {
+            body.innerHTML = '<p class="r-text r-muted">У мастера пока нет услуг.</p>';
             return;
         }
-        box.hidden = false;
-        const dateObj = new Date(date + 'T00:00:00');
-        const dateStr = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-        document.getElementById('selected-date-summary').textContent = 'на ' + dateStr;
+        body.innerHTML = list.map(function (s) {
+            return `
+                <button type="button" class="pick" data-service="${s.id}">
+                    <span class="pick__body">
+                        <strong>${esc(s.name)}</strong>
+                        <small>${esc(String(s.duration))} мин</small>
+                    </span>
+                    <span class="pick__price">${esc(money(s))}</span>
+                </button>`;
+        }).join('');
+    }
 
-        const grid = document.getElementById('times-grid');
-        grid.innerHTML = '<p style="color:var(--color-muted)">Загрузка...</p>';
-        // Быстро перещёлкивая даты, можно получить ответы не по порядку —
-        // рисуем только ответ на ПОСЛЕДНИЙ выбор.
-        const requestId = ++slotsRequest;
-        fetch(`/api/v1/bookings/available/${master.id}?date=${date}&service_id=${service.id}`)
-            .then(r => r.json())
-            .then(data => {
-                if (requestId !== slotsRequest) return;
-                grid.innerHTML = '';
-                if (data.slots && data.slots.length) {
-                    data.slots.forEach(slot => {
-                        const btn = document.createElement('button');
-                        btn.className = 'time-btn';
-                        const dt = new Date(slot);
-                        const timeStr = dt.toTimeString().slice(0, 5);
-                        btn.textContent = timeStr;
-                        btn.dataset.time = slot;
-                        if (slot === state.time) btn.classList.add('active');
-                        btn.addEventListener('click', () => selectTime(slot));
-                        grid.appendChild(btn);
-                    });
-                } else {
-                    grid.innerHTML = '<p style="color:var(--color-muted)">Нет свободных окон на эту дату — выберите другую</p>';
+    // ---------- Дата и время ----------
+    let slotsRequest = 0;
+
+    function renderTime() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let strip = '';
+        for (let i = 0; i < maxDays; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() + i);
+            const key = ymd(d);
+            strip += `
+                <button type="button" class="day${key === state.date ? ' is-active' : ''}"
+                        data-date="${key}">
+                    <span class="day__dow">${i === 0 ? 'сегодня' : WEEKDAYS[d.getDay()]}</span>
+                    <span class="day__num">${d.getDate()}</span>
+                    <span class="day__mon">${MONTHS[d.getMonth()]}</span>
+                </button>`;
+        }
+        body.innerHTML = `
+            <div class="days" role="group" aria-label="Дата записи">${strip}</div>
+            <div class="r-slots" id="bookSlots" aria-live="polite"></div>`;
+        if (state.date) loadSlots();
+        else document.getElementById('bookSlots').innerHTML =
+            '<p class="book__empty">Выберите день — покажем свободное время.</p>';
+    }
+
+    function loadSlots() {
+        const grid = document.getElementById('bookSlots');
+        if (!grid) return;
+        grid.innerHTML = '<p class="book__empty">Загрузка…</p>';
+        // Быстро перещёлкивая дни, можно получить ответы не по порядку — рисуем
+        // только ответ на ПОСЛЕДНИЙ выбор.
+        const id = ++slotsRequest;
+        fetch(`/api/v1/bookings/available/${state.master.id}` +
+              `?date=${state.date}&service_id=${state.service.id}`)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (id !== slotsRequest) return;
+                if (!data.slots || !data.slots.length) {
+                    grid.innerHTML = '<p class="book__empty">' +
+                        esc(data.message || 'В этот день свободного времени нет — выберите другой') +
+                        '</p>';
+                    return;
                 }
+                grid.innerHTML = data.slots.map(function (slotValue) {
+                    return `<button type="button" class="r-slot` +
+                        (slotValue === state.time ? ' is-active' : '') +
+                        `" data-slot="${esc(slotValue)}">${esc(hhmm(slotValue))}</button>`;
+                }).join('');
             })
-            .catch(() => {
-                if (requestId !== slotsRequest) return;
-                grid.innerHTML = '<p style="color:var(--color-muted)">Ошибка загрузки</p>';
+            .catch(function () {
+                if (id !== slotsRequest) return;
+                grid.innerHTML = '<p class="book__empty">Не удалось загрузить время. ' +
+                    'Проверьте связь и выберите день снова.</p>';
             });
     }
 
-    function selectTime(time) {
-        state.time = time;
-        document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector(`.time-btn[data-time="${time}"]`)?.classList.add('active');
-        goToStep('reminder');
-        renderReminder();
-    }
-
-    // ---- Шаг 5: Напоминание ----
-    function renderReminder() {
-        const master = state.master;
-        const service = state.service;
-        const date = state.date;
-        const time = state.time;
-        const dateObj = new Date(date + 'T00:00:00');
-        const dateStr = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-        const timeObj = new Date(time);
-        const timeStr = timeObj.toTimeString().slice(0, 5);
-        document.getElementById('breadcrumb-master-4').textContent = master.name;
-        document.getElementById('breadcrumb-service-3').textContent = service.name;
-        document.getElementById('breadcrumb-date-2').textContent = dateStr;
-        document.getElementById('breadcrumb-time').textContent = timeStr;
-        document.getElementById('selected-master-name-4').textContent = master.name;
-        document.getElementById('selected-master-spec-4').textContent = master.specialization;
-        const avatar = document.getElementById('selected-master-avatar-4');
-        avatar.innerHTML = master.avatar ? `<img src="${esc(master.avatar)}" alt="">` : `<span>${esc(master.name[0])}</span>`;
-        document.getElementById('selected-service-summary-3').textContent = service.name;
-        document.getElementById('selected-service-price-3').textContent = formatServicePrice(service);
-        document.getElementById('selected-date-summary-2').textContent = dateStr;
-        document.getElementById('selected-time-summary').textContent = timeStr;
-
-        const toggle = document.getElementById('reminder-toggle');
-        toggle.classList.toggle('active', state.reminderEnabled);
-        document.querySelectorAll('.reminder-option').forEach(btn => {
-            btn.classList.toggle('active', parseInt(btn.dataset.minutes) === state.reminder);
-        });
-        toggle.onclick = function () {
-            state.reminderEnabled = !state.reminderEnabled;
-            this.classList.toggle('active');
-        };
-        document.querySelectorAll('.reminder-option').forEach(btn => {
-            btn.onclick = function () {
-                document.querySelectorAll('.reminder-option').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                state.reminder = parseInt(this.dataset.minutes);
-            };
-        });
-        document.getElementById('reminder-next').onclick = function () {
-            goToStep('confirm');
-            renderConfirm();
-        };
-    }
-
-    // ---- Шаг 6: Подтверждение ----
+    // ---------- Подтверждение ----------
     function renderConfirm() {
-        const master = state.master;
-        const service = state.service;
-        const date = state.date;
-        const time = state.time;
-        const dateObj = new Date(date + 'T00:00:00');
-        const dateStr = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' });
-        const timeObj = new Date(time);
-        const timeStr = timeObj.toTimeString().slice(0, 5);
-        const datetimeStr = `${dateStr} — ${timeStr}`;
-        const reminderLabel = state.reminderEnabled ? `За ${state.reminder >= 1440 ? 'день' : state.reminder >= 60 ? state.reminder / 60 + ' часа' : state.reminder + ' мин'}` : 'Не напоминать';
+        const m = state.master;
+        const s = state.service;
+        const dateObj = new Date(state.date + 'T00:00:00');
+        const when = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()]}, ${hhmm(state.time)}`;
+        const who = userData
+            ? `<div class="book__row"><dt>Вы</dt><dd>${esc(userData.full_name || '')}` +
+              `${userData.phone ? ' · ' + esc(userData.phone) : ''}</dd></div>`
+            : '';
+        body.innerHTML = `
+            <dl class="book__sum">
+                <div class="book__row"><dt>Мастер</dt><dd>${esc(m.name)}</dd></div>
+                <div class="book__row"><dt>Услуга</dt>
+                    <dd>${esc(s.name)} · ${esc(String(s.duration))} мин</dd></div>
+                <div class="book__row"><dt>Цена</dt><dd class="tabular-nums">${esc(money(s))}</dd></div>
+                <div class="book__row"><dt>Когда</dt><dd class="tabular-nums">${esc(when)}</dd></div>
+                ${who}
+            </dl>
+            <p class="book__error" id="bookError" role="alert"></p>
+            <button type="button" class="r-btn r-btn--primary r-btn--block" id="bookSubmit">
+                <span class="r-btn__label">${userData ? 'Записаться' : 'Войти и записаться'}</span>
+                <span class="r-btn__spinner" aria-hidden="true"></span>
+            </button>`;
+    }
 
-        document.getElementById('confirm-master').textContent = master.name;
-        document.getElementById('confirm-master-spec').textContent = master.specialization;
-        document.getElementById('confirm-service').textContent = service.name;
-        document.getElementById('confirm-duration').textContent = `${service.duration} мин`;
-        document.getElementById('confirm-price').textContent = formatServicePrice(service);
-        document.getElementById('confirm-datetime').textContent = datetimeStr;
-        document.getElementById('confirm-reminder').textContent = reminderLabel;
-
-        // === НОВОЕ: работа с блоком данных пользователя ===
-        const userBlock = document.querySelector('.confirm-user');
+    async function submit(btn) {
         if (!userData) {
-            // Гость – скрываем блок, кнопка ведёт на логин/регистрацию
-            userBlock.style.display = 'none';
-            const submitBtn = document.getElementById('confirm-submit');
-            submitBtn.textContent = 'Войти или зарегистрироваться';
-            submitBtn.onclick = function () {
-                const stateData = {
-                    masterId: master.id,
-                    serviceId: service.id,
-                    date: date,
-                    time: time,
-                };
-                localStorage.setItem('bookingState', JSON.stringify(stateData));
-                window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-            };
-        } else {
-            // Авторизован – показываем данные
-            userBlock.style.display = 'block';
-            document.getElementById('confirm-user-name').textContent = userData.full_name || 'Гость';
-            document.getElementById('confirm-user-phone').textContent = userData.phone || '';
-            const submitBtn = document.getElementById('confirm-submit');
-            submitBtn.textContent = 'Записаться';
-            submitBtn.onclick = function () {
-                const data = {
-                    master_id: master.id,
-                    service_id: service.id,
-                    start_time: time,
-                };
-                fetch('/api/v1/bookings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
-                })
-                    .then(r => r.json())
-                    .then(result => {
-                        if (result.id) {
-                            alert('Запись успешно создана!');
-                            window.location.href = '/bookings';
-                        } else {
-                            alert(result.detail || 'Ошибка при создании записи');
-                        }
-                    })
-                    .catch(err => {
-                        toastNetworkError();
-                    });
-            };
+            // Гостя отправляем входить, запомнив выбор: вернувшись, он попадает
+            // сразу на подтверждение, а не проходит три шага заново.
+            localStorage.setItem('bookingState', JSON.stringify({
+                masterId: state.master.id, serviceId: state.service.id,
+                date: state.date, time: state.time,
+            }));
+            window.location.href = '/login?redirect=' +
+                encodeURIComponent(window.location.pathname);
+            return;
         }
-    }
-
-    // ---- Восстановление состояния после входа/регистрации с прокруткой ----
-    document.addEventListener('DOMContentLoaded', function () {
-        const saved = localStorage.getItem('bookingState');
-        if (saved && userData) {
-            try {
-                const data = JSON.parse(saved);
-                const master = masters.find(m => m.id === data.masterId);
-                const service = master ? master.services.find(s => s.id === data.serviceId) : null;
-                if (master && service) {
-                    state.master = master;
-                    state.service = service;
-                    state.date = data.date;
-                    state.time = data.time;
-                    goToStep('confirm');
-                    renderConfirm();
-                    localStorage.removeItem('bookingState');
-
-                    // Прокручиваем к блоку подтверждения
-                    setTimeout(() => {
-                        const confirmStep = document.getElementById('step-confirm');
-                        if (confirmStep) {
-                            const header = document.getElementById('main-header');
-                            const headerHeight = header ? header.offsetHeight : 80;
-                            const rect = confirmStep.getBoundingClientRect();
-                            const top = rect.top + window.pageYOffset - headerHeight - 20;
-                            window.scrollTo({ top: top, behavior: 'smooth' });
-                        }
-                    }, 300);
-                }
-            } catch (e) { }
-        }
-    });
-
-    // ---- Вспомогательные функции ----
-    function getIcon(name) {
-        const icons = {
-            'chevron-right': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
-            'arrow-left': `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7 7-7-7"/><path d="M19 12H5"/></svg>`,
-        };
-        return icons[name] || '';
-    }
-
-    // ---- Навигация по хлебным крошкам и кнопкам "назад" ----
-    document.querySelectorAll('.breadcrumb-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const step = this.dataset.step;
-            if (step === 'masters') {
-                state.master = null;
-                state.service = null;
-                state.date = null;
-                state.time = null;
-                goToStep('masters');
-                renderMasters();
-            } else {
-                goToStep(step);
-                if (step === 'services') renderServices();
-                else if (step === 'date') renderDateSelection();
-                else if (step === 'reminder') renderReminder();
-            }
-        });
-    });
-
-    document.querySelectorAll('.back-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const step = this.dataset.step;
-            goToStep(step);
-            if (step === 'masters') {
-                state.master = null;
-                state.service = null;
-                state.date = null;
-                state.time = null;
-                renderMasters();
-            } else if (step === 'services') renderServices();
-            else if (step === 'date') renderDateSelection();
-            else if (step === 'reminder') renderReminder();
-        });
-    });
-
-    // ---- Избранное ----
-    async function loadFavorites() {
+        const error = document.getElementById('bookError');
+        btn.classList.add('is-loading');
         try {
-            const response = await fetch('/api/v1/favorites/my');
-            if (response.ok) {
-                const data = await response.json();
-                document.querySelectorAll('.salon-top-fav[data-type="salon"]').forEach(btn => {
-                    const id = parseInt(btn.dataset.id);
-                    if (data.salon_ids.includes(id)) {
-                        btn.classList.add('liked');
-                    } else {
-                        btn.classList.remove('liked');
-                    }
-                });
-                document.querySelectorAll('.master-fav-btn[data-type="master"]').forEach(btn => {
-                    const id = parseInt(btn.dataset.id);
-                    if (data.master_ids.includes(id)) {
-                        btn.classList.add('liked');
-                    } else {
-                        btn.classList.remove('liked');
-                    }
-                });
+            const res = await fetch('/api/v1/bookings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    master_id: state.master.id,
+                    service_id: state.service.id,
+                    start_time: state.time,
+                }),
+            });
+            const data = await res.json().catch(function () { return {}; });
+            if (res.ok && data.id) {
+                renderDone();
+                return;
             }
-        } catch (e) { }
+            // Отказ называет причину и выход из неё: «это время только что
+            // заняли» означает «выберите другое», а не «что-то пошло не так».
+            error.textContent = data.detail ||
+                'Записаться не удалось. Возможно, это время только что заняли — выберите другое.';
+        } catch (err) {
+            toastNetworkError();
+        } finally {
+            btn.classList.remove('is-loading');
+        }
     }
-    loadFavorites();
 
-    document.querySelectorAll('.salon-top-fav, .master-fav-btn').forEach(btn => {
-        btn.addEventListener('click', async function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const type = this.dataset.type;
-            const id = this.dataset.id;
-            const isLiked = this.classList.contains('liked');
+    /** Готово. Отдельный экран, а не alert и не переход в «Мои записи»:
+     *  человек должен увидеть, ЧТО именно создалось, и сам решить, уходить ли
+     *  со страницы. Прежняя версия показывала системный alert и уводила. */
+    function renderDone() {
+        const s = state.service;
+        const dateObj = new Date(state.date + 'T00:00:00');
+        const when = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()]}, ${hhmm(state.time)}`;
+        back.hidden = true;
+        body.innerHTML = `
+            <p class="book__done-title">Заявка отправлена</p>
+            <p class="book__done-text">${esc(doneText)}</p>
+            <dl class="book__sum">
+                <div class="book__row"><dt>Услуга</dt><dd>${esc(s.name)}</dd></div>
+                <div class="book__row"><dt>Когда</dt>
+                    <dd class="tabular-nums">${esc(when)}</dd></div>
+            </dl>
+            <a class="r-btn r-btn--secondary r-btn--block" href="/bookings">
+                <span class="r-btn__label">Мои записи</span></a>`;
+    }
+
+    // ---------- Один обработчик на весь виджет ----------
+    // Делегирование, а не слушатель на каждой кнопке: содержимое шага
+    // перерисовывается целиком, и развешенные слушатели умирали вместе с ним.
+    widget.addEventListener('click', function (ev) {
+        const master = ev.target.closest('[data-master]');
+        if (master) {
+            state.master = masters.find(function (m) { return m.id === +master.dataset.master; });
+            state.service = null;
+            go('service');
+            return;
+        }
+        const service = ev.target.closest('[data-service]');
+        if (service) {
+            state.service = state.master.services.find(function (s) {
+                return s.id === +service.dataset.service;
+            });
+            state.time = null;
+            go('time');
+            return;
+        }
+        const day = ev.target.closest('[data-date]');
+        if (day) {
+            state.date = day.dataset.date;
+            state.time = null;
+            widget.querySelectorAll('.day').forEach(function (b) {
+                b.classList.toggle('is-active', b.dataset.date === state.date);
+            });
+            loadSlots();
+            return;
+        }
+        const slotBtn = ev.target.closest('[data-slot]');
+        if (slotBtn) {
+            state.time = slotBtn.dataset.slot;
+            go('confirm');
+            return;
+        }
+        const submitBtn = ev.target.closest('#bookSubmit');
+        if (submitBtn) submit(submitBtn);
+    });
+
+    // ---------- Кнопка «Записаться» у мастера в команде ----------
+    document.addEventListener('click', function (ev) {
+        const pick = ev.target.closest('[data-book-master]');
+        if (!pick) return;
+        ev.preventDefault();
+        const m = masters.find(function (x) { return x.id === +pick.dataset.bookMaster; });
+        if (!m) return;
+        state.master = m;
+        state.service = null;
+        go('service');
+        if (!wide.matches) {
+            const sheet = document.getElementById('bookSheet');
+            if (sheet) openSheet(sheet, pick);
+        } else {
+            widget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    });
+
+    // ---------- Предвыбор из карточки каталога ----------
+    // Окно в каталоге уже назвало мастера, услугу и время — повторять за
+    // человеком те же три шага незачем. Слот проверяется живым запросом: если
+    // его успели занять, человек увидит остальные окна того же дня.
+    function applyPreset() {
+        if (!preset || !preset.master) return false;
+        const m = masters.find(function (x) { return x.id === preset.master; });
+        if (!m) return false;
+        const s = (m.services || []).find(function (x) { return x.id === preset.service; });
+        if (!s) return false;
+        state.master = m;
+        state.service = s;
+        if (preset.slot && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(preset.slot)) {
+            state.date = preset.slot.slice(0, 10);
+            state.time = preset.slot;
+            go('confirm');
+        } else {
+            go('time');
+        }
+        // На телефоне выбор живёт в листе, и он закрыт. Человек нажал на время
+        // в каталоге — показать ему результат этого нажатия, а не страницу, на
+        // которой «ничего не произошло».
+        if (!wide.matches) {
+            const sheet = document.getElementById('bookSheet');
+            if (sheet) openSheet(sheet, document.querySelector('[data-sheet-open]'));
+        }
+        return true;
+    }
+
+    // ---------- Возврат после входа ----------
+    function restore() {
+        const saved = localStorage.getItem('bookingState');
+        if (!saved || !userData) return false;
+        localStorage.removeItem('bookingState');
+        try {
+            const data = JSON.parse(saved);
+            const m = masters.find(function (x) { return x.id === data.masterId; });
+            const s = m && (m.services || []).find(function (x) { return x.id === data.serviceId; });
+            if (!m || !s) return false;
+            state.master = m;
+            state.service = s;
+            state.date = data.date;
+            state.time = data.time;
+            go('confirm');
+            return true;
+        } catch (err) {
+            return false;
+        }
+    }
+
+    if (!restore() && !applyPreset()) go(STEPS[0]);
+});
+
+// ---------- Избранное ----------
+function setupFavorites() {
+    const buttons = document.querySelectorAll('.salon-top-fav, .master-fav-btn');
+    if (!buttons.length) return;
+
+    fetch('/api/v1/favorites/my')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+            if (!data) return;
+            buttons.forEach(function (btn) {
+                const ids = btn.dataset.type === 'salon' ? data.salon_ids : data.master_ids;
+                const liked = (ids || []).includes(parseInt(btn.dataset.id, 10));
+                btn.classList.toggle('liked', liked);
+                const icon = btn.querySelector('.heart-icon');
+                if (icon) {
+                    icon.innerHTML = liked ? btn.dataset.iconHeartFilled : btn.dataset.iconHeart;
+                }
+            });
+        })
+        .catch(function () { /* не авторизован — сердца остаются пустыми */ });
+
+    buttons.forEach(function (btn) {
+        btn.addEventListener('click', async function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const liked = btn.classList.contains('liked');
             try {
-                const response = await fetch(`/api/v1/favorites/toggle-${type}/${id}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                });
-                // Если редирект привел на страницу логина – перенаправляем пользователя
-                if (response.redirected && response.url.includes('/login')) {
-                    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-                } else if (response.ok) {
-                    if (isLiked) {
-                        this.classList.remove('liked');
-                    } else {
-                        this.classList.add('liked');
-                    }
-                } else {
-                    alert('Не удалось изменить избранное. Попробуйте позже.');
+                const res = await fetch(
+                    `/api/v1/favorites/toggle-${btn.dataset.type}/${btn.dataset.id}`,
+                    { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+                );
+                if (res.redirected && res.url.includes('/login')) {
+                    window.location.href = '/login?redirect=' +
+                        encodeURIComponent(window.location.pathname);
+                    return;
+                }
+                if (!res.ok) return;
+                btn.classList.toggle('liked', !liked);
+                const icon = btn.querySelector('.heart-icon');
+                if (icon) {
+                    icon.innerHTML = !liked ? btn.dataset.iconHeartFilled : btn.dataset.iconHeart;
                 }
             } catch (err) {
-                console.error(err);
                 toastNetworkError();
             }
         });
     });
-})();
+}

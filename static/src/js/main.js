@@ -18,6 +18,8 @@ import './profile.js';
 import './salons.js';
 import './tariffs.js';
 import './otp-code.js';
+import './sheet.js';
+import './card-transition.js';
 import './salon-detail.js';
 import './bookings.js';
 import './favorites.js';

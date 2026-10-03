@@ -18,6 +18,7 @@ import hashlib
 from typing import Literal
 
 from app.web.components.escaping import e
+from app.web.components.icons import ICON_STAR_FILLED
 
 ButtonKind = Literal["primary", "secondary", "danger"]
 StatusTone = Literal["neutral", "accent", "success", "warning", "danger"]
@@ -43,6 +44,7 @@ def button(
     kind: ButtonKind = "primary",
     href: str = "",
     type_: str = "button",
+    form: str = "",
     element_id: str = "",
     block: bool = False,
     small: bool = False,
@@ -99,6 +101,10 @@ def button(
 
     btn = dict(common)
     btn["type"] = type_
+    # form= связывает кнопку с формой, лежащей в другом месте разметки: на
+    # /salons поиск стоит в шапке страницы, а сама форма фильтров — ниже.
+    # Без атрибута Enter в поле срабатывает, а клик по кнопке — нет.
+    btn["form"] = form
     if disabled:
         btn["disabled"] = True
     if loading:
@@ -263,4 +269,244 @@ def empty_state(
         f'<p class="r-empty__title">{e(title)}</p>'
         f"{text_html}{action_html}"
         f"</div>"
+    )
+
+
+# =====================================================================
+# ВИТРИНА: монограмма, услуга, свободное окно, карточка салона, лист снизу
+#
+# Эти элементы живут здесь, а не в страницах, по той же причине, что кнопка:
+# карточка салона нужна И каталогу, И главной, и «похожая вторая» через месяц
+# разойдётся с первой (решение 0011: главная показывает ТОТ ЖЕ компонент).
+# Составные элементы собраны из примитивов выше — своих цветов и отступов у
+# них нет.
+# =====================================================================
+
+def mark(letter: str, *, image: str = "", alt: str = "", size: str = "md") -> str:
+    """Монограмма: крупная буква вместо фотографии.
+
+    Фотографий у нас почти нет (на проде обложка у двух салонов из девяти), и
+    пустое место там, где ждут снимок, читается как поломка. Буква антиквой —
+    это решение: она занимает то же место и ничего не обещает. Градиентных
+    заглушек не рисуем — декорация на месте содержания видна сразу.
+    """
+    cls = f"r-mark r-mark--{size}"
+    if image:
+        return (
+            f'<span class="{cls}">'
+            f'<img src="{e(image)}" alt="{e(alt)}" loading="lazy" decoding="async">'
+            f"</span>"
+        )
+    return f'<span class="{cls}" aria-hidden="true">{e((letter or "?")[0].upper())}</span>'
+
+
+def service_line(name: str, *, price: str, duration: str = "") -> str:
+    """Строка услуги: название, время, цена. Не карточка.
+
+    Вложенных карточек не делаем, а список услуг внутри карточки салона — это
+    именно список: его держат линии между строками, а не вторая рамка.
+    """
+    dur = f'<span class="r-svc__dur">{e(duration)}</span>' if duration else ""
+    return (
+        '<li class="r-svc__row">'
+        f'<span class="r-svc__name">{e(name)}</span>'
+        f"{dur}"
+        f'<span class="r-svc__price">{e(price)}</span>'
+        "</li>"
+    )
+
+
+def slot(label: str, *, href: str = "", value: str = "", classes: str = "",
+         title: str = "") -> str:
+    """Свободное окно. С href — ссылка (из каталога ведёт в запись), без —
+    кнопка (внутри страницы салона выбор уже не требует перехода).
+
+    ``title`` — полная дата. Подпись короткая («сегодня 15:00») и считается во
+    времени САЛОНА: приходить надо по его часам. Для посетителя из другого
+    пояса «сегодня» может означать его завтра, поэтому точная дата всегда
+    доступна наведением и длинным нажатием.
+    """
+    cls = ("r-slot " + classes).strip()
+    tip = f' title="{e(title)}"' if title else ""
+    if href:
+        return f'<a class="{cls}" href="{e(href)}" data-slot="{e(value)}"{tip}>{e(label)}</a>'
+    return (
+        f'<button type="button" class="{cls}" data-slot="{e(value)}"{tip}>'
+        f"{e(label)}</button>"
+    )
+
+
+def salon_card(
+    *,
+    salon_id: int,
+    name: str,
+    href: str,
+    kind_label: str = "",
+    city: str = "",
+    rating: float = 0.0,
+    reviews: int = 0,
+    logo_url: str = "",
+    badges: tuple = (),
+    services: tuple = (),
+    services_total: int = 0,
+    slots: tuple = (),
+    slot_service: str = "",
+    promos: tuple = (),
+    favorite_icons: tuple = (),
+    all_label: str = "Все услуги и запись",
+) -> str:
+    """Карточка салона или мастера для каталога и главной.
+
+    Что её несёт: имя, город, услуги с ценой и временем, ближайшие свободные
+    окна. Фотография улучшает, но ничего не держит — её отсутствие не оставляет
+    в карточке дыры (решение 0011, п. 11 и 12).
+
+    ``services`` — готовые строки от ``service_line``; ``slots`` — от ``slot``.
+    Карточка не знает, откуда взялись цена и окно, и не считает их сама.
+
+    Класс ``salon-card`` рядом с ``r-salon`` — зацепка для скриптов каталога
+    (догрузка «показать ещё» считает карточки по нему); оформление висит
+    только на ``r-salon``.
+    """
+    heart, heart_filled = (favorite_icons or ("", ""))
+    fav = ""
+    if heart:
+        fav = (
+            f'<button class="favorite-btn r-salon__fav" type="button" data-type="salon" '
+            f'data-id="{salon_id}" data-icon-heart="{heart.replace(chr(34), "&quot;")}" '
+            f'data-icon-heart-filled="{heart_filled.replace(chr(34), "&quot;")}" '
+            f'aria-label="В избранное" title="В избранное">'
+            f'<span class="heart-icon">{heart}</span></button>'
+        )
+
+    # Оценку показываем только когда она есть. «0.0» — это не «плохо», а «нет
+    # данных»: на части салонов reviews_count заполнен, а rating нулевой, и
+    # бейдж «0.0 (312)» читался как единица с тремя сотнями подтверждений.
+    #
+    # Она стоит в той же строке, что тип и город, а не отдельным столбцом
+    # справа: в сетке на 1024px колонка карточки около 350px, и оценка сбоку
+    # отбирала у имени столько, что «Радуга» переносилась по слогам.
+    rating_html = ""
+    if rating and rating > 0:
+        rating_html = (
+            '<span class="r-salon__rating" title="Оценка по отзывам">'
+            f'<span class="r-salon__star" aria-hidden="true">{ICON_STAR_FILLED}</span>'
+            f'{rating:.1f}'
+            + (f'<span class="r-salon__reviews">({reviews})</span>' if reviews else "")
+            + "</span>"
+        )
+
+    where = " · ".join(p for p in (kind_label, city) if p)
+    where_html = ""
+    if where or rating_html:
+        where_html = (
+            '<span class="r-salon__where">'
+            + (f"{e(where)} " if where else "")
+            + rating_html + "</span>"
+        )
+    # Акция — плашка нейтрального тона: акцентных плашек на карточке уже есть
+    # одна (метка конкурса), и три розовых пятна в ряд превращают акцент в фон.
+    tags = "".join(badges) + "".join(
+        status(f"{tag} {title}".strip() if tag else title, "neutral") for tag, title in promos[:2]
+    )
+    tags_html = f'<div class="r-salon__tags">{tags}</div>' if tags else ""
+
+    svc_html = ""
+    if services:
+        more = ""
+        extra = services_total - len(services)
+        if extra > 0:
+            more = f'<li class="r-svc__more">и ещё {extra}</li>'
+        svc_html = f'<ul class="r-svc">{"".join(services)}{more}</ul>'
+    else:
+        # Пустое место там, где у соседних карточек цены, читается как сбой
+        # загрузки. Одна строка превращает его в факт.
+        svc_html = '<p class="r-svc__none">Услуги пока не выложены</p>'
+
+    slots_html = ""
+    if slots:
+        label = "Ближайшее время"
+        if slot_service:
+            label += f" · {slot_service}"
+        slots_html = (
+            '<div class="r-salon__slots">'
+            f'<p class="r-salon__slots-label">{e(label)}</p>'
+            f'<div class="r-slots">{"".join(slots)}</div>'
+            "</div>"
+        )
+
+    return (
+        f'<article class="r-salon salon-card" data-salon-id="{salon_id}">'
+        f'<div class="r-salon__top">'
+        f'<a class="r-salon__face" href="{e(href)}" data-salon-link="{salon_id}">'
+        f"{mark(name, image=logo_url, alt=name, size='lg')}"
+        f'<span class="r-salon__id">'
+        f'<span class="r-salon__name">{e(name)}</span>'
+        + where_html
+        + "</span></a>"
+        f'<div class="r-salon__aside">{fav}</div>'
+        "</div>"
+        f"{tags_html}{svc_html}{slots_html}"
+        f'<a class="r-salon__all" href="{e(href)}">{e(all_label)}</a>'
+        "</article>"
+    )
+
+
+def sheet(inner: str, *, element_id: str, title: str, close_label: str = "Закрыть") -> str:
+    """Лист снизу: на телефоне диалог приезжает оттуда, где палец.
+
+    Движение листа живёт в static/src/js/motion.js (пресет sheet: демпфирование
+    0.8, отклик 0.3) и прерывается на середине. Разметка здесь — настоящий
+    диалог: role, aria-modal и подпись, иначе скринридер читает страницу под
+    листом как доступную.
+
+    Затемнение — отдельный элемент, а не ::before у панели: по нему нужно
+    кликать, а у панели должен оставаться свой обработчик прокрутки.
+    """
+    tid = f"{element_id}-title"
+    return f"""
+<div class="r-sheet" id="{e(element_id)}" hidden>
+    <div class="r-sheet__scrim" data-sheet-close></div>
+    <div class="r-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="{e(tid)}">
+        <div class="r-sheet__head">
+            <span class="r-sheet__grip" aria-hidden="true"></span>
+            <h2 class="r-sheet__title" id="{e(tid)}">{e(title)}</h2>
+            <button class="r-sheet__close" type="button" data-sheet-close
+                    aria-label="{e(close_label)}">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="r-sheet__body">{inner}</div>
+    </div>
+</div>"""
+
+
+def dock(inner: str, *, element_id: str = "") -> str:
+    """Закреплённая снизу полоса с главным действием (телефон).
+
+    safe-area обязателен: на айфоне без него кнопка попадает под полосу жеста
+    «домой», и запись оказывается в сантиметре от промаха.
+    """
+    attrs = f' id="{e(element_id)}"' if element_id else ""
+    return f'<div class="r-dock"{attrs}>{inner}</div>'
+
+
+def section_head(title: str, *, text: str = "", link_label: str = "", link_href: str = "",
+                 display: bool = False) -> str:
+    """Заголовок раздела страницы: название, подзаголовок и ссылка «все».
+
+    Кикеров и надзаголовков над заголовком нет — заголовок несёт себя сам.
+    """
+    cls = "r-display" if display else "r-title"
+    link = ""
+    if link_label and link_href:
+        link = f'<a class="r-seclink" href="{e(link_href)}">{e(link_label)}</a>'
+    sub = f'<p class="r-sechead__text r-text r-muted">{e(text)}</p>' if text else ""
+    return (
+        '<div class="r-sechead">'
+        f'<div class="r-sechead__main"><h2 class="{cls}">{e(title)}</h2>{sub}</div>'
+        f"{link}</div>"
     )

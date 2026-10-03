@@ -1,575 +1,214 @@
-/* ---------- app/web/pages/home.py ---------- */
+/* static/src/css/home.css — главная (заход «витрина», решение 0011, п. 12).
+
+   Главная стала входом в каталог: крупный поиск, под ним живые карточки тем же
+   компонентом, что в каталоге, затем «как записаться» и «стать моделью».
+   Собственных карточек салона здесь больше нет — они в ui.css, иначе два
+   похожих списка разошлись бы на первой же правке.
+
+   Фоновая фотография цветка из первого экрана убрана: цвет приходит из работ
+   мастера, а не из интерфейса, а снимок-украшение на месте содержания виден
+   сразу (docs/design.md, «Фотографии и пустота»).
+
+   Внизу файла — блоки, которые принадлежат не главной: партнёрский баннер
+   Т‑Банка (разметку даёт app/web/components/tbank.py) и шаги лендингов
+   (model_landing, business_landing, master_landing, model_join). Они оставлены
+   дословно: их страницы ждут своих заходов. */
+
 .home-main {
     margin-right: 16rem;
 }
+
 @media (max-width: 1023px) {
     .home-main {
         margin-right: 0;
     }
 }
 
-/* ---------- HERO СЕКЦИЯ ---------- */
+/* ---------- Первый экран ----------
+   Ни 100vh, ни подложки во всю ширину: на телефоне первый экран во всю высоту
+   означает, что до карточек надо доскроллить, а они и есть то, за чем пришли. */
+/* 5rem сверху — место под плашку с логотипом в шапке (она fixed, 180×60px в
+   левом верхнем углу), а не воздух ради воздуха. */
 .home-hero {
-    position: relative;
+    padding: 5rem 0 var(--space-32);
+}
+
+@media (min-width: 640px) {
+    .home-hero { padding: var(--space-96) 0 var(--space-48); }
+}
+
+.home-hero__title {
+    max-width: 24ch;
+    text-wrap: balance;
+}
+
+.home-hero__text {
+    margin-top: var(--space-16);
+    max-width: 44ch;
+    font-size: var(--text-18);
+}
+
+/* ---------- Поиск ----------
+   Та же форма, что в каталоге: человек, перешедший в каталог, должен узнать
+   поле, в котором он уже печатал. */
+.home-search {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    margin-top: var(--space-32);
+    max-width: 34rem;
+    padding: var(--space-4);
+    padding-left: var(--space-16);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-12);
     background: var(--color-surface);
-    overflow: hidden;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
+    transition: border-color var(--duration-1) var(--ease-out),
+                box-shadow var(--duration-1) var(--ease-out);
 }
 
-.home-hero .section-container {
-    max-width: 100%;
-    padding: 0 20px;
-    margin: 0;
+.home-search:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-muted);
 }
 
-.home-hero-bg-img {
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    width: auto;
-    object-fit: cover;
-    object-position: right center;
-    z-index: 1;
-    pointer-events: none;
-    mix-blend-mode: multiply;
-    opacity: 0.35;
-}
-
-.home-hero-gradient {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, var(--page-gradient-1), var(--page-gradient-2), var(--page-gradient-3));
-    z-index: 2;
-    pointer-events: none;
-}
-
-.home-hero-content {
-    position: relative;
-    width: 100%;
-    z-index: 3;
-    padding-top: 12vh;
-    padding-bottom: 12vh;
-    padding-left: 0;
-}
-
-@media (max-width: 768px) {
-    .home-hero-content {
-        padding-top: 8vh;
-        padding-bottom: 8vh;
-    }
-}
-
-.home-hero-title {
-    font-size: 3rem;
-    line-height: 1.05;
-    margin-bottom: 1.25rem;
-}
-
-@media (min-width: 640px) {
-    .home-hero-title { font-size: 3.75rem; }
-}
-
-@media (min-width: 1024px) {
-    .home-hero-title { font-size: 4.5rem; }
-    .home-hero-content { padding-left: 8%; }
-}
-
-.home-hero-title .dot-primary {
-    color: var(--color-primary);
-}
-
-.home-hero-subtitle {
-    font-size: 1rem;
-    margin-bottom: 2.5rem;
-    max-width: 36rem;
-}
-@media (min-width: 640px) {
-    .home-hero-subtitle { font-size: 1.125rem; }
-    .home-hero-content { padding-left: 4%; }
-}
-
-/* ---------- БЛОК ПОИСКА ---------- */
-.home-search-card {
-    max-width: 42rem;
-}
-
-.home-search-link {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    padding: 1rem 1.25rem;
-    background: linear-gradient(135deg, #fff5f5, #ffe8f0);
-    border: 2px solid var(--color-secondary);
-    border-radius: 1rem;
-    transition: all 0.2s ease;
-    cursor: pointer;
-    text-decoration: none;
-    min-height: 64px;
-}
-[data-theme="dark"] .home-search-link {
-    background: linear-gradient(135deg, var(--color-surface), var(--color-surface-alt));
-}
-
-.home-search-link:hover {
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
-    border-color: var(--color-primary);
-}
-
-@media (min-width: 640px) {
-    .home-search-link {
-        padding: 1.25rem 1.5rem;
-        flex-wrap: nowrap; /* на десктопе не переносим */
-    }
-}
-
-/* Иконка поиска (круг с градиентом) */
-.home-search-icon-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.75rem;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
+.home-search__icon {
+    display: inline-flex;
     flex-shrink: 0;
-}
-.home-search-icon-wrapper svg {
-    width: 1.25rem;
-    height: 1.25rem;
-    color: white;
-}
-@media (min-width: 640px) {
-    .home-search-icon-wrapper svg {
-        width: 1.5rem;
-        height: 1.5rem;
-    }
+    color: var(--color-muted);
 }
 
-/* Текстовая часть */
-.home-search-info {
+.home-search__icon svg { width: 20px; height: 20px; }
+
+.home-search__input {
     flex: 1;
-    text-align: left;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    /* min-width: 0 обязателен: иначе собственная минимальная ширина input
+       выпирает из рамки на 375px. */
     min-width: 0;
-}
-
-.home-search-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--color-heading);
-}
-@media (min-width: 640px) {
-    .home-search-title {
-        font-size: 1.35rem;
-    }
-}
-
-.home-search-desc {
-    font-size: 1.05rem;
-    color: var(--color-muted);
-}
-
-.home-search-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.625rem 1.5rem;
-    border-radius: 9999px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: var(--color-btn-text);
-    font-size: 0.875rem;
-    font-weight: 600;
+    min-height: var(--control-h);
     border: none;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-    white-space: nowrap;
-    flex-shrink: 0;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-@media (min-width: 1024px) {
-    .home-search-btn {
-        padding: 0.75rem 2.5rem;   
-        min-width: 140px;          
-    }
-}
-
-.home-search-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
-}
-
-/* На мобильных кнопка занимает всю ширину и идёт с новой строки */
-@media (max-width: 639px) {
-    .home-search-link {
-        flex-wrap: wrap;
-    }
-    .home-search-btn {
-        width: 100%;
-        margin-top: 0.5rem;
-        padding: 0.75rem;
-        font-size: 1rem;
-    }
-}
-
-/* ---------- СЕКЦИЯ "КАК ЗАПИСАТЬСЯ" ---------- */
-.steps-four-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    overflow: visible;
-}
-
-@media (min-width: 768px) {
-    .steps-four-grid {
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1.5rem;
-    }
-}
-
-.step-four-card {
-    padding: 2rem;
-    background: var(--color-surface) !important;
-    border-radius: 1rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-    transition: box-shadow 0.2s;
-}
-
-@media (min-width: 1024px) {
-    .step-four-card {
-        padding: 2.5rem;
-    }
-}
-
-.step-four-card:hover {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
-}
-
-.step-four-number {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-}
-
-.step-four-num {
-    font-family: var(--font-heading);
-    font-size: 3rem;
-    font-weight: 400;
-    line-height: 1;
-    color: var(--color-primary);
-}
-
-@media (min-width: 1024px) {
-    .step-four-num {
-        font-size: 3.75rem;
-    }
-}
-
-.step-four-dot {
-    font-family: var(--font-heading);
-    font-size: 1.5rem;
-    line-height: 1;
-    color: var(--color-primary);
-}
-
-.step-four-title {
-    font-family: var(--font-heading);
-    font-size: 1.5rem;
-    font-weight: 400;
+    background: none;
     color: var(--color-heading);
-    margin-bottom: 0.5rem;
-}
-
-.step-four-desc {
     font-family: var(--font-body);
-    font-size: 0.875rem;
-    line-height: 1.625;
-    color: var(--color-muted);
-    margin: 0;
+    /* Ровно 16px: мельче — iOS зумит страницу при фокусе. */
+    font-size: var(--text-16);
 }
 
-/* ---------- БЛОК "ПОПУЛЯРНЫЕ САЛОНЫ" ---------- */
-.popular-salons-section {
-    background: linear-gradient(
-        to bottom,
-        var(--color-background) 0%,
-        var(--color-surface-alt) 40%,
-        var(--color-surface-alt) 60%,
-        var(--color-background) 100%
-    );
+.home-search__input:focus { outline: none; }
+
+.home-search .r-btn { flex-shrink: 0; }
+
+/* ---------- Карточки ---------- */
+.home-catalog {
+    padding: var(--space-32) 0 var(--space-48);
 }
 
-.popular-salons-header {
-    text-align: center;
-    margin-bottom: 2.5rem;
-}
-.popular-salons-title {
-    font-size: 2.25rem;
-}
-.popular-salons-subtitle {
-    font-size: 1rem;
-    max-width: 600px;
-    margin: 0.5rem auto 0;
+/* ---------- Как записаться ----------
+   Нумерация остаётся: последовательность и есть смысл блока. Но несёт её
+   номер в потоке строки, а не четыре одинаковые карточки «иконка + заголовок
+   + текст» — такой структуры страницы мы не делаем. */
+.home-how {
+    padding: var(--space-48) 0;
+    border-top: 1px solid var(--color-border);
 }
 
-.popular-salons-grid {
+.home-steps {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1.5rem;
-    max-width: 60rem;
-    margin: 0 auto;
+    gap: var(--space-24);
+    margin: 0;
+    padding: 0;
+    counter-reset: home-step;
+    list-style: none;
 }
 
 @media (min-width: 640px) {
-    .popular-salons-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+    .home-steps { grid-template-columns: repeat(2, 1fr); gap: var(--space-32); }
 }
+
 @media (min-width: 1024px) {
-    .popular-salons-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
+    .home-steps { grid-template-columns: repeat(4, 1fr); }
 }
 
-.popular-salon-link {
+.home-step {
+    counter-increment: home-step;
+    padding-top: var(--space-12);
+    border-top: 1px solid var(--color-border);
+}
+
+.home-step::before {
+    content: counter(home-step);
     display: block;
-    text-decoration: none;
-    color: inherit;
+    margin-bottom: var(--space-8);
+    color: var(--color-accent);
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-size: var(--text-22);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
 
-/* Токен, а не полупрозрачный белый: на тёмной теме белая заливка давала
-   светлую плашку, а текст оставался темовым (почти белым) — контраст
-   заголовка падал до 2.1:1 при норме 4.5. */
-.popular-salon-card {
-    background: var(--color-surface);
-    backdrop-filter: blur(4px);
-    border: 1px solid var(--color-border);
-    border-radius: 1rem;
-    padding: 1.5rem 1rem;
-    text-align: center;
-    transition: box-shadow 0.2s, transform 0.15s;
-    height: 100%;
-}
-.popular-salon-link:hover .popular-salon-card {
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    transform: translateY(-4px);
-    border-color: var(--color-primary);
-}
-
-.popular-salon-avatar {
-    width: 4rem;
-    height: 4rem;
-    border-radius: 50%;
-    margin: 0 auto 0.75rem;
-    overflow: hidden;
-    background: var(--color-accent-light);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-.popular-salon-avatar-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-.popular-salon-avatar-letter {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--color-primary);
-}
-
-.popular-salon-name {
-    font-size: 1.125rem;
+.home-step__name {
+    margin: 0;
+    font-size: var(--text-18);
     font-weight: 600;
+    line-height: var(--leading-title);
+    letter-spacing: var(--tracking-title);
     color: var(--color-heading);
-    margin-bottom: 0.25rem;
 }
 
-.popular-salon-address {
+.home-step__text {
+    margin: var(--space-4) 0 0;
+    max-width: 34ch;
     color: var(--color-muted);
-    font-size: 0.75rem;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
-}
-.popular-salon-address svg {
-    width: 0.75rem;
-    height: 0.75rem;
-    color: var(--color-primary);
+    font-size: var(--text-14);
+    line-height: var(--leading-text);
 }
 
-.popular-salon-rating {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.2rem;
-    color: var(--color-primary);
-}
-.popular-salon-rating svg {
-    width: 1rem;
-    height: 1rem;
-    fill: var(--color-primary);
-    color: var(--color-primary);
-}
-.popular-salon-rating .rating-value {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--color-heading);
-}
-.popular-salon-rating .rating-count {
-    color: var(--color-muted);
-    font-size: 0.8rem;
+/* ---------- Стать моделью ---------- */
+.home-model {
+    padding: var(--space-48) 0;
+    border-top: 1px solid var(--color-border);
 }
 
-.popular-salons-footer {
-    text-align: center;
-    margin-top: 2.5rem;
-}
-.popular-salons-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 1.5rem;
-    border: 2px solid var(--color-border);
-    border-radius: 9999px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-heading);
-    transition: all 0.2s ease;
-    text-decoration: none;
-    background: transparent;
-}
-.popular-salons-btn:hover {
-    background: var(--color-surface);
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    transform: translateY(-2px);
-}
-
-/* ---------- БЛОК "КАК ЗАПИСАТЬСЯ?" ---------- */
-.steps-grid {
+.home-model__grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: var(--space-32);
+    align-items: start;
 }
 
-@media (min-width: 768px) {
-    .steps-grid {
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1.25rem;
-    }
+@media (min-width: 900px) {
+    .home-model__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 
-/* Каждый шаг — отдельный квадратик-карточка (номер + текст), а не колонка
-   в общей полосе. */
-.step-item {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 1rem;
-    padding: 1.75rem 1.5rem;
-    transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
-}
-
-@media (min-width: 1024px) {
-    .step-item {
-        padding: 2.25rem 2rem;
-    }
-}
-
-.step-item:hover {
-    border-color: var(--color-primary);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
-    transform: translateY(-3px);
-}
-
-.step-num {
-    display: block;
-    font-family: var(--font-heading);
-    font-size: 3rem;
-    font-weight: 400;
-    line-height: 1;
-    color: var(--color-primary);
-    margin-bottom: 1.5rem;
-}
-
-@media (min-width: 1024px) {
-    .step-num {
-        font-size: 3rem;
-    }
-}
-
-.step-headline {
-    font-family: var(--font-heading);
-    font-size: 3rem;
-    font-weight: 400;
-    line-height: 1;
-    color: var(--color-heading);
-    margin-bottom: 1.5rem;
-}
-
-@media (min-width: 1024px) {
-    .step-headline {
-        font-size: 2.5rem;
-    }
-}
-
-.step-desc {
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.625;
-    color: var(--color-muted);
+.home-model__list {
     margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
-.how-title-wrapper {
-    max-width: 42rem;
-    margin: 0 auto 3rem;
-    text-align: center;
+.home-model__list li {
+    padding: var(--space-12) 0;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-body);
+    font-size: var(--text-16);
+    line-height: var(--leading-text);
 }
 
-.how-title {
-    font-family: var(--font-heading);
-    font-size: 2.25rem;
-    font-weight: 400;
-    line-height: 1.1;
-    color: var(--color-heading);
+/* ---------- Для бизнеса ---------- */
+.home-business {
+    padding: var(--space-48) 0 var(--space-64);
+    border-top: 1px solid var(--color-border);
 }
 
-@media (min-width: 1024px) {
-    .how-title {
-        font-size: 3rem;
-    }
-}
+/* =====================================================================
+   НИЖЕ — ЧУЖОЕ. Эти блоки рисуют не главную, и их страницы ждут своих
+   заходов; правки здесь были бы правками чужого раздела.
+   ===================================================================== */
 
-.how-title-dot {
-    color: var(--color-primary);
-}
-
-.how-subtitle {
-    font-family: var(--font-body);
-    font-size: 1.125rem;
-    margin-top: 0.75rem;
-    color: var(--color-muted);
-}
-
-/* ---------- БЛОК ПАРТНЁРА (Т‑БАНК) ---------- */
+/* Партнёрский баннер Т‑Банка — разметка в app/web/components/tbank.py.
+   Партнёрство оформлено договором и размечено как реклама, поэтому ни вид,
+   ни тексты креатива здесь не трогаем. */
 .partner-card {
     background: #FFDD2D;
     border-radius: 1.5rem;
@@ -845,361 +484,84 @@
 }
 
 /* ---------- БЛОК "СТАТЬ МОДЕЛЬЮ" ---------- */
-.model-label {
-    font-family: var(--font-body);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: var(--color-primary);
-    margin-bottom: 1.5rem;
-    display: block;
-}
 
-.model-header {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 3rem;
-}
-
-@media (min-width: 1024px) {
-    .model-header {
-        flex-direction: row;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 2rem;
-    }
-}
-
-.model-title-wrap {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-@media (min-width: 1024px) {
-    .model-title-wrap {
-        flex-direction: row;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 2rem;
-    }
-}
-
-.model-title {
-    font-family: var(--font-heading);
-    font-size: 2.25rem;
-    font-weight: 400;
-    line-height: 1.2;
-    color: var(--color-heading);
-    flex: 1;
-    margin: 0;
-}
-
-@media (min-width: 1024px) {
-    .model-title {
-        font-size: 3.75rem;
-        line-height: 1.1;
-    }
-}
-
-.model-title-dot {
-    color: var(--color-primary);
-}
-
-.model-subtitle {
-    font-family: var(--font-body);
-    font-size: 1rem;
-    color: var(--color-muted);
-    line-height: 1.5;
-    max-width: 100%;
-    text-align: left;
-    margin: 0;
-}
-
-@media (min-width: 1024px) {
-    .model-subtitle {
-        font-size: 1.125rem;
-        max-width: 22rem;
-        text-align: left;
-        flex-shrink: 0;
-        margin-left: auto;
-        margin-right: 7%;
-    }
-}
-
-.model-grid {
+/* Шаги лендингов: model_landing, business_landing, master_landing, model_join. */
+.steps-grid {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1rem;
 }
 
 @media (min-width: 768px) {
-    .model-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-}
-
-@media (min-width: 1024px) {
-    .model-grid {
+    .steps-grid {
         grid-template-columns: repeat(4, 1fr);
+        gap: 1.25rem;
     }
 }
 
-.model-item {
+/* Каждый шаг — отдельный квадратик-карточка (номер + текст), а не колонка
+   в общей полосе. */
+.step-item {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 1rem;
-    padding: 2rem;
-    transition: box-shadow 0.3s ease;
+    padding: 1.75rem 1.5rem;
+    transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
 }
 
 @media (min-width: 1024px) {
-    .model-item {
-        padding: 2.5rem;
+    .step-item {
+        padding: 2.25rem 2rem;
     }
 }
 
-.model-item:hover {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+.step-item:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+    transform: translateY(-3px);
 }
 
-.model-item-highlight {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--color-primary);
-}
-
-@media (min-width: 1024px) {
-    .model-item-highlight {
-        font-size: 1.5rem;
-    }
-}
-
-.model-item-desc {
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.6;
-    color: var(--color-muted);
-    margin: 0;
-}
-
-.model-cta {
-    text-align: left;
-    margin-top: 2.5rem;
-}
-
-.model-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.75rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    border-radius: 9999px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: var(--color-btn-text);
-    text-decoration: none;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.model-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
-}
-
-.model-btn svg {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-}
-
-/* ---------- БЛОК "ДЛЯ БИЗНЕСА" ---------- */
-.business-label {
-    font-family: var(--font-body);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
+.step-num {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 3rem;
+    font-weight: 400;
+    line-height: 1;
     color: var(--color-primary);
     margin-bottom: 1.5rem;
-    display: block;
-}
-
-.business-header {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 3rem;
 }
 
 @media (min-width: 1024px) {
-    .business-header {
-        flex-direction: row;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 2rem;
+    .step-num {
+        font-size: 3rem;
     }
 }
 
-.business-title-wrap {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-@media (min-width: 1024px) {
-    .business-title-wrap {
-        flex-direction: row;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 2rem;
-    }
-}
-
-.business-title {
+.step-headline {
     font-family: var(--font-heading);
-    font-size: 2.25rem;
+    font-size: 3rem;
     font-weight: 400;
-    line-height: 1.2;
+    line-height: 1;
     color: var(--color-heading);
-    flex: 1;
-    margin: 0;
+    margin-bottom: 1.5rem;
 }
 
 @media (min-width: 1024px) {
-    .business-title {
-        font-size: 3.75rem;
-        line-height: 1.1;
+    .step-headline {
+        font-size: 2.5rem;
     }
 }
 
-.business-title-dot {
-    color: var(--color-primary);
-}
-
-.business-subtitle {
+.step-desc {
     font-family: var(--font-body);
     font-size: 1rem;
-    color: var(--color-muted);
-    line-height: 1.5;
-    max-width: 100%;
-    text-align: left;
-    margin: 0;
-}
-
-@media (min-width: 1024px) {
-    .business-subtitle {
-        font-size: 1.125rem;
-        max-width: 22rem;
-        text-align: left;
-        flex-shrink: 0;
-        margin-left: auto;
-        margin-right: 7%;
-    }
-}
-
-.business-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1rem;
-}
-
-@media (min-width: 768px) {
-    .business-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-}
-
-@media (min-width: 1024px) {
-    .business-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
-
-.business-item {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 1rem;
-    padding: 2rem;
-    transition: box-shadow 0.3s ease;
-}
-
-@media (min-width: 1024px) {
-    .business-item {
-        padding: 2rem;
-    }
-}
-
-.business-item:hover {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
-}
-
-.business-number {
-    font-family: var(--font-heading);
-    font-size: 1.8rem;
-    font-weight: 400;
-    line-height: 1.2;
-    color: var(--color-primary);
-    margin-bottom: 0.5rem;
-}
-
-@media (min-width: 1024px) {
-    .business-number {
-        font-size: 2rem;
-    }
-}
-
-.business-item-title {
-    font-family: var(--font-heading);
-    font-size: 1.8rem;
-    font-weight: 400;
-    color: var(--color-heading);
-    margin-bottom: 0.5rem;
-}
-
-.business-item-desc {
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.5;
+    line-height: 1.625;
     color: var(--color-muted);
     margin: 0;
 }
 
-.business-cta {
-    text-align: left;
-    margin-top: 2.5rem;
-    background: transparent !important;
-}
 
-.business-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.75rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    border-radius: 9999px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: var(--color-btn-text);
-    text-decoration: none;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.business-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
-}
-
-.business-btn svg {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-}
-
+/* .section-gradient — business_checkout. */
 .section-gradient {
     background: linear-gradient(
         to bottom,
@@ -1209,90 +571,3 @@
     );
 }
 
-/* ---------- Мы убрали из красоты всё лишнее... ---------- */
-.home-footer-block {
-    margin-top: 3rem;
-    padding-top: 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.home-footer-banner-text {
-    font-family: var(--font-heading);
-    max-width: 64rem;
-    font-size: 3.5rem;
-    font-weight: 400;
-    line-height: 1.1;
-    margin-bottom: 2.5rem;
-    color: var(--color-heading);
-}
-@media (max-width: 768px) {
-    .home-footer-banner-text {
-        font-size: 2.25rem;
-    }
-}
-.home-footer-banner-dot {
-    color: var(--color-primary);
-}
-
-.home-footer-buttons-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.home-footer-btn-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    border-radius: 9999px;
-    padding: 0.875rem 1.75rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: var(--color-btn-text);
-    text-decoration: none;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-.home-footer-btn-primary:hover {
-    transform: scale(1.05);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
-}
-
-.home-footer-btn-outline {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    border-radius: 9999px;
-    border: 2px solid var(--color-border);
-    padding: 0.875rem 1.75rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-heading);
-    text-decoration: none;
-    background: transparent;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-.home-footer-btn-outline:hover {
-    transform: scale(1.05);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
-}
-
-/* ---------- УТИЛИТЫ ---------- */
-.text-center { text-align: center; }
-.mt-10 { margin-top: 2.5rem; }
-
-/* ---------- АДАПТИВНОСТЬ ДЛЯ МОБИЛЬНЫХ ---------- */
-@media (max-width: 768px) {
-    .home-hero-title { font-size: 2.5rem; }
-    .home-hero-subtitle { font-size: 0.95rem; }
-    .home-search-link { padding: 0.75rem 1rem; min-height: 56px; }
-    .home-search-icon-wrapper { padding: 0.5rem; }
-    .home-search-icon-wrapper svg { width: 1rem; height: 1rem; }
-
-    .home-search-title { font-size: 1.2rem; }  
-    .home-search-desc { font-size: 1rem; }       
-    .home-tag { padding: 0.4rem 0.75rem; font-size: 0.75rem; } 
-    .home-tag svg { width: 0.875rem; height: 0.875rem; }
-    .section-title { font-size: 2rem; }
-}

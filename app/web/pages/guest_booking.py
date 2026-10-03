@@ -21,6 +21,7 @@ from app.models.models import (
 )
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import ICON_ARROW_LEFT, ICON_CHECK
+from app.services.public_words import word, words_for
 from app.web.components import ui
 from app.web.pages.legal import LEGAL_VERSION
 
@@ -120,12 +121,6 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
         select(Master).where(Master.salon_id == salon_id, Master.is_active == True)
     )).scalars().all()
 
-    # Частный мастер — «салон» из одного человека, который сам им владеет.
-    # Ему «салон подтвердит запись» звучит странно: клиент идёт к мастеру.
-    solo = len(masters) == 1 and masters[0].user_id == salon.creator_id
-    confirmer = "мастер" if solo else "салон"
-    title = f"Запись к «{e(salon.name)}»" if solo else f"Запись в «{e(salon.name)}»"
-
     data = []
     for m in masters:
         muser = (await db.execute(select(User).where(User.id == m.user_id))).scalar_one_or_none()
@@ -155,6 +150,16 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
 
     if not data:
         return _notice("Пока нельзя записаться", "У салона нет доступных мастеров или услуг.")
+
+    # Частный мастер — «салон» из одного человека. Ему «салон подтвердит
+    # запись» звучит странно: клиент идёт к мастеру. Развилка жила здесь
+    # тернарником и была единственной на весь сервис; теперь она в одном
+    # реестре на все публичные страницы (решение 0011, п. 13).
+    w, solo = words_for(salon, masters, data[0]["name"] if data else "")
+    confirmer = w("confirmer")
+    # Название салона здесь подставляется само: в соло шаблон другой, а имя
+    # в нём — это имя салона, под которым мастер зарегистрирован.
+    title = word("guest_title", solo=solo, name=e(salon.name))
 
     masters_json = ejson(data)
 
@@ -190,7 +195,7 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
             <div class="gb-done">
                 <div class="gb-done-check" aria-hidden="true">{ICON_CHECK}</div>
                 <h2 class="r-subtitle">Заявка отправлена</h2>
-                <p class="gb-done-text">Салон подтвердит запись.
+                <p class="gb-done-text">{w("guest_done")}
                     Сохраните ссылку — по ней можно посмотреть или отменить бронь:</p>
                 <a id="gb-manage-link" class="gb-manage-link" href="#"></a>
             </div>"""

@@ -28,51 +28,94 @@
     }
 }
 
-/* ========= Стили элементов страницы салонов ======= */
+/* Наведения панели фильтров заведены под (hover: hover): на телефоне :hover
+   остаётся включённым после тапа до следующего касания в другом месте, и
+   выбранная категория выглядела подсвеченной вместе с той, по которой только
+   что ткнули.
 
-.salons-hero {
-    background: var(--color-surface-alt);
-    padding-top: 5rem;
-    padding-bottom: 0rem;
+   ========= Каталог: заход «витрина» (решение 0011) =========
+   Подложки-пятна под заголовком больше нет: цвет приходит из работ мастера, а
+   не из интерфейса, и серо-тёплая полоса на всю ширину — это как раз цвет из
+   интерфейса. Экран держат типографика и воздух. */
+
+/* 5rem сверху — не воздух, а место: шапка сервиса прозрачная, но плашка с
+   логотипом занимает левые 180×60px, и заголовок при меньшем отступе уезжает
+   под неё. */
+.catalog-hero {
+    padding: 5rem 0 var(--space-32);
 }
 
-.salons-hero-content {
-    padding-bottom: 4rem;
-    max-width: 42rem;
-    margin: 0 auto;
-    text-align: center;
+@media (min-width: 640px) {
+    .catalog-hero { padding: 6rem 0 var(--space-32); }
 }
 
-.salons-title {
-    font-size: 2.5rem;
-    line-height: 1.15;
-    margin-bottom: 0.5rem;
+.catalog-hero__intro {
+    max-width: 34rem;
 }
 
-.salons-subtitle {
+.catalog-hero__intro p {
+    margin-top: var(--space-12);
+    text-wrap: balance;
+}
+
+/* Поиск — первое, за чем сюда приходят, поэтому он крупный и стоит под
+   заголовком, а не в шапке. Кнопка внутри рамки: на телефоне отдельная кнопка
+   под полем забирает целую строку, а здесь обе цели по 44px. */
+.catalog-search {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    margin-top: var(--space-24);
+    max-width: 34rem;
+    padding: var(--space-4);
+    padding-left: var(--space-16);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-12);
+    background: var(--color-surface);
+    transition: border-color var(--duration-1) var(--ease-out),
+                box-shadow var(--duration-1) var(--ease-out);
+}
+
+.catalog-search:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-muted);
+}
+
+.catalog-search__icon {
+    display: inline-flex;
+    flex-shrink: 0;
     color: var(--color-muted);
-    margin-bottom: 2rem;
-    text-wrap: balance;   /* подзаголовок не рвётся «хвостом» в одно слово */
 }
 
-/* Список идёт сразу за поиском — стандартных 80px сверху здесь много,
-   между поисковой строкой и фильтрами зияла пустая полоса. */
-.salons-list-section {
-    padding-top: 2.5rem;
+.catalog-search__icon svg { width: 20px; height: 20px; }
+
+.catalog-search input {
+    flex: 1;
+    /* min-width: 0 обязателен: у input своя минимальная внутренняя ширина, и
+       без этого поле выпирает из рамки на 375px. */
+    min-width: 0;
+    min-height: var(--control-h);
+    border: none;
+    background: none;
+    color: var(--color-heading);
+    font-family: var(--font-body);
+    /* Ровно 16px: мельче — iOS зумит страницу при фокусе. */
+    font-size: var(--text-16);
 }
 
-@media (max-width: 640px) {
-    /* padding-top у .salons-hero не трогаем: заголовок центрирован и при
-       меньшем отступе заезжает под плашку логотипа в шапке. */
-    .salons-hero-content {
-        padding-bottom: 2.75rem;
-    }
-    .salons-subtitle {
-        margin-bottom: 1.5rem;
-    }
-    .salons-list-section {
-        padding-top: 1.75rem;
-    }
+.catalog-search input:focus { outline: none; }
+
+.catalog-search .r-btn { flex-shrink: 0; }
+
+/* Список идёт сразу за фильтрами — стандартных 80px сверху здесь много. */
+.catalog-body {
+    padding-bottom: var(--space-64);
+}
+
+.catalog-count {
+    margin: 0 0 var(--space-16);
+    color: var(--color-muted);
+    font-size: var(--text-13);
 }
 
 .search-box {
@@ -194,8 +237,10 @@
     height: 1rem;
     flex-shrink: 0;
 }
-.category-dropdown-btn:hover {
-    border-color: var(--color-accent);
+@media (hover: hover) {
+    .category-dropdown-btn:hover {
+        border-color: var(--color-accent);
+    }
 }
 .category-dropdown.open .category-dropdown-btn {
     border-color: var(--color-accent);
@@ -254,8 +299,10 @@
     cursor: pointer;
     white-space: nowrap;
 }
-.category-option:hover {
-    background: var(--color-surface-alt);
+@media (hover: hover) {
+    .category-option:hover {
+        background: var(--color-surface-alt);
+    }
 }
 .category-option input {
     accent-color: var(--color-accent);
@@ -274,8 +321,10 @@
     cursor: pointer;
     text-align: left;
 }
-.category-clear-btn:hover {
-    color: var(--color-accent);
+@media (hover: hover) {
+    .category-clear-btn:hover {
+        color: var(--color-accent);
+    }
 }
 
 .category-empty-hint {
@@ -299,8 +348,10 @@
     transition: background 0.15s, border-color 0.15s, color 0.15s;
     white-space: nowrap;
 }
-.filter-chip:hover {
-    border-color: var(--color-accent);
+@media (hover: hover) {
+    .filter-chip:hover {
+        border-color: var(--color-accent);
+    }
 }
 .filter-chip.active {
     background: var(--color-accent);
@@ -414,162 +465,27 @@
     }
 }
 
+/* Сетка каталога — общий компонент .r-salon-grid из ui.css; здесь только то,
+   что принадлежит самой странице. Карточка целиком переехала в слой
+   компонентов: её показывает и главная (решение 0011, п. 12), а второй
+   похожий список через месяц разошёлся бы с этим. */
 .salons-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--space-16);
+    align-items: start;
 }
 
-.salon-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 1rem;
-    overflow: hidden;
-    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+/* Пустая выдача и «Показать ещё» — не карточки: в сетке они становились
+   колонкой шириной в одну карточку, и «Ничего не найдено» читалось как
+   найденный салон с таким названием. */
+.salons-grid > .empty-state,
+.salons-grid > .salons-more {
+    grid-column: 1 / -1;
 }
 
-.salon-card:hover {
-    box-shadow: 0 8px 20px rgba(26, 26, 31, 0.07);
-    border-color: var(--color-accent-light);
-    transform: translateY(-2px);
-}
-
-/* Переход по ссылке «название салона» из карточки записи («Мои записи»)
-   — подсвечиваем карточку салона, чтобы её было легко найти в списке. */
-.salon-card--highlighted {
-    animation: salonCardHighlight 2.2s ease;
-}
-@keyframes salonCardHighlight {
-    0%, 100% { box-shadow: 0 1px 3px rgba(0,0,0,0.04); outline: 2px solid transparent; }
-    15%, 60% { box-shadow: 0 0 0 4px var(--color-accent-light); outline: 2px solid var(--color-primary); }
-}
-
-.salon-card-inner {
-    display: flex;
-    flex-direction: column;
-}
-
-@media (min-width: 640px) {
-    .salon-card-inner {
-        flex-direction: row;
-        /* Общий нижний предел высоты (равен min-height фото): без него короткие
-           карточки — без описания и акций — проваливались, и лента шла
-           рваной лесенкой. */
-        min-height: 12rem;
-    }
-}
-
-/* С порога, где появляется колонка акций, раскладка карточки — сетка с тремя
-   дорожками. Третья резервируется всегда, даже когда акций нет: на флексе
-   такая карточка растягивала инфо-часть на всю ширину, и бейдж рейтинга
-   вставал не там, где у соседей — лента выглядела рваной по правому краю. */
-@media (min-width: 1280px) {
-    .salon-card-inner {
-        display: grid;
-        grid-template-columns: 12rem minmax(0, 1fr) clamp(17rem, 30%, 22rem);
-    }
-}
-
-.salon-image {
-    position: relative;
-    width: 100%;
-    height: 10rem;
-    flex-shrink: 0;
-    overflow: hidden;
-    background: var(--color-surface-alt);
-}
-
-@media (min-width: 640px) {
-    .salon-image {
-        width: 12rem;
-        height: auto;
-        min-height: 12rem;
-    }
-}
-
-.salon-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-/* Логотипа нет — буквенная заглушка (раньше собиралась инлайн-стилями). */
-.salon-image-fallback {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: var(--color-btn-text);
-    font-family: var(--font-heading);
-    font-size: 3rem;
-    font-weight: 400;
-    line-height: 1;
-}
-
-/* --- Кнопка избранного --- */
-.favorite-btn {
-    position: absolute;
-    right: 0.5rem;
-    top: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.9);
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(4px);
-    padding: 0;
-    transition: transform 0.2s ease;
-}
-
-.favorite-btn .heart-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-}
-
-.favorite-btn .heart-icon svg {
-    width: 1.125rem;
-    height: 1.125rem;
-    color: #6d5165;
-    transition: color 0.2s;
-}
-
-.favorite-btn:hover {
-    transform: scale(1.1);
-}
-
-.favorite-btn:active {
-    transform: scale(0.95);
-}
-
-.favorite-btn.liked .heart-icon svg {
-    color: #ef4444;
-    fill: #ef4444;
-}
-
-/* Бейдж рейтинга — верхний правый угол инфо-части карточки (не на фото,
-   не в блоке акций). Плоский светлый чип, а не тёмная плашка поверх фото —
-   она была уместна только оверлеем на картинке. */
-/* Метки в каталоге. «Продвигается» — раскрытие рекламного характера выдачи:
-   без него платный подъём выглядит как редакционный выбор. */
-.salon-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin: 0 0 0.5rem;
-}
-
+/* Метки салона остаются здесь: ими же пользуется админка (admin_panel.py), а
+   у неё свой заход впереди. Оценка в прежнем виде нужна панели владельца. */
 .salon-badge {
     display: inline-flex;
     align-items: center;
@@ -618,7 +534,6 @@
     font-size: 0.7rem;
 }
 
-/* Отзывов ещё нет: «0.0 (0)» читалось как низкая оценка. */
 .salon-rating-badge.is-empty {
     background: var(--color-surface-alt);
     color: var(--color-muted);
@@ -626,247 +541,6 @@
     font-size: 0.75rem;
 }
 
-.salon-info {
-    flex: 1;
-    min-width: 0;              /* иначе длинное название распирает флекс-колонку */
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-    padding: 1.25rem;
-}
-
-.salon-info-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-    width: 100%;
-}
-
-.salon-info-title {
-    min-width: 0;
-}
-
-.salon-name {
-    font-size: 1.25rem;
-    font-weight: 600;
-    line-height: 1.3;
-    color: var(--color-heading);
-    margin: 0;
-    overflow-wrap: anywhere;
-}
-
-.salon-address {
-    display: flex;
-    align-items: flex-start;   /* адрес в две строки — пин держим у первой */
-    gap: 0.3rem;
-    color: var(--color-muted);
-    font-size: 0.875rem;
-    margin-top: 0.25rem;
-}
-
-.salon-address svg {
-    color: var(--color-primary);
-    width: 0.875rem;
-    height: 0.875rem;
-    flex-shrink: 0;
-    margin-top: 0.3em;
-}
-
-/* --color-body в токенах не объявлен, поэтому тут явный фолбэк: без него
-   описание наследовало цвет заголовка и спорило с названием салона. */
-.salon-desc {
-    color: var(--color-body, #55505c);
-    font-size: 0.875rem;
-    line-height: 1.55;
-    margin: 0;
-    /* Клампим: разнобой в длине описаний растягивал карточки от 8 до 22rem. */
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    max-width: 62ch;
-}
-
-.services-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.service-chip {
-    background: var(--color-accent-light);
-    border-radius: 9999px;
-    padding: 0.25rem 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--color-heading);
-    white-space: nowrap;
-}
-
-/* «+2» — счётчик категорий сверх трёх показанных */
-.service-chip-more {
-    background: var(--color-surface-alt);
-    color: var(--color-muted);
-}
-
-.salon-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: var(--color-accent);
-    color: var(--color-btn-text);
-    padding: 0.5rem 1.25rem;
-    border-radius: 9999px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    text-decoration: none;
-    transition: opacity 0.2s, transform 0.2s;
-    width: fit-content;
-    /* Прижимаем к низу: кнопки соседних карточек встают на одну линию,
-       даже если у одной нет описания, а у другой — три строки. */
-    margin-top: auto;
-}
-
-.salon-btn:hover {
-    opacity: 0.9;
-}
-
-.salon-btn:active {
-    transform: scale(0.98);
-}
-
-.salon-btn svg {
-    transition: transform 0.2s;
-}
-
-.salon-card:hover .salon-btn svg {
-    transform: translateX(2px);
-}
-
-@media (max-width: 640px) {
-    .salon-image {
-        height: 10rem;
-    }
-    .salon-info {
-        padding: 1rem;
-    }
-    .salons-title {
-        font-size: 2rem;
-    }
-}
-
-/* Десктопный блок справа.
-   Порог 1280, а не 1024: сайдбар забирает 16rem начиная ровно с 1024px, и на
-   1024–1280 колонка акций в 320px ужимала инфо-часть до ~150px — название
-   ломалось на три строки, кнопка съезжала. Ниже порога акции показываем
-   лентой под карточкой (.salon-promo-mobile). Ширина плавающая. */
-.salon-promo-desktop {
-    display: none;
-    flex: 0 0 clamp(17rem, 30%, 22rem);
-    padding: 1.25rem;
-    background: var(--color-surface-alt);
-    flex-direction: column;
-    gap: 0.5rem;
-    justify-content: flex-start;
-}
-
-@media (min-width: 1280px) {
-    .salon-promo-desktop {
-        display: flex;
-    }
-}
-
-.promo-label {
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    /* Подпись лежит на подкрашенной подложке блока акций, где акцент даёт
-       4,43:1. Затемнённый вариант того же цвета — 6,13:1. */
-    color: var(--color-accent-hover);
-    margin-bottom: 0.5rem;
-}
-
-.promo-item {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    /* Токен вместо белого: в тёмной теме контраст текста падал до 1.4:1. */
-    background: var(--color-surface-alt);
-    border-radius: 0.75rem;
-    padding: 0.7rem 0.85rem;
-    transition: transform 0.2s;
-    cursor: default;
-}
-
-.promo-item:hover {
-    transform: scale(1.01);
-}
-
-.promo-tag {
-    flex-shrink: 0;
-    border-radius: 0.5rem;
-    padding: 0.25rem 0.6rem;
-    font-size: 0.65rem;
-    font-weight: 700;
-    line-height: 1.2;
-    white-space: nowrap;
-    color: var(--color-btn-text);
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-}
-
-.promo-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.promo-title {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 600;
-    line-height: 1.35;
-    color: var(--color-heading);
-}
-
-/* Было nowrap + многоточие — почти любое описание обрывалось на первом слове.
-   Даём две строки. */
-.promo-desc {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    margin-top: 0.15rem;
-    font-size: 0.72rem;
-    line-height: 1.4;
-    color: var(--color-muted);
-}
-
-/* Мобильный блок под карточкой */
-.salon-promo-mobile {
-    display: block;
-    padding: 1rem 1.25rem;
-    background: var(--color-surface-alt);
-    border-top: 1px solid var(--color-border);
-}
-
-@media (min-width: 1280px) {
-    .salon-promo-mobile {
-        display: none;
-    }
-}
-
-.salon-promo-mobile .promo-item {
-    background: var(--color-surface-alt);
-    margin-bottom: 0.5rem;
-}
-
-.salon-promo-mobile .promo-item:last-child {
-    margin-bottom: 0;
-}
 /* --- Бэкенд-этап фильтров: действия дропдауна категорий + «Показать ещё» --- */
 /* Список длиннее панели и прокручивается — «Применить» уезжало за нижнюю
    кромку, и кнопку приходилось искать скроллом. Липнем ко дну панели
@@ -902,22 +576,14 @@
     cursor: pointer;
     transition: filter 0.15s;
 }
-.category-apply-btn:hover { filter: brightness(0.95); }
+@media (hover: hover) {
+    .category-apply-btn:hover { filter: brightness(0.95); }
+}
 
 .salons-more {
     display: flex;
     justify-content: center;
-    margin-top: 1.5rem;
-}
-.salons-more-btn {
-    text-decoration: none;
-    background: var(--color-surface);
-    border-color: var(--color-accent-light);
-    transition: background 0.2s, border-color 0.2s, color 0.2s;
-}
-.salons-more-btn:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
+    margin-top: var(--space-32);
 }
 
 /* Пустая выдача переехала в empty-state.css */
@@ -935,8 +601,6 @@
 .category-dropdown-btn:focus-visible,
 .category-apply-btn:focus-visible,
 .category-clear-btn:focus-visible,
-.favorite-btn:focus-visible,
-.salon-btn:focus-visible,
 .salons-more-btn:focus-visible,
 .city-select:focus-visible,
 .sort-select:focus-visible {
@@ -945,18 +609,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .salon-card,
-    .salon-btn,
-    .salon-btn svg,
-    .favorite-btn,
-    .promo-item,
-    #salons-list {
-        transition: none;
-    }
-    .salon-card:hover {
-        transform: none;
-    }
-    .salon-card:hover .salon-btn svg {
-        transform: none;
-    }
+    #salons-list { transition: none; }
 }

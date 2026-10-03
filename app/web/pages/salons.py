@@ -4,10 +4,9 @@ import json
 from dataclasses import dataclass, field
 from typing import Optional
 
-from sqlalchemy import select, text, bindparam
+from sqlalchemy import bindparam, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.models import Promotion, Master, Service
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.sidebar import render_sidebar
@@ -16,14 +15,16 @@ from app.web.components.empty_state import render_empty_state
 from app.web.components.icons import (
     ICON_SEARCH,
     ICON_MAP_PIN,
-    ICON_STAR_FILLED,
     ICON_HEART,
     ICON_HEART_FILLED,
-    ICON_ARROW_RIGHT,
     ICON_FILTER,
     ICON_CHEVRON_DOWN,
 )
-from app.web.service_categories import SERVICE_CATEGORY_GROUPS, VALID_CATEGORY_SLUGS, slug_to_label
+from app.services.catalog_slots import CardExtras, load_card_extras
+from app.services.price import format_service_price
+from app.services.public_words import solo_from_facts, word
+from app.web.components import ui
+from app.web.service_categories import SERVICE_CATEGORY_GROUPS, VALID_CATEGORY_SLUGS
 
 PAGE_SIZE = 20
 MAX_LIMIT = 200
@@ -212,9 +213,18 @@ def _build_search_sql(p: SalonQuery, trgm: bool):
             GROUP BY m.salon_id
         )
         SELECT s.id, s.name, s.description, s.address, s.city, s.rating,
-               s.reviews_count, s.latitude, s.longitude, s.logo_url,
+               s.reviews_count, s.latitude, s.longitude, s.logo_url, s.panel_mode,
                (s.contest_winner_until IS NOT NULL AND s.contest_winner_until > now()) AS is_winner,
-               ({_PAID}) AS is_promoted{extra_cols}
+               ({_PAID}) AS is_promoted,
+               -- Соло или команда решается на тех же фактах, что и на странице
+               -- салона (public_words.solo_from_facts): объявленный режим плюс
+               -- ровно один активный мастер. Считаем подзапросами в том же
+               -- SELECT — отдельный круг до базы за этим не ходит.
+               (SELECT count(*) FROM masters mm
+                 WHERE mm.salon_id = s.id AND mm.is_active = true) AS master_count,
+               EXISTS (SELECT 1 FROM masters mo
+                        WHERE mo.salon_id = s.id AND mo.is_active = true
+                          AND mo.user_id = s.creator_id) AS owner_is_master{extra_cols}
         FROM salons s
         LEFT JOIN sn ON sn.salon_id = s.id
         WHERE {' AND '.join(where)}
@@ -274,137 +284,79 @@ async def _categories_by_city(db: AsyncSession) -> dict[str, list[str]]:
     return result
 
 
-async def _promotions_and_categories(db: AsyncSession, salon_ids: list[int]):
-    """Акции и хранимые категории услуг для салонов текущей страницы (для
-    карточек). Категории — из Service.category (факт), а не из угадывания."""
-    promotions_by_salon: dict[int, list] = {}
-    categories_by_salon: dict[int, list[str]] = {}
-    if not salon_ids:
-        return promotions_by_salon, categories_by_salon
+def _render_card(s, extras: CardExtras) -> str:
+    """Карточка каталога в новой форме.
 
-    promos = (await db.execute(
-        select(Promotion).where(
-            Promotion.salon_id.in_(salon_ids), Promotion.is_active == True  # noqa: E712
-        ).order_by(Promotion.salon_id, Promotion.id)
-    )).scalars().all()
-    for pr in promos:
-        promotions_by_salon.setdefault(pr.salon_id, []).append(pr)
+    Её несут имя, город, услуги с ценой и временем и ближайшие свободные окна.
+    Фотографии нет почти ни у кого (на 03.10.2026 обложка у двух салонов из
+    девяти, описание не заполнено ни у кого), поэтому карточка собрана так,
+    чтобы без снимка и без описания она была ПОЛНОЙ, а не дырявой
+    (решение 0011, п. 11).
 
-    cat_rows = (await db.execute(
-        select(Master.salon_id, Service.category)
-        .join(Master, Master.id == Service.master_id)
-        .where(
-            Master.salon_id.in_(salon_ids), Master.is_active == True,  # noqa: E712
-            Service.is_active == True, Service.is_model_practice == False,  # noqa: E712
-            Service.category.isnot(None),
-        ).distinct()
-    )).all()
-    for salon_id, cat in cat_rows:
-        categories_by_salon.setdefault(salon_id, []).append(cat)
-    return promotions_by_salon, categories_by_salon
-
-
-def _render_card(s, promos, categories) -> str:
-    rating = s["rating"] or 0.0
-    reviews = s["reviews_count"] or 0
-
-    # Категорий может не быть (мастера ещё не завели услуги) — тогда блок чипов
-    # не рендерим вовсе, чтобы не показывать бессмысленный плейсхолдер «Услуги».
-    chips_html = ""
-    if categories:
-        chips = "".join(
-            f'<span class="service-chip">{slug_to_label(slug)}</span>' for slug in categories[:3]
-        )
-        extra = len(categories) - 3
-        if extra > 0:
-            chips += f'<span class="service-chip service-chip-more">+{extra}</span>'
-        chips_html = f'<div class="services-chips">{chips}</div>'
-
-    # Оценку показываем только когда она есть. «0.0» — это не «плохо», а «нет
-    # данных»: на части салонов reviews_count заполнен, а rating нулевой, и
-    # бейдж «0.0 (312)» читался как единица с тремя сотнями подтверждений.
-    if rating > 0:
-        rating_html = (
-            f'<div class="salon-rating-badge">{ICON_STAR_FILLED}'
-            f'<span class="rating-value">{rating:.1f}</span>'
-            f'<span class="rating-count">({reviews})</span></div>'
-        )
-    elif reviews > 0:
-        word = "отзыв" if reviews % 10 == 1 and reviews % 100 != 11 else (
-            "отзыва" if reviews % 10 in (2, 3, 4) and reviews % 100 not in (12, 13, 14) else "отзывов"
-        )
-        rating_html = f'<div class="salon-rating-badge is-empty">{reviews} {word}</div>'
-    else:
-        rating_html = '<div class="salon-rating-badge is-empty">Нет оценок</div>'
-
-    desc = (s["description"] or "").strip()
-    desc_html = f'<p class="salon-desc">{html.escape(desc)}</p>' if desc else ""
+    Описание с карточки убрано намеренно: его не заполнил никто, а место под
+    него оставляло в каждой карточке пустую строку. Поиск по описанию при этом
+    работает как раньше — индекс не трогали.
+    """
+    solo = solo_from_facts(s["panel_mode"], s["master_count"] or 0, bool(s["owner_is_master"]))
+    # Город отдельной колонкой есть не у всех (его завели позже адреса) —
+    # тогда берём первую часть адреса, как делала старая карточка.
+    city = (s["city"] or "").strip() or (
+        (s["address"] or "").split(",")[0].strip() if s["address"] else ""
+    )
 
     # Метки видны всегда, даже когда подъём не действует: клиент должен
     # понимать, почему карточка наверху, иначе это скрытая реклама.
-    badges = ""
+    badges = []
     if s.get("is_winner"):
-        badges += '<span class="salon-badge salon-badge-winner">Победитель конкурса Руми</span>'
+        badges.append(ui.status("Победитель конкурса Руми", "accent"))
     if s.get("is_promoted"):
-        badges += '<span class="salon-badge salon-badge-ad">Продвигается</span>'
-    badges_html = f'<div class="salon-badges">{badges}</div>' if badges else ""
+        badges.append(ui.status("Продвигается", "neutral"))
 
-    heart_svg = ICON_HEART.replace('"', '&quot;')
-    heart_filled_svg = ICON_HEART_FILLED.replace('"', '&quot;')
-
-    if s["logo_url"]:
-        image_html = (
-            f'<img src="{s["logo_url"]}" alt="{html.escape(s["name"] or "", quote=True)}" '
-            f'loading="lazy" decoding="async">'
+    services = tuple(
+        ui.service_line(
+            item.name,
+            price=format_service_price(item.price, item.price_max),
+            duration=f"{item.duration} мин",
         )
-    else:
-        letter = (s["name"] or "?")[0].upper()
-        image_html = f'<div class="salon-image-fallback" aria-hidden="true">{letter}</div>'
+        for item in extras.services
+    )
 
-    promo_items = ""
-    for promo in promos[:3]:
-        promo_desc = (promo.description or "").strip()
-        promo_items += f"""
-        <div class="promo-item">
-            <span class="promo-tag">{html.escape(promo.tag or '')}</span>
-            <div class="promo-info">
-                <span class="promo-title">{html.escape(promo.title or '')}</span>
-                {f'<span class="promo-desc">{html.escape(promo_desc)}</span>' if promo_desc else ''}
-            </div>
-        </div>
-        """
-    desktop_promo_block = f'<div class="salon-promo-desktop"><p class="promo-label">Акции</p>{promo_items}</div>' if promo_items else ""
-    mobile_promo_block = f'<div class="salon-promo-mobile"><p class="promo-label">Акции</p>{promo_items}</div>' if promo_items else ""
+    # Окно ведёт прямо в запись с уже выбранными мастером, услугой и временем:
+    # «записаться из списка» (решение 0011, п. 11) значит не «открыть салон», а
+    # попасть в тот же шаг, который человек уже сделал глазами.
+    slots = ()
+    slot_service = ""
+    if extras.slot_service:
+        lead = extras.slot_service
+        slots = tuple(
+            ui.slot(
+                sl.label,
+                href=(f"/salons/{s['id']}?master={lead.master_id}&service={lead.id}"
+                      f"&slot={sl.value}#booking"),
+                value=sl.value,
+                title=sl.full,
+            )
+            for sl in extras.slots
+        )
+        slot_service = lead.name
 
-    return f"""
-    <div class="salon-card" data-salon-id="{s['id']}">
-        <div class="salon-card-inner">
-            <div class="salon-image">
-                {image_html}
-                <button class="favorite-btn" data-type="salon" data-id="{s['id']}"
-                        data-icon-heart="{heart_svg}" data-icon-heart-filled="{heart_filled_svg}"
-                        title="В избранное">
-                    <span class="heart-icon">{ICON_HEART}</span>
-                </button>
-            </div>
-            <div class="salon-info">
-                <div class="salon-info-header">
-                    <div class="salon-info-title">
-                        <h3 class="salon-name">{html.escape(s['name'] or '')}</h3>
-                        <p class="salon-address">{ICON_MAP_PIN}<span>{html.escape(s['address'] or 'Адрес не указан')}</span></p>
-                    </div>
-                    {rating_html}
-                </div>
-                {badges_html}
-                {desc_html}
-                {chips_html}
-                <a href="/salons/{s['id']}" class="btn-primary salon-btn">Смотреть мастеров {ICON_ARROW_RIGHT}</a>
-            </div>
-            {desktop_promo_block}
-        </div>
-        {mobile_promo_block}
-    </div>
-    """
+    return ui.salon_card(
+        salon_id=s["id"],
+        name=s["name"] or "",
+        href=f"/salons/{s['id']}",
+        kind_label=word("catalog_kind", solo=solo),
+        city=city,
+        rating=s["rating"] or 0.0,
+        reviews=s["reviews_count"] or 0,
+        logo_url=s["logo_url"] or "",
+        badges=tuple(badges),
+        services=services,
+        services_total=extras.services_total,
+        slots=slots,
+        slot_service=slot_service,
+        promos=tuple(extras.promos),
+        favorite_icons=(ICON_HEART, ICON_HEART_FILLED),
+    )
 
 
 def _query_string(p: SalonQuery, **overrides) -> str:
@@ -520,17 +472,26 @@ def _render_filter_bar(p: SalonQuery, cities: list[str]) -> str:
     """
 
 
+async def render_cards(db: AsyncSession, p: SalonQuery, *, with_slots: bool = True):
+    """Карточки по тем же правилам, что каталог, и признак «есть ещё».
+
+    Отдельная функция, потому что главная показывает ТОТ ЖЕ компонент и тот же
+    порядок, что каталог (решение 0011, п. 12). Второй похожий список на
+    главной через месяц разошёлся бы с каталогом и по виду, и по подъёму.
+
+    Цена: ОДИН запрос на выборку салонов плюс ОДИН на содержимое карточек
+    (услуги, акции, категории, свободные окна) — см. catalog_slots.
+    """
+    rows, has_more = await _load_page(db, p)
+    extras = await load_card_extras(db, [r["id"] for r in rows], with_slots=with_slots)
+    empty = CardExtras()
+    return "".join(_render_card(r, extras.get(r["id"], empty)) for r in rows), has_more
+
+
 async def render_salons_grid(db: AsyncSession, p: SalonQuery) -> str:
     """Сетка карточек + маркер «Показать ещё». Используется и в полной странице,
     и во фрагменте (?partial=1) — единый источник разметки карточек."""
-    rows, has_more = await _load_page(db, p)
-    salon_ids = [r["id"] for r in rows]
-    promotions_by_salon, categories_by_salon = await _promotions_and_categories(db, salon_ids)
-
-    cards = "".join(
-        _render_card(r, promotions_by_salon.get(r["id"], []), categories_by_salon.get(r["id"], []))
-        for r in rows
-    )
+    cards, has_more = await render_cards(db, p)
     if not cards and p.offset == 0:
         return render_empty_state(
             title="Ничего не найдено",
@@ -547,8 +508,11 @@ async def render_salons_grid(db: AsyncSession, p: SalonQuery) -> str:
         # AJAX-догрузку по offset.
         next_limit = p.limit + PAGE_SIZE
         more = (
-            f'<div class="salons-more"><a class="btn-outline salons-more-btn" '
-            f'href="/salons?{_query_string(p, limit=next_limit)}">Показать ещё</a></div>'
+            '<div class="salons-more">'
+            + ui.button("Показать ещё", kind="secondary",
+                        href=f"/salons?{_query_string(p, limit=next_limit)}",
+                        classes="salons-more-btn")
+            + "</div>"
         )
     return cards + more
 
@@ -589,22 +553,25 @@ async def render_salons_page(db: AsyncSession, user=None, p: Optional[SalonQuery
     {render_sidebar("salons", user)}
 
     <main class="main-content">
-        <section class="section-py bg-surface-alt salons-hero">
+        <section class="catalog-hero">
             <div class="section-container">
-                <div class="salons-hero-content">
-                    <h1 class="text-display salons-title">Салоны красоты</h1>
-                    <p class="text-body-lg salons-subtitle">Найдите лучший салон рядом с вами по названию или услуге</p>
-                    <div class="search-box">
-                        {ICON_SEARCH}
-                        <input type="text" name="q" id="searchInput" form="salonsFilterForm"
-                               value="{search_value}" placeholder="Название салона или услуга"
-                               class="search-input">
-                    </div>
+                <div class="catalog-hero__intro">
+                    <h1 class="r-display">Кто рядом</h1>
+                    <p class="r-text r-muted">Имя, услуга или салон. Цены и свободное
+                        время видно сразу в списке.</p>
+                </div>
+                <div class="catalog-search">
+                    <span class="catalog-search__icon" aria-hidden="true">{ICON_SEARCH}</span>
+                    <input type="search" name="q" id="searchInput" form="salonsFilterForm"
+                           value="{search_value}" placeholder="Маникюр, стрижка, имя мастера"
+                           class="search-input" aria-label="Поиск по каталогу"
+                           enterkeyhint="search">
+                    {ui.button("Найти", type_="submit", small=True, form="salonsFilterForm")}
                 </div>
             </div>
         </section>
 
-        <section class="section-py bg-surface salons-list-section">
+        <section class="catalog-body">
             <div class="section-container">
                 {filter_bar}
                 <div id="salons-list" class="salons-grid">
