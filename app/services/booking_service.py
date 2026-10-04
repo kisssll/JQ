@@ -59,8 +59,17 @@ async def commit_booking(db, booking) -> None:
 
 class BookingService:
     
-    # Время перерыва между записями (в минутах)
+    # Перерыв между записями по умолчанию — на случай, если мастера уже нет
+    # (его удалили, пока бронь висела). Обычный путь — masters.break_minutes.
     DEFAULT_BREAK_MINUTES = 15
+
+    @staticmethod
+    async def _break_minutes(db: AsyncSession, master_id: int) -> int:
+        """Перерыв мастера после записи. Одно место на обе проверки ниже."""
+        value = await db.scalar(
+            select(Master.break_minutes).where(Master.id == master_id)
+        )
+        return BookingService.DEFAULT_BREAK_MINUTES if value is None else int(value)
     
     @staticmethod
     async def get_booked_slots(
@@ -84,13 +93,17 @@ class BookingService:
             ).order_by(Booking.start_time)
         )
         bookings = result.scalars().all()
-        
+
+        gap = await BookingService._break_minutes(db, master_id)
         slots = []
         for b in bookings:
-            # Интервал: от начала записи до конца + перерыв
-            end_with_break = b.end_time + timedelta(minutes=BookingService.DEFAULT_BREAK_MINUTES)
+            # Интервал: от начала записи до конца + перерыв МАСТЕРА. Константу
+            # здесь использовать нельзя: сетку свободных окон генератор строит
+            # по masters.break_minutes, и при перерыве короче 15 минут проверка
+            # отбивала окно, которое сама же система и показала.
+            end_with_break = b.end_time + timedelta(minutes=gap)
             slots.append((b.start_time, end_with_break))
-        
+
         return slots
     
     @staticmethod
@@ -104,10 +117,16 @@ class BookingService:
         Проверяет, свободен ли слот у мастера.
         Учитывает:
         - Длительность услуги (start_time → end_time)
-        - Перерыв после занятых записей (end_time + 15 мин)
+        - Перерыв после занятых записей (end_time + перерыв мастера)
         - Наложения по времени
+
+        Перерыв берём у мастера, а не из константы: по тому же
+        masters.break_minutes строит сетку генератор свободных окон
+        (endpoints/bookings.get_available_slots), и расхождение означало бы,
+        что человек видит окно, на которое не может записаться.
         """
         end_time = start_time + timedelta(minutes=duration_minutes)
+        gap = await BookingService._break_minutes(db, master_id)
         
         # Ищем ВСЕ записи, которые пересекаются с нашим слотом
         # Пересечение = наша запись начинается ДО конца существующей + перерыв
@@ -118,7 +137,7 @@ class BookingService:
                 Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
                 # Условие пересечения
                 Booking.start_time < end_time,
-                Booking.end_time + timedelta(minutes=BookingService.DEFAULT_BREAK_MINUTES) > start_time
+                Booking.end_time + timedelta(minutes=gap) > start_time
             )
         )
         existing = result.scalars().all()
