@@ -1,39 +1,59 @@
 # app/web/pages/profile.py
-from app.web.components.escaping import e
-from app.web.components.header import render_header
-from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
-from app.web.components.styles import get_base_styles
+"""«Мой профиль» — кто я, как со мной связаться, на что я согласился, как уйти.
+
+Страница разложена по смыслу, а не одной простынёй: прежний порядок был
+«баннер → роль → тема → уведомления → аккордеон смены данных → удаление»,
+и человек, искавший, куда приходят напоминания, пролистывал мимо темы и
+попадал в блок, где рядом с выбором канала лежала смена пароля.
+
+Порядок теперь такой:
+  1. **Кто я** — имя, роль, телефон, почта, город, аватар.
+  2. **Как со мной связаться** — канал уведомлений: что подключено, куда идут
+     сообщения, что сломалось.
+  3. **Смена данных** — телефон, город, почта, пароль.
+  4. **Оформление** — тема.
+  5. **Согласия и документы** — редакция, тексты, рекламная рассылка.
+  6. **Опасная зона** — удаление аккаунта. Не спрятано и не свёрнуто: право
+     уйти обязано быть достижимо (152-ФЗ, ст. 9 ч. 2 — согласие отзывается).
+
+Ни одна форма и ни один эндпоинт при переделке не исчезли; список — в
+docs/decisions/0011.
+
+Аккордеон переехал с <button> плюс класс из JS на <details> (ui.disclosure):
+без скрипта прежние блоки смены телефона и пароля не раскрывались вовсе.
+
+ВАЖНО: ``settings`` импортируется ВНУТРИ функций, а не на уровне модуля.
+``app.core.config`` перезагружается (``importlib.reload``) — так устроены
+guard'ы конфига и их тесты, — и после перезагрузки в модуле лежит НОВЫЙ объект
+настроек. Модуль, сделавший ``from app.core.config import settings`` при
+импорте, навсегда остаётся со старым: кнопка «Переподключить» тогда теряет
+адрес бота и исчезает. Проверено поломкой — см. test_profile_survives_config_reload.
+"""
+from app.services import ad_consent
 from app.web.cities import city_options_html
+from app.web.components import ui
+from app.web.components.escaping import e
+from app.web.components.footer import render_footer
+from app.web.components.header import render_header
 from app.web.components.icons import (
-    ICON_USER,
     ICON_CAMERA,
-    ICON_PHONE,
-    ICON_MAIL,
-    ICON_CALENDAR_SMALL,
     ICON_EDIT,
-    ICON_MAP_PIN_SMALL,
-    ICON_PALETTE,
-    ICON_BELL,
-    ICON_EDIT_DATA,
-    ICON_PHONE_FILLED,
-    ICON_MAIL_FILLED,
-    ICON_MAP_PIN_FILLED,
     ICON_LOCK_FILLED,
-    ICON_TRASH,
-    ICON_CHEVRON_DOWN,
-    ICON_SETTINGS_GEAR,
-    ICON_BRIEFCASE,
-    ICON_BUILDING2,
+    ICON_MAIL_FILLED,
     ICON_MAP_PIN,
-    ICON_MODEL,
+    ICON_MAP_PIN_FILLED,
     ICON_MOON,
+    ICON_PHONE,
+    ICON_PHONE_FILLED,
     ICON_STAR_FILLED,
     ICON_SUN,
+    ICON_TRASH,
+    ICON_USER,
     ICON_USERS,
 )
-from app.core.config import settings
-
+from app.web.components.sidebar import render_sidebar
+from app.web.components.styles import get_base_styles
+from app.web.pages.legal import DOCUMENTS, LEGAL_VERSION_HUMAN
 
 # ВК показывает кнопку «Начать» только в ПУСТОМ диалоге. Кто уже писал
 # сообществу, её не увидит — и не поймёт, что делать (так и случилось на
@@ -43,8 +63,13 @@ VK_START_HINT = (
     "на случай, если кнопки «Начать» в диалоге нет."
 )
 
+#: Документы, которые касаются клиента. Лицензионный договор и оферта для
+#: салонов здесь не нужны — они про бизнесовую сторону, и ссылка на них из
+#: клиентского профиля сбивала бы с толку. Полный список всегда на /legal.
+_CLIENT_DOCS = ("terms", "privacy", "consent", "offer", "cookies")
 
-def _vk_connect_button(label: str, css: str = "btn-mini") -> str:
+
+def _vk_connect_button(label: str, kind: str = "secondary") -> str:
     """Кнопка привязки ВК ведёт на отдельную страницу /connect/vk: там один
     экран с кнопкой и кодом. Раньше форма сразу уводила во ВКонтакте, и если
     кнопки «Начать» в диалоге не было, человек оставался без подсказки."""
@@ -52,7 +77,7 @@ def _vk_connect_button(label: str, css: str = "btn-mini") -> str:
 
     if not settings.vk_bot_address:
         return ""
-    return f'<a class="{css}" href="/connect/vk">{label}</a>'
+    return ui.button(label, kind=kind, href="/connect/vk", small=True)
 
 
 def _channels_overview(user, available) -> str:
@@ -61,96 +86,121 @@ def _channels_overview(user, available) -> str:
     Раньше управление было размазано — телефон менялся в одном месте, почта
     другой формой, мессенджеры подключались только через /start в боте, а
     отвязать нельзя было вовсе. Здесь всё состояние видно сразу.
+
+    Состояние названо СЛОВОМ, а не цветом: прежняя версия красила значение
+    инлайновым style="color:#22c55e", и человек с выключенными цветами или
+    дальтоник не отличал «подключён» от «не доставляется». Теперь это
+    ui.status с тем же текстом.
+
+    Строка списка — ``(название, значение, плашка-состояние, действия)``.
+    ЗНАЧЕНИЕ приходит СЫРЫМ и экранируется здесь, в одном месте: имя ВК
+    приходит из профиля человека и однажды уже было вектором (`vk_name` может
+    содержать разметку). Плашка и действия — готовая разметка от ui.
     """
-    from app.core.config import settings
     from app.models.models import NotifyChannel
+    from app.services.notify_channel import is_broken
+
+    # settings — локально: конфиг перезагружается, см. docstring модуля.
+    from app.core.config import settings
 
     rows = []
-    phone = getattr(user, "phone", "") or "—"
-    rows.append(("Телефон", phone, "подтверждён", "#22c55e", ""))
-
-    from app.services.notify_channel import is_broken
+    rows.append(("Телефон", getattr(user, "phone", "") or "—",
+                 ui.status("подтверждён", "success"), ""))
 
     def _messenger_row(channel, title, username, url_tpl):
         connected = channel in available
+        disconnect = (
+            '<form method="post" action="/api/v1/users/me/disconnect-channel" '
+            'class="channel-form">'
+            f'<input type="hidden" name="channel" value="{channel.value}">'
+            + ui.button("Отвязать", kind="secondary", type_="submit", small=True)
+            + "</form>"
+        )
         if connected:
-            action = (
-                f'<form method="post" action="/api/v1/users/me/disconnect-channel" style="display:inline">'
-                f'<input type="hidden" name="channel" value="{channel.value}">'
-                f'<button class="btn-mini" type="submit">Отвязать</button></form>'
-            )
             if is_broken(user, channel):
-                reconnect = (f'<a class="btn-mini" href="{url_tpl.format(username)}" target="_blank" '
-                             f'rel="noopener">Переподключить</a> ') if username else ""
-                return (title, "не доставляется", "не доставляется", "#ef4444", reconnect + action)
-            return (title, "подключён", "подключён", "#22c55e", action)
-        link = (f'<a class="btn-mini" href="{url_tpl.format(username)}" target="_blank" '
-                f'rel="noopener">Подключить</a>') if username else ""
-        return (title, "не подключён", "не подключён", "var(--color-muted)", link)
+                reconnect = ui.button(
+                    "Переподключить", kind="secondary", small=True,
+                    href=url_tpl.format(username),
+                ) if username else ""
+                return (title, "", ui.status("не доставляется", "danger"),
+                        reconnect + disconnect)
+            return (title, "", ui.status("подключён", "success"), disconnect)
+        link = ui.button("Подключить", kind="secondary", small=True,
+                         href=url_tpl.format(username)) if username else ""
+        return (title, "", ui.status("не подключён", "neutral"), link)
 
-    rows.append(_messenger_row(NotifyChannel.TG, "Telegram", settings.TG_BOT_USERNAME, "https://t.me/{}"))
-    rows.append(_messenger_row(NotifyChannel.MAX, "MAX", settings.MAX_BOT_USERNAME, "https://max.ru/{}"))
+    rows.append(_messenger_row(NotifyChannel.TG, "Telegram",
+                               settings.TG_BOT_USERNAME, "https://t.me/{}"))
+    rows.append(_messenger_row(NotifyChannel.MAX, "MAX",
+                               settings.MAX_BOT_USERNAME, "https://max.ru/{}"))
     rows.append(_vk_row(user, available))
-
     rows = [row for row in rows if row is not None]
-    email = (getattr(user, "email", "") or "").strip()
-    rows.append((
-        "Почта", email or "не указана", "указана" if email else "не указана",
-        "#22c55e" if email else "var(--color-muted)", "",
-    ))
 
-    from app.services.notify_channel import is_broken
+    email = (getattr(user, "email", "") or "").strip()
+    rows.append(("Почта", email, ui.status("указана", "success")
+                 if email else ui.status("не указана", "neutral"), ""))
 
     vk_hint = ""
     if settings.vk_bot_address and (
         NotifyChannel.VK not in available or is_broken(user, NotifyChannel.VK)
     ):
-        vk_hint = (f'<p class="settings-card-hint" style="margin:0.5rem 0 0">'
-                   f'ВКонтакте: {VK_START_HINT}</p>')
+        vk_hint = f'<p class="r-field__hint">ВКонтакте: {e(VK_START_HINT)}</p>'
 
     items = ""
-    for title, value, state, color, action in rows:
+    for title, value, state, action in rows:
         items += (
-            f'<div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;'
-            f'padding:0.5rem 0;border-bottom:1px solid var(--color-border)">'
-            f'<div><strong>{title}</strong><br>'
-            f'<span class="settings-card-hint" style="color:{color}">{value}</span></div>'
-            f'<div>{action}</div></div>'
+            '<li class="channel-row">'
+            '<div class="channel-row__id">'
+            f'<span class="channel-row__name">{e(title)}</span>'
+            + (f'<span class="channel-row__value">{e(value)}</span>' if value else "")
+            + f'<span class="channel-row__state">{state}</span>'
+            "</div>"
+            f'<div class="channel-row__action">{action}</div>'
+            "</li>"
         )
-    return (f'<div style="margin-bottom:1rem">{items}'
-            f'<p class="settings-card-hint" style="margin:0.5rem 0 0">'
-            f'Телефон и почта меняются ниже, в разделе «Смена данных».</p>{vk_hint}</div>')
+    return (
+        f'<ul class="channel-list">{items}</ul>'
+        '<p class="r-field__hint">Телефон и почта меняются ниже, в разделе '
+        '«Смена данных».</p>'
+        f"{vk_hint}"
+    )
 
 
 def _vk_row(user, available):
     """Строка ВКонтакте. Показываем ИМЯ привязанного аккаунта: если ссылку
     привязки успел открыть кто-то другой, человек увидит чужое имя и отвяжет."""
-    from app.core.config import settings
     from app.models.models import NotifyChannel
     from app.services import vk_api
     from app.services.notify_channel import is_broken
 
+    # settings — локально: конфиг перезагружается, см. docstring модуля.
+    from app.core.config import settings
+
     if not settings.vk_bot_address:
         return None
+    disconnect = (
+        '<form method="post" action="/api/v1/users/me/disconnect-channel" '
+        'class="channel-form">'
+        '<input type="hidden" name="channel" value="vk">'
+        + ui.button("Отвязать", kind="secondary", type_="submit", small=True)
+        + "</form>"
+    )
     if NotifyChannel.VK in available:
-        who = e(getattr(user, "vk_name", None) or "")
-        action = (
-            '<form method="post" action="/api/v1/users/me/disconnect-channel" style="display:inline">'
-            '<input type="hidden" name="channel" value="vk">'
-            '<button class="btn-mini" type="submit">Отвязать</button></form>'
-        )
+        who = getattr(user, "vk_name", None) or ""
         if is_broken(user, NotifyChannel.VK):
-            reconnect = (f'<a class="btn-mini" href="{e(vk_api.vk_me_url())}" target="_blank" '
-                         f'rel="noopener">Переподключить</a> ')
-            return ("ВКонтакте", f"не доставляется{': ' + who if who else ''}", "",
-                    "#ef4444", reconnect + action)
-        return ("ВКонтакте", f"подключён{': ' + who if who else ''}", "", "#22c55e", action)
+            reconnect = ui.button("Переподключить", kind="secondary", small=True,
+                                  href=vk_api.vk_me_url())
+            return ("ВКонтакте", who, ui.status("не доставляется", "danger"),
+                    reconnect + disconnect)
+        return ("ВКонтакте", who, ui.status("подключён", "success"), disconnect)
     if getattr(user, "vk_user_id", None):
         # Вошёл через VK ID: бот узнает его сам, достаточно написать сообществу.
-        return ("ВКонтакте", "не подключён — напишите сообществу, и бот узнает вас", "",
-                "var(--color-muted)",
-                f'<a class="btn-mini" href="{e(vk_api.vk_me_url())}" target="_blank" rel="noopener">Подключить</a>')
-    return ("ВКонтакте", "не подключён", "", "var(--color-muted)", _vk_connect_button("Подключить"))
+        return ("ВКонтакте", "напишите сообществу, и бот вас узнает",
+                ui.status("не подключён", "neutral"),
+                ui.button("Подключить", kind="secondary", small=True,
+                          href=vk_api.vk_me_url()))
+    return ("ВКонтакте", "", ui.status("не подключён", "neutral"),
+            _vk_connect_button("Подключить"))
 
 
 def _broken_banner(user, broken, channel) -> str:
@@ -160,9 +210,11 @@ def _broken_banner(user, broken, channel) -> str:
     он их ждёт. Говорим, куда они идут сейчас и как вернуть: достаточно открыть
     бота и нажать «Начать» — привязка сохранилась.
     """
-    from app.core.config import settings
     from app.models.models import NotifyChannel
     from app.services.notify_channel import CHANNEL_LABELS
+
+    # settings — локально: конфиг перезагружается, см. docstring модуля.
+    from app.core.config import settings
 
     if not broken:
         return ""
@@ -173,25 +225,27 @@ def _broken_banner(user, broken, channel) -> str:
     }
     names = " и ".join(CHANNEL_LABELS[c] for c in broken)
     buttons = "".join(
-        f'<a class="btn-outline" href="{e(tpl.format(username))}" target="_blank" '
-        f'rel="noopener">Открыть бота: {CHANNEL_LABELS[c]}</a>'
+        ui.button(f"Открыть бота: {CHANNEL_LABELS[c]}", kind="secondary", small=True,
+                  href=tpl.format(username))
         for c in broken
         for tpl, username in [links[c]] if username
     )
     if channel == NotifyChannel.NONE:
         now = "Сейчас уведомления не приходят никуда."
     else:
-        now = f"Пока уведомления приходят: <strong>{CHANNEL_LABELS[channel]}</strong>."
-    return f"""
-            <div role="alert" style="border:1px solid #ef4444;border-radius:0.75rem;padding:0.75rem 1rem;margin:0 0 1rem">
-                <p style="margin:0 0 0.5rem"><strong>{names} не принимает наши сообщения.</strong>
-                    Похоже, бот заблокирован или чат с ним удалён. {now}</p>
-                <p class="settings-card-hint" style="margin:0 0 0.5rem">
-                    Чтобы вернуть: откройте бота и нажмите «Начать» (или «Перезапустить»).
-                    Заново привязывать ничего не нужно.
-                </p>
-                <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{buttons}</div>
-            </div>"""
+        # Название канала жирным: это единственная строка, из которой человек
+        # узнаёт, куда уходят уведомления вместо сломанного мессенджера.
+        now = (f"Пока уведомления приходят: "
+               f"<strong>{e(CHANNEL_LABELS[channel])}</strong>.")
+    return (
+        '<div class="r-notice r-notice--danger channel-broken" role="alert">'
+        f"<strong>{e(names)} не принимает наши сообщения.</strong> "
+        f"Похоже, бот заблокирован или чат с ним удалён. {now}"
+        '<span class="channel-broken__how">Чтобы вернуть: откройте бота и нажмите '
+        "«Начать» (или «Перезапустить»). Заново привязывать ничего не нужно.</span>"
+        f'<span class="channel-broken__actions">{buttons}</span>'
+        "</div>"
+    )
 
 
 def _notify_channel_block(user) -> str:
@@ -202,10 +256,12 @@ def _notify_channel_block(user) -> str:
     переключиться на любой ПОДКЛЮЧЁННЫЙ и мягко зовём подключить, если
     доставлять некуда — блокировать ничего не нужно.
     """
-    from app.core.config import settings
     from app.models.models import NotifyChannel
     from app.services import vk_api
     from app.services.notify_channel import CHANNEL_LABELS, broken_channels, resolve
+
+    # settings — локально: конфиг перезагружается, см. docstring модуля.
+    from app.core.config import settings
 
     if user is None:
         return ""
@@ -222,531 +278,552 @@ def _notify_channel_block(user) -> str:
         available.append(NotifyChannel.EMAIL)
 
     if not available:
-        # Канала нет — мягкий промпт, без запретов
+        # Канала нет — мягкий промпт, без запретов.
         links = []
         if settings.TG_BOT_USERNAME:
-            links.append(
-                f'<a class="btn-outline" href="https://t.me/{settings.TG_BOT_USERNAME}" '
-                f'target="_blank" rel="noopener">Подключить Telegram</a>'
-            )
+            links.append(ui.button(
+                "Подключить Telegram", kind="secondary", small=True,
+                href=f"https://t.me/{settings.TG_BOT_USERNAME}"))
         if settings.MAX_BOT_USERNAME:
-            links.append(
-                f'<a class="btn-outline" href="https://max.ru/{settings.MAX_BOT_USERNAME}" '
-                f'target="_blank" rel="noopener">Подключить MAX</a>'
-            )
+            links.append(ui.button(
+                "Подключить MAX", kind="secondary", small=True,
+                href=f"https://max.ru/{settings.MAX_BOT_USERNAME}"))
         if settings.vk_bot_address:
             links.append(
-                f'<a class="btn-outline" href="{e(vk_api.vk_me_url())}" target="_blank" '
-                f'rel="noopener">Подключить ВКонтакте</a>'
+                ui.button("Подключить ВКонтакте", kind="secondary", small=True,
+                          href=vk_api.vk_me_url())
                 if getattr(user, "vk_user_id", None)
-                else _vk_connect_button("Подключить ВКонтакте", "btn-outline")
+                else _vk_connect_button("Подключить ВКонтакте")
             )
-        return f"""
-            <p class="settings-card-hint" style="margin:0 0 0.75rem">
-                Канал уведомлений не подключён — напоминания о записях и важные
-                сообщения приходить не будут. Подключите мессенджер или укажите
-                почту в разделе «Смена данных».
-            </p>
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{''.join(links)}</div>
-            {f'<p class="settings-card-hint" style="margin:0.5rem 0 0">ВКонтакте: {VK_START_HINT}</p>' if settings.vk_bot_address else ''}"""
+        return (
+            '<p class="r-text">Канал уведомлений не подключён — напоминания о '
+            "записях и важные сообщения приходить не будут. Подключите мессенджер "
+            "или укажите почту в разделе «Смена данных».</p>"
+            f'<div class="channel-actions">{"".join(links)}</div>'
+            + (f'<p class="r-field__hint">ВКонтакте: {e(VK_START_HINT)}</p>'
+               if settings.vk_bot_address else "")
+        )
 
     options = "".join(
-        f'<option value="{c.value}"{" selected" if c == channel else ""}>{CHANNEL_LABELS[c]}</option>'
+        f'<option value="{c.value}"{" selected" if c == channel else ""}>'
+        f"{CHANNEL_LABELS[c]}</option>"
         for c in available
     )
     missing = []
     if NotifyChannel.TG not in available and settings.TG_BOT_USERNAME:
         missing.append(
-            f'<a href="https://t.me/{settings.TG_BOT_USERNAME}" target="_blank" rel="noopener">Telegram</a>'
+            f'<a href="https://t.me/{settings.TG_BOT_USERNAME}" target="_blank" '
+            'rel="noopener">Telegram</a>'
         )
     if NotifyChannel.MAX not in available and settings.MAX_BOT_USERNAME:
         missing.append(
-            f'<a href="https://max.ru/{settings.MAX_BOT_USERNAME}" target="_blank" rel="noopener">MAX</a>'
+            f'<a href="https://max.ru/{settings.MAX_BOT_USERNAME}" target="_blank" '
+            'rel="noopener">MAX</a>'
         )
     if NotifyChannel.VK not in available and settings.vk_bot_address:
-        missing.append(_vk_connect_button("ВКонтакте", "btn-mini"))
+        missing.append('<a href="/connect/vk">ВКонтакте</a>')
     missing_hint = (
-        f'<p class="settings-card-hint" style="margin:0.5rem 0 0">Можно подключить ещё: {", ".join(missing)}.</p>'
+        f'<p class="r-field__hint">Можно подключить ещё: {", ".join(missing)}.</p>'
         if missing else ""
     )
 
-    return f"""
-            {_broken_banner(user, broken_channels(user), channel)}
-            {_channels_overview(user, available)}
-            <form method="post" action="/api/v1/users/me/notify-channel" class="settings-select-group">
-                <label for="notify-method">Способ получения:</label>
-                <select name="channel" id="notify-method" class="settings-select custom-select">
-                    {options}
-                </select>
-                <button type="submit" class="btn-outline settings-save-btn">Сохранить</button>
-            </form>
-            <p class="settings-card-hint" style="margin:0.5rem 0 0">
-                Сейчас уведомления приходят: <strong>{CHANNEL_LABELS[channel]}</strong>.
-            </p>
-            {missing_hint}"""
+    return (
+        _broken_banner(user, broken_channels(user), channel)
+        + _channels_overview(user, available)
+        + '<form method="post" action="/api/v1/users/me/notify-channel" '
+          'class="channel-pick">'
+          '<label class="r-field__label" for="notify-method">Куда присылать '
+          "уведомления</label>"
+          '<div class="channel-pick__row">'
+          '<select name="channel" id="notify-method" class="r-input custom-select">'
+        + options
+        + "</select>"
+        + ui.button("Сохранить", type_="submit", small=True)
+        + "</div></form>"
+        + f'<p class="r-field__hint">Сейчас уведомления приходят: '
+          f"<strong>{CHANNEL_LABELS[channel]}</strong>.</p>"
+        + missing_hint
+    )
 
 
-def render_profile_page(user=None, master_profile=None, salon=None, stats=None, error=None, success=None) -> str:
-    # Обработка сообщений
-    error_message = ""
-    success_message = ""
-    if error:
-        error_messages = {
-            "email_taken": "Этот email уже используется другим пользователем",
-            "wrong_password": "Неверный текущий пароль",
-            "password_mismatch": "Новые пароли не совпадают",
-            "password_too_short": "Пароль должен быть не менее 8 символов",
-            "phone_exists": "Пользователь с таким телефоном уже зарегистрирован",
-            "bad_phone": "Некорректный номер телефона",
-            "bad_city": "Выберите город из списка подсказок",
-            "phone_not_verified": "Номер не подтверждён — подтвердите его в Telegram",
-            "email_not_verified": "Код неверный или истёк — запросите новый",
-            "otp_unavailable": "Сервис подтверждения временно недоступен, попробуйте позже",
-            "update_failed": "Не удалось обновить профиль",
-            "notify_channel_invalid": "Неизвестный канал уведомлений",
-            "vk_unavailable": "Подключение ВКонтакте сейчас недоступно",
-            "notify_channel_unavailable": "Этот канал не подключён — сначала привяжите бота или укажите почту",
-            "notify_channel_last": "Это единственный канал связи — сначала подключите другой, иначе уведомления перестанут приходить",
-        }
-        error_message = f'<div class="profile-alert profile-alert-error">{error_messages.get(error, "Произошла ошибка")}</div>'
+def _consents_block(user) -> str:
+    """Согласия и документы. ЧИТАЕТ состояние, ничего не меняет.
 
-    if success:
-        success_messages = {
-            "updated": "Профиль успешно обновлён",
-            "password_updated": "Пароль успешно изменён",
-            "email_updated": "Email обновлён",
-            "city_updated": "Город обновлён",
-            "phone_updated": "Телефон обновлён",
-            "avatar_updated": "Аватар обновлён",
-            "notify_channel_updated": "Канал уведомлений обновлён",
-            "notify_channel_disconnected": "Мессенджер отвязан",
-        }
-        success_message = f'<div class="profile-alert profile-alert-success">{success_messages.get(success, "Операция выполнена успешно")}</div>'
+    Почему только чтение. Согласие на обработку персональных данных даётся при
+    регистрации и при записи (``components/consent.py``), в журнал уходит
+    вместе с редакцией (``UserConsent.version``); отозвать его — это и есть
+    удаление аккаунта, которое стоит ниже отдельным разделом. Рекламную
+    рассылку включает ТОЛЬКО ``services/ad_consent.grant`` — он пишет
+    доказательство в журнал, и переключателя для неё на вебе нет: он живёт в
+    «Моих уведомлениях» в боте. Завести его здесь — отдельная работа, а не
+    переделка вида, поэтому раздел говорит правду и показывает, где рычаг.
 
+    До этого захода на странице профиля не было НИ слова ни о согласиях, ни о
+    документах: единственная ссылка на /legal стояла в подвале.
+    """
+    docs = "".join(
+        f'<li><a href="/{DOCUMENTS[slug]["slug"]}">{e(DOCUMENTS[slug]["title"])}</a></li>'
+        for slug in _CLIENT_DOCS if slug in DOCUMENTS
+    )
+    promo_on = ad_consent.is_consented(user)
+    promo_state = (ui.status("включена", "success") if promo_on
+                   else ui.status("выключена", "neutral"))
+    promo_how = (
+        "Отключить можно там же, где включали — в разделе «Мои уведомления» "
+        "в Telegram, MAX или ВКонтакте."
+        if promo_on else
+        "Мы не присылаем её без вашего согласия. Включить — в разделе «Мои "
+        "уведомления» в Telegram, MAX или ВКонтакте."
+    )
+    return (
+        '<p class="r-text">Пользуясь Руми, вы согласились с документами ниже. '
+        f"Действующая редакция — от {e(LEGAL_VERSION_HUMAN)}; с какой именно "
+        "редакцией согласились вы, записано в нашем журнале согласий.</p>"
+        f'<ul class="profile-docs">{docs}</ul>'
+        '<p class="r-seclink-wrap"><a class="r-seclink" href="/legal">'
+        "Все документы сервиса</a></p>"
+        '<div class="profile-promo">'
+        f'<p class="r-field__label">Рассылка об акциях и конкурсах {promo_state}</p>'
+        f'<p class="r-field__hint">{e(promo_how)} Уведомления о ваших записях '
+        "это не затрагивает.</p>"
+        "</div>"
+    )
+
+
+def _role_blocks(user, master_profile, salon) -> str:
+    """Что ещё есть у этого человека: кабинет мастера, салон, статус модели.
+
+    Блоки мастера и салона приходят параметрами и на /profile пока не
+    заполняются (вызов в views.py передаёт только пользователя) — разметка
+    сохранена дословно, чтобы они заработали, как только их начнут передавать.
+    """
+    role = user.role.value if user.role else "client"
+    blocks = []
+
+    if role == "master" and master_profile:
+        blocks.append(ui.card(
+            ui.facts((
+                ("Специализация", e(master_profile.specialization or "—")),
+                ("Опыт", f"{master_profile.experience_years or 0} лет"),
+                ("Рейтинг", f"{ICON_STAR_FILLED} {master_profile.rating or 0}"),
+            ))
+            + (f'<p class="r-text">{e(master_profile.bio)}</p>'
+               if master_profile.bio else "")
+            + '<div class="profile-links">'
+            + ui.button("Моё портфолио", kind="secondary", small=True,
+                        href=f"/masters/{master_profile.id}")
+            + ui.button("Моё расписание", kind="secondary", small=True,
+                        href="/master/schedule")
+            + "</div>",
+            title="Профессиональная информация",
+        ))
+
+    elif role == "business" and salon:
+        blocks.append(ui.card(
+            ui.facts((
+                ("Салон", e(salon.name or "—")),
+                ("Адрес", f"{ICON_MAP_PIN} {e(salon.address or '—')}"),
+                ("Телефон", f"{ICON_PHONE} {e(salon.phone or '—')}"),
+                ("Оценка", f"{ICON_STAR_FILLED} {salon.rating or 0} "
+                           f"({salon.reviews_count or 0} отзывов)"),
+                ("Мастера", f"{ICON_USERS} {getattr(salon, 'masters_count', 0)}"),
+            ))
+            + '<div class="profile-links">'
+            + ui.button("Панель управления", kind="secondary", small=True,
+                        href="/business/dashboard")
+            + "</div>",
+            title="Мой салон",
+        ))
+
+    # «Модель» — аддитивный статус поверх обычной роли (не сама role), поэтому
+    # блок считается независимо от роли и может показываться вместе с ней.
+    if bool(getattr(user, "is_model", False)):
+        moderation = getattr(user, "model_moderation_status", None)
+        value = moderation.value if moderation else "pending"
+        state = {
+            "pending": ui.status("На модерации", "warning"),
+            "approved": ui.status("Одобрена", "success"),
+            "rejected": ui.status("Отклонена", "danger"),
+        }.get(value, "")
+        reason = getattr(user, "model_rejection_reason", "") or ""
+        photo = getattr(user, "model_photo_url", None) or ""
+        bio = getattr(user, "model_bio", "") or ""
+        blocks.append(ui.card(
+            f'<p class="profile-model__state">{state}</p>'
+            + (f'<p class="r-field__hint">Причина: {e(reason)}</p>'
+               if value == "rejected" and reason else "")
+            + (f'<p class="profile-model__photo">{ui.mark("", image=photo, alt="Фото анкеты")}</p>'
+               if photo else "")
+            + (f'<p class="r-text">{e(bio)}</p>' if bio else "")
+            + '<div class="profile-links">'
+            + ui.button("Лента и мои мэтчи", kind="secondary", small=True,
+                        href="/model/dashboard")
+            + ui.button("Редактировать анкету", kind="secondary", small=True,
+                        href="/model/join")
+            + "</div>",
+            title="Статус «Модель»",
+        ))
+    else:
+        blocks.append(ui.card(
+            '<p class="r-text">Позвольте мастерам отработать на вас технику за '
+            "скидку или бесплатно — заведите анкету и смотрите, кто ищет "
+            "модель.</p>"
+            '<div class="profile-links">'
+            + ui.button("Стать моделью", kind="secondary", small=True,
+                        href="/model/join")
+            + "</div>",
+            title="Стать моделью",
+        ))
+
+    if not blocks:
+        return ""
+    return f'<div class="profile-roles">{"".join(blocks)}</div>'
+
+
+def _phone_form(phone: str) -> str:
+    """Смена телефона — только с подтверждением владения новым номером через
+    мессенджер (телефон = логин-идентификатор). Механика та же, что при
+    регистрации: кнопка → /register/{tg,max}-start → бот подтверждает →
+    request_id → сабмит.
+
+    Подтвердить новый номер можно любым рабочим мессенджером — раньше был
+    зашит только Telegram, и владельцы MAX менять телефон не могли вовсе.
+    """
+    # settings — локально: конфиг перезагружается, см. docstring модуля.
+    from app.core.config import settings
+
+    verify_buttons = []
+    channels = []
+    if settings.TG_VERIFY_ENABLED:
+        channels.append("Telegram")
+        verify_buttons.append(ui.button(
+            "Подтвердить в Telegram", kind="secondary", small=True,
+            element_id="phone-verify-btn", classes="phone-verify-btn",
+            data={"start-url": "/api/v1/auth/register/tg-start",
+                  "channel": "Telegram"},
+        ))
+    if settings.MAX_VERIFY_ENABLED:
+        channels.append("MAX")
+        verify_buttons.append(ui.button(
+            "Подтвердить в MAX", kind="secondary", small=True,
+            classes="phone-verify-btn",
+            data={"start-url": "/api/v1/auth/register/max-start",
+                  "channel": "MAX"},
+        ))
+
+    if not verify_buttons:
+        return '<p class="r-field__hint">Смена телефона временно недоступна.</p>'
+
+    return (
+        '<form id="phone-change-form" action="/api/v1/users/me/phone-form" '
+        'method="post">'
+        + ui.field("Новый телефон", name="phone", element_id="settings-phone",
+                   type_="tel", value=phone, placeholder="+7XXXXXXXXXX",
+                   required=True, autocomplete="tel",
+                   # Подсказка идёт ЗА полем, а не между кнопками: объяснение,
+                   # что делать, попадалось на глаза уже после первого
+                   # действия. Так же устроен блок смены email.
+                   hint=f"Введите новый номер и подтвердите владение им в "
+                        f"{' или '.join(channels)}.")
+        + '<input type="hidden" id="phone-request-id" name="request_id" value="">'
+        '<p class="r-field__hint" id="phone-verify-hint"></p>'
+        f'<div class="profile-links">{"".join(verify_buttons)}</div>'
+        + ui.button("Сохранить", type_="submit", element_id="phone-save-btn",
+                    disabled=True)
+        + "</form>"
+    )
+
+
+def _email_form(email: str) -> str:
+    """Смена почты — с подтверждением кодом, отправленным на НОВЫЙ адрес."""
+    return (
+        '<form id="email-change-form" action="/api/v1/users/me/email-form" '
+        'method="post">'
+        + ui.field("Новый email", name="email", element_id="settings-email",
+                   type_="email", value=email, placeholder="example@mail.ru",
+                   required=True, autocomplete="email",
+                   hint="Введите новый email и получите на него код "
+                        "подтверждения.")
+        + '<input type="hidden" id="email-request-id" name="request_id" value="">'
+        '<p class="r-field__hint" id="email-verify-hint"></p>'
+        + '<div class="profile-links">'
+        + ui.button("Отправить код", kind="secondary", small=True,
+                    element_id="email-send-code-btn")
+        + "</div>"
+        '<div id="email-code-group" style="display:none">'
+        + ui.field("Код из письма", name="code",
+                   element_id="settings-email-code", inputmode="numeric",
+                   autocomplete="one-time-code", placeholder="0000")
+        + "</div>"
+        + ui.button("Подтвердить и сохранить", type_="submit",
+                    element_id="email-save-btn", disabled=True)
+        + "</form>"
+    )
+
+
+def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
+                        error=None, success=None) -> str:
+    """Страница профиля.
+
+    ``error``/``success`` — коды из адреса. Все формы профиля отвечают
+    редиректом на ``/profile?success=…`` либо ``/profile?error=…``, но до этого
+    захода страница эти параметры не читала вовсе: человек менял пароль и не
+    видел ни «готово», ни «неверный текущий пароль». Коды и тексты здесь те
+    же, что были написаны раньше, — теперь они доезжают до экрана.
+    """
     if not user:
         return _render_guest_page()
 
-    # Общие данные
+    error_messages = {
+        "email_taken": "Этот email уже используется другим пользователем",
+        "wrong_password": "Неверный текущий пароль",
+        "password_mismatch": "Новые пароли не совпадают",
+        "password_too_short": "Пароль должен быть не менее 8 символов",
+        "phone_exists": "Пользователь с таким телефоном уже зарегистрирован",
+        "bad_phone": "Некорректный номер телефона",
+        "bad_city": "Выберите город из списка подсказок",
+        "phone_not_verified": "Номер не подтверждён — подтвердите его в мессенджере",
+        "email_not_verified": "Код неверный или истёк — запросите новый",
+        "otp_unavailable": "Сервис подтверждения временно недоступен, попробуйте позже",
+        "update_failed": "Не удалось обновить профиль",
+        "notify_channel_invalid": "Неизвестный канал уведомлений",
+        "vk_unavailable": "Подключение ВКонтакте сейчас недоступно",
+        "notify_channel_unavailable": "Этот канал не подключён — сначала привяжите "
+                                      "бота или укажите почту",
+        "notify_channel_last": "Это единственный канал связи — сначала подключите "
+                               "другой, иначе уведомления перестанут приходить",
+    }
+    success_messages = {
+        "updated": "Профиль обновлён",
+        "password_updated": "Пароль изменён",
+        "email_updated": "Email обновлён",
+        "city_updated": "Город обновлён",
+        "phone_updated": "Телефон обновлён",
+        "avatar_updated": "Аватар обновлён",
+        "notify_channel_updated": "Канал уведомлений обновлён",
+        "notify_channel_disconnected": "Мессенджер отвязан",
+    }
+
+    notice_html = ""
+    if error:
+        notice_html = ui.notice(
+            error_messages.get(error, "Произошла ошибка"), tone="danger",
+            element_id="profile-error")
+    elif success:
+        notice_html = ui.notice(
+            success_messages.get(success, "Готово"), tone="success",
+            element_id="profile-success")
+
     name = user.full_name or "Пользователь"
     phone = user.phone or "+7"
     email = user.email or ""
-    city = getattr(user, "city", "") or "Не указан"
+    city = getattr(user, "city", "") or ""
     avatar_url = user.avatar_url or ""
     role = user.role.value if user.role else "client"
     created_at = getattr(user, "created_at", None)
     member_since = created_at.strftime("%d.%m.%Y") if created_at else ""
-    avatar_letter = name[0].upper() if name else "?"
 
-    role_names = {
+    role_display = {
         "client": "Клиент",
         "model": "Модель",
         "master": "Мастер",
         "business": "Владелец салона",
         "admin": "Администратор",
-    }
-    role_display = role_names.get(role, role.capitalize())
+    }.get(role, role.capitalize())
 
-    # Ролевой блок
-    role_block = ""
-
-    if role == "master" and master_profile:
-        spec = master_profile.specialization or "—"
-        exp = master_profile.experience_years or 0
-        rating = master_profile.rating or 0
-        bio = master_profile.bio or ""
-        role_block = f"""
-        <div class="profile-role-block profile-master-block">
-            <div class="profile-role-header">
-                <h3>{ICON_BRIEFCASE} Профессиональная информация</h3>
-            </div>
-            <div class="profile-role-body">
-                <div class="profile-master-grid">
-                    <div>
-                        <span class="profile-label">Специализация</span>
-                        <span class="profile-value">{spec}</span>
-                    </div>
-                    <div>
-                        <span class="profile-label">Опыт</span>
-                        <span class="profile-value">{exp} лет</span>
-                    </div>
-                    <div>
-                        <span class="profile-label">Рейтинг</span>
-                        <span class="profile-value">{ICON_STAR_FILLED} {rating}</span>
-                    </div>
-                </div>
-                {f'<div class="profile-master-bio">{bio}</div>' if bio else ''}
-                <a href="/masters/{master_profile.id}" class="profile-btn-secondary">Моё портфолио →</a>
-                <a href="/master/schedule" class="profile-btn-secondary">Моё расписание →</a>
-            </div>
-        </div>
-        """
-
-    elif role == "business" and salon:
-        salon_name = salon.name or "—"
-        salon_address = salon.address or "—"
-        salon_phone = salon.phone or "—"
-        salon_rating = salon.rating or 0
-        salon_reviews = salon.reviews_count or 0
-        masters_count = getattr(salon, "masters_count", 0)
-        role_block = f"""
-        <div class="profile-role-block profile-business-block">
-            <div class="profile-role-header">
-                <h3>{ICON_BUILDING2} Мой салон</h3>
-            </div>
-            <div class="profile-role-body">
-                <div class="profile-business-name">{e(salon_name)}</div>
-                <div class="profile-business-meta">
-                    <span>{ICON_MAP_PIN} {salon_address}</span>
-                    <span>{ICON_PHONE} {salon_phone}</span>
-                </div>
-                <div class="profile-business-stats">
-                    <span>{ICON_STAR_FILLED} {salon_rating} ({salon_reviews} отзывов)</span>
-                    <span>{ICON_USERS} {masters_count} мастеров</span>
-                </div>
-                <a href="/business/dashboard" class="profile-btn-secondary">Панель управления →</a>
-            </div>
-        </div>
-        """
-
-    # «Модель» — аддитивный статус поверх обычной роли (не сама role), поэтому
-    # блок считается независимо от role_block и может показываться вместе с ним.
-    is_model = bool(getattr(user, "is_model", False))
-    if is_model:
-        model_photo = getattr(user, "model_photo_url", None) or ""
-        model_bio = getattr(user, "model_bio", "") or ""
-        moderation = getattr(user, "model_moderation_status", None)
-        moderation_value = moderation.value if moderation else "pending"
-        moderation_badges = {
-            "pending": '<span class="profile-model-status" style="display:inline-block;padding:0.2rem 0.6rem;border-radius:1rem;font-size:0.75rem;font-weight:600;background:#fef3c7;color:#92400e;margin-bottom:0.5rem">На модерации</span>',
-            "approved": '<span class="profile-model-status" style="display:inline-block;padding:0.2rem 0.6rem;border-radius:1rem;font-size:0.75rem;font-weight:600;background:#d1fae5;color:#065f46;margin-bottom:0.5rem">Одобрена</span>',
-            "rejected": '<span class="profile-model-status" style="display:inline-block;padding:0.2rem 0.6rem;border-radius:1rem;font-size:0.75rem;font-weight:600;background:#fee2e2;color:#991b1b;margin-bottom:0.5rem">Отклонена</span>',
-        }
-        rejection_reason = getattr(user, "model_rejection_reason", "") or ""
-        model_block = f"""
-        <div class="profile-role-block profile-model-block">
-            <div class="profile-role-header">
-                <h3>{ICON_MODEL} Статус «Модель»</h3>
-            </div>
-            <div class="profile-role-body">
-                {moderation_badges.get(moderation_value, "")}
-                {f'<p class="text-muted" style="font-size:0.85rem;margin-bottom:0.5rem">Причина: {rejection_reason}</p>' if moderation_value == "rejected" and rejection_reason else ''}
-                {f'<img src="{model_photo}" alt="" loading="lazy" style="width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:0.5rem">' if model_photo else ''}
-                {f'<p style="margin-bottom:0.5rem">{model_bio}</p>' if model_bio else ''}
-                <a href="/model/dashboard" class="profile-btn-secondary">Лента и мои мэтчи →</a>
-                <a href="/model/join" class="profile-btn-secondary">Редактировать анкету →</a>
-            </div>
-        </div>
-        """
-    else:
-        model_block = f"""
-        <div class="profile-role-block profile-model-block">
-            <div class="profile-role-header">
-                <h3>{ICON_MODEL} Стать моделью</h3>
-            </div>
-            <div class="profile-role-body">
-                <p class="text-muted" style="margin-bottom:0.75rem">Позвольте мастерам отработать на вас технику за скидку или бесплатно — заведите анкету и смотрите, кто ищет модель.</p>
-                <a href="/model/join" class="profile-btn-secondary">Стать моделью →</a>
-            </div>
-        </div>
-        """
-
-    # ========== БЛОКИ НАСТРОЕК (без заголовка) ==========
-    city_value = getattr(user, "city", "") or ""
-
-    # Смена телефона — только с подтверждением владения новым номером через TG
-    # (телефон = логин-идентификатор). Механика та же, что при регистрации:
-    # кнопка → /register/tg-start → бот подтверждает → request_id → сабмит.
-    # Подтвердить новый номер можно любым рабочим мессенджером — раньше был
-    # зашит только Telegram, и владельцы MAX менять телефон не могли вовсе.
-    verify_buttons = []
-    if settings.TG_VERIFY_ENABLED:
-        verify_buttons.append(
-            '<button type="button" id="phone-verify-btn" class="btn-outline settings-save-btn phone-verify-btn" '
-            'data-start-url="/api/v1/auth/register/tg-start" data-channel="Telegram">Подтвердить в Telegram</button>'
+    # ---------- 1. Кто я ----------
+    who = ui.card(
+        '<div class="profile-id">'
+        '<div class="profile-avatar" id="profile-avatar-container">'
+        + (f'<img src="{e(avatar_url)}" alt="{e(name)}">' if avatar_url
+           else f'<span class="profile-avatar-letter" aria-hidden="true">'
+                f'{e(name[0].upper())}</span>')
+        + '<button class="profile-avatar-edit" id="profile-avatar-edit" '
+          'type="button" aria-label="Изменить фото">'
+        + ICON_CAMERA
+        + "</button>"
+          '<input type="file" id="profile-avatar-input" accept="image/*" '
+          'hidden>'
+          "</div>"
+        '<div class="profile-id__text">'
+        f'<h2 class="r-title profile-name">{e(name)}</h2>'
+        f'{ui.status(role_display, "neutral")}'
+        "</div>"
+        + ui.button("Изменить имя", kind="secondary", small=True,
+                    element_id="profile-edit-toggle", icon=ICON_EDIT)
+        + "</div>"
+        + ui.facts((
+            ("Телефон", e(phone)),
+            ("Почта", e(email) if email else "не указана"),
+            ("Город", e(city) if city else "не указан"),
+            ("С нами с", e(member_since)),
+        ))
+        # Форма имени свёрнута, а не отдельным «режимом редактирования» на всю
+        # карточку: прежняя версия подменяла блок целиком, и человек терял из
+        # вида телефон и город ровно тогда, когда правил имя.
+        + '<form id="profile-edit-form" action="/api/v1/users/me/update-form" '
+          'method="post" class="profile-edit-form" hidden>'
+        + ui.field("Имя", name="full_name", element_id="profile-edit-name",
+                   value=name, required=True, autocomplete="name")
+        + (
+            '<div class="r-field">'
+            '<label class="r-field__label" for="profile-edit-bio">О себе</label>'
+            '<textarea class="r-input" id="profile-edit-bio" name="portfolio_desc" '
+            'rows="4" placeholder="Расскажите о себе">'
+            f'{e(getattr(user, "portfolio_desc", "") or "")}</textarea></div>'
+            if role in ("model", "master") else ""
         )
-    if settings.MAX_VERIFY_ENABLED:
-        verify_buttons.append(
-            '<button type="button" class="btn-outline settings-save-btn phone-verify-btn" '
-            'data-start-url="/api/v1/auth/register/max-start" data-channel="MAX">Подтвердить в MAX</button>'
-        )
+        + '<div class="profile-links">'
+        + ui.button("Сохранить", type_="submit", small=True)
+        + ui.button("Отмена", kind="secondary", small=True,
+                    element_id="profile-edit-cancel")
+        + "</div></form>"
+        '<p class="r-field__hint">Телефон, почту и город можно изменить ниже, '
+        "в разделе «Смена данных».</p>",
+        title="Кто я",
+    )
 
-    if verify_buttons:
-        channels_text = " или ".join(
-            b.split('data-channel="')[1].split('"')[0] for b in verify_buttons
-        )
-        phone_change_block = f"""
-                        <form id="phone-change-form" action="/api/v1/users/me/phone-form" method="post">
-                            <div class="settings-form-group">
-                                <label for="settings-phone">Новый телефон</label>
-                                <input type="tel" id="settings-phone" name="phone" value="{phone}" placeholder="+7XXXXXXXXXX" required>
-                            </div>
-                            <input type="hidden" id="phone-request-id" name="request_id" value="">
-                            <!-- Подсказка идёт за полем, а не между кнопками: объяснение,
-                                 что делать, попадалось на глаза уже после первого действия.
-                                 Так же устроен блок смены email. -->
-                            <p class="settings-card-hint" id="phone-verify-hint">Введите новый номер и подтвердите владение им в {channels_text}.</p>
-                            <div class="settings-verify-row">{''.join(verify_buttons)}</div>
-                            <button type="submit" id="phone-save-btn" class="btn-primary settings-save-btn" disabled>Сохранить</button>
-                        </form>"""
-    else:
-        phone_change_block = '<p class="settings-card-hint">Смена телефона временно недоступна.</p>'
+    # ---------- 3. Смена данных ----------
+    change = ui.card(
+        ui.disclosure("Сменить телефон", _phone_form(phone),
+                      element_id="accordion-phone", icon=ICON_PHONE_FILLED)
+        + ui.disclosure(
+            "Сменить город",
+            '<form action="/api/v1/users/me/city-form" method="post">'
+            '<div class="r-field">'
+            '<label class="r-field__label" for="settings-city">Новый город</label>'
+            '<select id="settings-city" name="city" '
+            'class="r-input custom-select city-select">'
+            '<option value="">Не указан</option>'
+            + city_options_html(city)
+            + "</select></div>"
+            + ui.button("Сохранить", type_="submit")
+            + "</form>",
+            element_id="accordion-city", icon=ICON_MAP_PIN_FILLED)
+        + ui.disclosure("Сменить email", _email_form(email),
+                        element_id="accordion-email", icon=ICON_MAIL_FILLED)
+        + ui.disclosure(
+            "Сменить пароль",
+            '<form action="/api/v1/users/me/password-form" method="post">'
+            + ui.field("Текущий пароль", name="current_password",
+                       element_id="settings-current-password", type_="password",
+                       required=True, autocomplete="current-password")
+            + ui.field("Новый пароль", name="new_password",
+                       element_id="settings-new-password", type_="password",
+                       required=True, autocomplete="new-password")
+            + ui.field("Подтвердите пароль", name="confirm_password",
+                       element_id="settings-confirm-password", type_="password",
+                       required=True, autocomplete="new-password")
+            + ui.button("Сохранить", type_="submit")
+            + "</form>",
+            element_id="accordion-password", icon=ICON_LOCK_FILLED)
+        + "",
+        title="Смена данных",
+        text="Телефон и почта подтверждаются — это ваш вход в сервис.",
+    )
 
-    settings_blocks = f"""
-    <!-- Настройки -->
-    <div class="profile-settings-wrapper">
+    # ---------- 6. Опасная зона ----------
+    danger = ui.card(
+        '<p class="r-text">Аккаунт будет деактивирован: вы выйдете из системы и '
+        "не сможете войти. Данные сохраняются — для восстановления или полного "
+        "удаления обратитесь в поддержку.</p>"
+        '<form id="delete-account-form" action="/api/v1/users/me/delete-form" '
+        'method="post">'
+        + ui.field("Подтвердите паролем", name="password",
+                   element_id="delete-password", type_="password",
+                   placeholder="Ваш пароль", required=True,
+                   autocomplete="current-password")
+        + ui.button("Удалить аккаунт", kind="danger", icon=ICON_TRASH,
+                    type_="submit", element_id="delete-account-btn")
+        + "</form>",
+        title="Удаление аккаунта",
+        classes="r-card--danger",
+    )
 
-        <!-- Тема -->
-        <div class="settings-card">
-            <h2 class="settings-card-title">
-                <span class="settings-icon-wrapper">{ICON_PALETTE}</span>
-                Тема
-            </h2>
-            <div class="settings-theme-toggle">
-                <button class="theme-btn active" data-theme="light">{ICON_SUN} Светлая</button>
-                <button class="theme-btn" data-theme="dark">{ICON_MOON} Тёмная</button>
-            </div>
-            <p class="settings-card-hint">Выберите оформление интерфейса.</p>
-        </div>
-
-        <!-- Уведомления -->
-        <div class="settings-card">
-            <h2 class="settings-card-title">
-                <span class="settings-icon-wrapper">{ICON_BELL}</span>
-                Уведомления
-            </h2>
-            {_notify_channel_block(user)}
-        </div>
-
-        <!-- Смена данных (аккордеон) -->
-        <div class="settings-card">
-            <h2 class="settings-card-title">
-                <span class="settings-icon-wrapper">{ICON_EDIT_DATA}</span>
-                Смена данных
-            </h2>
-            <div class="settings-accordion">
-                <!-- Телефон -->
-                <div class="accordion-item">
-                    <button class="accordion-header" data-target="accordion-phone">
-                        <span class="accordion-icon">{ICON_PHONE_FILLED}</span>
-                        <span class="accordion-label">Сменить телефон</span>
-                        <span class="accordion-chevron">{ICON_CHEVRON_DOWN}</span>
-                    </button>
-                    <div class="accordion-body" id="accordion-phone">{phone_change_block}
-                    </div>
-                </div>
-
-                <!-- Город -->
-                <div class="accordion-item">
-                    <button class="accordion-header" data-target="accordion-city">
-                        <span class="accordion-icon">{ICON_MAP_PIN_FILLED}</span>
-                        <span class="accordion-label">Сменить город</span>
-                        <span class="accordion-chevron">{ICON_CHEVRON_DOWN}</span>
-                    </button>
-                    <div class="accordion-body" id="accordion-city">
-                        <form action="/api/v1/users/me/city-form" method="post">
-                            <div class="settings-form-group">
-                                <label for="settings-city">Новый город</label>
-                                <select id="settings-city" name="city" class="custom-select city-select">
-                                    <option value="">Не указан</option>
-                                    {city_options_html(city_value)}
-                                </select>
-                            </div>
-                            <button type="submit" class="btn-primary settings-save-btn">Сохранить</button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Email -->
-                <div class="accordion-item">
-                    <button class="accordion-header" data-target="accordion-email">
-                        <span class="accordion-icon">{ICON_MAIL_FILLED}</span>
-                        <span class="accordion-label">Сменить email</span>
-                        <span class="accordion-chevron">{ICON_CHEVRON_DOWN}</span>
-                    </button>
-                    <div class="accordion-body" id="accordion-email">
-                        <form id="email-change-form" action="/api/v1/users/me/email-form" method="post">
-                            <div class="settings-form-group">
-                                <label for="settings-email">Новый email</label>
-                                <input type="email" id="settings-email" name="email" value="{email}" placeholder="example@mail.ru" required>
-                            </div>
-                            <input type="hidden" id="email-request-id" name="request_id" value="">
-                            <!-- Подсказка идёт сразу за полем, а не между кнопками: раньше
-                                 порядок был «кнопка → подсказка → кнопка», и объяснение
-                                 попадалось на глаза уже после первого действия. -->
-                            <p class="settings-card-hint" id="email-verify-hint">Введите новый email и получите на него код подтверждения.</p>
-                            <button type="button" id="email-send-code-btn" class="btn-outline settings-save-btn">Отправить код</button>
-                            <div class="settings-form-group is-short" id="email-code-group" style="display:none;">
-                                <label for="settings-email-code">Код из письма</label>
-                                <input type="text" id="settings-email-code" name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="0000">
-                            </div>
-                            <button type="submit" id="email-save-btn" class="btn-primary settings-save-btn" disabled>Подтвердить и сохранить</button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Пароль -->
-                <div class="accordion-item">
-                    <button class="accordion-header" data-target="accordion-password">
-                        <span class="accordion-icon">{ICON_LOCK_FILLED}</span>
-                        <span class="accordion-label">Сменить пароль</span>
-                        <span class="accordion-chevron">{ICON_CHEVRON_DOWN}</span>
-                    </button>
-                    <div class="accordion-body" id="accordion-password">
-                        <form action="/api/v1/users/me/password-form" method="post">
-                            <div class="settings-form-group">
-                                <label for="settings-current-password">Текущий пароль</label>
-                                <input type="password" id="settings-current-password" name="current_password" required>
-                            </div>
-                            <div class="settings-form-group">
-                                <label for="settings-new-password">Новый пароль</label>
-                                <input type="password" id="settings-new-password" name="new_password" required>
-                            </div>
-                            <div class="settings-form-group">
-                                <label for="settings-confirm-password">Подтвердите пароль</label>
-                                <input type="password" id="settings-confirm-password" name="confirm_password" required>
-                            </div>
-                            <button type="submit" class="btn-primary settings-save-btn">Сохранить</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Удаление аккаунта -->
-        <div class="settings-delete-section">
-            <p class="settings-delete-warning">Аккаунт будет деактивирован: вы выйдете из системы и не сможете войти. Данные сохраняются — для восстановления или полного удаления обратитесь в поддержку.</p>
-            <form id="delete-account-form" action="/api/v1/users/me/delete-form" method="post" class="settings-delete-form">
-                <div class="settings-form-group">
-                    <label for="delete-password">Подтвердите паролем</label>
-                    <input type="password" id="delete-password" name="password" placeholder="Ваш пароль" required>
-                </div>
-                <button type="submit" class="btn-outline settings-delete-btn" id="delete-account-btn">
-                    <span class="settings-icon-sm">{ICON_TRASH}</span>
-                    Удалить аккаунт
-                </button>
-            </form>
-        </div>
-
-    </div>
-    """
-
-    # HTML
-    html = f"""<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Мой профиль — руми</title>
+    <meta name="robots" content="noindex, nofollow">
     {get_base_styles()}
 </head>
-<body>
+<body class="page-body">
     {render_header("profile")}
     {render_sidebar("profile", user)}
 
-    <main class="profile-main">
-        <div class="profile-container">
+    <main class="main-content cabinet-main profile-main">
+        <div class="section-container">
+            <header class="cabinet-head">
+                <h1 class="r-display">Мой профиль</h1>
+                <p class="r-text r-muted">Кто вы, как с вами связаться и что мы
+                    о вас храним.</p>
+            </header>
+            {notice_html}
 
-            <!-- Верхний блок (баннер) -->
-            <div class="profile-banner">
-                <div class="profile-avatar-wrapper">
-                    <div class="profile-avatar" id="profile-avatar-container">
-                        {f'<img src="{avatar_url}" alt="{name}">' if avatar_url else f'<span class="profile-avatar-letter">{avatar_letter}</span>'}
-                        <button class="profile-avatar-edit" id="profile-avatar-edit" title="Изменить аватар">
-                            {ICON_CAMERA}
-                        </button>
-                        <input type="file" id="profile-avatar-input" accept="image/*" style="display:none">
-                    </div>
-                </div>
-                <button class="profile-edit-toggle" id="profile-edit-toggle">
-                    {ICON_EDIT} Редактировать
-                </button>
+            <div class="profile-stack">
+                {who}
+                {_role_blocks(user, master_profile, salon)}
+
+                {ui.card(_notify_channel_block(user),
+                         title="Как со мной связаться",
+                         text="Сюда приходят напоминания о записях и ответы "
+                              "мастера.")}
+
+                {change}
+
+                {ui.card(
+                    '<div class="theme-toggle" role="group" '
+                    'aria-label="Оформление интерфейса">'
+                    + ui.button("Светлая", kind="secondary", small=True,
+                                icon=ICON_SUN, classes="theme-btn",
+                                data={"theme": "light"})
+                    + ui.button("Тёмная", kind="secondary", small=True,
+                                icon=ICON_MOON, classes="theme-btn",
+                                data={"theme": "dark"})
+                    + '</div>'
+                      '<p class="r-field__hint">Выбор сохраняется в этом '
+                      'браузере.</p>',
+                    title="Оформление")}
+
+                {ui.card(_consents_block(user), title="Согласия и документы")}
+
+                {danger}
             </div>
-
-            <!-- Информация (белый блок) -->
-            <div class="profile-view" id="profile-view">
-                <div class="profile-name-wrapper">
-                    <h1 class="profile-name">{name}</h1>
-                    <span class="profile-role-badge">{role_display}</span>
-                </div>
-                <div class="profile-meta">
-                    <span class="profile-meta-item">
-                        {ICON_PHONE} {phone}
-                    </span>
-                    {f'<span class="profile-meta-item">{ICON_MAIL} {email}</span>' if email else ''}
-                    <span class="profile-meta-item">
-                        {ICON_MAP_PIN_SMALL} {city}
-                    </span>
-                    {f'<span class="profile-meta-item">{ICON_CALENDAR_SMALL} С {member_since}</span>' if member_since else ''}
-                </div>
-                {error_message}
-                {success_message}
-            </div>
-
-            <!-- Режим редактирования -->
-            <div class="profile-edit" id="profile-edit" style="display:none;">
-                <div class="profile-edit-header">
-                    <h2>Редактирование профиля</h2>
-                    <div class="profile-edit-actions">
-                        <button class="profile-btn-cancel" id="profile-edit-cancel">Отмена</button>
-                        <button class="profile-btn-primary" id="profile-edit-save">Сохранить</button>
-                    </div>
-                </div>
-                <form id="profile-edit-form" action="/api/v1/users/me/update-form" method="post">
-                    <div class="profile-form-group">
-                        <label for="profile-edit-name">Имя *</label>
-                        <input type="text" id="profile-edit-name" name="full_name" value="{name}" required>
-                    </div>
-                    {f'''
-                    <div class="profile-form-group">
-                        <label for="profile-edit-bio">О себе</label>
-                        <textarea id="profile-edit-bio" name="portfolio_desc" rows="4" placeholder="Расскажите о себе...">{getattr(user, 'portfolio_desc', '')}</textarea>
-                    </div>
-                    ''' if role in ['model', 'master'] else ''}
-                    <button type="submit" style="display:none;">Сохранить</button>
-                </form>
-                <div class="profile-edit-note">
-                    <p class="text-muted">Телефон, email и город можно изменить ниже, в разделе «Смена данных».</p>
-                </div>
-            </div>
-
-            <!-- Ролевой блок -->
-            {role_block}
-
-            <!-- Статус модели (аддитивный, независим от role_block) -->
-            {model_block}
-
-            <!-- Блоки настроек -->
-            {settings_blocks}
-
         </div>
         {render_footer(user)}
     </main>
 </body>
 </html>"""
-    return html
 
 
 def _render_guest_page() -> str:
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Мой профиль — руми</title>
+    <meta name="robots" content="noindex, nofollow">
     {get_base_styles()}
 </head>
-<body>
+<body class="page-body">
     {render_header("profile")}
     {render_sidebar("profile", None)}
-    <main class="profile-main">
-        <div class="profile-container">
-            <div class="profile-guest-card">
-                <h2>{ICON_USER} Войдите в аккаунт</h2>
-                <p>Чтобы просматривать и редактировать профиль, войдите или зарегистрируйтесь</p>
-                <div class="profile-guest-actions">
-                    <a href="/login" class="profile-btn-primary">Войти</a>
-                    <a href="/register" class="profile-btn-outline">Зарегистрироваться</a>
-                </div>
-            </div>
+    <main class="main-content cabinet-main profile-main">
+        <div class="section-container">
+            <header class="cabinet-head">
+                <h1 class="r-display">Мой профиль</h1>
+            </header>
+            {ui.card(
+                f'<p class="r-text">{ICON_USER} Чтобы смотреть и менять профиль, '
+                'войдите или зарегистрируйтесь.</p>'
+                '<div class="profile-links">'
+                + ui.button("Войти", href="/login")
+                + ui.button("Зарегистрироваться", kind="secondary", href="/register")
+                + '</div>',
+                title="Войдите в аккаунт")}
         </div>
         {render_footer(None)}
     </main>

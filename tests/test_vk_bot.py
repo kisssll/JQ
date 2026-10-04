@@ -437,7 +437,13 @@ def test_profile_shows_whose_vk_is_linked(vk):
     user = User(phone="+7", vk_peer_id=1, vk_name="Анна <b>Клиентова</b>",
                 notify_channel=NotifyChannel.VK)
     html = _notify_channel_block(user)
-    assert "подключён: Анна &lt;b&gt;Клиентова&lt;/b&gt;" in html   # имя видно и экранировано
+    # Имя привязанного аккаунта видно (если ссылку привязки успел открыть
+    # кто-то другой, человек увидит чужое имя и отвяжет) и ЭКРАНИРОВАНО:
+    # vk_name приходит из чужого профиля.
+    assert "Анна &lt;b&gt;Клиентова&lt;/b&gt;" in html
+    assert "<b>Клиентова</b>" not in html
+    # Состояние названо словом, а не одним цветом.
+    assert ">подключён<" in html
     assert 'name="channel" value="vk"' in html
 
 

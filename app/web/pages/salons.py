@@ -117,6 +117,24 @@ _DOC = "(coalesce(s.name,'') || ' ' || coalesce(s.description,'') || ' ' || coal
 _PAID = "coalesce(s.business_tier, '') IN ('business', 'corporate', 'custom')"
 
 
+# Колонки, из которых собирается карточка салона. Вынесены в константу, потому
+# что по ним строится И выдача каталога, И список избранного: разойдясь, два
+# запроса дали бы две разные карточки у одного и того же салона.
+_CARD_COLUMNS = f"""s.id, s.name, s.description, s.address, s.city, s.rating,
+               s.reviews_count, s.latitude, s.longitude, s.logo_url, s.panel_mode,
+               (s.contest_winner_until IS NOT NULL AND s.contest_winner_until > now()) AS is_winner,
+               ({_PAID}) AS is_promoted,
+               -- Соло или команда решается на тех же фактах, что и на странице
+               -- салона (public_words.solo_from_facts): объявленный режим плюс
+               -- ровно один активный мастер. Считаем подзапросами в том же
+               -- SELECT — отдельный круг до базы за этим не ходит.
+               (SELECT count(*) FROM masters mm
+                 WHERE mm.salon_id = s.id AND mm.is_active = true) AS master_count,
+               EXISTS (SELECT 1 FROM masters mo
+                        WHERE mo.salon_id = s.id AND mo.is_active = true
+                          AND mo.user_id = s.creator_id) AS owner_is_master"""
+
+
 def _build_search_sql(p: SalonQuery, trgm: bool):
     """Строит SELECT (текст + связки). Пользовательские значения — только через
     bind-параметры; в f-string идут лишь структурные фрагменты."""
@@ -212,19 +230,7 @@ def _build_search_sql(p: SalonQuery, trgm: bool):
             WHERE m.is_active = true AND sv.is_active = true AND sv.is_model_practice = false
             GROUP BY m.salon_id
         )
-        SELECT s.id, s.name, s.description, s.address, s.city, s.rating,
-               s.reviews_count, s.latitude, s.longitude, s.logo_url, s.panel_mode,
-               (s.contest_winner_until IS NOT NULL AND s.contest_winner_until > now()) AS is_winner,
-               ({_PAID}) AS is_promoted,
-               -- Соло или команда решается на тех же фактах, что и на странице
-               -- салона (public_words.solo_from_facts): объявленный режим плюс
-               -- ровно один активный мастер. Считаем подзапросами в том же
-               -- SELECT — отдельный круг до базы за этим не ходит.
-               (SELECT count(*) FROM masters mm
-                 WHERE mm.salon_id = s.id AND mm.is_active = true) AS master_count,
-               EXISTS (SELECT 1 FROM masters mo
-                        WHERE mo.salon_id = s.id AND mo.is_active = true
-                          AND mo.user_id = s.creator_id) AS owner_is_master{extra_cols}
+        SELECT {_CARD_COLUMNS}{extra_cols}
         FROM salons s
         LEFT JOIN sn ON sn.salon_id = s.id
         WHERE {' AND '.join(where)}
@@ -284,7 +290,7 @@ async def _categories_by_city(db: AsyncSession) -> dict[str, list[str]]:
     return result
 
 
-def _render_card(s, extras: CardExtras) -> str:
+def render_card(s, extras: CardExtras, *, favorite_on: bool = False) -> str:
     """Карточка каталога в новой форме.
 
     Её несут имя, город, услуги с ценой и временем и ближайшие свободные окна.
@@ -356,7 +362,44 @@ def _render_card(s, extras: CardExtras) -> str:
         slot_service=slot_service,
         promos=tuple(extras.promos),
         favorite_icons=(ICON_HEART, ICON_HEART_FILLED),
+        favorite_on=favorite_on,
     )
+
+
+async def load_cards_by_ids(db: AsyncSession, salon_ids: list[int]) -> dict[int, str]:
+    """Готовые карточки каталога для перечисленных салонов: {id: разметка}.
+
+    Нужна избранному: оно обязано показывать ТУ ЖЕ карточку, что каталог, и
+    единственный способ это гарантировать — тот же сборщик (``render_card``) на
+    тех же колонках (``_CARD_COLUMNS``) и тех же дополнениях
+    (``load_card_extras``). Второй, «похожий» список карточек разошёлся бы с
+    каталогом на первой же правке.
+
+    Видимость здесь НАРОЧНО мягче каталожной: отбираются активные и не скрытые
+    владельцем салоны, без требований модерации, публикации и оплаченного
+    тарифа. Избранное — это личный список человека; салон, у которого кончился
+    тариф, из него исчезать не должен, иначе человек решит, что сам его удалил.
+    Ровно это условие стояло в избранном и до переделки вида.
+
+    Порядок возвращённого словаря не важен: карточки раскладывает вызывающий
+    в порядке самого избранного (сначала добавленные позже).
+    """
+    if not salon_ids:
+        return {}
+
+    stmt = text(f"""
+        SELECT {_CARD_COLUMNS}
+        FROM salons s
+        WHERE s.id IN :ids AND s.is_active = true AND s.is_hidden = false
+    """).bindparams(bindparam("ids", expanding=True))
+    rows = (await db.execute(stmt, {"ids": salon_ids})).mappings().all()
+    if not rows:
+        return {}
+
+    extras = await load_card_extras(db, [r["id"] for r in rows])
+    # favorite_on=True: это список избранного, здесь закрашено всё.
+    return {r["id"]: render_card(r, extras.get(r["id"], CardExtras()), favorite_on=True)
+            for r in rows}
 
 
 def _query_string(p: SalonQuery, **overrides) -> str:
@@ -485,7 +528,7 @@ async def render_cards(db: AsyncSession, p: SalonQuery, *, with_slots: bool = Tr
     rows, has_more = await _load_page(db, p)
     extras = await load_card_extras(db, [r["id"] for r in rows], with_slots=with_slots)
     empty = CardExtras()
-    return "".join(_render_card(r, extras.get(r["id"], empty)) for r in rows), has_more
+    return "".join(render_card(r, extras.get(r["id"], empty)) for r in rows), has_more
 
 
 async def render_salons_grid(db: AsyncSession, p: SalonQuery) -> str:

@@ -353,6 +353,7 @@ def salon_card(
     slot_service: str = "",
     promos: tuple = (),
     favorite_icons: tuple = (),
+    favorite_on: bool = False,
     all_label: str = "Все услуги и запись",
 ) -> str:
     """Карточка салона или мастера для каталога и главной.
@@ -371,12 +372,20 @@ def salon_card(
     heart, heart_filled = (favorite_icons or ("", ""))
     fav = ""
     if heart:
+        # favorite_on рисует сердечко уже закрашенным на сервере. Нужно
+        # избранному: там в избранном ВСЁ, и дорисовка скриптом после загрузки
+        # давала бы вспышку пустых сердечек на каждой карточке. Подпись тоже
+        # меняется — иначе кнопка, которая убирает, называется «В избранное».
         fav = (
-            f'<button class="favorite-btn r-salon__fav" type="button" data-type="salon" '
+            f'<button class="favorite-btn r-salon__fav{" liked" if favorite_on else ""}" '
+            f'type="button" data-type="salon" '
             f'data-id="{salon_id}" data-icon-heart="{heart.replace(chr(34), "&quot;")}" '
             f'data-icon-heart-filled="{heart_filled.replace(chr(34), "&quot;")}" '
-            f'aria-label="В избранное" title="В избранное">'
-            f'<span class="heart-icon">{heart}</span></button>'
+            f'aria-pressed="{"true" if favorite_on else "false"}" '
+            f'aria-label="{"Убрать из избранного" if favorite_on else "В избранное"}" '
+            f'title="{"Убрать из избранного" if favorite_on else "В избранное"}">'
+            f'<span class="heart-icon">{heart_filled if favorite_on else heart}</span>'
+            f"</button>"
         )
 
     # Оценку показываем только когда она есть. «0.0» — это не «плохо», а «нет
@@ -519,3 +528,129 @@ def section_head(title: str, *, text: str = "", link_label: str = "", link_href:
         f'<div class="r-sechead__main"><h2 class="{cls}">{e(title)}</h2>{sub}</div>'
         f"{link}</div>"
     )
+
+
+# =====================================================================
+# КАБИНЕТ: факты, раскрывающийся блок, карточка человека, уведомление
+#
+# Эти элементы заведены заходом «кабинет клиента». Кабинет — продолжение
+# витрины, поэтому он не рисует своих кнопок и карточек, а берёт их отсюда;
+# всё, чего ему не хватило, доехало в этот файл, а не в его страницы.
+# =====================================================================
+
+def facts(items: tuple, *, inline: bool = False) -> str:
+    """Список «подпись — значение». Настоящий <dl>, а не две колонки <div>.
+
+    Зачем: и в записи («когда», «где», «сколько»), и в профиле («телефон»,
+    «город») одно и то же — пара, у которой есть смысловая связь. Скринридер
+    читает <dl> парами, а набор <span> — сплошным текстом, в котором не
+    понять, где кончилась подпись и началось значение.
+
+    ``items`` — последовательность пар ``(подпись, значение)``; значение уже
+    готовая разметка (там бывает ссылка), поэтому его НЕ экранируем — вызов
+    обязан прогнать текст через e() сам. Пустое значение пропускается: пустая
+    строка в списке фактов читается как потерянные данные.
+
+    ``inline`` — для коротких пар в одну строку (где/когда у записи).
+    """
+    rows = "".join(
+        f"<div class=\"r-facts__row\"><dt>{e(label)}</dt><dd>{value}</dd></div>"
+        for label, value in items
+        if value not in (None, "")
+    )
+    if not rows:
+        return ""
+    cls = "r-facts r-facts--inline" if inline else "r-facts"
+    return f'<dl class="{cls}">{rows}</dl>'
+
+
+def disclosure(summary: str, inner: str, *, element_id: str = "", icon: str = "",
+               open_: bool = False) -> str:
+    """Раскрывающийся блок на <details>, а не на кнопке с обработчиком.
+
+    Прежний аккордеон профиля был <button> плюс класс is-active из JS: без
+    скрипта (или до его загрузки) формы смены телефона и пароля не
+    открывались вовсе, а скринридер не знал, раскрыт блок или нет.
+    <details> умеет это сам, поиском по странице раскрывается браузером и
+    печатается раскрытым.
+
+    Стрелку рисует CSS через ::after у summary — своей разметки для неё нет:
+    маркер <summary> в разных браузерах разный, его снимаем в CSS.
+    """
+    attrs = {"class": "r-disc", "id": element_id}
+    if open_:
+        attrs["open"] = True
+    icon_html = f'<span class="r-disc__icon" aria-hidden="true">{icon}</span>' if icon else ""
+    return (
+        f"<details{_attrs(attrs)}>"
+        f'<summary class="r-disc__head">{icon_html}'
+        f'<span class="r-disc__label">{e(summary)}</span></summary>'
+        f'<div class="r-disc__body">{inner}</div>'
+        f"</details>"
+    )
+
+
+def person_card(
+    *,
+    name: str,
+    href: str,
+    meta: str = "",
+    where: str = "",
+    rating: float = 0.0,
+    avatar_url: str = "",
+    aside: str = "",
+    footer: str = "",
+    all_label: str = "",
+) -> str:
+    """Карточка человека: мастер в избранном.
+
+    Устроена как ``salon_card`` — монограмма, имя, строка «кто и где», ссылка
+    внизу, — чтобы избранное не выглядело вторым набором карточек. Отдельная
+    функция, а не флаг у salon_card: у мастера нет ни услуг с ценами, ни окон,
+    и карточка с пятью пустыми ветками читается хуже двух честных.
+    """
+    rating_html = ""
+    if rating and rating > 0:
+        rating_html = (
+            '<span class="r-salon__rating" title="Оценка по отзывам">'
+            f'<span class="r-salon__star" aria-hidden="true">{ICON_STAR_FILLED}</span>'
+            f"{rating:.1f}</span>"
+        )
+    line = " · ".join(p for p in (meta, where) if p)
+    where_html = ""
+    if line or rating_html:
+        where_html = (
+            '<span class="r-salon__where">'
+            + (f"{e(line)} " if line else "")
+            + rating_html + "</span>"
+        )
+    foot = ""
+    if all_label:
+        foot = f'<a class="r-salon__all" href="{e(href)}">{e(all_label)}</a>'
+    return (
+        '<article class="r-salon r-salon--person">'
+        '<div class="r-salon__top">'
+        f'<a class="r-salon__face" href="{e(href)}">'
+        f"{mark(name, image=avatar_url, alt=name, size='lg')}"
+        f'<span class="r-salon__id"><span class="r-salon__name">{e(name)}</span>'
+        + where_html
+        + "</span></a>"
+        f'<div class="r-salon__aside">{aside}</div>'
+        "</div>"
+        f"{footer}{foot}"
+        "</article>"
+    )
+
+
+def notice(text: str, *, tone: StatusTone = "neutral", element_id: str = "") -> str:
+    """Короткое сообщение о результате действия («Пароль изменён»).
+
+    role=status, а не просто цветная плашка: страница перезагружается после
+    POST, и человек, который не видит экран, иначе никак не узнает, что
+    сохранение прошло.
+
+    Ошибка идёт с role=alert — её читают сразу, не дожидаясь паузы.
+    """
+    role = "alert" if tone == "danger" else "status"
+    attrs = {"class": f"r-notice r-notice--{tone}", "id": element_id, "role": role}
+    return f"<p{_attrs(attrs)}>{e(text)}</p>"

@@ -1,117 +1,34 @@
-/* static/src/css/favorites.css */
+/* static/src/css/favorites.css — «Избранное».
+   Заход «кабинет клиента» (решение 0011, п. 14).
 
-.favorites-main {
-    margin-right: 16rem;
-    padding-top: 100px;
-    min-height: 100vh;
-    background: linear-gradient(to bottom, var(--page-gradient-1), var(--page-gradient-2), var(--page-gradient-3));
+   Карточка салона здесь — та же .r-salon, что в каталоге, и её оформление
+   лежит в ui.css. Поэтому в этом файле осталась только раскладка списка.
+
+   Прежние .fav-card, .fav-card-header, .fav-rating, .fav-address, .fav-spec,
+   .fav-salon, .fav-actions, .fav-btn, .fav-remove-btn удалены вместе со
+   второй, самодельной карточкой: салон в избранном выглядел беднее, чем тот
+   же салон в каталоге. Общая раскладка кабинета (.cabinet-main,
+   .cabinet-head) объявлена в bookings.css — она одна на все три экрана. */
+
+.fav-group + .fav-group {
+    margin-top: var(--space-48);
 }
-@media (max-width: 1023px) {
-    .favorites-main {
-        margin-right: 0;
-        padding-top: 80px;
+
+/* Сетка — та же, что у каталога (.r-salon-grid в ui.css): карточки одного
+   вида обязаны стоять в одном ритме, иначе переход из каталога в избранное
+   читается как переход на другой сайт. */
+/* minmax(0, …) обязателен: min-width элемента сетки по умолчанию равен
+   min-content, и длинное название услуги в карточке распёрло бы колонку
+   шире экрана. */
+.fav-list {
+    display: grid;
+    gap: var(--space-16);
+    margin-top: var(--space-16);
+    grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+    .fav-list {
+        grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
     }
 }
-
-.favorites-title {
-    padding-left: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-.fav-heart-icon {
-    display: inline-flex;
-    align-items: center;
-    color: var(--color-primary);
-}
-
-.favorites-section-title {
-    padding-left: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    margin-bottom: 1rem;
-}
-.favorites-section-title .fav-icon {
-    color: var(--color-primary);
-}
-.favorites-section-title + .fav-card {
-    margin-top: 0;
-}
-
-/* ===== Карточки ===== */
-.fav-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 1rem;
-    padding: 1.25rem;
-    margin-bottom: 0.75rem;
-    transition: box-shadow 0.2s;
-}
-.fav-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-.fav-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.25rem;
-}
-.fav-card-header h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--color-heading);
-}
-
-.fav-rating {
-    font-size: 0.9rem;
-    color: var(--color-primary);
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 0.2rem;
-}
-.fav-rating .fav-star {
-    color: var(--color-primary);
-}
-
-.fav-address,
-.fav-spec,
-.fav-salon {
-    color: var(--color-muted);
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
-}
-.fav-spec {
-    margin-bottom: 0.25rem;
-}
-.fav-salon {
-    font-size: 0.85rem;
-    margin-bottom: 0.5rem;
-}
-
-.fav-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-.fav-btn {
-    font-size: 0.8rem;
-    padding: 0.4rem 0.8rem;
-}
-
-/* ===== Кнопки удаления ===== */
-.fav-remove-btn {
-    font-size: 0.8rem;
-    padding: 0.4rem 0.8rem;
-    color: var(--color-muted);
-    border-color: var(--color-border);
-}
-.fav-remove-btn:hover {
-    background: var(--color-surface-alt);
-    border-color: var(--color-border);
-    color: var(--color-heading);
-}
-
-/* ===== Пустое состояние ===== */
-/* Пустое состояние переехало в empty-state.css */

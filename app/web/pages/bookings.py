@@ -1,274 +1,397 @@
 # app/web/pages/bookings.py
-from app.web.components.escaping import e
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+"""«Мои записи» — что со мной будет и что уже было.
+
+Экран устроен вокруг ОДНОГО вопроса: что с этой записью делать дальше.
+Поэтому сверху «Предстоящие» (их можно отменить), ниже «Прошедшие» (на них
+можно оставить отзыв), а состояние каждой записи названо словом в плашке —
+цветом одним оно не передаётся.
+
+Трёх вкладок с счётчиками больше нет. Отменённая запись — это прошедшая, и
+отдельная вкладка под неё заставляла человека угадывать, в какой из трёх
+лежит то, что он ищет. Память активной вкладки в localStorage уехала вместе
+со вкладками.
+
+Запросов — постоянное число, не зависящее от количества записей: прежняя
+версия ходила в базу за мастером, его пользователем, салоном, услугой и
+отзывом НА КАЖДУЮ запись (пять запросов на карточку), и человек с двумя
+десятками визитов открывал страницу секунды.
+"""
 from datetime import datetime
-from app.models.models import Booking, BookingStatus, Master, Service, Salon, User, Review, ReviewTargetType
-from app.web.components.header import render_header
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.models import (
+    Booking,
+    BookingStatus,
+    Master,
+    Review,
+    ReviewTargetType,
+    Salon,
+    Service,
+    User,
+)
+from app.services.public_words import dative, first_name, solo_from_facts
+from app.web.components import ui
+from app.web.components.escaping import e
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
-from app.web.components.styles import get_base_styles
+from app.web.components.header import render_header
 from app.web.components.icons import (
-    ICON_CALENDAR_BIG,
-    ICON_MAP_PIN,
-    ICON_PHONE,
-    ICON_CALENDAR_BOOKING,
-    ICON_USER_BOOKING,
-    ICON_BUILDING_BOOKING,
-    ICON_MONEY_BOOKING,
     ICON_EDIT_PENCIL,
     ICON_STAR_EMPTY,
-    ICON_X,
-    ICON_CHECK_SMALL,      # для сообщения об успехе
-    ICON_CLOCK,
-    ICON_TRASH,
     ICON_STAR_FILLED,
-
-    ICON_SCISSORS_SMALL,
 )
+from app.web.components.sidebar import render_sidebar
+from app.web.components.styles import get_base_styles
 
-async def render_bookings_page(db: AsyncSession, user) -> str:
-    """Страница 'Мои записи' для клиента."""
-    
-    bookings_result = await db.execute(
-        select(Booking).where(
-            Booking.client_id == user.id
-        ).order_by(Booking.start_time.desc())
+#: Состояние записи словом и тоном плашки. NO_SHOW попал сюда не сразу: он
+#: появился вместе с отметкой «Пришёл», и записи с ним показывали клиенту
+#: прочерк вместо состояния.
+_STATUS = {
+    BookingStatus.PENDING: ("Ждёт подтверждения", "warning"),
+    BookingStatus.CONFIRMED: ("Подтверждена", "success"),
+    BookingStatus.COMPLETED: ("Завершена", "success"),
+    BookingStatus.CANCELLED: ("Отменена", "neutral"),
+    BookingStatus.NO_SHOW: ("Пропущена", "warning"),
+}
+
+_MONTHS_GEN = ["января", "февраля", "марта", "апреля", "мая", "июня",
+               "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+
+#: Сообщения по итогам действия. Приходят параметром в адресе: отмена и отзыв
+#: перезагружают страницу, и без строки на экране человек не знает, прошло ли
+#: действие. Раньше отмена говорила об успехе через alert(), а «отзыв сохранён»
+#: (редирект /bookings?reviewed=1) не говорил вообще ничего.
+_NOTICES = {
+    "cancelled": ("Запись отменена. Время освободилось.", "neutral"),
+    "reviewed": ("Спасибо, отзыв сохранён.", "success"),
+}
+
+
+def _when(start: datetime) -> str:
+    """«5 октября, 15:00». Время записи — местное время салона, как его задал
+    сам салон при создании брони; своего пояса страница не навязывает."""
+    return f"{start.day} {_MONTHS_GEN[start.month - 1]}, {start:%H:%M}"
+
+
+async def _load(db: AsyncSession, user) -> tuple[list, dict]:
+    """Записи человека и всё, что нужно их карточкам. Постоянное число
+    запросов: сначала записи, потом — пачкой — услуги, мастера, их имена,
+    салоны, число мастеров в салоне и отзывы этого клиента.
+
+    Отзывы берём ВСЕ, что оставил человек, а не по booking_id: право оставить
+    отзыв проверяет ``ReviewService`` по ЦЕЛИ (мастер или салон), а не по
+    записи, — см. ``_can_review``.
+    """
+    bookings = (await db.execute(
+        select(Booking).where(Booking.client_id == user.id)
+        .order_by(Booking.start_time.desc())
+    )).scalars().all()
+    if not bookings:
+        return [], {}
+
+    service_ids = {b.service_id for b in bookings if b.service_id}
+    master_ids = {b.master_id for b in bookings if b.master_id}
+
+    services = {}
+    if service_ids:
+        services = {
+            s.id: s for s in (await db.execute(
+                select(Service).where(Service.id.in_(service_ids))
+            )).scalars().all()
+        }
+
+    masters, master_names, salons, master_counts = {}, {}, {}, {}
+    if master_ids:
+        masters = {
+            m.id: m for m in (await db.execute(
+                select(Master).where(Master.id.in_(master_ids))
+            )).scalars().all()
+        }
+        user_ids = {m.user_id for m in masters.values() if m.user_id}
+        if user_ids:
+            master_names = {
+                u.id: (u.full_name or "") for u in (await db.execute(
+                    select(User).where(User.id.in_(user_ids))
+                )).scalars().all()
+            }
+        salon_ids = {m.salon_id for m in masters.values() if m.salon_id}
+        if salon_ids:
+            salons = {
+                s.id: s for s in (await db.execute(
+                    select(Salon).where(Salon.id.in_(salon_ids))
+                )).scalars().all()
+            }
+            # Соло или команда решается на тех же фактах, что на витрине:
+            # объявленный режим плюс ровно один активный мастер.
+            master_counts = dict((await db.execute(
+                select(Master.salon_id, func.count(Master.id))
+                .where(Master.salon_id.in_(salon_ids), Master.is_active == True)  # noqa: E712
+                .group_by(Master.salon_id)
+            )).all())
+
+    reviews = (await db.execute(
+        select(Review).where(Review.client_id == user.id)
+    )).scalars().all()
+
+    return bookings, {
+        "services": services,
+        "masters": masters,
+        "master_names": master_names,
+        "salons": salons,
+        "master_counts": master_counts,
+        "reviews": reviews,
+    }
+
+
+def _review_of(ctx: dict, master_id, salon_id) -> Review | None:
+    """Отзыв этого клиента на ЭТУ цель, если он есть.
+
+    Цель — мастер, когда запись к мастеру, иначе салон: ровно так её
+    определяет форма отзыва (``target_type``) и проверка в
+    ``ReviewService._already_reviewed``.
+    """
+    for r in ctx["reviews"]:
+        if master_id and r.target_type == ReviewTargetType.MASTER and r.master_id == master_id:
+            return r
+        if not master_id and r.target_type == ReviewTargetType.SALON and r.salon_id == salon_id:
+            return r
+    return None
+
+
+def _render_card(b: Booking, ctx: dict, *, upcoming: bool) -> str:
+    """Карточка записи. Собрана из ui-примитивов: своих кнопок и плашек у
+    страницы нет."""
+    service = ctx["services"].get(b.service_id)
+    master = ctx["masters"].get(b.master_id)
+    salon = ctx["salons"].get(master.salon_id) if master and master.salon_id else None
+
+    service_name = service.name if service else "Услуга"
+    master_name = ctx["master_names"].get(master.user_id, "") if master else ""
+
+    solo = False
+    if salon:
+        solo = solo_from_facts(
+            getattr(salon, "panel_mode", None),
+            ctx["master_counts"].get(salon.id, 0),
+            bool(master and master.user_id == getattr(salon, "creator_id", None)),
+        )
+
+    # Соло-мастер — человек, а не организация: «к Анне», а не «мастер такой-то
+    # в салоне таком-то». Падеж даёт public_words и при сомнении возвращает
+    # пустую строку — тогда остаёмся на имени без падежа.
+    if solo and master_name:
+        who_label = "К кому"
+        who_value = e(dative(first_name(master_name)) or first_name(master_name))
+    else:
+        who_label = "Мастер"
+        who_value = e(master_name or "—")
+
+    # Ссылка на салон остаётся В ОБОИХ режимах. У соло-мастера салон — это его
+    # собственное дело под своим названием, и человеку всё равно надо знать,
+    # куда он идёт; выкинуть строку только потому, что подпись назвала мастера
+    # по имени, значило бы потерять единственный путь к карточке.
+    place = (
+        f'<a href="/salons?highlight={salon.id}" class="booking-salon-link">'
+        f"{e(salon.name)}</a>"
+        if salon else ""
     )
-    bookings = bookings_result.scalars().all()
 
+    label, tone = _STATUS.get(b.status, ("—", "neutral"))
+    duration = int((b.end_time - b.start_time).total_seconds() // 60)
+
+    facts = [
+        ("Когда", f"{e(_when(b.start_time))} · {duration} мин"),
+        (who_label, who_value),
+    ]
+    if place:
+        facts.append(("Где", place))
+    if salon and salon.address:
+        facts.append(("Адрес", e(salon.address)))
+    if salon and salon.phone:
+        facts.append(("Телефон", f'<a href="tel:{e(salon.phone)}">{e(salon.phone)}</a>'))
+    facts.append(("Стоимость", f"{b.final_price} ₽" if b.final_price else "—"))
+
+    # ---------- Что с записью можно сделать ----------
+    action = ""
+    if upcoming and b.status not in (BookingStatus.CANCELLED, BookingStatus.COMPLETED):
+        # Подтверждение — лист снизу, а не confirm(): отмена освобождает время
+        # и необратима, а системное окно браузера нельзя ни прочитать толком,
+        # ни отличить от окна другого сайта.
+        action = ui.button(
+            "Отменить запись", kind="secondary", small=True,
+            classes="booking-cancel-btn",
+            data={"booking-id": b.id, "booking-what": f"{service_name}, {_when(b.start_time)}"},
+        )
+    elif b.status == BookingStatus.COMPLETED:
+        existing = _review_of(ctx, b.master_id, salon.id if salon else None)
+        if existing:
+            stars = (ICON_STAR_FILLED * existing.rating) + (ICON_STAR_EMPTY * (5 - existing.rating))
+            action = (
+                '<div class="booking-review">'
+                f'<div class="booking-review__stars" aria-label="Ваша оценка: {existing.rating} из 5">'
+                f"{stars}</div>"
+                + (f'<p class="booking-review__text">{e(existing.comment)}</p>'
+                   if existing.comment else "")
+                + ui.button("Изменить отзыв", kind="secondary", small=True,
+                            icon=ICON_EDIT_PENCIL,
+                            classes="booking-review-edit-btn",
+                            data={"booking-id": b.id, "review-id": existing.id})
+                + "</div>"
+            )
+        elif salon:
+            # Отзыв возможен только когда он возможен на сервере: завершённая
+            # запись И отзыва на эту цель ещё нет. Прежняя версия искала отзыв
+            # по booking_id и потому предлагала кнопку человеку, который уже
+            # оценил этого мастера другой записью, — сервер отвечал 409.
+            action = ui.button(
+                "Оставить отзыв", small=True, icon=ICON_EDIT_PENCIL,
+                classes="booking-review-add-btn",
+                data={"booking-id": b.id, "salon-id": salon.id,
+                      "master-id": b.master_id or ""},
+            )
+
+    return (
+        f'<article class="r-card booking-card" data-booking-id="{b.id}">'
+        '<div class="booking-card__head">'
+        f'<h3 class="r-subtitle booking-card__service">{e(service_name)}</h3>'
+        f"{ui.status(label, tone)}"
+        "</div>"
+        f"{ui.facts(tuple(facts))}"
+        + (f'<div class="booking-card__action">{action}</div>' if action else "")
+        + "</article>"
+    )
+
+
+async def render_bookings_page(db: AsyncSession, user, notice: str = "") -> str:
+    """Страница «Мои записи» для клиента."""
+    bookings, ctx = await _load(db, user)
     now = datetime.now()
 
-    upcoming = []
-    completed = []
-    cancelled = []
-
+    upcoming, past = [], []
     for b in bookings:
-        if b.status == BookingStatus.CANCELLED:
-            cancelled.append(b)
-        elif b.status == BookingStatus.COMPLETED:
-            completed.append(b)
-        elif b.start_time > now and b.status in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
+        if b.status in (BookingStatus.PENDING, BookingStatus.CONFIRMED) and b.start_time > now:
             upcoming.append(b)
         else:
-            completed.append(b)
+            past.append(b)
 
-    async def render_booking_card(booking):
-        master = None
-        if booking.master_id:
-            master = (await db.execute(select(Master).where(Master.id == booking.master_id))).scalar_one_or_none()
-        service = None
-        if booking.service_id:
-            service = (await db.execute(select(Service).where(Service.id == booking.service_id))).scalar_one_or_none()
-        
-        master_name = "Мастер"
-        service_name = "Услуга"
-        salon_name = "Салон"
-        salon_address = ""
-        salon_phone = ""
-        salon_id = None
-        
-        if master:
-            master_user = (await db.execute(select(User).where(User.id == master.user_id))).scalar_one_or_none()
-            master_name = master_user.full_name if master_user else "Мастер"
-            if master.salon_id:
-                salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none()
-                if salon:
-                    salon_name = salon.name
-                    salon_address = salon.address or ""
-                    salon_phone = salon.phone or ""
-                    salon_id = salon.id
-        
-        if service:
-            service_name = service.name
+    # Предстоящие — ближайшая первой: это следующий поступок человека.
+    # Прошедшие — наоборот, свежая сверху. Запрос отдаёт по убыванию, поэтому
+    # переворачиваем только предстоящие.
+    upcoming.reverse()
 
-        # NO_SHOW появился вместе с отметкой «Пришёл», но в эту карту его не
-        # добавили — такие записи показывали клиенту прочерк в плашке статуса.
-        status_label = {
-            BookingStatus.PENDING: "Ожидает",
-            BookingStatus.CONFIRMED: "Подтверждено",
-            BookingStatus.COMPLETED: "Завершено",
-            BookingStatus.CANCELLED: "Отменено",
-            BookingStatus.NO_SHOW: "Пропущено",
-        }.get(booking.status, "—")
-        # Статус читается цветом, а не только текстом: до этого все плашки были
-        # одинаково розовыми и «Завершено» не отличалось от «Отменено».
-        status_tone = {
-            BookingStatus.PENDING: "is-pending",
-            BookingStatus.CONFIRMED: "is-confirmed",
-            BookingStatus.COMPLETED: "is-completed",
-            BookingStatus.CANCELLED: "is-cancelled",
-            BookingStatus.NO_SHOW: "is-cancelled",
-        }.get(booking.status, "")
-        
-        cancel_btn = ""
-        if booking in upcoming and booking.status != BookingStatus.CANCELLED:
-            cancel_btn = f'<div class="booking-actions"><button class="btn-outline" style="color:var(--color-danger, #ef4444); border-color:var(--color-danger, #ef4444);" onclick="cancelBooking({booking.id})">{ICON_TRASH} Отменить</button></div>'
-        
-        date_str = booking.start_time.replace(tzinfo=None).strftime('%d.%m.%Y в %H:%M')
-        price_str = f"{booking.final_price or '—'} ₽"
-        duration_minutes = int((booking.end_time - booking.start_time).total_seconds() // 60)
+    notice_html = ""
+    if notice in _NOTICES:
+        text, tone = _NOTICES[notice]
+        notice_html = ui.notice(text, tone=tone)
 
-        salon_link_html = (
-            f'<a href="/salons?highlight={salon_id}" class="booking-salon-link">{e(salon_name)}</a>'
-            if salon_id else f'<span class="booking-salon-link booking-salon-link--plain">{e(salon_name)}</span>'
+    to_catalog = ui.empty_state(
+        "Предстоящих записей нет",
+        text="Выберите мастера, услугу и время — запись появится здесь.",
+        action_label="Открыть каталог",
+        action_href="/salons",
+    )
+
+    if not bookings:
+        body = ui.empty_state(
+            "Записей пока нет",
+            text="Здесь будут ваши визиты: предстоящие — с возможностью отменить, "
+                 "прошедшие — с отзывом.",
+            action_label="Открыть каталог",
+            action_href="/salons",
         )
-        
-        # Проверяем, есть ли уже отзыв на эту запись
-        review = None
-        review_html = ""
-        if booking.status == BookingStatus.COMPLETED:
-            review = (await db.execute(
-                select(Review).where(Review.booking_id == booking.id)
-            )).scalar_one_or_none()
-            if review:
-                # Используем звёзды из иконок
-                stars = f"{ICON_STAR_FILLED}" * review.rating + f"{ICON_STAR_EMPTY}" * (5 - review.rating)
-                review_html = f"""
-                <div class="booking-review">
-                    <div class="booking-review-stars">{stars}</div>
-                    <div class="booking-review-text">{e(review.comment or 'Без комментария')}</div>
-                    <button class="btn-outline booking-review-edit-btn" data-booking-id="{booking.id}" data-review-id="{review.id}">
-                        {ICON_EDIT_PENCIL} Редактировать отзыв
-                    </button>
-                </div>
-                """
-            else:
-                review_html = f"""
-                <div class="booking-review">
-                    <button class="btn-primary booking-review-add-btn" data-booking-id="{booking.id}" data-salon-id="{salon_id}" data-master-id="{master.id if master else ''}">
-                        {ICON_EDIT_PENCIL} Оставить отзыв
-                    </button>
-                </div>
-                """
-        
-        return f"""
-        <div class="booking-card" data-booking-id="{booking.id}">
-            <div class="booking-header">
-                <span class="service-name">{e(service_name)}</span>
-                <span class="booking-status {status_tone}">{status_label}</span>
-            </div>
-            <div class="booking-info-grid">
-                <div class="booking-col booking-col-salon">
-                    <p class="booking-salon-name"><span class="booking-icon-wrapper">{ICON_BUILDING_BOOKING}</span>{salon_link_html}</p>
-                    {f'<p class="booking-address"><span class="booking-icon-wrapper">{ICON_MAP_PIN}</span>{salon_address}</p>' if salon_address else ''}
-                    {f'<p class="booking-phone"><span class="booking-icon-wrapper">{ICON_PHONE}</span><span class="label">Телефон:</span> {salon_phone}</p>' if salon_phone else ''}
-                </div>
-                <div class="booking-col booking-col-service">
-                    <p><span class="booking-icon-wrapper">{ICON_USER_BOOKING}</span><span class="label">Мастер:</span> {e(master_name)}</p>
-                    <p><span class="booking-icon-wrapper">{ICON_SCISSORS_SMALL}</span>{e(service_name)}</p>
-                    <p><span class="booking-icon-wrapper">{ICON_CALENDAR_BOOKING}</span>{date_str}</p>
-                    <p><span class="booking-icon-wrapper">{ICON_CLOCK}</span>{duration_minutes} мин</p>
-                </div>
-                <div class="booking-col booking-col-price">
-                    <p class="booking-price"><span class="booking-icon-wrapper">{ICON_MONEY_BOOKING}</span>{price_str}</p>
-                </div>
-            </div>
-            {cancel_btn}
-            {review_html}
-        </div>
-        """
+    else:
+        upcoming_html = (
+            "".join(_render_card(b, ctx, upcoming=True) for b in upcoming)
+            if upcoming else to_catalog
+        )
+        sections = [
+            '<section class="bookings-group">'
+            + ui.section_head("Предстоящие")
+            + f'<div class="bookings-list">{upcoming_html}</div>'
+            + "</section>"
+        ]
+        # Пустой раздел «Прошедшие» показывать нечего: у нового человека он
+        # сообщал бы об отсутствии истории, которой у него и не могло быть.
+        if past:
+            sections.append(
+                '<section class="bookings-group">'
+                + ui.section_head("Прошедшие")
+                + '<div class="bookings-list">'
+                + "".join(_render_card(b, ctx, upcoming=False) for b in past)
+                + "</div></section>"
+            )
+        body = "".join(sections)
 
-    async def render_category(bookings_list, empty_message, empty_detail, show_salon_button=False):
-        if bookings_list:
-            cards = ""
-            for b in bookings_list:
-                cards += await render_booking_card(b)
-            return cards
-        else:
-            button_html = f'<a href="/salons" class="btn-primary">Выбрать салон</a>' if show_salon_button else ''
-            return f"""
-            <div class="empty-state">
-                <div class="empty-icon">{ICON_CALENDAR_BIG}</div>
-                <h3>{empty_message}</h3>
-                <p>{empty_detail}</p>
-                {button_html}
-            </div>
-            """
-
-    upcoming_html = await render_category(upcoming, "Нет предстоящих записей", "Выберите салон и запишитесь к мастеру — запись появится здесь", show_salon_button=True)
-    completed_html = await render_category(completed, "Нет завершённых записей", "Здесь будут отображаться завершённые записи")
-    cancelled_html = await render_category(cancelled, "Нет отменённых записей", "Здесь будут отображаться отменённые записи")
-
-    upcoming_count = len(upcoming)
-    completed_count = len(completed)
-    cancelled_count = len(cancelled)
-
-    html = f"""<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Мои записи — руми</title>
+    <meta name="robots" content="noindex, nofollow">
     {get_base_styles()}
 </head>
-<body>
+<body class="page-body">
     {render_header("bookings")}
     {render_sidebar("bookings", user)}
-    
-    <main class="bookings-main">
+
+    <main class="main-content cabinet-main">
         <div class="section-container">
-            <div class="bookings-header">
-                <h1>Мои записи</h1>
-                <p>Все ваши записи в салоны красоты</p>
-            </div>
-
-            <div class="bookings-tabs" id="bookingsTabs">
-                <button class="tab-btn" data-tab="upcoming">Предстоящие <span class="badge">{upcoming_count}</span></button>
-                <button class="tab-btn" data-tab="completed">Завершённые <span class="badge">{completed_count}</span></button>
-                <button class="tab-btn" data-tab="cancelled">Отменённые <span class="badge">{cancelled_count}</span></button>
-            </div>
-
-            <div id="tab-upcoming" class="tab-content">
-                {upcoming_html}
-            </div>
-            <div id="tab-completed" class="tab-content">
-                {completed_html}
-            </div>
-            <div id="tab-cancelled" class="tab-content">
-                {cancelled_html}
-            </div>
+            <header class="cabinet-head">
+                <h1 class="r-display">Мои записи</h1>
+                <p class="r-text r-muted">Предстоящие визиты и всё, что уже было.</p>
+            </header>
+            {notice_html}
+            {body}
         </div>
         {render_footer(user)}
     </main>
 
-    <!-- Модальное окно для отзыва -->
-    <div class="review-modal-overlay" id="reviewModal">
-        <div class="review-modal-box">
-            <button class="review-modal-close" onclick="closeReviewModal()">{ICON_X}</button>
-            <h2 id="reviewModalTitle">Оставить отзыв</h2>
-            <form id="reviewForm" enctype="multipart/form-data">
-                <input type="hidden" id="reviewBookingId" name="booking_id">
-                <input type="hidden" id="reviewSalonId" name="salon_id">
-                <input type="hidden" id="reviewMasterId" name="master_id">
-                <input type="hidden" id="reviewId" name="review_id">
-                <div class="form-group">
-                    <label>Оценка</label>
-                    <div class="star-rating" id="starRating">
-                        <span class="star" data-value="1">{ICON_STAR_EMPTY}</span>
-                        <span class="star" data-value="2">{ICON_STAR_EMPTY}</span>
-                        <span class="star" data-value="3">{ICON_STAR_EMPTY}</span>
-                        <span class="star" data-value="4">{ICON_STAR_EMPTY}</span>
-                        <span class="star" data-value="5">{ICON_STAR_EMPTY}</span>
-                    </div>
-                    <input type="hidden" id="reviewRating" name="rating" value="0">
-                </div>
-                <div class="form-group">
-                    <label for="reviewComment">Комментарий</label>
-                    <textarea id="reviewComment" name="comment" rows="3" placeholder="Расскажите о своём опыте..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="reviewPhotos">Фото (до 5)</label>
-                    <input type="file" id="reviewPhotos" name="files" accept="image/*" multiple>
-                </div>
-                <button type="submit" class="btn-primary" style="width:100%">Отправить отзыв</button>
-            </form>
-            <div id="reviewSuccess" style="display:none;text-align:center;padding:1rem;color:#22c55e">
-                {ICON_CHECK_SMALL} Отзыв сохранён
-            </div>
-        </div>
-    </div>
+    {ui.sheet(
+        '<p class="r-text" id="cancelWhat"></p>'
+        '<p class="r-text r-muted">Время освободится, и его сможет занять другой '
+        'клиент. Вернуть запись сможет только мастер.</p>'
+        '<div class="sheet-actions">'
+        + ui.button("Отменить запись", kind="danger", block=True,
+                    element_id="cancelConfirm")
+        + ui.button("Оставить запись", kind="secondary", block=True,
+                    data={"sheet-close": "1"})
+        + '</div>',
+        element_id="cancelSheet", title="Отменить запись?")}
 
-    <script src="/static/src/js/bookings.js"></script>
+    {ui.sheet(
+        '<form id="reviewForm" enctype="multipart/form-data">'
+        '<input type="hidden" id="reviewBookingId" name="booking_id">'
+        '<input type="hidden" id="reviewSalonId" name="salon_id">'
+        '<input type="hidden" id="reviewMasterId" name="master_id">'
+        '<input type="hidden" id="reviewId" name="review_id">'
+        '<div class="r-field">'
+        '<span class="r-field__label" id="reviewRatingLabel">Оценка</span>'
+        '<div class="review-stars" id="starRating" role="radiogroup"'
+        ' aria-labelledby="reviewRatingLabel">'
+        + "".join(
+            f'<button type="button" class="review-star" data-value="{i}" role="radio"'
+            f' aria-checked="false" aria-label="{i} из 5">{ICON_STAR_EMPTY}</button>'
+            for i in range(1, 6)
+        )
+        + '</div>'
+        '<input type="hidden" id="reviewRating" name="rating" value="0">'
+        '<span class="r-field__error" id="reviewRatingError" role="alert"></span>'
+        '</div>'
+        '<div class="r-field">'
+        '<label class="r-field__label" for="reviewComment">Комментарий</label>'
+        '<textarea class="r-input" id="reviewComment" name="comment" rows="4"'
+        ' placeholder="Что понравилось, что нет"></textarea>'
+        '</div>'
+        '<div class="r-field">'
+        '<label class="r-field__label" for="reviewPhotos">Фото (до 5)</label>'
+        '<input class="r-input" type="file" id="reviewPhotos" name="files"'
+        ' accept="image/*" multiple>'
+        '</div>'
+        + ui.button("Отправить отзыв", type_="submit", block=True,
+                    element_id="reviewSubmit", form="reviewForm")
+        + '</form>',
+        element_id="reviewSheet", title="Отзыв о визите")}
 </body>
 </html>"""
-    return html

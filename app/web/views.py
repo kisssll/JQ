@@ -208,26 +208,42 @@ async def pwa_offline():
 
 @router.get("/profile", response_class=HTMLResponse)
 async def profile_page(request: Request, db: AsyncSession = Depends(get_db)):
-    """Страница профиля."""
+    """Страница профиля.
+
+    ``success`` и ``error`` из адреса ОБЯЗАТЕЛЬНО доходят до страницы: все
+    формы профиля отвечают редиректом на /profile?success=… либо ?error=…
+    (см. api/v1/endpoints/users.py — там два десятка таких ответов), а эта
+    ручка их не читала вовсе. Человек менял пароль и не видел ни «готово», ни
+    «неверный текущий пароль»: страница просто перезагружалась.
+    """
     from app.web.pages.profile import render_profile_page
-    
+
     user = await get_current_user_from_cookie(request, db)
-    return HTMLResponse(content=render_profile_page(user))
+    return HTMLResponse(content=render_profile_page(
+        user,
+        success=request.query_params.get("success"),
+        error=request.query_params.get("error"),
+    ))
 
 
 @router.get("/bookings", response_class=HTMLResponse)
 async def bookings_page(
-    request: Request, 
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     """Страница 'Мои записи'."""
     from app.web.pages.bookings import render_bookings_page
-    
+
     user = await get_current_user_from_cookie(request, db)
     if not user:
         return RedirectResponse(url="/login?redirect=/bookings", status_code=302)
-    
-    return HTMLResponse(content=await render_bookings_page(db, user))
+
+    # reviewed=1 ставит форма отзыва (endpoints/reviews.py) при отправке без
+    # JS — признак жил в адресе, но страница о нём не знала.
+    notice = request.query_params.get("notice") or ""
+    if not notice and request.query_params.get("reviewed") == "1":
+        notice = "reviewed"
+    return HTMLResponse(content=await render_bookings_page(db, user, notice=notice))
 
 
 @router.get("/favorites", response_class=HTMLResponse)
@@ -237,7 +253,15 @@ async def favorites_page(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return RedirectResponse(url="/login?redirect=/favorites", status_code=302)
     from app.web.pages.favorites import render_favorites_page
-    return HTMLResponse(content=await render_favorites_page(db, user))
+
+    # added=1 / removed=1 ставит toggle-эндпоинт при переходе без JS.
+    notice = request.query_params.get("notice") or ""
+    if not notice:
+        for flag in ("added", "removed"):
+            if request.query_params.get(flag) == "1":
+                notice = flag
+                break
+    return HTMLResponse(content=await render_favorites_page(db, user, notice=notice))
 
 
 @router.get("/business", response_class=HTMLResponse)

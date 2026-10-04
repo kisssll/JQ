@@ -1,427 +1,333 @@
-/* static/css/pages/profile.css */
+/* static/src/css/profile.css — «Мой профиль».
+   Заход «кабинет клиента» (решение 0011, п. 14).
 
-.profile-main {
-    margin-right: 16rem;
-    padding-top: 120px;
-    padding-bottom: 0rem;
-    min-height: 100vh;
-    background: linear-gradient(
-        to bottom,
-        var(--page-gradient-1),
-        var(--page-gradient-2),
-        var(--page-gradient-3)
-    );
-}
-@media (max-width: 1023px) {
-    .profile-main {
-        margin-right: 0;
-        padding-top: 80px;
-    }
-}
+   Карточки — .r-card, поля — .r-field, кнопки — .r-btn, плашки — .r-status,
+   раскрывающиеся блоки — .r-disc, сообщения — .r-notice. Всё это в ui.css.
+   Здесь только раскладка профиля и то, чего нет больше нигде: аватар,
+   список каналов связи, переключатель темы.
 
-.profile-container {
-    max-width: 48rem;
-    margin: 0 auto;
-}
+   Общая раскладка кабинета (.cabinet-main, .cabinet-head) объявлена в
+   bookings.css — она одна на все три экрана кабинета.
 
-/* ---------- Баннер ---------- */
-.profile-banner {
-    height: 9rem; 
-    border-radius: 1.5rem 1.5rem 0 0;
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
+   Удалено вместе со старой разметкой: .profile-banner, .profile-view,
+   .profile-edit*, .profile-meta*, .profile-role-*, .profile-master-*,
+   .profile-business-*, .profile-model-status, .settings-card*,
+   .settings-theme-toggle, .settings-form-group, .settings-select*,
+   .settings-save-btn, .settings-verify-row, .settings-delete-*,
+   .profile-btn-*, .profile-guest-*, .profile-label, .profile-value.
+   Те из них, на которые ссылаются ЧУЖИЕ страницы, оставлены дословно в
+   конце файла. */
+
+.profile-stack {
+    display: grid;
+    gap: var(--space-24);
+    /* Карточка настроек шириной в монитор нечитаема: строка «Подтвердите
+       владение номером в Telegram или MAX» в 1200px теряет начало. */
+    max-width: 44rem;
 }
 
-.profile-avatar-wrapper {
-    position: absolute;
-    bottom: 1rem;
-    left: 2rem;
-    z-index: 5;
-    transition: bottom 0.3s ease;
+/* ===== Кто я ===== */
+/* Сетка, а не flex-строка из трёх элементов. Во flex кнопка «Изменить имя»
+   не сжимается, и на 375px колонке имени оставалось около сантиметра: имя
+   ломалось ПО БУКВЕ в вертикальный столбик. В сетке аватар и имя стоят в
+   первой строке, кнопка — во второй на всю ширину; с 600px всё три в ряд. */
+.profile-id {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: var(--space-12) var(--space-16);
+    margin-bottom: var(--space-24);
 }
 
+.profile-id__text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-8);
+}
+
+/* Кнопка — своя строка под аватаром и именем. */
+.profile-id > .r-btn {
+    grid-column: 1 / -1;
+    justify-self: start;
+}
+
+@media (min-width: 600px) {
+    .profile-id { grid-template-columns: auto 1fr auto; }
+    .profile-id > .r-btn { grid-column: auto; }
+}
+
+/* break-word, а не anywhere: длинное имя переносится ПО СЛОВАМ, и только
+   неразрывно длинное слово режется по букве. */
+.profile-name {
+    margin: 0;
+    overflow-wrap: break-word;
+}
+
+/* ---------- Аватар ----------
+   Своя разметка, а не .r-mark: у монограммы в карточке нет ни кнопки «сменить
+   фото», ни скрытого input, и добавлять их в общий элемент ради одного места
+   значило бы носить их по всему сервису. */
 .profile-avatar {
-    width: 6rem;
-    height: 6rem;
-    border-radius: 50%;
-    border: 4px solid var(--color-surface);
-    background: var(--color-surface);
-    overflow: hidden;
+    position: relative;
+    flex: none;
+    width: 72px;
+    height: 72px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    position: relative;
-    cursor: default;
+    overflow: hidden;
 }
 
 .profile-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
 }
 
 .profile-avatar-letter {
-    font-size: 2.5rem;
-    font-weight: 400;
-    color: var(--color-primary);
     font-family: var(--font-heading);
+    font-size: var(--text-28);
+    line-height: 1;
+    color: var(--color-muted);
 }
 
-/* Кнопка камеры */
+/* Кнопка выходит за край аватара, поэтому overflow у него снят на ней самой
+   через position: absolute и z-index — внутри круга 72px её цель в 44px не
+   поместилась бы, а меньше делать нельзя: это палец. */
 .profile-avatar-edit {
     position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    background: var(--color-primary);
-    border: 2px solid var(--color-surface);
-    color: var(--color-btn-text);
-    display: none;
-    align-items: center;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
     justify-content: center;
+    padding-bottom: 4px;
+    border: 0;
+    background: linear-gradient(to top, rgba(26, 17, 21, 0.55), transparent 58%);
+    color: #fff;
     cursor: pointer;
-    transition: transform 0.2s;
+    opacity: 0;
+    transition: opacity var(--duration-1) var(--ease-out);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.profile-avatar-edit svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* На телефоне наведения нет, и невидимая кнопка была бы недостижима:
+   показываем её всегда, где нет мыши. */
+.profile-avatar-edit,
+.profile-avatar-edit:focus-visible {
+    opacity: 1;
+}
+
+@media (hover: hover) {
+    .profile-avatar-edit { opacity: 0; }
+    .profile-avatar:hover .profile-avatar-edit,
+    .profile-avatar-edit:focus-visible { opacity: 1; }
+}
+
+.profile-avatar-edit:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .profile-avatar-edit { transition: none; }
+}
+
+/* ---------- Форма имени ---------- */
+.profile-edit-form {
+    margin: var(--space-16) 0;
+    padding-top: var(--space-16);
+    border-top: 1px solid var(--color-border);
+}
+
+.profile-edit-form[hidden] { display: none; }
+
+/* ---------- Ряды кнопок и ссылок ---------- */
+.profile-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    margin-top: var(--space-16);
+}
+
+.profile-roles {
+    display: grid;
+    gap: var(--space-24);
+}
+
+.profile-model__state { margin: 0 0 var(--space-8); }
+.profile-model__photo { margin: 0 0 var(--space-12); }
+
+/* ===== Как со мной связаться ===== */
+.channel-list {
+    list-style: none;
+    margin: 0 0 var(--space-16);
     padding: 0;
 }
 
-.profile-container.profile-edit-active .profile-avatar-edit {
-    display: flex;
-}
-
-.profile-avatar-edit:hover {
-    transform: scale(1.1);
-}
-.profile-avatar-edit svg {
-    width: 1rem;
-    height: 1rem;
-}
-
-.profile-edit-toggle {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: rgba(255,255,255,0.2);
-    backdrop-filter: blur(4px);
-    border: none;
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 2rem;
-    font-size: 0.8rem;
-    font-weight: 500;
+.channel-row {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    cursor: pointer;
-    transition: background 0.2s;
-    z-index: 2;
-}
-.profile-edit-toggle:hover {
-    background: rgba(255,255,255,0.3);
-}
-.profile-edit-toggle svg {
-    width: 1rem;
-    height: 1rem;
-}
-
-/* ---------- Белый блок (информация) ---------- */
-.profile-view {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-top: none;
-    border-radius: 0 0 1.5rem 1.5rem;
-    padding: 2rem 3rem;
-    margin-bottom: 3rem;
-    position: relative;
-    z-index: 1;
-}
-
-.profile-name-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.75rem;
-}
-.profile-name {
-    font-family: var(--font-heading);
-    font-size: 1.75rem;
-    font-weight: 400;
-    color: var(--color-heading);
-    margin: 0;
-}
-.profile-role-badge {
-    display: inline-block;
-    background: var(--color-accent-light);
-    color: var(--color-primary);
-    padding: 0.15rem 0.8rem;
-    border-radius: 2rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.profile-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-}
-.profile-meta-item {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.875rem;
-    color: var(--color-muted);
-}
-.profile-meta-item svg {
-    flex-shrink: 0;
-    color: var(--color-primary);
-}
-
-/* ---------- Режим редактирования ---------- */
-.profile-edit {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 1.5rem;
-    padding: 2rem;
-    margin-bottom: 1.5rem;
-}
-.profile-edit-header {
-    display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
+    gap: var(--space-12);
+    padding: var(--space-12) 0;
+    border-bottom: 1px solid var(--color-border);
     flex-wrap: wrap;
-    gap: 0.5rem;
-}
-.profile-edit-header h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--color-heading);
-    margin: 0;
-}
-.profile-edit-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-.profile-btn-cancel {
-    background: transparent;
-    border: 1px solid var(--color-border);
-    padding: 0.5rem 1.25rem;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-muted);
-    cursor: pointer;
-    transition: background 0.2s;
-}
-.profile-btn-cancel:hover {
-    background: var(--color-surface-alt);
-}
-.profile-edit-note {
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--color-border);
-    font-size: 0.875rem;
-    color: var(--color-muted);
-}
-.profile-edit-note a {
-    color: var(--color-primary);
-    text-decoration: none;
-    font-weight: 500;
-}
-.profile-edit-note a:hover {
-    text-decoration: underline;
 }
 
-/* ---------- Ролевые блоки ---------- */
-.profile-role-block {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 1.5rem;
-    padding: 1.5rem 2rem;
-    margin-bottom: 1.5rem;
-}
-.profile-role-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-.profile-role-header h3 {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--color-heading);
-    margin: 0;
-}
-.profile-role-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
+.channel-row:last-child { border-bottom: 0; }
 
-/* Подписка */
-.profile-subscription-row {
+.channel-row__id {
     display: flex;
     align-items: baseline;
-    gap: 0.5rem;
-    font-size: 0.9rem;
+    flex-wrap: wrap;
+    gap: var(--space-4) var(--space-8);
+    min-width: 0;
 }
-.profile-label {
-    color: var(--color-muted);
-    min-width: 7rem;
-}
-.profile-value {
+
+.channel-row__name {
     font-weight: 500;
     color: var(--color-heading);
 }
 
-/* Мастер */
-.profile-master-grid {
+.channel-row__value {
+    font-size: var(--text-14);
+    color: var(--color-muted);
+    overflow-wrap: anywhere;
+}
+
+.channel-row__action,
+.channel-actions {
+    display: flex;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+    flex: none;
+}
+
+.channel-actions { margin-top: var(--space-16); }
+
+.channel-form { display: inline-flex; margin: 0; }
+
+/* Плашка «не доставляется» — одна колонка: текст, что делать, и кнопки. */
+.channel-broken {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 0.75rem;
+    gap: var(--space-8);
 }
-@media (max-width: 640px) {
-    .profile-master-grid {
-        grid-template-columns: 1fr;
-    }
-}
-.profile-master-grid > div {
-    display: flex;
-    flex-direction: column;
-}
-.profile-master-grid .profile-label {
-    font-size: 0.75rem;
-    min-width: auto;
-}
-.profile-master-grid .profile-value {
-    font-weight: 500;
-}
-.profile-master-bio {
-    margin-top: 0.5rem;
-    padding: 0.75rem;
-    background: var(--color-surface-alt);
-    border-radius: 0.5rem;
-    font-size: 0.9rem;
+
+.channel-broken__how {
+    font-size: var(--text-13);
     color: var(--color-body);
-    line-height: 1.6;
 }
 
-/* Бизнес */
-.profile-business-name {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--color-heading);
-}
-.profile-business-meta {
+.channel-broken__actions {
     display: flex;
+    gap: var(--space-8);
     flex-wrap: wrap;
-    gap: 1rem;
-    font-size: 0.875rem;
-    color: var(--color-muted);
-}
-.profile-business-stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-    font-size: 0.875rem;
-    color: var(--color-heading);
 }
 
-/* ---------- Кнопки ---------- */
-.profile-btn-primary {
-    display: inline-flex;
+/* Выбор канала: подпись, селект и «Сохранить» в одну строку на широком
+   экране, в столбик на телефоне. */
+.channel-pick { margin-top: var(--space-16); }
+
+.channel-pick__row {
+    display: flex;
+    gap: var(--space-8);
     align-items: center;
-    gap: 0.5rem;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
+    margin-top: var(--space-8);
+    flex-wrap: wrap;
+}
+
+.channel-pick__row select {
+    flex: 1;
+    min-width: 12rem;
+}
+
+/* ===== Оформление ===== */
+.theme-toggle {
+    display: flex;
+    gap: var(--space-8);
+}
+
+/* Выбранная тема — залитая кнопка. Класс ставит profile.js, читая
+   localStorage; состояние передаётся не только цветом, но и обводкой. */
+.theme-btn.active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
     color: var(--color-btn-text);
-    border: none;
-    padding: 0.6rem 1.5rem;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.2s, opacity 0.2s;
-    text-decoration: none;
-}
-.profile-btn-primary:hover {
-    transform: scale(1.02);
-    opacity: 0.95;
 }
 
-/* align-self обязателен: кнопка лежит во flex-колонке, а inline-flex в ней
-   растягивается на всю ширину — выходила полоса на 746px вместо кнопки. */
-.profile-btn-secondary {
-    display: inline-flex;
-    align-self: flex-start;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 1.5rem;
-    border-radius: 0.5rem;
-    border: 2px solid var(--color-border);
-    background: transparent;
-    color: var(--color-heading);
-    font-weight: 600;
-    font-size: 0.875rem;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-.profile-btn-secondary:hover {
-    background: var(--color-surface-alt);
+/* ===== Согласия и документы ===== */
+.profile-docs {
+    margin: var(--space-16) 0;
+    padding-left: var(--space-24);
+    display: grid;
+    gap: var(--space-8);
 }
 
-.profile-btn-outline {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 1.5rem;
-    border-radius: 0.5rem;
-    border: 2px solid var(--color-border);
-    color: var(--color-heading);
-    font-weight: 600;
-    font-size: 0.875rem;
-    text-decoration: none;
-    background: transparent;
-}
-.profile-btn-outline:hover {
-    background: var(--color-surface-alt);
+.profile-docs li {
+    font-size: var(--text-14);
+    line-height: var(--leading-text);
 }
 
-/* ---------- Формы ---------- */
-.profile-form-group {
+.profile-docs a {
+    color: var(--color-accent);
+    text-decoration: none;
+}
+
+.profile-docs a:hover,
+.profile-docs a:focus-visible { text-decoration: underline; }
+
+.r-seclink-wrap { margin: 0 0 var(--space-24); }
+
+.profile-promo {
+    padding-top: var(--space-16);
+    border-top: 1px solid var(--color-border);
+}
+
+.profile-promo .r-field__label {
     display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-}
-.profile-form-group label {
-    font-weight: 500;
-    font-size: 0.875rem;
-    color: var(--color-heading);
-}
-.profile-form-group input,
-.profile-form-group textarea {
-    padding: 0.7rem 0.875rem;
-    border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
-    font-size: 0.9rem;
-    font-family: var(--font-body);
-    background: var(--color-surface);
-    color: var(--color-heading);
-    transition: border-color 0.2s, box-shadow 0.2s;
-    width: 100%;
-}
-.profile-form-group input:focus,
-.profile-form-group textarea:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+    align-items: center;
+    gap: var(--space-8);
+    flex-wrap: wrap;
 }
 
-/* ---------- Alert ---------- */
+/* ===== Поля внутри раскрывающихся блоков ===== */
+/* Поле во всю ширину карточки — белая полоса в 700px под город или почту:
+   она перетягивает на себя весь раздел. Ввод должен быть примерно такой
+   длины, какой ожидается значение. */
+.r-disc__body .r-field,
+.r-disc__body select {
+    max-width: 22rem;
+}
+
+.r-disc__body .r-btn { margin-top: var(--space-8); }
+
+/* ===== НИЖЕ — ЧУЖОЕ =====
+   Правила, на которые ссылаются страницы ДРУГИХ миров: у них свой заход, и
+   трогать их здесь нельзя. Оставлены дословно.
+
+   .profile-alert*        — app/web/pages/model_join.py, model_dashboard.py
+   .settings-card*,
+   .settings-icon-wrapper — app/web/pages/connect_vk.py
+   .settings-accordion,
+   .accordion-*           — app/web/pages/tariffs.py,
+                            business/tabs/overview.py, analytics.py
+   .settings-title,
+   .settings-icon-sm      — упоминаются в app/web/components/icons.py
+   Профиль ничем из этого больше не пользуется. */
+
 .profile-alert {
     padding: 0.75rem 1rem;
     border-radius: 0.5rem;
@@ -439,121 +345,6 @@
     color: #166534;
 }
 
-/* ---------- Гость ---------- */
-.profile-guest-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 1.5rem;
-    padding: 3rem;
-    text-align: center;
-}
-.profile-guest-card h2 {
-    font-family: var(--font-heading);
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-}
-.profile-guest-card p {
-    color: var(--color-muted);
-    margin-bottom: 1.5rem;
-}
-.profile-guest-actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-/* ---------- Адаптив ---------- */
-@media (max-width: 640px) {
-    .profile-banner {
-        height: 6rem;
-    }
-    .profile-avatar-wrapper {
-        left: 1rem;
-        bottom: -0.5rem;
-    }
-    .profile-avatar {
-        width: 4.5rem;
-        height: 4.5rem;
-    }
-    .profile-avatar-letter {
-        font-size: 2rem;
-    }
-    .profile-view {
-        padding: 2.5rem 1.25rem 80px;
-    }
-    .profile-name-wrapper {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .profile-meta {
-        gap: 0.75rem;
-    }
-    .profile-edit-toggle {
-        top: 0.5rem;
-        right: 0.5rem;
-        font-size: 0.7rem;
-        padding: 0.3rem 0.8rem;
-    }
-    .profile-role-block {
-        padding: 1rem 1.25rem;
-    }
-    .profile-edit-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .profile-guest-card {
-        padding: 2rem 1.5rem;
-    }
-}
-
-/* Настройки */
-
-.settings-main {
-    margin-right: 16rem;
-    padding-top: 120px;
-    padding-bottom: 0rem;
-    background: linear-gradient(
-        to bottom,
-        var(--page-gradient-1),
-        var(--page-gradient-2),
-        var(--page-gradient-3)
-    );
-    min-height: 100vh;
-}
-@media (max-width: 1023px) {
-    .settings-main {
-        margin-right: 0;
-        padding-top: 80px;
-    }
-}
-
-.settings-container {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 0 20px;
-}
-
-/* ---------- Заголовок с иконкой ---------- */
-.settings-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 2rem;
-    padding-left: 0.5rem;
-}
-
-.settings-header-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-primary);
-}
-.settings-header-icon svg {
-    width: 2rem;
-    height: 2rem;
-}
-
 .settings-title {
     font-family: var(--font-heading);
     font-size: 2rem;
@@ -561,7 +352,6 @@
     margin: 0;
 }
 
-/* ---------- Карточки ---------- */
 .settings-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
@@ -602,129 +392,15 @@
     margin-top: 0.5rem;
 }
 
-/* ---------- Тема ---------- */
-.settings-theme-toggle {
-    display: flex;
-    gap: 0.75rem;
-}
-
-.theme-btn {
-    padding: 0.6rem 1.2rem;
-    border-radius: 2rem;
-    border: 2px solid var(--color-border);
-    background: transparent;
-    color: var(--color-heading);
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.theme-btn:hover {
-    border-color: var(--color-primary);
-}
-.theme-btn.active {
-    border-color: var(--color-primary);
-    background: var(--color-accent-light);
-}
-[data-theme="dark"] .theme-btn {
-    border-color: #444;
-    color: var(--color-text);
-}
-[data-theme="dark"] .theme-btn.active {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: var(--color-btn-text);
-}
-[data-theme="dark"] .theme-btn:hover {
-    border-color: var(--color-primary);
-}
-
-/* ---------- Уведомления ---------- */
-.settings-notification-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-}
-
-.settings-switch-item {
-    display: flex;
+.settings-icon-sm {
+    display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    color: var(--color-heading);
+}
+.settings-icon-sm svg {
+    width: 1.25rem;
+    height: 1.25rem;
 }
 
-.settings-switch {
-    position: relative;
-    display: inline-block;
-    width: 44px;
-    height: 24px;
-    flex-shrink: 0;
-}
-.settings-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-.settings-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: var(--color-muted);
-    transition: .3s;
-    border-radius: 34px;
-}
-.settings-slider::before {
-    content: "";
-    position: absolute;
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: .3s;
-    border-radius: 50%;
-}
-.settings-switch input:checked + .settings-slider {
-    background-color: var(--color-primary);
-}
-.settings-switch input:checked + .settings-slider::before {
-    transform: translateX(20px);
-}
-
-.settings-select-group {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-.settings-select-group label {
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--color-heading);
-}
-.settings-select {
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
-    background: var(--color-surface);
-    color: var(--color-heading);
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    outline: none;
-}
-.settings-select:focus {
-    border-color: var(--color-primary);
-}
-
-/* ---------- Аккордеон ---------- */
 .settings-accordion {
     display: flex;
     flex-direction: column;
@@ -739,9 +415,9 @@
 }
 /* overflow:hidden выше — только чтобы скруглить углы шапки-хедера при
    ховере/закрытом состоянии. В открытом аккордеоне внутри может быть
-   выпадающий список (Choices.js у выбора города и т.п.) — он позиционируется
-   абсолютно внутри .accordion-item, и overflow:hidden его обрезал бы вместо
-   того, чтобы дать всплыть поверх соседних блоков. */
+   выпадающий список (Choices.js) — он позиционируется абсолютно внутри
+   .accordion-item, и overflow:hidden его обрезал бы вместо того, чтобы дать
+   всплыть поверх соседних блоков. */
 .accordion-item.active {
     overflow: visible;
 }
@@ -791,8 +467,6 @@
     transform: rotate(180deg);
 }
 
-/* Верхний отступ был нулевой, и первая подпись стояла в пиксель от границы
-   шапки. Снизу отступ уже был — рытма не было только сверху. */
 .accordion-body {
     display: none;
     padding: 1.25rem;
@@ -807,217 +481,4 @@
     flex-direction: column;
     gap: 1rem;
     padding-top: 1rem;
-}
-
-/* Поля растягивались на всю ширину карточки: под название города или email
-   выходила белая полоса почти в 700px, и она перетягивала на себя всё
-   внимание в разделе. Ограничиваем ширину группы по длине содержимого —
-   поле должно быть примерно такой длины, какой ожидается ввод. */
-.settings-form-group {
-    display: flex;
-    flex-direction: column;
-    /* 0.3rem это 5px — подпись прилипала к полю. */
-    gap: 0.45rem;
-    max-width: 24rem;
-}
-
-/* Код из письма — четыре цифры, поле под них не должно быть длиной с email. */
-.settings-form-group.is-short {
-    max-width: 9rem;
-}
-
-.settings-form-group label {
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-heading);
-}
-.settings-form-group input {
-    padding: 0.7rem 0.875rem;
-    border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    background: var(--color-surface);
-    color: var(--color-heading);
-    transition: border-color 0.2s, box-shadow 0.2s;
-    width: 100%;
-}
-.settings-form-group input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
-}
-
-/* Между последним полем и кнопкой не было ни пикселя — кнопка читалась как
-   продолжение поля. Отступ задаём сверху у кнопки, а не снизу у группы:
-   групп в форме несколько, и между собой они уже разделены. */
-.settings-save-btn {
-    align-self: flex-start;
-    margin-top: 1rem;
-    padding: 0.6rem 1.5rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-}
-
-/* Несколько полей подряд (смена пароля) — разделяем их между собой.
-   Второе правило — про поле кода, которое идёт следом за кнопкой «Отправить
-   код»: сама кнопка отступ снизу не даёт, и поле прилипало к ней. */
-.settings-form-group + .settings-form-group,
-.settings-save-btn + .settings-form-group {
-    margin-top: 0.9rem;
-}
-
-/* ---------- Удаление аккаунта ---------- */
-.settings-delete-section {
-    margin-top: 2rem;
-    margin-bottom: 20px;
-    padding: 1.5rem 2.5rem;
-    border: 1px solid var(--color-danger, #ef4444);
-    border-radius: 1.5rem;
-    background: var(--color-surface);
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-}
-
-/* Секция — flex-колонка с gap, но форма внутри была обычным блоком: зазор
-   между полем и кнопкой оказывался нулевым, кнопка прилегала вплотную.
-   align-self: stretch нужен из-за align-items: flex-start у секции — без
-   него форма ужималась по содержимому и поле выходило 232px вместо 408. */
-.settings-delete-form {
-    display: flex;
-    flex-direction: column;
-    /* stretch, а не flex-start: иначе группа с полем ужималась по содержимому
-       и поле выходило 232px. Ширину ограничивает собственный max-width
-       группы (24rem), а кнопку прижимаем к левому краю отдельно. */
-    align-items: stretch;
-    align-self: stretch;
-    gap: 1rem;
-}
-
-.settings-delete-form .settings-delete-btn {
-    align-self: flex-start;
-}
-
-.settings-delete-warning {
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    color: var(--color-muted);
-    margin: 0;
-}
-
-.settings-delete-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 1.5rem;
-    border: 2px solid var(--color-danger, #ef4444);
-    border-radius: 2rem;
-    background: transparent;
-    color: var(--color-danger, #ef4444);
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.settings-delete-btn:hover {
-    background: var(--color-danger, #ef4444);
-    color: white;
-}
-.settings-icon-sm {
-    display: inline-flex;
-    align-items: center;
-}
-.settings-icon-sm svg {
-    width: 1.25rem;
-    height: 1.25rem;
-}
-
-/* ---------- Адаптив ---------- */
-@media (max-width: 640px) {
-    .settings-main {
-        padding-top: 80px;
-    }
-    .settings-container {
-        padding: 0 16px;
-    }
-    .settings-header {
-        gap: 0.5rem;
-        padding-left: 0;
-    }
-    .settings-header-icon svg {
-        width: 1.5rem;
-        height: 1.5rem;
-    }
-    .settings-title {
-        font-size: 1.5rem;
-    }
-    .settings-card {
-        padding: 1.25rem 1.25rem;
-        border-radius: 1.25rem;
-    }
-    .settings-theme-toggle {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .settings-select-group {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .accordion-header {
-        font-size: 0.9rem;
-        padding: 0.75rem 1rem;
-    }
-    .settings-delete-section {
-        padding: 1rem 1.25rem;
-    }
-}
-
-/* ===== Единая высота кнопок профиля =====
-   На странице соседствовали кнопки семи разных высот: 29, 34, 35, 36, 38, 44
-   и 48px. Причина — у каждого блока свои падинги, а высота нигде не задана.
-   Приводим к одной шкале; padding оставляем прежним, он влияет только на
-   ширину. */
-.profile-main .profile-btn-secondary,
-.profile-main .settings-save-btn,
-.profile-main .settings-delete-btn,
-.profile-main .theme-btn,
-.profile-main .profile-edit-toggle,
-.profile-main .notify-actions .btn-outline,
-.profile-main .settings-card .btn-outline {
-    min-height: 2.5rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-}
-
-/* Отступ до кнопки — не меньше, чем между полями: раньше кнопка прилегала
-   к подсказке вплотную. */
-.profile-main .settings-card-hint + .settings-save-btn {
-    margin-top: 1rem;
-}
-
-/* Кнопки подтверждения канала — в строку, с тем же отступом сверху, что и
-   у «Сохранить»: раньше ряд задавался инлайновым стилем без отступа и
-   прилипал к подсказке. */
-.settings-verify-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-top: 1rem;
-}
-
-/* Отступ .settings-save-btn (margin-top: 1rem) нужен только когда кнопка
-   стоит в столбце под полем. В горизонтальных рядах он ломал выравнивание:
-   в «Способе получения» кнопка «Сохранить» висела на 9px ниже выпадающего
-   списка, а ряд «Подтвердить в…» раздувался с 43 до 60px, потому что обе
-   кнопки внутри тянули этот отступ. */
-.settings-select-group .settings-save-btn,
-.settings-verify-row .settings-save-btn {
-    margin-top: 0;
 }

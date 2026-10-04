@@ -1,333 +1,215 @@
-/* static/src/css/bookings.css */
+/* static/src/css/bookings.css — «Мои записи».
+   Заход «кабинет клиента» (решение 0011, п. 14).
 
-.bookings-main {
-    margin-right: 16rem;
-    padding-top: 100px; 
+   Своих цветов, радиусов и кнопок здесь нет: карточка — .r-card, плашка
+   состояния — .r-status, список полей — .r-facts, кнопки — .r-btn. Ниже
+   только раскладка и то, чего нет ни у кого больше (звёзды отзыва).
+
+   Прежние .bookings-tabs, .tab-btn, .booking-info-grid, .booking-col,
+   .review-modal-* удалены вместе с вкладками и модальным окном. */
+
+/* ===== Общая раскладка кабинета =====
+   Та же, что у каталога: .main-content отступает под липкую колонку меню
+   справа, .section-container задаёт поля. Второй раскладки у кабинета нет —
+   он часть того же мира. */
+.cabinet-main {
     min-height: 100vh;
-    background: linear-gradient(to bottom, var(--page-gradient-1), var(--page-gradient-2), var(--page-gradient-3));
-}
-@media (max-width: 1023px) {
-    .bookings-main {
-        margin-right: 0;
-        padding-top: 80px;
-    }
+    /* dvh там, где он есть: на телефоне 100vh считается по ВЫСОТЕ БЕЗ
+       адресной строки, и подвал уезжает под неё. */
+    min-height: 100dvh;
+    padding-bottom: var(--space-48);
 }
 
-.bookings-header h1 {
-    font-family: var(--font-heading);
-    font-size: 2rem;
-    font-weight: 400;
-    color: var(--color-heading);
-    margin-bottom: 0.25rem;
-}
-.bookings-header p {
-    color: var(--color-muted);
-    font-size: 0.95rem;
-    margin-bottom: 1.5rem;
+/* 5rem сверху — не воздух, а место под плашку логотипа в прозрачной шапке
+   (те же 5rem, что у .catalog-hero). */
+.cabinet-head {
+    padding: 5rem 0 var(--space-24);
+    max-width: 34rem;
 }
 
-/* ===== ВКЛАДКИ ===== */
-.bookings-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
-    border-bottom: 1px solid var(--color-border);
-    padding-bottom: 0.5rem;
+@media (min-width: 640px) {
+    .cabinet-head { padding-top: 6rem; }
 }
 
-.tab-btn {
-    padding: 0.6rem 1.2rem;
-    border: none;
-    border-radius: 2rem;
-    background: var(--color-surface-alt);
-    color: var(--color-heading);
-    font-weight: 500;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-}
-.tab-btn:hover {
-    background: var(--color-border);
-    color: var(--color-primary);
-}
-.tab-btn.active {
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    color: var(--color-btn-text);
-}
-.tab-btn .badge {
-    display: inline-block;
-    background: rgba(255,255,255,0.3);
-    border-radius: 1rem;
-    padding: 0 0.5rem;
-    font-size: 0.75rem;
-    margin-left: 0.3rem;
-}
-.tab-btn.active .badge {
-    background: rgba(255,255,255,0.25);
-    color: white;
+.cabinet-head p { margin-top: var(--space-12); }
+
+/* ===== Разделы «Предстоящие» / «Прошедшие» ===== */
+.bookings-group + .bookings-group {
+    margin-top: var(--space-48);
 }
 
-.tab-content {
-    display: none;
-}
-.tab-content.active {
-    display: block;
-}
-
-/* Карточка записи */
-.booking-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 1rem;
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 1rem;
-    transition: box-shadow 0.2s;
-}
-.booking-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-}
-
-.booking-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-}
-.booking-header .service-name {
-    font-weight: 600;
-    font-size: 1.1rem;
-    color: var(--color-heading);
-}
-.booking-status {
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.2rem 0.7rem;
-    border-radius: 1rem;
-    white-space: nowrap;
-    background: var(--color-accent-light);
-    color: var(--color-primary);
-}
-
-/* Состояние читается цветом: подтверждено — акцент, завершено — зелёное,
-   отменено и пропущено — приглушённое, ожидание — янтарное. */
-.booking-status.is-completed {
-    background: var(--color-success-light);
-    color: var(--color-success);
-}
-.booking-status.is-cancelled {
-    background: var(--color-surface-alt);
-    color: var(--color-muted);
-}
-.booking-status.is-pending {
-    background: var(--color-warning-light);
-    color: var(--color-warning);
-}
-
-.booking-body p {
-    font-size: 0.9rem;
-    color: var(--color-muted);
-    margin: 0.2rem 0;
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-}
-.booking-body .label {
-    font-weight: 500;
-    color: var(--color-heading);
-}
-
-/* Три колонки: салон/контакты — мастер/услуга/время — цена */
-.booking-info-grid {
+/* minmax(0, 1fr), а не 1fr: у элемента сетки min-width по умолчанию равен
+   min-content, и длинная плашка состояния (она с white-space: nowrap)
+   распирала колонку шире контейнера — на 375px появлялась горизонтальная
+   прокрутка всей страницы. */
+.bookings-list {
     display: grid;
-    grid-template-columns: 1.1fr 1.3fr 0.7fr;
-    gap: 1rem 1.5rem;
-    padding-top: 0.25rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-16);
+    margin-top: var(--space-16);
 }
-.booking-col {
+
+/* Карточки не растягиваются на всю ширину монитора: строка факта в 1200px
+   читается хуже, чем в 44rem — глаз теряет начало следующей строки. */
+@media (min-width: 1024px) {
+    .bookings-list { max-width: 44rem; }
+}
+
+/* ===== Карточка записи ===== */
+.booking-card__head {
     display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-12);
+    margin-bottom: var(--space-16);
 }
-.booking-col p {
-    font-size: 0.9rem;
-    color: var(--color-muted);
+
+.booking-card__service {
     margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
+    min-width: 0;
 }
-.booking-col .label {
-    font-weight: 500;
-    color: var(--color-heading);
+
+/* Плашка не сжимается: при длинном названии услуги «Ждёт подтверждения»
+   ломалось по слогам в колонку из трёх букв. */
+.booking-card__head .r-status {
+    flex: none;
 }
+
+.booking-card__action {
+    margin-top: var(--space-16);
+    padding-top: var(--space-16);
+    border-top: 1px solid var(--color-border);
+}
+
+/* Ссылка на салон внутри списка фактов — обычная текстовая ссылка акцентом. */
 .booking-salon-link {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--color-primary);
+    color: var(--color-accent);
     text-decoration: none;
 }
-.booking-salon-link:hover {
+
+.booking-salon-link:hover,
+.booking-salon-link:focus-visible {
     text-decoration: underline;
 }
-.booking-salon-link--plain {
-    color: var(--color-heading);
-    cursor: default;
-}
-.booking-col-price {
-    align-items: flex-end;
-    text-align: right;
-}
-.booking-price {
-    font-weight: 700;
-    font-size: 1.05rem;
-    color: var(--color-heading);
+
+.r-facts a[href^="tel:"] {
+    color: var(--color-body);
+    text-decoration: none;
 }
 
-/* Стили для иконок в карточке */
-.booking-icon-wrapper {
+.r-facts a[href^="tel:"]:hover,
+.r-facts a[href^="tel:"]:focus-visible {
+    text-decoration: underline;
+}
+
+/* ===== Оставленный отзыв в карточке ===== */
+.booking-review {
+    display: grid;
+    gap: var(--space-8);
+    justify-items: start;
+}
+
+.booking-review__stars {
+    display: inline-flex;
+    gap: 2px;
+    color: var(--color-accent);
+}
+
+.booking-review__stars svg {
+    width: 16px;
+    height: 16px;
+}
+
+.booking-review__text {
+    margin: 0;
+    font-size: var(--text-14);
+    line-height: var(--leading-text);
+    color: var(--color-body);
+    max-width: var(--measure);
+}
+
+/* ===== Звёзды в форме отзыва =====
+   Настоящие кнопки с role=radio, а не <span> с обработчиком: оценку ставят и
+   с клавиатуры (стрелками, см. bookings.js). */
+.review-stars {
+    display: flex;
+    gap: var(--space-4);
+    margin-top: var(--space-8);
+}
+
+.review-star {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.2rem;
-    height: 1.2rem;
-    flex-shrink: 0;
-    color: var(--color-primary);
-}
-.booking-icon-wrapper svg {
-    width: 1.2rem;
-    height: 1.2rem;
-    stroke-width: 2;
-}
-
-.booking-actions {
-    margin-top: 0.75rem;
-    display: flex;
-    gap: 0.5rem;
-}
-
-/* Блок отзыва в карточке */
-.booking-review {
-    margin-top: 1rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--color-border);
-}
-.booking-review-stars {
-    color: #facc15;
-    font-size: 1.1rem;
-}
-.booking-review-text {
-    margin: 0.5rem 0;
-    font-size: 0.9rem;
-    color: var(--color-body);
-}
-.booking-review-edit-btn,
-.booking-review-add-btn {
-    font-size: 0.8rem;
-    padding: 0.3rem 0.9rem;
-}
-.booking-review-edit-btn {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-}
-.booking-review-edit-btn:hover {
-    background: var(--color-primary);
-    color: var(--color-btn-text);
-}
-
-/* Модальное окно отзыва */
-.review-modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-}
-.review-modal-overlay.active {
-    display: flex;
-}
-.review-modal-box {
-    background: var(--color-surface);
-    border-radius: 1.5rem;
-    padding: 2rem;
-    max-width: 500px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-    position: relative;
-}
-.review-modal-close {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
+    /* 44px — палец. Звезда мелкая, но цель под неё обязана быть полной. */
+    width: var(--control-h);
+    height: var(--control-h);
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-8);
     background: none;
-    border: none;
+    color: var(--color-border-strong);
     cursor: pointer;
-    color: var(--color-muted);
-    font-size: 1.5rem;
-}
-.review-modal-close:hover {
-    color: var(--color-heading);
-}
-.review-modal-box h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-}
-.review-modal-box .form-group {
-    margin-bottom: 1rem;
-}
-.review-modal-box .form-group label {
-    display: block;
-    font-weight: 500;
-    margin-bottom: 0.3rem;
-    font-size: 0.9rem;
-}
-.review-modal-box .form-group input[type="file"],
-.review-modal-box .form-group textarea {
-    width: 100%;
-    padding: 0.6rem;
-    border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
-    font-size: 0.9rem;
-    background: var(--color-surface);
-    color: var(--color-heading);
-}
-.review-modal-box .star-rating {
-    display: flex;
-    gap: 0.3rem;
-    font-size: 1.8rem;
-    cursor: pointer;
-}
-.review-modal-box .star-rating .star {
-    color: #d1d5db;
-    transition: color 0.2s;
-}
-.review-modal-box .star-rating .star.active {
-    color: #facc15;
-}
-.review-modal-box .star-rating .star:hover {
-    transform: scale(1.1);
+    /* На телефоне :hover залипает после тапа — подсветка только мышью. */
+    transition: color var(--duration-1) var(--ease-out),
+                transform var(--duration-1) var(--ease-out);
+    -webkit-tap-highlight-color: transparent;
 }
 
-/* Сообщение об успехе */
-#reviewSuccess {
-    display: none;
-    text-align: center;
-    padding: 1rem;
-    color: #22c55e;
-}
-#reviewSuccess svg {
-    width: 1.2rem;
-    height: 1.2rem;
-    vertical-align: middle;
-    margin-right: 0.3rem;
+.review-star svg {
+    width: 28px;
+    height: 28px;
 }
 
-/* Пустое состояние */
+.review-star.is-on {
+    color: var(--color-accent);
+}
+
+.review-star:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+.review-star:active {
+    transform: scale(0.92);
+}
+
+@media (hover: hover) {
+    .review-star:hover { color: var(--color-accent-hover); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .review-star { transition: none; }
+    .review-star:active { transform: none; }
+}
+
+/* ===== Кнопки в листе снизу ===== */
+/* Опасное действие сверху, отказ снизу: на телефоне палец лежит у нижнего
+   края, и «Оставить запись» должна быть там, куда он попадает сам. */
+.sheet-actions {
+    display: grid;
+    gap: var(--space-8);
+    margin-top: var(--space-16);
+}
+
+.r-sheet__body .r-field + .r-field {
+    margin-top: var(--space-16);
+}
+
+/* Два абзаца подряд в листе читались как один: первый называет, ЧТО
+   отменяют, второй — что из этого следует. Между группами просторно. */
+.r-sheet__body .r-text + .r-text {
+    margin-top: var(--space-12);
+}
+
+/* ===== НИЖЕ — ЧУЖОЕ =====
+   Эти четыре правила объявлены без привязки к странице, а bookings.css в
+   бандле идёт ПОСЛЕ empty-state.css — значит они перекрывают единое пустое
+   состояние ВЕЗДЕ: в панели (склад, выплаты), в каталоге, в кабинете наёмного
+   мастера. «Мои записи» ими больше не пользуются (у них .r-empty), но убрать
+   их отсюда — значит перекрасить чужие экраны, у которых свой заход впереди.
+   Оставлены дословно; снимать вместе с переездом тех страниц на .r-empty. */
+
 .empty-state {
     text-align: center;
     padding: 3rem 1.5rem;
@@ -351,48 +233,4 @@
     color: var(--color-muted);
     font-size: 0.9rem;
     margin-bottom: 1.5rem;
-}
-
-@media (max-width: 768px) {
-    .booking-info-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-    .booking-col-price {
-        grid-column: 1 / -1;
-        flex-direction: row;
-        align-items: center;
-        gap: 0.5rem;
-    }
-}
-
-/* Адаптив */
-@media (max-width: 640px) {
-    .bookings-main {
-        padding-top: 80px;
-    }
-    .bookings-header h1 {
-        font-size: 1.5rem;
-    }
-    .tab-btn {
-        font-size: 0.8rem;
-        padding: 0.4rem 0.8rem;
-    }
-    .booking-card {
-        padding: 1rem;
-    }
-    .booking-header {
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-    .booking-info-grid {
-        grid-template-columns: 1fr;
-        gap: 0.6rem;
-    }
-    .booking-col-price {
-        align-items: flex-start;
-        text-align: left;
-    }
-    .review-modal-box {
-        padding: 1.5rem;
-    }
 }

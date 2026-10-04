@@ -2,32 +2,31 @@
 import { confirmDialog, toastError, toastNetworkError } from './ui-feedback.js';
 
 document.addEventListener('DOMContentLoaded', function() {
-    // === РЕДАКТИРОВАНИЕ ПРОФИЛЯ ===
+    // === РЕДАКТИРОВАНИЕ ИМЕНИ ===
+    // Форма имени раскрывается внутри карточки «Кто я», а не подменяет её
+    // целиком: прежний «режим редактирования» прятал телефон, почту и город
+    // ровно тогда, когда человек правил имя, и выглядел как другая страница.
     const editToggle = document.getElementById('profile-edit-toggle');
     if (editToggle) {
-        const viewMode = document.getElementById('profile-view');
-        const editMode = document.getElementById('profile-edit');
-        const cancelBtn = document.getElementById('profile-edit-cancel');
-        const saveBtn = document.getElementById('profile-edit-save');
         const editForm = document.getElementById('profile-edit-form');
+        const cancelBtn = document.getElementById('profile-edit-cancel');
 
-        if (editToggle && viewMode && editMode) {
-            editToggle.addEventListener('click', function() {
-                viewMode.style.display = 'none';
-                editMode.style.display = 'block';
-                editMode.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (editForm) {
+            editToggle.addEventListener('click', function () {
+                editForm.hidden = !editForm.hidden;
+                editToggle.setAttribute('aria-expanded', String(!editForm.hidden));
+                if (!editForm.hidden) {
+                    const field = document.getElementById('profile-edit-name');
+                    if (field) field.focus();
+                }
             });
+            editToggle.setAttribute('aria-expanded', 'false');
 
             if (cancelBtn) {
-                cancelBtn.addEventListener('click', function() {
-                    editMode.style.display = 'none';
-                    viewMode.style.display = 'block';
-                });
-            }
-
-            if (saveBtn) {
-                saveBtn.addEventListener('click', function() {
-                    editForm.submit();
+                cancelBtn.addEventListener('click', function () {
+                    editForm.hidden = true;
+                    editToggle.setAttribute('aria-expanded', 'false');
+                    editToggle.focus();
                 });
             }
         }
@@ -112,45 +111,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Уведомления
-    const notifyBookings = document.getElementById('notify-bookings');
-    const notifyPromotions = document.getElementById('notify-promotions');
-    const notifyMethod = document.getElementById('notify-method');
-
-    function saveNotificationSettings() {
-        const settings = {
-            bookings: notifyBookings.checked,
-            promotions: notifyPromotions.checked,
-            method: notifyMethod.value
-        };
-        localStorage.setItem('notification_settings', JSON.stringify(settings));
-        console.log('Настройки уведомлений сохранены:', settings);
-    }
-
-    if (notifyBookings) notifyBookings.addEventListener('change', saveNotificationSettings);
-    if (notifyPromotions) notifyPromotions.addEventListener('change', saveNotificationSettings);
-    if (notifyMethod) notifyMethod.addEventListener('change', saveNotificationSettings);
-
-    const savedNotifications = localStorage.getItem('notification_settings');
-    if (savedNotifications) {
-        try {
-            const settings = JSON.parse(savedNotifications);
-            if (notifyBookings) notifyBookings.checked = settings.bookings !== undefined ? settings.bookings : true;
-            if (notifyPromotions) notifyPromotions.checked = settings.promotions !== undefined ? settings.promotions : true;
-            if (notifyMethod) notifyMethod.value = settings.method || 'email';
-        } catch (e) {}
-    }
-
-    // Аккордеон
-    const accordionHeaders = document.querySelectorAll('.accordion-header');
-    accordionHeaders.forEach(header => {
-        header.addEventListener('click', function() {
-            const parentItem = this.closest('.accordion-item');
-            if (parentItem) {
-                parentItem.classList.toggle('active');
-            }
-        });
-    });
+    // Уведомлениями управляет сервер: канал лежит у пользователя в базе, и
+    // форма #notify-method отправляется обычным POST на
+    // /api/v1/users/me/notify-channel.
+    //
+    // Здесь раньше жил блок, который писал канал в localStorage и при
+    // загрузке ПОДСТАВЛЯЛ его в селект — то есть показывал не тот канал,
+    // который на сервере. Хуже того: его обработчик читал .checked у двух
+    // чекбоксов («о записях», «об акциях»), которых в разметке давно нет, и
+    // любая смена канала падала с TypeError, не доходя до отправки формы.
+    // Удалён целиком.
+    //
+    // Аккордеон смены данных тоже уехал: это <details> (ui.disclosure),
+    // браузер раскрывает его сам, без скрипта и без класса is-active.
 
     // Смена телефона — с подтверждением владения новым номером через Telegram.
     // Пароль/email/город отправляются нативным POST-ом формы (обработчик не нужен).
