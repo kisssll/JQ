@@ -1,0 +1,31 @@
+/* static/src/css/contest.css — правила конкурса.
+   Условия идут общим списком «подпись — значение» (.r-facts из ui.css), а не
+   своей разметкой: так их читает скринридер, и так они выглядят в кабинете. */
+
+.contest-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    margin: var(--space-24) 0 var(--space-48);
+}
+
+.contest-rules {
+    max-width: 44rem;
+}
+
+/* Правила — читаемый текст, а не таблица: каждое условие отделено линией, и
+   длинный абзац («Как участвовать») не прижимается к соседнему. */
+.contest-rules .r-facts { gap: 0; }
+
+.contest-rules .r-facts__row {
+    padding: var(--space-16) 0;
+    border-top: 1px solid var(--color-border);
+}
+
+.contest-rules .r-facts__row:last-child {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.contest-rules .r-facts dd {
+    line-height: 1.6;
+}

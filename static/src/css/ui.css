@@ -1182,3 +1182,58 @@
 }
 
 .r-card--danger .r-card__title { color: var(--color-danger); }
+
+/* =====================================================================
+   ВЕЧЕРНИЕ ОКНА: карточка предложения (.r-deal) и цена до скидки
+   Собрана на .r-salon, поэтому своей рамки, радиуса и цветов здесь нет —
+   только то, чего в карточке каталога не бывает: несколько мастеров в одной.
+   ===================================================================== */
+
+/* Текст только для скринридера: зачёркнутая цена без слова «было» читается
+   как две цены подряд. */
+.r-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.r-svc__old {
+    margin-right: var(--space-8);
+    color: var(--color-muted);
+    font-weight: 400;
+}
+
+/* Мастера разделены линией, а не рамкой: вложенных карточек не делаем. */
+.r-deal__master {
+    margin-top: var(--space-16);
+    padding-top: var(--space-16);
+    border-top: 1px solid var(--color-border);
+}
+
+.r-deal__who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-4) var(--space-8);
+    margin: 0 0 var(--space-12);
+    font-family: var(--font-body);
+    font-size: var(--text-16);
+    font-weight: 600;
+    color: var(--color-heading);
+}
+
+.r-deal__spec {
+    font-size: var(--text-13);
+    font-weight: 400;
+    color: var(--color-muted);
+}
+
+.r-deal__master .r-slots { margin-bottom: var(--space-4); }
+
+.r-deal__action { margin-top: var(--space-24); }

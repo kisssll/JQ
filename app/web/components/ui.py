@@ -54,8 +54,12 @@ def button(
     classes: str = "",
     data: dict | None = None,
     aria_label: str = "",
+    external: bool = False,
 ) -> str:
     """Кнопка. С href — ссылка, выглядящая и ведущая себя как кнопка.
+
+    ``external`` — ссылка уходит на чужой сайт (бот в мессенджере): открывается
+    в новой вкладке, rel=noopener не даёт ей доступа к нашему окну.
 
     Состояния «наведение», «фокус», «нажатие» рисует CSS; здесь задаются
     только те, что зависят от данных: выключена и загружается.
@@ -94,6 +98,9 @@ def button(
         # (pointer-events на .is-loading и курсор not-allowed на выключенной).
         link = dict(common)
         link["href"] = "#" if disabled else href
+        if external:
+            link["target"] = "_blank"
+            link["rel"] = "noopener"
         if disabled:
             link["aria-disabled"] = "true"
             link["tabindex"] = "-1"
@@ -300,18 +307,25 @@ def mark(letter: str, *, image: str = "", alt: str = "", size: str = "md") -> st
     return f'<span class="{cls}" aria-hidden="true">{e((letter or "?")[0].upper())}</span>'
 
 
-def service_line(name: str, *, price: str, duration: str = "") -> str:
+def service_line(name: str, *, price: str, duration: str = "", old_price: str = "") -> str:
     """Строка услуги: название, время, цена. Не карточка.
 
     Вложенных карточек не делаем, а список услуг внутри карточки салона — это
     именно список: его держат линии между строками, а не вторая рамка.
+
+    ``old_price`` — цена до скидки (вечерние окна). Зачёркивание само по себе
+    смысла не несёт для скринридера, поэтому рядом скрытая подпись «было».
     """
     dur = f'<span class="r-svc__dur">{e(duration)}</span>' if duration else ""
+    old = (
+        f'<s class="r-svc__old"><span class="r-sr">было </span>{e(old_price)}</s>'
+        if old_price else ""
+    )
     return (
         '<li class="r-svc__row">'
         f'<span class="r-svc__name">{e(name)}</span>'
         f"{dur}"
-        f'<span class="r-svc__price">{e(price)}</span>'
+        f'<span class="r-svc__price">{old}{e(price)}</span>'
         "</li>"
     )
 
@@ -527,6 +541,59 @@ def section_head(title: str, *, text: str = "", link_label: str = "", link_href:
         '<div class="r-sechead">'
         f'<div class="r-sechead__main"><h2 class="{cls}">{e(title)}</h2>{sub}</div>'
         f"{link}</div>"
+    )
+
+
+def deal_card(
+    *,
+    salon_id: int,
+    name: str,
+    href: str,
+    address: str = "",
+    discount_label: str = "",
+    masters: tuple = (),
+    action_label: str = "Записаться со скидкой",
+    action_icon: str = "",
+) -> str:
+    """Карточка предложения «вечерние окна со скидкой».
+
+    Собрана из тех же частей, что карточка каталога (``.r-salon``, монограмма,
+    строки услуг, окна), — переход из каталога сюда не должен выглядеть
+    переходом на другой сайт. Отличается тем, что внутри несколько мастеров:
+    предложение идёт от конкретного человека, а не от «салона вообще».
+
+    ``masters`` — кортежи ``(имя, специализация, окна, услуги)``, где окна —
+    готовые строки от ``slot``, услуги — от ``service_line``. Мастера разделены
+    линией, а не вложенными рамками.
+
+    Скидка — слово в плашке («Скидка −20%»), а не один зелёный цвет.
+    """
+    where = f'<span class="r-salon__where">{e(address)}</span>' if address else ""
+    badge = status(discount_label, "success") if discount_label else ""
+    blocks = ""
+    for m_name, m_spec, m_slots, m_services in masters:
+        spec = f'<span class="r-deal__spec">{e(m_spec)}</span>' if m_spec else ""
+        blocks += (
+            '<section class="r-deal__master">'
+            f'<h3 class="r-deal__who"><span class="r-deal__name">{e(m_name)}</span>{spec}</h3>'
+            '<p class="r-salon__slots-label">Свободно вечером</p>'
+            f'<div class="r-slots">{"".join(m_slots)}</div>'
+            f'<ul class="r-svc">{"".join(m_services)}</ul>'
+            "</section>"
+        )
+    return (
+        f'<article class="r-salon r-deal" data-salon-id="{salon_id}">'
+        '<div class="r-salon__top">'
+        f'<a class="r-salon__face" href="{e(href)}">'
+        f"{mark(name, size='lg')}"
+        f'<span class="r-salon__id"><span class="r-salon__name">{e(name)}</span>{where}</span>'
+        "</a>"
+        f'<div class="r-salon__aside">{badge}</div>'
+        "</div>"
+        f"{blocks}"
+        f'<div class="r-deal__action">'
+        + button(action_label, href=href, block=True, icon=action_icon)
+        + "</div></article>"
     )
 
 

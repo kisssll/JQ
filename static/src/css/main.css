@@ -42,6 +42,8 @@
 @import './bookings.css';
 @import './guest-booking.css';
 @import './favorites.css';
+@import './evening-deals.css';
+@import './contest.css';
 
 /* Стили панели бизнеса */
 @import './business/dashboard.css';

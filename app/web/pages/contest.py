@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from app.core.config import settings
 from app.services import contest
+from app.web.components import ui
 from app.web.components.escaping import e
 from app.web.components.footer import render_footer
 from app.web.components.header import render_header
@@ -32,9 +33,10 @@ def _bot_links() -> str:
     mx = (settings.MAX_BOT_USERNAME or "").strip().lstrip("@")
     if mx:
         links.append((f"https://max.ru/{mx}", "MAX"))
+    # Первая кнопка главная, остальные — запасные пути к тому же боту.
     return "".join(
-        f'<a class="btn-outline" href="{e(url)}" target="_blank" rel="noopener">{label}</a>'
-        for url, label in links
+        ui.button(label, kind="primary" if n == 0 else "secondary", href=url, external=True)
+        for n, (url, label) in enumerate(links)
     )
 
 
@@ -77,37 +79,35 @@ def _rules_list() -> list[tuple[str, str]]:
 
 
 def render_contest_page(user=None) -> str:
-    rules = "".join(
-        f'<section style="margin-bottom:1.5rem">'
-        f'<h2 class="text-heading" style="font-size:1.15rem;margin-bottom:0.4rem">{e(title)}</h2>'
-        f'<p class="text-body" style="margin:0">{e(text)}</p></section>'
-        for title, text in _rules_list()
-    )
-    window = "" if contest.accepts_entries() else (
-        f'<p class="text-body" style="margin-top:0.5rem"><strong>'
-        f'{e(contest.entry_window_note())}</strong></p>')
+    # Условия берём из _rules_list(), которая строится из services/contest.py:
+    # на странице нет ни одной даты и ни одного приза, написанных руками.
+    rules = ui.facts(tuple((title, e(text)) for title, text in _rules_list()))
+    window = "" if contest.accepts_entries() else ui.notice(
+        contest.entry_window_note(), tone="warning")
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{e(contest.TITLE)}</title>
     <meta name="description" content="Конкурс визажистов от Руми: образ в стиле Хеллоуина, голосование подписчиков и финал вживую. Правила, сроки и призы.">
     {get_base_styles()}
 </head>
-<body>
+<body class="page-body">
     {render_header("contest")}
     {render_sidebar("contest", user)}
-    <main class="main-content">
-        <div class="section-container" style="max-width:44rem;padding-top:5.5rem;padding-bottom:3rem">
-            <h1 class="text-display" style="margin-bottom:0.75rem">{e(contest.TITLE)}</h1>
-            <p class="text-body">Задание — образ в стиле Хеллоуина. Заявка подаётся в боте Руми,
-                там же мы ответим на вопросы.</p>
+    <main class="main-content cabinet-main contest-main">
+        <div class="section-container">
+            <header class="cabinet-head">
+                <h1 class="r-display">{e(contest.TITLE)}</h1>
+                <p class="r-text r-muted">Задание — образ в стиле Хеллоуина. Заявка
+                    подаётся в боте Руми, там же мы ответим на вопросы.</p>
+            </header>
             {window}
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin:1.25rem 0 2rem">{_bot_links()}</div>
-            {rules}
+            <div class="contest-links">{_bot_links()}</div>
+            <div class="contest-rules">{rules}</div>
         </div>
+        {render_footer(user)}
     </main>
-    {render_footer(user)}
 </body>
 </html>"""
