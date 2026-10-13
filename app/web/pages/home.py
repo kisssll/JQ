@@ -97,10 +97,10 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
             <div class="section-container">
                 <div class="home-hero-content">
                     <h1 class="home-hero-title text-display">
-                        Красота — это просто<span class="dot-primary">.</span>
+                        РУМИ. Твой доступ к красоте<span class="dot-primary">.</span>
                     </h1>
                     <p class="home-hero-subtitle text-body-lg">
-                        Салон, услуга, время — готово. Без звонков и ожиданий.
+                        Мастера и салоны в одном приложении.
                     </p>
 
                     <!-- Поиск -->
@@ -130,7 +130,7 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                         Как записаться<span class="how-title-dot">?</span>
                     </h2>
                     <p class="how-subtitle">
-                        Никаких звонков. Никаких форм с десятью полями. Ничего лишнего.
+                        Подберем салон и услуги для Вас. Без лишних забот.
                     </p>
                 </div>
 
@@ -183,16 +183,16 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
         <!-- Стать моделью -->
         <section class="section-py" id="become-model">
             <div class="section-container">
-                <div class="model-label">Для клиентов</div>
+                <div class="model-label">Для прекрасных и смелых, как Ты!</div>
                 <div class="model-header">
                     <div class="model-title-wrap">
-                        <h2 class="model-title">Стать моделью —<br />и платить меньше<span class="model-title-dot">.</span></h2>
-                        <p class="model-subtitle">Мастерам нужна практика. Вам — красивая стрижка или новая техника. Подписка — и услуги до 70% дешевле.</p>
+                        <h2 class="model-title">Стань моделью, не через агенство, а в один клик<span class="model-title-dot">.</span></h2>
+                        <p class="model-subtitle">Помоги мастеру собрать портфолио и получи классную услугу намного дешевле.</p>
                     </div>
                 </div>
                 <div class="model-grid">
                     <div class="model-item">
-                        <p class="model-item-desc">Услуги от мастеров со скидкой до <span class="model-item-highlight">70%</span></p>
+                        <p class="model-item-desc">Услуги от мастеров со скидкой до <span class="model-item-highlight">100%</span></p>
                     </div>
                     <div class="model-item">
                         <p class="model-item-desc"><span class="model-item-highlight">Первыми</span> получаете лучшие окна записи</p>
@@ -219,8 +219,8 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                 <div class="business-label">Для бизнеса</div>
                 <div class="business-header">
                     <div class="business-title-wrap">
-                        <h2 class="business-title">Управлять салоном —<br />тоже просто<span class="business-title-dot">.</span></h2>
-                        <p class="business-subtitle">Расписание, оплаты, клиенты, аналитика — всё в одном окне. Подключение за 15 минут. Первые 14 дней бесплатно.</p>
+                        <h2 class="business-title">Управлять салоном с нами проще<span class="business-title-dot">.</span></h2>
+                        <p class="business-subtitle">Одно окно и все под рукой: Расписание, оплата, клиенты, аналитика и многое другое. Подключение за 15 минут. Первые 14 дней бесплатно.</p>
                     </div>
                 </div>
                 <div class="business-grid">
@@ -237,12 +237,12 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                     <div class="business-item">
                         <span class="business-number" style="display: inline-block; vertical-align: middle;">3</span>
                         <h3 class="business-item-title" style="display: inline-block; vertical-align: middle; margin-left: 10px;">Оплата</h3>
-                        <p class="business-item-desc">Касса, чаевые, отчёты — внутри.</p>
+                        <p class="business-item-desc">Касса, отчёты — внутри.</p>
                     </div>
                     <div class="business-item">
                         <span class="business-number" style="display: inline-block; vertical-align: middle;">4</span>
                         <h3 class="business-item-title" style="display: inline-block; vertical-align: middle; margin-left: 10px;">Аналитика</h3>
-                        <p class="business-item-desc">Выручка, загрузка, эффективность.</p>
+                        <p class="business-item-desc">от расчета материалов до масштабирования бизнеса</p>
                     </div>
                 </div>
                 <div class="business-cta">
