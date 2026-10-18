@@ -24,7 +24,7 @@ from app.web.components.styles import get_base_styles
 def _bot_links() -> str:
     """Куда идти подавать заявку — в тот бот, который у человека есть."""
     links = []
-    vk = settings.vk_bot_address
+    vk = settings.vk_bot_address   # конкурс мастеров — в бизнесовом сообществе
     if vk:
         links.append((f"https://vk.me/{vk}", "ВКонтакте"))
     tg = (settings.TG_BOT_USERNAME or "").strip().lstrip("@")

@@ -153,8 +153,14 @@ async def send_answer(db, request: SupportRequest, answer: str, admin: User) -> 
     author = await db.get(User, request.user_id) if request.user_id else None
     if author is not None:
         from app.services.notifications import deliver
+        from app.services.vk_community import Audience
 
-        await deliver(author, f"💬 {text}", subject="Ответ поддержки — Руми")
+        # Обращения во ВК принимает только бизнесовый бот (поддержка для салонов,
+        # решение 0013) — туда и отвечаем. Написавшему с сайта или из другого
+        # мессенджера отвечаем клиентским: клиентов больше, и у них скорее есть
+        # диалог с клиентским сообществом.
+        audience = Audience.BUSINESS if request.channel == NotifyChannel.VK else Audience.CLIENT
+        await deliver(author, f"💬 {text}", subject="Ответ поддержки — Руми", audience=audience)
         delivered = True
     elif request.chat_id:
         delivered = await _send_to_chat(request.channel, request.chat_id, text)
@@ -173,9 +179,12 @@ async def _send_to_chat(channel: NotifyChannel, chat_id: int, text: str) -> bool
         from app.core.worker import get_arq_pool
 
         pool = await get_arq_pool()
-        from app.services.notify_channel import task_for
+        from app.services.notify_channel import enqueue_message
+        from app.services.vk_community import Audience
 
-        await pool.enqueue_job(task_for(channel), chat_id, text)
+        # Чат ВК здесь всегда из бизнесового сообщества: только его бот
+        # принимает обращения. Ответ клиентским токеном ВК отверг бы.
+        await enqueue_message(pool, channel, chat_id, text, audience=Audience.BUSINESS)
         return True
     except Exception:
         logger.exception("support: не удалось ответить в чат %s", chat_id)

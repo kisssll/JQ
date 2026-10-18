@@ -30,16 +30,17 @@ async def _eligible():
     from app.models.models import User
     from app.services import ad_consent
     from app.services.notify_channel import has_channel_clause, resolve
+    from app.services.vk_community import Audience   # вечерние окна — клиентам
 
     async with AsyncSessionLocal() as db:
         users = (await db.execute(
-            select(User).where(has_channel_clause(), User.is_guest.is_(False))
+            select(User).where(has_channel_clause(Audience.CLIENT), User.is_guest.is_(False))
         )).scalars().all()
         picked = []
         for user in users:
             if ad_consent.was_asked(user) or ad_consent.is_consented(user):
                 continue
-            channel, address = resolve(user)
+            channel, address = resolve(user, Audience.CLIENT)
             if address is None:
                 continue
             picked.append((user.id, channel.value))

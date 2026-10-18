@@ -103,11 +103,14 @@ async def _owner_notify_email(db, target, kind: str) -> Optional[str]:
     именно почта). Нужна только чтобы не задвоить одно и то же письмо."""
     from app.models.models import NotifyChannel, User
     from app.services.notify_channel import resolve
+    from app.services.vk_community import Audience
 
     user = target
     if kind == "business":
         user = await db.get(User, target.creator_id) if target.creator_id else None
     if user is None:
         return None
-    channel, address = resolve(user)
+    # Тот же тип сообщения, что у notify_subscription / notify_model_subscription:
+    # иначе проверка «уже ушло письмом» смотрела бы не на тот канал.
+    channel, address = resolve(user, Audience.BUSINESS if kind == "business" else Audience.CLIENT)
     return str(address) if channel == NotifyChannel.EMAIL and address else None

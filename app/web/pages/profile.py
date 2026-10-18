@@ -75,7 +75,7 @@ def _vk_connect_button(label: str, kind: str = "secondary") -> str:
     кнопки «Начать» в диалоге не было, человек оставался без подсказки."""
     from app.core.config import settings
 
-    if not settings.vk_bot_address:
+    if not settings.vk_link_address:
         return ""
     return ui.button(label, kind=kind, href="/connect/vk", small=True)
 
@@ -141,7 +141,7 @@ def _channels_overview(user, available) -> str:
                  if email else ui.status("не указана", "neutral"), ""))
 
     vk_hint = ""
-    if settings.vk_bot_address and (
+    if settings.vk_link_address and (
         NotifyChannel.VK not in available or is_broken(user, NotifyChannel.VK)
     ):
         vk_hint = f'<p class="r-field__hint">ВКонтакте: {e(VK_START_HINT)}</p>'
@@ -171,12 +171,12 @@ def _vk_row(user, available):
     привязки успел открыть кто-то другой, человек увидит чужое имя и отвяжет."""
     from app.models.models import NotifyChannel
     from app.services import vk_api
-    from app.services.notify_channel import is_broken
+    from app.services.notify_channel import broken_vk_communities
 
     # settings — локально: конфиг перезагружается, см. docstring модуля.
     from app.core.config import settings
 
-    if not settings.vk_bot_address:
+    if not settings.vk_link_address:
         return None
     disconnect = (
         '<form method="post" action="/api/v1/users/me/disconnect-channel" '
@@ -187,9 +187,12 @@ def _vk_row(user, available):
     )
     if NotifyChannel.VK in available:
         who = getattr(user, "vk_name", None) or ""
-        if is_broken(user, NotifyChannel.VK):
+        broken = broken_vk_communities(user)
+        if broken:
+            # Ведём в то сообщество, которое отказало: «Начать» в другом
+            # отметку не снимет — разрешение у каждого своё.
             reconnect = ui.button("Переподключить", kind="secondary", small=True,
-                                  href=vk_api.vk_me_url())
+                                  href=vk_api.vk_me_url(community=broken[0]))
             return ("ВКонтакте", who, ui.status("не доставляется", "danger"),
                     reconnect + disconnect)
         return ("ВКонтакте", who, ui.status("подключён", "success"), disconnect)
@@ -211,17 +214,20 @@ def _broken_banner(user, broken, channel) -> str:
     бота и нажать «Начать» — привязка сохранилась.
     """
     from app.models.models import NotifyChannel
-    from app.services.notify_channel import CHANNEL_LABELS
+    from app.services.notify_channel import CHANNEL_LABELS, broken_vk_communities
 
     # settings — локально: конфиг перезагружается, см. docstring модуля.
     from app.core.config import settings
 
     if not broken:
         return ""
+    vk_broken = broken_vk_communities(user)
     links = {
         NotifyChannel.TG: ("https://t.me/{}", settings.TG_BOT_USERNAME),
         NotifyChannel.MAX: ("https://max.ru/{}", settings.MAX_BOT_USERNAME),
-        NotifyChannel.VK: ("https://vk.me/{}", settings.vk_bot_address),
+        # В отказавшее сообщество: «Начать» снимает отметку только там.
+        NotifyChannel.VK: ("https://vk.me/{}",
+                           vk_broken[0].address if vk_broken else settings.vk_link_address),
     }
     names = " и ".join(CHANNEL_LABELS[c] for c in broken)
     buttons = "".join(
@@ -258,7 +264,7 @@ def _notify_channel_block(user) -> str:
     """
     from app.models.models import NotifyChannel
     from app.services import vk_api
-    from app.services.notify_channel import CHANNEL_LABELS, broken_channels, resolve
+    from app.services.notify_channel import CHANNEL_LABELS, broken_channels, display_channel
 
     # settings — локально: конфиг перезагружается, см. docstring модуля.
     from app.core.config import settings
@@ -266,13 +272,13 @@ def _notify_channel_block(user) -> str:
     if user is None:
         return ""
 
-    channel, _address = resolve(user)
+    channel, _address = display_channel(user)
     available = []
     if getattr(user, "tg_chat_id", None):
         available.append(NotifyChannel.TG)
     if getattr(user, "max_chat_id", None):
         available.append(NotifyChannel.MAX)
-    if getattr(user, "vk_peer_id", None):
+    if getattr(user, "vk_client_peer_id", None) or getattr(user, "vk_business_peer_id", None):
         available.append(NotifyChannel.VK)
     if (getattr(user, "email", "") or "").strip():
         available.append(NotifyChannel.EMAIL)
@@ -288,7 +294,7 @@ def _notify_channel_block(user) -> str:
             links.append(ui.button(
                 "Подключить MAX", kind="secondary", small=True,
                 href=f"https://max.ru/{settings.MAX_BOT_USERNAME}"))
-        if settings.vk_bot_address:
+        if settings.vk_link_address:
             links.append(
                 ui.button("Подключить ВКонтакте", kind="secondary", small=True,
                           href=vk_api.vk_me_url())
@@ -301,7 +307,7 @@ def _notify_channel_block(user) -> str:
             "или укажите почту в разделе «Смена данных».</p>"
             f'<div class="channel-actions">{"".join(links)}</div>'
             + (f'<p class="r-field__hint">ВКонтакте: {e(VK_START_HINT)}</p>'
-               if settings.vk_bot_address else "")
+               if settings.vk_link_address else "")
         )
 
     options = "".join(
@@ -320,7 +326,7 @@ def _notify_channel_block(user) -> str:
             f'<a href="https://max.ru/{settings.MAX_BOT_USERNAME}" target="_blank" '
             'rel="noopener">MAX</a>'
         )
-    if NotifyChannel.VK not in available and settings.vk_bot_address:
+    if NotifyChannel.VK not in available and settings.vk_link_address:
         missing.append('<a href="/connect/vk">ВКонтакте</a>')
     missing_hint = (
         f'<p class="r-field__hint">Можно подключить ещё: {", ".join(missing)}.</p>'

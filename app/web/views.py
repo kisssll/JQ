@@ -622,11 +622,21 @@ async def connect_vk_page(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         # Возврат ровно сюда: человек пришёл из бота, и терять его нельзя.
         return RedirectResponse(url="/login?redirect=%2Fconnect%2Fvk", status_code=302)
-    if not settings.vk_bot_address:
+    # ?to= — из какого сообщества человек пришёл: туда его и вернём, иначе
+    # кнопка из клиентского бота уводила бы в бизнесовый диалог.
+    from app.services import vk_community
+
+    community = next((c for c in vk_community.ALL
+                      if c.audience.value == request.query_params.get("to") and c.address), None)
+    if community is None:
+        community = next((c for c in vk_community.ALL if c.address == settings.vk_link_address
+                          and c.address), None)
+    if community is None:
         return RedirectResponse(url="/profile", status_code=302)
-    if getattr(user, "vk_peer_id", None):
+    if getattr(user, community.peer_field, None):
         return HTMLResponse(content=render_already_linked(user))
-    return HTMLResponse(content=render_connect_vk(user, await create_code(user.id)))
+    return HTMLResponse(content=render_connect_vk(user, await create_code(user.id),
+                                                  community.address))
 
 
 @router.get("/dlya-masterov", response_class=HTMLResponse)

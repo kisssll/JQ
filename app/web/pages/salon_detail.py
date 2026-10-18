@@ -81,11 +81,12 @@ def _reminder_channel_hint(user) -> str:
     from app.services.notify_channel import has_channel
     from app.web.pages.profile import VK_START_HINT
 
-    if has_channel(user):
+    # Это про напоминание о записи — клиентское сообщение.
+    if has_channel(user, "client"):
         return ""
 
     buttons = []
-    if settings.vk_bot_address:
+    if settings.vk_link_address:
         buttons.append(
             '<form method="post" action="/api/v1/users/me/vk-connect" target="_blank">'
             + ui.button("Подключить ВКонтакте", kind="secondary", type_="submit", small=True)
@@ -101,7 +102,7 @@ def _reminder_channel_hint(user) -> str:
             "Подключить MAX", kind="secondary", small=True,
             href=f"https://max.ru/{e(settings.MAX_BOT_USERNAME)}",
         ))
-    tail = f"<p>{VK_START_HINT}</p>" if settings.vk_bot_address else ""
+    tail = f"<p>{VK_START_HINT}</p>" if settings.vk_link_address else ""
     return (
         "<p>Напоминание сейчас некуда прислать: у вас не подключён ни мессенджер, "
         "ни почта. Записаться можно и без этого.</p>"

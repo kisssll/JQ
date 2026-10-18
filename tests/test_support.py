@@ -136,7 +136,7 @@ async def test_alert_failure_does_not_lose_the_request(db_session, monkeypatch):
 async def test_answer_to_linked_user_goes_through_his_channel(db_session, monkeypatch):
     sent = []
 
-    async def _deliver(user, text, subject=None):
+    async def _deliver(user, text, subject=None, **kw):
         sent.append((user.id, text))
 
     monkeypatch.setattr("app.services.notifications.deliver", _deliver)
@@ -213,7 +213,7 @@ async def test_moderator_can_answer_from_admin_panel(client, db_session, monkeyp
     а не только старшему."""
     sent = []
 
-    async def _deliver(user, text, subject=None):
+    async def _deliver(user, text, subject=None, **kw):
         sent.append(text)
 
     monkeypatch.setattr("app.services.notifications.deliver", _deliver)
@@ -260,7 +260,7 @@ async def test_second_answer_is_refused(client, db_session, monkeypatch):
     """Повторная отправка формы не должна слать человеку второй ответ."""
     sent = []
 
-    async def _deliver(user, text, subject=None):
+    async def _deliver(user, text, subject=None, **kw):
         sent.append(text)
 
     monkeypatch.setattr("app.services.notifications.deliver", _deliver)

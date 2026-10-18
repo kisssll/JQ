@@ -32,6 +32,9 @@ def _support_block() -> str:
             "MAX", f"https://max.ru/{html.escape(mx, quote=True)}?start=support",
             f"@{mx}", ' target="_blank" rel="noopener"', ICON_MESSAGE_CIRCLE,
         ))
+    # Бизнесовое сообщество: обращения во ВК принимает только его бот — у
+    # клиентского меню поддержки нет (решение 0013), и ответ на обращение
+    # уходит бизнесовым токеном.
     vk = settings.vk_bot_address
     if vk:
         # ref=support ВК вернёт в первом сообщении — бот сразу откроет темы.

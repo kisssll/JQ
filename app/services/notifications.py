@@ -29,11 +29,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.worker import get_arq_pool
 from app.services.notify_channel import (
+    enqueue_message,
     has_channel,
     has_channel_clause,
     resolve as resolve_channel,
-    task_for as task_for_channel,
 )
+from app.services.vk_community import Audience
 from app.models.models import (
     Booking,
     Master,
@@ -118,7 +119,7 @@ async def _members_with_permission(
             .where(
                 SalonMember.salon_id == salon_id,
                 SalonMember.is_active == True,  # noqa: E712
-                has_channel_clause(),
+                has_channel_clause(Audience.BUSINESS),
             )
         )
     ).all()
@@ -136,12 +137,13 @@ class _Fanout:
     def __init__(self) -> None:
         self._sent: set[int] = set()
 
-    async def send(self, user: User | None, text: str, topic: str | None = None) -> None:
+    async def send(self, user: User | None, text: str, topic: str | None = None, *,
+                   audience) -> None:
         if user is None or user.id in self._sent:
             return
         if topic is not None and not wants(user, topic):
             return
-        if await deliver(user, text):
+        if await deliver(user, text, audience=audience):
             self._sent.add(user.id)
 
 
@@ -180,15 +182,20 @@ async def _booking_context(db: AsyncSession, booking: Booking) -> dict:
     }
 
 
-async def deliver(user: User | None, text: str, subject: str = "Руми", **kwargs) -> bool:
-    """Доставка одного уведомления пользователю в ЕГО канал (TG/MAX/почта).
+async def deliver(user: User | None, text: str, subject: str = "Руми", *, audience,
+                  **kwargs) -> bool:
+    """Доставка одного уведомления пользователю в ЕГО канал (TG/MAX/ВК/почта).
 
     Раньше здесь был прямой enqueue в Telegram, поэтому обладатели MAX и почты
     не получали ничего. Теперь канал резолвится (см. notify_channel.resolve),
     а если достучаться некуда — тихо логируем и возвращаем False: отсутствие
     канала не должно ронять действие пользователя.
+
+    audience — тип сообщения (vk_community.Audience): клиентское или
+    бизнесовое. Обязателен: сообществ ВК два, и письмо «не тем» сообществом
+    ВК отвергнет, а мы пометили бы человека сломанным (решение 0013).
     """
-    channel, address = resolve_channel(user)
+    channel, address = resolve_channel(user, audience)
     if address is None:
         logger.info(
             "уведомление не доставлено (нет канала): user=%s",
@@ -197,10 +204,8 @@ async def deliver(user: User | None, text: str, subject: str = "Руми", **kwa
         return False
 
     pool = await get_arq_pool()
-    if channel == NotifyChannel.EMAIL:
-        await pool.enqueue_job("send_email", address, subject, text, **kwargs)
-    else:
-        await pool.enqueue_job(task_for_channel(channel), address, text, **kwargs)
+    await enqueue_message(pool, channel, address, text, audience=audience,
+                          subject=subject, **kwargs)
     return True
 
 
@@ -227,11 +232,13 @@ async def notify_booking_created(db: AsyncSession, booking: Booking) -> None:
             f"{when}, мастер {master_name}\n"
             f"Адрес: {salon.address or 'уточните у салона'}",
             topic=TOPIC_BOOKINGS,
+            audience=Audience.CLIENT,
         )
         await fanout.send(
             ctx["master_user"],
             f"📅 К вам новая запись: {client_name} — {service_name}\n{when}",
             topic=TOPIC_BOOKINGS,
+            audience=Audience.BUSINESS,
         )
         for member in await _members_with_permission(db, salon.id, "manage_schedule"):
             await fanout.send(
@@ -239,9 +246,10 @@ async def notify_booking_created(db: AsyncSession, booking: Booking) -> None:
                 f"📅 Новая запись в «{salon.name}»: {client_name} — {service_name}\n"
                 f"{when}, мастер {master_name}",
                 topic=TOPIC_BOOKINGS,
+                audience=Audience.BUSINESS,
             )
 
-        if has_channel(client):
+        if has_channel(client, Audience.CLIENT):
             eta = reminder_eta_utc(booking.start_time, salon.timezone)
             if eta:
                 pool = await get_arq_pool()
@@ -269,16 +277,19 @@ async def notify_booking_cancelled(db: AsyncSession, booking: Booking) -> None:
             ctx["client"],
             f"❌ Ваша запись отменена: {service_name} в «{salon.name}», {when}",
             topic=TOPIC_BOOKINGS,
+            audience=Audience.CLIENT,
         )
         await fanout.send(
             ctx["master_user"],
             f"❌ Запись к вам отменена: {service_name}, {when}",
             topic=TOPIC_BOOKINGS,
+            audience=Audience.BUSINESS,
         )
         for member in await _members_with_permission(db, salon.id, "manage_schedule"):
             await fanout.send(
                 member, f"❌ Запись отменена в «{salon.name}»: {service_name}, {when}",
                 topic=TOPIC_BOOKINGS,
+                audience=Audience.BUSINESS,
             )
     except Exception:
         logger.exception("notify_booking_cancelled(%s): уведомления не поставлены", booking.id)
@@ -329,7 +340,7 @@ async def notify_warehouse_request_created(db: AsyncSession, request: WarehouseR
                     SalonMember.salon_id == request.salon_id,
                     SalonMember.is_active == True,  # noqa: E712
                     SalonMember.notify_warehouse_requests == True,  # noqa: E712
-                    has_channel_clause(),
+                    has_channel_clause(Audience.BUSINESS),
                 )
             )
         ).all()
@@ -342,6 +353,7 @@ async def notify_warehouse_request_created(db: AsyncSession, request: WarehouseR
                 f"📦 Заявка от {author_name}: {label} — «{subject_name}»"
                 + (f"\nКомментарий: {request.comment}" if request.comment else ""),
                 topic=TOPIC_WAREHOUSE,
+                audience=Audience.BUSINESS,
             )
     except Exception:
         logger.exception("notify_warehouse_request_created(%s): не поставлено", request.id)
@@ -363,7 +375,7 @@ async def notify_warehouse_low_stock(
                     SalonMember.salon_id == salon_id,
                     SalonMember.is_active == True,  # noqa: E712
                     SalonMember.notify_warehouse_requests == True,  # noqa: E712
-                    has_channel_clause(),
+                    has_channel_clause(Audience.BUSINESS),
                 )
             )
         ).all()
@@ -376,6 +388,7 @@ async def notify_warehouse_low_stock(
                 f"⚠️ Нужно пополнить склад салона: «{item_name}» — "
                 f"остаток {quantity:g} {unit}, минимум {min_quantity:g} {unit}.",
                 topic=TOPIC_WAREHOUSE,
+                audience=Audience.BUSINESS,
             )
     except Exception:
         logger.exception("notify_warehouse_low_stock(%s, %s): не поставлено", salon_id, item_name)
@@ -393,7 +406,8 @@ async def notify_warehouse_request_resolved(db: AsyncSession, request: Warehouse
             "✅ выполнена" if request.status == WarehouseRequestStatus.RESOLVED
             else "❌ отклонена"
         )
-        await _Fanout().send(author, f"📦 Ваша заявка на склад {verdict}", topic=TOPIC_WAREHOUSE)
+        await _Fanout().send(author, f"📦 Ваша заявка на склад {verdict}",
+                             topic=TOPIC_WAREHOUSE, audience=Audience.BUSINESS)
     except Exception:
         logger.exception("notify_warehouse_request_resolved(%s): не поставлено", request.id)
 
@@ -424,11 +438,13 @@ async def notify_new_review(db: AsyncSession, review: Review) -> None:
             await fanout.send(
                 master_user, f"⭐ Новый отзыв о вас: {stars} ({verified})",
                 topic=TOPIC_REVIEWS,
+                audience=Audience.BUSINESS,
             )
         for member in await _members_with_permission(db, salon.id, "manage_reviews"):
             await fanout.send(
                 member, f"⭐ Новый отзыв в «{salon.name}»: {stars} ({verified})",
                 topic=TOPIC_REVIEWS,
+                audience=Audience.BUSINESS,
             )
     except Exception:
         logger.exception("notify_new_review(%s): не поставлено", review.id)
@@ -445,14 +461,15 @@ async def notify_admins(db: AsyncSession, subject: str, body: str = "") -> None:
     try:
         pool = await get_arq_pool()
         admins = (await db.execute(
-            select(User).where(User.role == UserRole.ADMIN, has_channel_clause())
+            select(User).where(User.role == UserRole.ADMIN, has_channel_clause(Audience.BUSINESS))
         )).scalars().all()
         seen: set[int] = set()
         for admin in admins:
             if admin.id in seen:
                 continue
             seen.add(admin.id)
-            await deliver(admin, f"🛡️ {text}", subject=f"[Руми] {subject}")
+            await deliver(admin, f"🛡️ {text}", subject=f"[Руми] {subject}",
+                          audience=Audience.BUSINESS)
         if settings.ADMIN_ALERT_EMAIL:
             await pool.enqueue_job(
                 "send_email", settings.ADMIN_ALERT_EMAIL, f"[Руми] {subject}", body or subject
@@ -470,7 +487,8 @@ async def notify_photo_report(db: AsyncSession, salon_id: int | None) -> None:
         fanout = _Fanout()
         if salon_id is not None:
             for member in await _members_with_permission(db, salon_id, "manage_reviews"):
-                await fanout.send(member, "🚩 Новая жалоба на фото — загляните в модерацию", topic=TOPIC_REPORTS)
+                await fanout.send(member, "🚩 Новая жалоба на фото — загляните в модерацию",
+                                  topic=TOPIC_REPORTS, audience=Audience.BUSINESS)
     except Exception:
         logger.exception("notify_photo_report: не поставлено")
 
@@ -505,12 +523,14 @@ async def notify_model_match(db: AsyncSession, match: ModelMatch) -> None:
             f"🎉 Мэтч! Мастер {master_name} из «{salon.name}» готов сделать вам «{service_name}» ({price_str}) "
             f"— выберите время в личном кабинете",
             topic=TOPIC_MODELS,
+            audience=Audience.CLIENT,
         )
         for member in await _members_with_permission(db, salon.id, "manage_masters"):
             await fanout.send(
                 member,
                 f"🎉 Модель {model_name} откликнулась на «{service_name}» у мастера {master_name} — взаимный мэтч!",
                 topic=TOPIC_MODELS,
+                audience=Audience.BUSINESS,
             )
     except Exception:
         logger.exception("notify_model_match(%s): не поставлено", match.id)
@@ -527,7 +547,7 @@ async def _creators_for_salons(db: AsyncSession, salon_ids: list[int]) -> list[U
                 SalonMember.salon_id.in_(salon_ids),
                 SalonMember.is_creator == True,  # noqa: E712
                 SalonMember.is_active == True,  # noqa: E712
-                has_channel_clause(),
+                has_channel_clause(Audience.BUSINESS),
             )
         )
     ).scalars().all()
@@ -550,6 +570,7 @@ async def notify_chain_request_created(db: AsyncSession, request: SalonChainRequ
                 creator,
                 f"🔗 Салон «{from_salon.name}» предлагает объединиться в сеть — решите в панели, "
                 f"вкладка «Редактировать салон»",
+                audience=Audience.BUSINESS,
             )
     except Exception:
         logger.exception("notify_chain_request_created(%s): не поставлено", request.id)
@@ -568,7 +589,7 @@ async def notify_chain_request_resolved(db: AsyncSession, request: SalonChainReq
         text = f"🔗 «{from_salon.name}» и «{to_salon.name}»: {verdict}"
         fanout = _Fanout()
         for creator in await _creators_for_salons(db, request.salon_ids):
-            await fanout.send(creator, text)
+            await fanout.send(creator, text, audience=Audience.BUSINESS)
     except Exception:
         logger.exception("notify_chain_request_resolved(%s): не поставлено", request.id)
 
@@ -666,7 +687,8 @@ async def notify_subscription(db: AsyncSession, salon, text: str) -> None:
         owner = (await db.execute(
             select(User).where(User.id == salon.creator_id)
         )).scalar_one_or_none()
-        await deliver(owner, f"💳 «{salon.name}»: {text}", subject="Тариф — Руми")
+        await deliver(owner, f"💳 «{salon.name}»: {text}", subject="Тариф — Руми",
+                      audience=Audience.BUSINESS)
     except Exception:
         logger.exception("notify_subscription(salon=%s): не отправлено", getattr(salon, "id", "?"))
 
@@ -674,6 +696,8 @@ async def notify_subscription(db: AsyncSession, salon, text: str) -> None:
 async def notify_model_subscription(db: AsyncSession, user, text: str) -> None:
     """То же для тарифа «модели» — плательщик сам пользователь."""
     try:
-        await deliver(user, f"💳 {text}", subject="Тариф — Руми")
+        # Тариф «модели» платит сам человек как клиент, а не салон: у него
+        # скорее есть диалог с клиентским сообществом, чем с бизнесовым.
+        await deliver(user, f"💳 {text}", subject="Тариф — Руми", audience=Audience.CLIENT)
     except Exception:
         logger.exception("notify_model_subscription(user=%s): не отправлено", getattr(user, "id", "?"))

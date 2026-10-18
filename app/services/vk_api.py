@@ -44,13 +44,17 @@ class VkApiError(Exception):
         self.message = message
 
 
-async def call(method: str, *, token: Optional[str] = None, timeout: float = 15,
-               **params: Any) -> Any:
-    """Вызов метода API. Ошибка ВК → VkApiError; сетевая — httpx.HTTPError."""
-    from app.core.config import settings   # при вызове: тесты перезагружают конфиг
+async def call(method: str, *, token: str, timeout: float = 15, **params: Any) -> Any:
+    """Вызов метода API. Ошибка ВК → VkApiError; сетевая — httpx.HTTPError.
 
+    Токен обязателен и запасного «из настроек» нет: сообществ два (решение
+    0013), и забытый токен должен падать здесь, а не уходить письмом от чужого
+    сообщества — ВК ответил бы отказом, и мы пометили бы человека сломанным.
+    """
+    if not token:
+        raise ValueError(f"vk {method}: не передан токен сообщества")
     data = {k: v for k, v in params.items() if v is not None}
-    data["access_token"] = token or settings.VK_BOT_TOKEN
+    data["access_token"] = token
     data["v"] = API_VERSION
     async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.post(API_URL + method, data=data)
@@ -67,27 +71,28 @@ def random_id() -> int:
     return secrets.randbelow(2**31 - 1) + 1
 
 
-async def send_message(peer_id: int, text: str, keyboard: Optional[dict] = None) -> Any:
+async def send_message(peer_id: int, text: str, keyboard: Optional[dict] = None, *,
+                       token: str) -> Any:
     return await call(
-        "messages.send", peer_id=peer_id, message=text, random_id=random_id(),
+        "messages.send", token=token, peer_id=peer_id, message=text, random_id=random_id(),
         keyboard=json.dumps(keyboard, ensure_ascii=False) if keyboard else None,
         dont_parse_links=0,
     )
 
 
 async def answer_event(event_id: str, user_id: int, peer_id: int,
-                       snackbar: Optional[str] = None) -> None:
+                       snackbar: Optional[str] = None, *, token: str) -> None:
     """Ответ на нажатие callback-кнопки. Без него у кнопки крутится индикатор."""
     event_data = (json.dumps({"type": "show_snackbar", "text": snackbar[:90]},
                              ensure_ascii=False) if snackbar else None)
-    await call("messages.sendMessageEventAnswer", event_id=event_id,
+    await call("messages.sendMessageEventAnswer", token=token, event_id=event_id,
                user_id=user_id, peer_id=peer_id, event_data=event_data)
 
 
-async def user_name(user_id: int) -> str:
+async def user_name(user_id: int, *, token: str) -> str:
     """«Имя Фамилия» пользователя ВК; пустая строка, если узнать не вышло."""
     try:
-        users = await call("users.get", user_ids=user_id)
+        users = await call("users.get", token=token, user_ids=user_id)
         if users:
             return f"{users[0].get('first_name', '')} {users[0].get('last_name', '')}".strip()
     except Exception:
@@ -119,11 +124,15 @@ def inline_keyboard(rows: list[list[dict]]) -> dict:
     return {"inline": True, "buttons": rows}
 
 
-def vk_me_url(ref: Optional[str] = None) -> str:
-    """Ссылка на диалог с сообществом. ref ВК вернёт в первом сообщении человека."""
+def vk_me_url(ref: Optional[str] = None, community=None) -> str:
+    """Ссылка на диалог с сообществом. ref ВК вернёт в первом сообщении человека.
+
+    community не указан — то сообщество, куда сайт зовёт подключаться
+    (settings.vk_link_address): код привязки примет любой из двух ботов.
+    """
     from app.core.config import settings
 
-    address = settings.vk_bot_address
+    address = community.address if community is not None else settings.vk_link_address
     if not address:
         return ""
     return f"https://vk.me/{address}" + (f"?ref={ref}" if ref else "")

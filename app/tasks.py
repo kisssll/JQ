@@ -185,25 +185,30 @@ async def _send_via_max(chat_id: int, text: str, attachments: list | None = None
     return True
 
 
-async def _send_via_vk(peer_id: int, text: str, keyboard: dict | None = None) -> bool:
+async def _send_via_vk(peer_id: int, text: str, keyboard: dict | None = None, *,
+                       community) -> bool:
     """Сообщение ботом сообщества ВК. Та же классификация, что у Telegram и MAX.
 
     900/901/902 — человек заблокировал сообщество или закрыл сообщения
     (RecipientGone); флуд-контроль, внутренние ошибки ВК и сеть — повтор
     (TransientTaskError); всё прочее — сообщение отклонено (False), в том
     числе неверный ключ: это сломались мы, а не получатель.
+
+    community — тип сообщения (vk_community.Audience). Токен берём ТОЛЬКО по
+    нему: чужим токеном на этот адрес ВК ответил бы 901, и человек был бы
+    помечен сломанным, ни в чём не провинившись (решение 0013).
     """
     import httpx
 
-    from app.core.config import settings
-    from app.services import vk_api
+    from app.services import vk_api, vk_community
 
-    if not settings.VK_BOT_TOKEN:
-        logger.info("[dev-заглушка VK] peer=%s: %s", peer_id, text[:60])
+    target = vk_community.get(community)
+    if not target.token:
+        logger.info("[dev-заглушка VK %s] peer=%s: %s", target.audience.value, peer_id, text[:60])
         return True
 
     try:
-        await vk_api.send_message(peer_id, text, keyboard)
+        await vk_api.send_message(peer_id, text, keyboard, token=target.token)
     except vk_api.VkApiError as exc:
         if exc.code in vk_api.RECIPIENT_GONE_CODES:
             logger.warning("vk peer=%s: получатель недоступен: %s", peer_id, exc)
@@ -217,10 +222,10 @@ async def _send_via_vk(peer_id: int, text: str, keyboard: dict | None = None) ->
     return True
 
 
-async def _deliver(channel, address, text: str, subject: str = "Руми") -> None:
+async def _deliver(channel, address, text: str, subject: str = "Руми", *, audience) -> None:
     """Отправка в уже отрезолвленный канал — общий транспорт для задач,
     которые шлют пользователю напрямую (напоминания). Канал резолвится
-    вызывающим кодом через notify_channel.resolve()."""
+    вызывающим кодом через notify_channel.resolve() с тем же audience."""
     from app.models.models import NotifyChannel
 
     if address is None:
@@ -231,16 +236,16 @@ async def _deliver(channel, address, text: str, subject: str = "Руми") -> No
         elif channel == NotifyChannel.MAX:
             await _send_via_max(address, text)
         elif channel == NotifyChannel.VK:
-            await _send_via_vk(address, text)
+            await _send_via_vk(address, text, community=audience)
         elif channel == NotifyChannel.TG:
             await _send_via_telegram(address, text)
         else:
             logger.warning("_deliver: неизвестный канал %s", channel)
     except RecipientGone:
-        await _reroute_after_refusal(channel, address, text, subject)
+        await _reroute_after_refusal(channel, address, text, subject, audience=audience)
 
 
-async def _mark_channel_broken(channel_value: str, address) -> None:
+async def _mark_channel_broken(channel_value: str, address, audience=None) -> None:
     """Только отметка, без досылки — для сообщений, которым запасной канал
     не подходит (кнопки-звёзды, опрос). Сбой базы не роняем:
     сообщение всё равно не дойдёт, а отметку поставит следующий отказ."""
@@ -250,18 +255,24 @@ async def _mark_channel_broken(channel_value: str, address) -> None:
 
     try:
         async with AsyncSessionLocal() as db:
-            await mark_broken(db, NotifyChannel(channel_value), address)
+            await mark_broken(db, NotifyChannel(channel_value), address, audience)
     except Exception:
         logger.exception("%s chat=%s: не удалось пометить отказ", channel_value, address)
 
 
-async def _reroute_after_refusal(channel, address, text: str, subject: str = "Руми") -> str:
+async def _reroute_after_refusal(channel, address, text: str, subject: str = "Руми", *,
+                                 audience=None) -> str:
     """Мессенджер отказал насовсем: пометить его сломанным у всех, кто к нему
     привязан, и сразу дослать ЭТО уведомление запасным каналом.
 
     Раньше отказ уходил в журнал, канал оставался прежним, и человек молча
     переставал получать напоминания — ни он, ни мы об этом не знали. Привязку не
     стираем: разблокирует бота — и доставка вернётся сама (clear_broken).
+
+    audience — тип сообщения: по нему ВК помечает сломанным только то
+    сообщество, которое отказало, и по нему же выбирается запасной путь.
+    Задачи Telegram и MAX тип не знают (None) — тогда досылаем в любой рабочий
+    канал, а ВК — тем сообществом, с которым у человека есть диалог.
 
     Досылка идёт через очередь, а не напрямую: у запасного канала свои ретраи.
     Ошибка базы — TransientTaskError: повтор задачи снова получит отказ и
@@ -270,12 +281,16 @@ async def _reroute_after_refusal(channel, address, text: str, subject: str = "Р
     from app.core.worker import get_arq_pool
     from app.db.session import AsyncSessionLocal
     from app.models.models import NotifyChannel
-    from app.services.notify_channel import mark_broken, resolve, task_for
+    from app.services.notify_channel import enqueue_message, mark_broken, resolve, resolve_any
 
     try:
         async with AsyncSessionLocal() as db:
-            users = await mark_broken(db, channel, address)
-            targets = [(u.id, *resolve(u)) for u in users]
+            users = await mark_broken(db, channel, address, audience)
+            targets = [
+                (u.id, *resolve(u, audience), audience) if audience is not None
+                else (u.id, *resolve_any(u))
+                for u in users
+            ]
     except Exception as exc:
         raise TransientTaskError(f"отметка отказа: {exc}") from exc
 
@@ -287,15 +302,13 @@ async def _reroute_after_refusal(channel, address, text: str, subject: str = "Р
 
     pool = await get_arq_pool()
     rerouted = 0
-    for user_id, fallback, fallback_address in targets:
+    for user_id, fallback, fallback_address, fallback_audience in targets:
         if fallback_address is None:
             logger.warning("user=%s: %s отказал, запасного канала нет — уведомление потеряно",
                            user_id, channel.value)
             continue
-        if fallback == NotifyChannel.EMAIL:
-            await pool.enqueue_job("send_email", fallback_address, subject, text)
-        else:
-            await pool.enqueue_job(task_for(fallback), fallback_address, text)
+        await enqueue_message(pool, fallback, fallback_address, text,
+                              audience=fallback_audience, subject=subject)
         rerouted += 1
         logger.info("user=%s: %s отказал, уведомление ушло через %s",
                     user_id, channel.value, fallback.value)
@@ -316,6 +329,10 @@ async def ask_promo_consent(ctx: dict[str, Any], user_id: int) -> str:
     from app.models.models import NotifyChannel, User
     from app.services import ad_consent
     from app.services.notify_channel import resolve
+    from app.services.vk_community import Audience
+
+    # Вопрос о подборке вечерних окон — клиентский: это про запись к мастерам.
+    audience = Audience.CLIENT
 
     async with AsyncSessionLocal() as db:
         # Блокируем строку пользователя до коммита отметки: две задачи для
@@ -330,7 +347,7 @@ async def ask_promo_consent(ctx: dict[str, Any], user_id: int) -> str:
             return "skipped:already-asked"
         if ad_consent.is_consented(user):
             return "skipped:already-consented"
-        channel, address = resolve(user)
+        channel, address = resolve(user, audience)
         if address is None:
             return "skipped:no-channel"
 
@@ -354,7 +371,8 @@ async def ask_promo_consent(ctx: dict[str, Any], user_id: int) -> str:
                 from app.services import vk_api
 
                 delivered = await _send_via_vk(address, ad_consent.QUESTION_TEXT, vk_api.inline_keyboard(
-                    [[vk_api.callback_button(ad_consent.OPT_IN_LABEL, "adc:yes", "positive")]]))
+                    [[vk_api.callback_button(ad_consent.OPT_IN_LABEL, "adc:yes", "positive")]]),
+                    community=audience)
             elif channel == NotifyChannel.EMAIL:
                 from app.core.config import settings
 
@@ -380,7 +398,7 @@ async def ask_promo_consent(ctx: dict[str, Any], user_id: int) -> str:
             await db.commit()
             from app.services.notify_channel import mark_broken
 
-            await mark_broken(db, channel, address)
+            await mark_broken(db, channel, address, audience)
             logger.warning("ask_promo_consent user=%s: %s недоступен",
                            user_id, channel.value)
             return f"undelivered:{channel.value}"
@@ -419,15 +437,23 @@ async def send_max_message(ctx: dict[str, Any], chat_id: int, text: str) -> str:
     return "sent"
 
 
-async def send_vk_message(ctx: dict[str, Any], peer_id: int, text: str) -> str:
-    """Уведомление во ВКонтакте вне запроса — зеркало send_tg_message."""
+async def send_vk_message(ctx: dict[str, Any], peer_id: int, text: str,
+                          community: str = "business") -> str:
+    """Уведомление во ВКонтакте вне запроса — зеркало send_tg_message.
+
+    community — какое сообщество пишет (ставит notify_channel.enqueue_message).
+    Значение по умолчанию — только для задач, поставленных в очередь ДО
+    разделения сообществ: тогда сообщество было одно, и оно стало бизнесовым,
+    а адрес в задаче — из его диалога.
+    """
     from app.models.models import NotifyChannel
 
     try:
-        await _send_via_vk(peer_id, text)
+        await _send_via_vk(peer_id, text, community=community)
     except RecipientGone:
         try:
-            return await _reroute_after_refusal(NotifyChannel.VK, peer_id, text)
+            return await _reroute_after_refusal(NotifyChannel.VK, peer_id, text,
+                                                audience=community)
         except TransientTaskError as exc:
             raise _retry(ctx, exc) from exc
     except TransientTaskError as exc:
@@ -485,7 +511,8 @@ async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
                 await db.execute(select(User).where(User.id == booking.client_id))
             ).scalar_one_or_none()
             from app.services.notify_channel import has_channel
-            if client is None or not has_channel(client):
+            from app.services.vk_community import Audience
+            if client is None or not has_channel(client, Audience.CLIENT):
                 return "skipped:no-chat"
 
             from app.services.notifications import TOPIC_REMINDERS, wants
@@ -509,7 +536,7 @@ async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
         )
         # Канал клиента резолвим здесь же — дальше объект пользователя не трогаем
         from app.services.notify_channel import resolve as _resolve_channel
-        channel, address = _resolve_channel(client)
+        channel, address = _resolve_channel(client, Audience.CLIENT)
     except TransientTaskError:
         raise
     except Exception as exc:  # БД недоступна и т.п. — пробуем позже
@@ -518,7 +545,8 @@ async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
         raise _retry(ctx, exc) from exc
 
     try:
-        await _deliver(channel, address, text, subject="Напоминание о записи — Руми")
+        await _deliver(channel, address, text, subject="Напоминание о записи — Руми",
+                       audience=Audience.CLIENT)
     except TransientTaskError as exc:
         raise _retry(ctx, exc) from exc
     return "sent"
@@ -540,6 +568,7 @@ async def send_evening_deals_blast(ctx: dict[str, Any]) -> str:
     from app.models.models import User
     from app.services.evening_deals_service import any_windows_today
     from app.services.notifications import TOPIC_PROMOS, wants
+    from app.services.vk_community import Audience   # вечерние окна — клиентам
 
     try:
         async with AsyncSessionLocal() as db:
@@ -548,7 +577,7 @@ async def send_evening_deals_blast(ctx: dict[str, Any]) -> str:
             from app.services.notify_channel import has_channel_clause
             recipients = (await db.execute(
                 select(User).where(
-                    has_channel_clause(),
+                    has_channel_clause(Audience.CLIENT),
                     User.is_guest == False,  # noqa: E712
                 )
             )).scalars().all()
@@ -563,23 +592,18 @@ async def send_evening_deals_blast(ctx: dict[str, Any]) -> str:
         f"{link}"
     )
 
-    from app.services.notify_channel import resolve as _resolve_channel
-    from app.models.models import NotifyChannel as _NC
+    from app.services.notify_channel import enqueue_message, resolve as _resolve_channel
 
     pool = await get_arq_pool()
     sent = 0
     for u in recipients:
         if not wants(u, TOPIC_PROMOS):
             continue
-        channel, address = _resolve_channel(u)
+        channel, address = _resolve_channel(u, Audience.CLIENT)
         if address is None:
             continue
-        if channel == _NC.EMAIL:
-            await pool.enqueue_job("send_email", address, "Вечерние окна со скидкой — Руми", text)
-        else:
-            from app.services.notify_channel import task_for
-
-            await pool.enqueue_job(task_for(channel), address, text)
+        await enqueue_message(pool, channel, address, text, audience=Audience.CLIENT,
+                              subject="Вечерние окна со скидкой — Руми")
         sent += 1
     logger.info("send_evening_deals_blast: поставлено %d сообщений", sent)
     return f"queued:{sent}"
@@ -1042,15 +1066,22 @@ async def send_review_request_tg(ctx: dict[str, Any], chat_id: int,
 
 
 async def send_review_request_vk(ctx: dict[str, Any], peer_id: int,
-                                 booking_id: int, question: str) -> str:
-    """Вопрос об отзыве со звёздами во ВКонтакте. Нажатие ловит vk-бот (rev:*)."""
+                                 booking_id: int, question: str,
+                                 community: str = "business") -> str:
+    """Вопрос об отзыве со звёздами во ВКонтакте. Нажатие ловит vk-бот (rev:*).
+
+    Отзыв — клиентское сообщение, ask_for_review передаёт community=client.
+    Значение по умолчанию — для задач из очереди до разделения сообществ (см.
+    send_vk_message).
+    """
     from app.services import vk_api
 
     stars = [vk_api.callback_button("★" * n, f"rev:{booking_id}:{n}") for n in range(1, 6)]
     try:
-        await _send_via_vk(peer_id, f"⭐ {question}", vk_api.inline_keyboard([stars[:3], stars[3:]]))
+        await _send_via_vk(peer_id, f"⭐ {question}", vk_api.inline_keyboard([stars[:3], stars[3:]]),
+                           community=community)
     except RecipientGone:
-        await _mark_channel_broken("vk", peer_id)
+        await _mark_channel_broken("vk", peer_id, community)
         return "gone"
     except TransientTaskError as exc:
         logger.warning("send_review_request_vk %s: временный сбой: %s", peer_id, exc)
@@ -1082,6 +1113,7 @@ async def ask_service_rating(ctx: dict[str, Any]) -> str:
         NotifyChannel, Salon, SalonModerationStatus, SupportRequest, SupportTopic, User,
     )
     from app.services.notify_channel import resolve
+    from app.services.vk_community import Audience
 
     now = datetime.now(timezone.utc)
     ripe_before = now - timedelta(days=SERVICE_RATING_AFTER_DAYS)
@@ -1114,7 +1146,8 @@ async def ask_service_rating(ctx: dict[str, Any]) -> str:
             owner = await db.get(User, owner_id)
             if owner is None:
                 continue
-            channel, address = resolve(owner)
+            # Опрос владельца о сервисе — бизнесовый.
+            channel, address = resolve(owner, Audience.BUSINESS)
             task = {NotifyChannel.TG: "send_service_rating_tg",
                     NotifyChannel.VK: "send_service_rating_vk"}.get(channel)
             if task is None or not address:
@@ -1147,14 +1180,19 @@ async def send_service_rating_tg(ctx: dict[str, Any], chat_id: int) -> str:
 
 
 async def send_service_rating_vk(ctx: dict[str, Any], peer_id: int) -> str:
-    """Вопрос об оценке сервиса во ВКонтакте. Нажатие ловит vk-бот (nps:*)."""
+    """Вопрос об оценке сервиса во ВКонтакте. Нажатие ловит vk-бот (nps:*).
+
+    Только бизнесовое сообщество: опрос идёт владельцу салона, и кнопки nps:*
+    понимает только бизнесовый бот.
+    """
     from app.services import vk_api
 
     buttons = [vk_api.callback_button(str(n), f"nps:{n}") for n in range(1, 6)]
     try:
-        await _send_via_vk(peer_id, SERVICE_RATING_TEXT, vk_api.inline_keyboard([buttons]))
+        await _send_via_vk(peer_id, SERVICE_RATING_TEXT, vk_api.inline_keyboard([buttons]),
+                           community="business")
     except RecipientGone:
-        await _mark_channel_broken("vk", peer_id)
+        await _mark_channel_broken("vk", peer_id, "business")
         return "gone"
     except TransientTaskError as exc:
         logger.warning("send_service_rating_vk %s: временный сбой: %s", peer_id, exc)
@@ -1183,6 +1221,7 @@ async def ask_for_review(ctx: dict[str, Any], booking_id: int) -> str:
     )
     from app.services.bot_actions import review_already_left
     from app.services.notify_channel import resolve
+    from app.services.vk_community import Audience
 
     async with AsyncSessionLocal() as db:
         booking = (await db.execute(
@@ -1203,7 +1242,8 @@ async def ask_for_review(ctx: dict[str, Any], booking_id: int) -> str:
         salon = await db.get(Salon, master.salon_id) if master else None
         salon_name = salon.name if salon else "салоне"
 
-        channel, address = resolve(client)
+        # Вопрос об отзыве — клиентский.
+        channel, address = resolve(client, Audience.CLIENT)
         if channel == NotifyChannel.NONE or not address:
             return "no_channel"
 
@@ -1212,9 +1252,11 @@ async def ask_for_review(ctx: dict[str, Any], booking_id: int) -> str:
         pool = await get_arq_pool()
         if channel in (NotifyChannel.TG, NotifyChannel.VK):
             # Звёзды кнопками умеют tg- и vk-боты (нажатия ловит их polling).
-            task = ("send_review_request_tg" if channel == NotifyChannel.TG
-                    else "send_review_request_vk")
-            await pool.enqueue_job(task, int(address), booking_id, question)
+            if channel == NotifyChannel.TG:
+                await pool.enqueue_job("send_review_request_tg", int(address), booking_id, question)
+            else:
+                await pool.enqueue_job("send_review_request_vk", int(address), booking_id, question,
+                                       community=Audience.CLIENT.value)
         else:
             base = settings.PUBLIC_BASE_URL.rstrip("/")
             link = f"{base}/salons/{salon.id}" if salon else base
@@ -1222,7 +1264,7 @@ async def ask_for_review(ctx: dict[str, Any], booking_id: int) -> str:
 
             await deliver(
                 client, f"⭐ {question}\nОставить отзыв: {link}",
-                subject="Как прошёл визит? — Руми",
+                subject="Как прошёл визит? — Руми", audience=Audience.CLIENT,
             )
         return "asked"
 

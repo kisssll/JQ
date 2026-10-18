@@ -61,7 +61,7 @@ def test_broken_messenger_is_skipped_but_kept():
     user = User(phone="+79990000000", tg_chat_id=1, email="a@b.ru",
                 notify_channel=NotifyChannel.TG,
                 tg_broken_at=datetime.now(timezone.utc))
-    assert resolve(user) == (NotifyChannel.EMAIL, "a@b.ru")
+    assert resolve(user, "client") == (NotifyChannel.EMAIL, "a@b.ru")
     assert broken_channels(user) == [NotifyChannel.TG]
     assert user.tg_chat_id == 1   # привязка на месте
 
@@ -76,7 +76,7 @@ async def test_only_broken_channel_means_unreachable(client, db_session):
     ok_id = await _user(db_session, phone="+79997770002", tg_chat_id=12,
                         notify_channel=NotifyChannel.TG)
     async with db_session() as db:
-        ids = set((await db.execute(select(User.id).where(has_channel_clause()))).scalars())
+        ids = set((await db.execute(select(User.id).where(has_channel_clause("client")))).scalars())
     assert ok_id in ids and broken_id not in ids
 
 
@@ -95,7 +95,7 @@ async def test_refusal_marks_broken_and_reroutes_now(client, db_session, monkeyp
         user = await db.get(User, user_id)
         assert user.tg_broken_at is not None
         assert user.tg_chat_id == 21
-        assert resolve(user)[0] == NotifyChannel.EMAIL
+        assert resolve(user, "client")[0] == NotifyChannel.EMAIL
 
 
 async def test_refusal_reroutes_messenger_to_messenger(client, db_session, monkeypatch, pool):
@@ -142,7 +142,8 @@ async def test_reminder_is_rerouted_with_its_subject(client, db_session, monkeyp
     _tg_refuses(monkeypatch)
     await _user(db_session, tg_chat_id=26, email="r@example.com", notify_channel=NotifyChannel.TG)
 
-    await tasks._deliver(NotifyChannel.TG, 26, "⏰ Сегодня в 18:00", subject="Напоминание о записи — Руми")
+    await tasks._deliver(NotifyChannel.TG, 26, "⏰ Сегодня в 18:00", subject="Напоминание о записи — Руми",
+                         audience="client")
     assert pool.jobs == [("send_email", "r@example.com", "Напоминание о записи — Руми", "⏰ Сегодня в 18:00")]
 
 
@@ -227,7 +228,7 @@ async def test_pressing_start_revives_channel(client, db_session, monkeypatch):
     async with db_session() as db:
         user = await db.get(User, user_id)
         assert user.tg_broken_at is None
-        assert resolve(user) == (NotifyChannel.TG, 31)
+        assert resolve(user, "client") == (NotifyChannel.TG, 31)
 
 
 async def test_max_start_revives_channel(client, db_session):

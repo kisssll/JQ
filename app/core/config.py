@@ -175,21 +175,46 @@ class Settings(BaseSettings):
     VK_OAUTH_ENABLED: bool = True
     VK_CLIENT_ID: str = "54721847"
 
-    # --- ВК-бот сообщества (Bots Long Poll API) ---
-    # Ключ сообщества с правами messages + manage (+ photos, docs) — только в
-    # .env на сервере. У прода и стейджа РАЗНЫЕ сообщества: два процесса на
-    # одном Long Poll отнимают друг у друга сообщения. Без ключа бот спит.
+    # --- ВК-боты сообществ (Bots Long Poll API) ---
+    # Сообществ два (решение 0013): старое стало БИЗНЕСОВЫМ и осталось на прежних
+    # переменных VK_BOT_TOKEN/VK_GROUP_ID, новое — КЛИЕНТСКОЕ, VK_CLIENTS_*.
+    # (VK_CLIENT_ID выше — другое: это приложение для входа через VK ID.)
+    # Ключи с правами messages + manage (+ photos, docs) — только в .env на
+    # сервере. У прода и стейджа РАЗНЫЕ сообщества: два процесса на одном Long
+    # Poll отнимают друг у друга сообщения. Без ключа бот спит.
     VK_BOT_TOKEN: str = ""
     VK_GROUP_ID: int = 0
     # Короткий адрес сообщества для ссылок vk.me/<адрес>. Пусто — club<ID>.
     VK_GROUP_SCREEN_NAME: str = ""
+    VK_CLIENTS_BOT_TOKEN: str = ""
+    VK_CLIENTS_GROUP_ID: int = 0
+    VK_CLIENTS_GROUP_SCREEN_NAME: str = ""
+    # Чьё сообщество обслуживает ЭТОТ процесс бота: client или business.
+    # Процессов два, образ и команда одни — различаются только окружением.
+    VK_BOT_ROLE: str = "business"
+
+    @staticmethod
+    def _vk_address(group_id: int, screen_name: str) -> str:
+        if not group_id:
+            return ""
+        return (screen_name or "").strip().lstrip("@") or f"club{group_id}"
 
     @property
     def vk_bot_address(self) -> str:
-        """Адрес сообщества для vk.me-ссылок или пустая строка, если бота нет."""
-        if not self.VK_GROUP_ID:
-            return ""
-        return (self.VK_GROUP_SCREEN_NAME or "").strip().lstrip("@") or f"club{self.VK_GROUP_ID}"
+        """Адрес БИЗНЕСОВОГО сообщества для vk.me-ссылок или пустая строка."""
+        return self._vk_address(self.VK_GROUP_ID, self.VK_GROUP_SCREEN_NAME)
+
+    @property
+    def vk_clients_bot_address(self) -> str:
+        """Адрес КЛИЕНТСКОГО сообщества для vk.me-ссылок или пустая строка."""
+        return self._vk_address(self.VK_CLIENTS_GROUP_ID, self.VK_CLIENTS_GROUP_SCREEN_NAME)
+
+    @property
+    def vk_link_address(self) -> str:
+        """Куда звать «подключить ВКонтакте» с сайта: в клиентское сообщество,
+        а пока его нет — в бизнесовое. Клиентов больше, а привязку ко второму
+        сообществу человек получит сам, когда ему напишет (решение 0013, п. 5)."""
+        return self.vk_clients_bot_address or self.vk_bot_address
 
     # --- Яндекс Карты (подсказки адреса + геокодирование) ---
     # Один ключ типа «JavaScript API и HTTP Геокодер» из developer.tech.yandex.ru
