@@ -15,6 +15,13 @@
 
 Команды кнопок те же, что у двух других ботов (menu:*, cnl:, ntf:, sup:, rev:,
 nps:, adc:yes), — правила живут в общих bot_actions.py и support.py.
+
+Сообществ два — клиентское и бизнесовое (решение 0013), и процессов два: тот
+же модуль, разное окружение (VK_BOT_ROLE и токен своего сообщества). Процесс
+знает ОДИН токен и пишет только своим сообществом; роль решает, какое меню
+показать и в какое поле пользователя записать адрес диалога. Почему не один
+процесс на два цикла: любая забытая строчка отправила бы ответ мастера в
+клиентское сообщество, а ВК ответил бы отказом.
 """
 from __future__ import annotations
 
@@ -28,7 +35,7 @@ import httpx
 from app.core import config
 from app.core.limiter import get_redis
 from app.models.models import NotifyChannel
-from app.services import contest, vk_api, vk_link
+from app.services import contest, vk_api, vk_community, vk_link
 
 logger = logging.getLogger("vk_bot")
 
@@ -49,21 +56,64 @@ _CHAT_PEER_BASE = 2_000_000_000
 LONG_POLL_WAIT = 25
 
 
+# ── сообщество этого процесса ───────────────────────────────────────────────
+
+def _community() -> vk_community.Community:
+    """Сообщество, которое обслуживает процесс. Читаем при вызове, а не при
+    импорте: тесты меняют роль на лету."""
+    return vk_community.for_process()
+
+
+def _is_client() -> bool:
+    return _community().audience == vk_community.Audience.CLIENT
+
+
+#: Кнопки, которые понимает клиентский бот. Остальное — бизнесовое: опрос
+#: владельца о сервисе (nps:) и конкурс мастеров. Поддержка (menu:support,
+#: sup:) есть в обоих: ответ уходит в то сообщество, откуда пришло обращение.
+_CLIENT_COMMANDS = ("menu:bookings", "menu:prefs", "menu:support", "sup:", "cnl:", "ntf:",
+                    "adc:yes", "rev:", "chn:")
+
+
+def _allowed(command: str) -> bool:
+    if not _is_client():
+        # Бизнесовое — бывшее единственное сообщество: в старых сообщениях там
+        # остались кнопки записей и отзывов, и нажатие на них должно работать.
+        return True
+    return any(command == c or (c.endswith(":") and command.startswith(c))
+               for c in _CLIENT_COMMANDS)
+
+
 # ── отправка ────────────────────────────────────────────────────────────────
 
 async def send(peer_id: int, text: str, keyboard: Optional[dict] = None) -> None:
     """Ответ в диалог. Ошибка отправки не должна ронять обработку события."""
     try:
-        await vk_api.send_message(peer_id, text, keyboard)
+        await vk_api.send_message(peer_id, text, keyboard, token=_community().token)
     except Exception:
         logger.warning("vk peer=%s: ответ не отправлен", peer_id, exc_info=True)
 
 
+def _site_url(path: str) -> str:
+    return f"{config.settings.PUBLIC_BASE_URL.rstrip('/')}{path}"
+
+
+def _support_label() -> str:
+    return bot_texts.vk_support_label(_community().audience.value)
+
+
 def _menu_kb() -> dict:
+    if _is_client():
+        return vk_api.inline_keyboard([
+            [vk_api.callback_button(MENU_BOOKINGS, "menu:bookings", "primary")],
+            [vk_api.callback_button(MENU_PREFS, "menu:prefs")],
+            [vk_api.link_button(bot_texts.MENU_EVENING, _site_url("/evening-deals"))],
+            [vk_api.callback_button(_support_label(), "menu:support")],
+        ])
     rows = [
-        [vk_api.callback_button(MENU_BOOKINGS, "menu:bookings", "primary")],
-        [vk_api.callback_button(MENU_PREFS, "menu:prefs")],
-        [vk_api.callback_button(MENU_SUPPORT, "menu:support")],
+        [vk_api.link_button(bot_texts.MENU_PANEL, _site_url("/business/dashboard"))],
+        [vk_api.link_button(bot_texts.MENU_TARIFF, _site_url("/business/dashboard?tab=billing"))],
+        [vk_api.callback_button(_support_label(), "menu:support")],
     ]
     if contest.is_menu_visible():
         # Кнопка живёт только на время конкурса: меню не должно расти
@@ -84,7 +134,7 @@ def _contest_kb(with_send: bool = False) -> dict:
 
 
 def _contest_url() -> str:
-    return f"{config.settings.PUBLIC_BASE_URL.rstrip('/')}/contest"
+    return _site_url("/contest")
 
 
 async def show_contest(peer_id: int) -> None:
@@ -111,21 +161,19 @@ async def send_contest_entry(peer_id: int) -> None:
 def _connect_url() -> str:
     """Страница привязки: одна кнопка и возврат сюда же. Раньше вели на
     /profile, где нужный блок — седьмой экран вниз, и человек до него
-    не доходил."""
-    return f"{config.settings.PUBLIC_BASE_URL.rstrip('/')}/connect/vk"
+    не доходил. ?to= — чтобы вернуть в ЭТО сообщество, а не в соседнее."""
+    return _site_url(f"/connect/vk?to={_community().audience.value}")
 
 
 def _unlinked_kb() -> dict:
-    return vk_api.inline_keyboard([
-        [vk_api.link_button(bot_texts.MENU_LINK, _connect_url())],
-        [vk_api.callback_button(MENU_SUPPORT, "menu:support")],
-    ])
+    rows = [[vk_api.link_button(bot_texts.MENU_LINK, _connect_url())],
+            [vk_api.callback_button(_support_label(), "menu:support")]]
+    return vk_api.inline_keyboard(rows)
 
 
-UNLINKED_TEXT = (
-    f"{bot_texts.LINK_OFFER}\n\n"
-    "Привязка займёт минуту: откроется страница Руми, а оттуда вас вернёт сюда."
-)
+def _unlinked_text() -> str:
+    return (f"{bot_texts.vk_link_offer(_community().audience.value)}\n\n"
+            "Привязка займёт минуту: откроется страница Руми, а оттуда вас вернёт сюда.")
 
 
 # ── состояние и пользователь ────────────────────────────────────────────────
@@ -137,33 +185,42 @@ async def _db():
 
 
 async def current_user(db, peer_id: int):
-    """Привязанный аккаунт или None. Вошедших через VK ID привязываем сразу."""
-    user = await vk_link.linked_user(db, peer_id)
+    """Привязанный аккаунт или None.
+
+    Кого ВК уже подтвердил — входом через VK ID или привязкой ко ВТОРОМУ
+    сообществу, — привязываем сразу, без кода (решение 0013, п. 5): peer_id в
+    личном диалоге приходит от самого ВК и равен id человека в обоих
+    сообществах. Чужого здесь не найти — у него нет этого id ни в одном поле.
+    """
+    community = _community()
+    user = await vk_link.linked_user(db, peer_id, community)
     if user is not None:
         return user, False
     user = await vk_link.user_by_vk_id(db, peer_id)
     if user is None:
         return None, False
-    ask = await vk_link.link(db, user, peer_id, await vk_api.user_name(peer_id))
-    await _announce_link(peer_id, user, ask)
+    name = await vk_api.user_name(peer_id, token=community.token)
+    ask = await vk_link.link(db, user, peer_id, name, community=community)
+    await _announce_link(peer_id, user, ask, recognized=True)
     return user, True
 
 
-async def _announce_link(peer_id: int, user, ask_channel: bool) -> None:
+async def _announce_link(peer_id: int, user, ask_channel: bool, *, recognized: bool = False) -> None:
     from app.services.notify_channel import CHANNEL_LABELS
 
+    audience = _community().audience.value
     if ask_channel:
         current = CHANNEL_LABELS[user.notify_channel]
         await send(
             peer_id,
-            bot_texts.link_done(current),
+            bot_texts.vk_link_done(audience, current, recognized=recognized),
             vk_api.inline_keyboard([
                 [vk_api.callback_button("Да, присылать сюда", "chn:vk", "positive")],
                 [vk_api.callback_button(f"Оставить {current}", "chn:keep")],
             ]),
         )
     else:
-        await send(peer_id, bot_texts.link_done(), _menu_kb())
+        await send(peer_id, bot_texts.vk_link_done(audience, recognized=recognized), _menu_kb())
 
 
 async def _revive(peer_id: int) -> None:
@@ -173,14 +230,17 @@ async def _revive(peer_id: int) -> None:
 
     try:
         async with await _db() as db:
-            if await clear_broken(db, NotifyChannel.VK, peer_id):
+            if await clear_broken(db, NotifyChannel.VK, peer_id, _community().audience):
                 logger.info("vk peer=%s: доставка снова доступна", peer_id)
     except Exception:
         logger.exception("vk peer=%s: не удалось снять отметку отказа", peer_id)
 
 
 def _draft_key(peer_id: int) -> str:
-    return f"support:draft:vk:{peer_id}"
+    # peer_id одинаков в обоих сообществах, а Redis общий: без сообщества в
+    # ключе обращение, начатое в одном диалоге, дописывалось бы в другом — и
+    # ушло бы в чужое сообщество, откуда ответ не дойдёт.
+    return f"support:draft:vk:{_community().audience.value}:{peer_id}"
 
 
 async def _draft_get(peer_id: int) -> Optional[dict]:
@@ -205,13 +265,12 @@ async def show_main_menu(peer_id: int, user) -> None:
         # Два коротких сообщения: приветствие — всем, предложение привязать —
         # только непривязанным (так же в tg- и max-боте).
         await send(peer_id, bot_texts.GREETING)
-        await send(peer_id, UNLINKED_TEXT, _unlinked_kb())
+        await send(peer_id, _unlinked_text(), _unlinked_kb())
         return
-    await send(
-        peer_id,
-        f"{bot_texts.hello(user)} Это бот Руми. Отсюда можно:\n\n{bot_texts.menu_hint()}",
-        _menu_kb(),
-    )
+    hint = bot_texts.vk_menu_hint(_community().audience.value,
+                                  with_contest=contest.is_menu_visible())
+    await send(peer_id, f"{bot_texts.hello(user)} Это бот Руми. Отсюда можно:\n\n{hint}",
+               _menu_kb())
 
 
 async def show_bookings(peer_id: int) -> None:
@@ -220,7 +279,7 @@ async def show_bookings(peer_id: int) -> None:
     async with await _db() as db:
         user, _ = await current_user(db, peer_id)
         if user is None:
-            await send(peer_id, UNLINKED_TEXT, _unlinked_kb())
+            await send(peer_id, _unlinked_text(), _unlinked_kb())
             return
         rows = await upcoming_bookings(db, user.id)
 
@@ -254,7 +313,7 @@ async def show_prefs(peer_id: int) -> None:
     async with await _db() as db:
         user, _ = await current_user(db, peer_id)
         if user is None:
-            await send(peer_id, UNLINKED_TEXT, _unlinked_kb())
+            await send(peer_id, _unlinked_text(), _unlinked_kb())
             return
         topics = await _available_topics(db, user)
         rows = [
@@ -393,6 +452,7 @@ async def continue_support(peer_id: int, message: dict, draft: dict) -> None:
         request = await create_request(
             db, topic=SupportTopic(draft["topic"]), text=text, channel=NotifyChannel.VK,
             chat_id=peer_id, user=user, photos=draft["photos"],
+            vk_audience=_community().audience.value,
         )
     await _draft_clear(peer_id)
     await send(peer_id, f"Обращение №{request.id} принято — спасибо.\nОтветим сюда же, в этот чат.",
@@ -420,9 +480,10 @@ async def save_service_rating(peer_id: int, rating: int) -> None:
         await create_request(
             db, topic=SupportTopic.NPS, text=f"Оценка сервиса: {rating}/5",
             channel=NotifyChannel.VK, chat_id=peer_id, user=user, rating=rating,
+            vk_audience=_community().audience.value,
         )
     await send(peer_id, f"Ваша оценка: {rating}/5. Спасибо!\n\n"
-                        f"Если хотите добавить, чего не хватает — напишите нам через «{MENU_SUPPORT}».")
+                        f"Если хотите добавить, чего не хватает — напишите нам через «{_support_label()}».")
 
 
 async def grant_promos(peer_id: int) -> None:
@@ -478,7 +539,9 @@ async def _link_by_code(peer_id: int, code: str) -> bool:
         user = await db.get(User, user_id)
         if user is None:
             return False
-        ask = await vk_link.link(db, user, peer_id, await vk_api.user_name(peer_id))
+        community = _community()
+        name = await vk_api.user_name(peer_id, token=community.token)
+        ask = await vk_link.link(db, user, peer_id, name, community=community)
         await _announce_link(peer_id, user, ask)
     return True
 
@@ -497,7 +560,7 @@ async def on_message_new(obj: dict) -> None:
         await show_topics(peer_id)
         return
 
-    if ref:
+    if ref and ref != vk_link.REF_SUPPORT:
         if await _link_by_code(peer_id, ref):
             return
         if vk_link.looks_like_code(ref):
@@ -510,7 +573,12 @@ async def on_message_new(obj: dict) -> None:
     # Анкета конкурса важнее: человек отвечает на вопрос бота. Иначе короткий
     # латинский ответ из пяти букв (город «TOMSK») был бы принят за код
     # привязки, и человек получил бы «код не подошёл» вместо следующего вопроса.
-    in_contest = await contest.draft_get(NotifyChannel.VK, peer_id) is not None
+    # Анкета конкурса — только бизнесового сообщества, а лежит в общем Redis по
+    # peer_id, одинаковому в обоих: клиентский бот её не читает, иначе ответ
+    # человека в клиентском диалоге ушёл бы в анкету, начатую в бизнесовом.
+    # Черновик обращения от этого защищён сообществом в ключе (_draft_key).
+    business = not _is_client()
+    in_contest = business and await contest.draft_get(NotifyChannel.VK, peer_id) is not None
     # Код со страницы привязки, присланный сообщением. Проверяем ДО черновика
     # обращения: человек, начавший писать в поддержку, мог параллельно
     # получить код, и привязка важнее незаконченного текста.
@@ -562,12 +630,16 @@ async def on_message_event(obj: dict) -> None:
 
     snackbar: Optional[str] = None
     try:
-        snackbar = await _dispatch_command(peer_id, command)
+        if _allowed(command):
+            snackbar = await _dispatch_command(peer_id, command)
+        else:
+            logger.info("vk peer=%s: кнопка %s не из этого сообщества", peer_id, command)
     except Exception:
         logger.exception("vk peer=%s: сбой обработки кнопки %s", peer_id, command)
     finally:
         try:
-            await vk_api.answer_event(event_id, user_id, peer_id, snackbar or None)
+            await vk_api.answer_event(event_id, user_id, peer_id, snackbar or None,
+                                      token=_community().token)
         except Exception:
             logger.warning("vk peer=%s: нажатие не подтверждено", peer_id, exc_info=True)
 
@@ -625,7 +697,8 @@ async def on_message_deny(obj: dict) -> None:
     if not peer_id:
         return
     async with await _db() as db:
-        if await mark_broken(db, NotifyChannel.VK, peer_id):
+        # Только своё сообщество: запрет в одном не отзывает разрешение во втором.
+        if await mark_broken(db, NotifyChannel.VK, peer_id, _community().audience):
             logger.info("vk peer=%s: сообщения запрещены — канал помечен", peer_id)
 
 
@@ -673,13 +746,15 @@ class Dispatcher:
 
 async def poll_forever(dispatcher: Optional[Dispatcher] = None) -> None:
     dispatcher = dispatcher or Dispatcher()
+    community = _community()
     server: Optional[dict[str, Any]] = None
     delay = 1
     async with httpx.AsyncClient(timeout=LONG_POLL_WAIT + 10) as client:
         while True:
             try:
                 if server is None:
-                    server = await vk_api.call("groups.getLongPollServer", group_id=config.settings.VK_GROUP_ID)
+                    server = await vk_api.call("groups.getLongPollServer", token=community.token,
+                                               group_id=community.group_id)
                 resp = await client.get(server["server"], params={
                     "act": "a_check", "key": server["key"], "ts": server["ts"], "wait": LONG_POLL_WAIT,
                 })
@@ -709,12 +784,18 @@ async def poll_forever(dispatcher: Optional[Dispatcher] = None) -> None:
 
 
 async def main() -> None:
-    if not config.settings.VK_BOT_TOKEN or not config.settings.VK_GROUP_ID:
-        # Как tg- и max-боты: без ключа спим, а не крашлупим.
-        logger.warning("VK_BOT_TOKEN/VK_GROUP_ID не заданы — бот в режиме ожидания.")
+    # Неизвестная роль падает здесь (ValueError) — громко, при старте, а не
+    # тихой работой «каким-нибудь» сообществом.
+    community = _community()
+    if not community.token or not community.group_id:
+        # Как tg- и max-боты: без ключа спим, а не крашлупим. На стейдже так
+        # живёт сообщество, которого там нет.
+        logger.warning("ВК-бот (%s): нет токена или id сообщества — режим ожидания.",
+                       community.audience.value)
         await asyncio.Event().wait()
         return
-    logger.info("ВК-бот сообщества %s запущен (Bots Long Poll)", config.settings.VK_GROUP_ID)
+    logger.info("ВК-бот %s-сообщества %s запущен (Bots Long Poll)",
+                community.audience.value, community.group_id)
     await poll_forever()
 
 

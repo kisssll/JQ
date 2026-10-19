@@ -29,23 +29,23 @@ def _user(**kw) -> User:
 
 def test_resolve_uses_preferred_channel():
     u = _user(notify_channel=NotifyChannel.MAX, max_chat_id=555, tg_chat_id=111)
-    assert resolve(u) == (NotifyChannel.MAX, 555)
+    assert resolve(u, "client") == (NotifyChannel.MAX, 555)
 
 
 def test_resolve_degrades_when_preferred_address_lost():
     # Канал MAX выбран, но привязку сняли — уходим на живой Telegram
     u = _user(notify_channel=NotifyChannel.MAX, max_chat_id=None, tg_chat_id=111)
-    assert resolve(u) == (NotifyChannel.TG, 111)
+    assert resolve(u, "client") == (NotifyChannel.TG, 111)
 
 
 def test_resolve_falls_back_to_email():
     u = _user(notify_channel=NotifyChannel.NONE, email="a@b.ru")
-    assert resolve(u) == (NotifyChannel.EMAIL, "a@b.ru")
+    assert resolve(u, "client") == (NotifyChannel.EMAIL, "a@b.ru")
 
 
 def test_resolve_none_when_nowhere_to_send():
-    assert resolve(_user()) == (NotifyChannel.NONE, None)
-    assert resolve(None) == (NotifyChannel.NONE, None)
+    assert resolve(_user(), "client") == (NotifyChannel.NONE, None)
+    assert resolve(None, "client") == (NotifyChannel.NONE, None)
 
 
 def test_has_channel():
@@ -77,13 +77,15 @@ def fake_pool(monkeypatch):
 
 
 async def test_deliver_routes_to_max(fake_pool):
-    ok = await notifications.deliver(_user(notify_channel=NotifyChannel.MAX, max_chat_id=777), "привет")
+    ok = await notifications.deliver(_user(notify_channel=NotifyChannel.MAX, max_chat_id=777), "привет",
+                                     audience="client")
     assert ok is True
     assert fake_pool.jobs == [("send_max_message", (777, "привет"))]
 
 
 async def test_deliver_routes_to_telegram(fake_pool):
-    ok = await notifications.deliver(_user(notify_channel=NotifyChannel.TG, tg_chat_id=42), "привет")
+    ok = await notifications.deliver(_user(notify_channel=NotifyChannel.TG, tg_chat_id=42), "привет",
+                                     audience="client")
     assert ok is True
     assert fake_pool.jobs == [("send_tg_message", (42, "привет"))]
 
@@ -91,6 +93,7 @@ async def test_deliver_routes_to_telegram(fake_pool):
 async def test_deliver_routes_to_email_with_subject(fake_pool):
     ok = await notifications.deliver(
         _user(notify_channel=NotifyChannel.EMAIL, email="a@b.ru"), "текст", subject="Тема",
+        audience="client",
     )
     assert ok is True
     assert fake_pool.jobs == [("send_email", ("a@b.ru", "Тема", "текст"))]
@@ -99,7 +102,7 @@ async def test_deliver_routes_to_email_with_subject(fake_pool):
 async def test_deliver_without_channel_is_noop(fake_pool):
     # Нет канала — уведомление не уходит, но и ошибки нет: вызывающее
     # бизнес-действие не должно падать из-за недоставки.
-    assert await notifications.deliver(_user(), "привет") is False
+    assert await notifications.deliver(_user(), "привет", audience="client") is False
     assert fake_pool.jobs == []
 
 

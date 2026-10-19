@@ -23,7 +23,7 @@ from app.web.components.styles import get_base_styles
 def _bot_links() -> str:
     """Куда идти подавать заявку — в тот бот, который у человека есть."""
     links = []
-    vk = settings.vk_bot_address
+    vk = settings.vk_bot_address   # конкурс мастеров — в бизнесовом сообществе
     if vk:
         links.append((f"https://vk.me/{vk}", "ВКонтакте"))
     tg = (settings.TG_BOT_USERNAME or "").strip().lstrip("@")
@@ -108,6 +108,6 @@ def render_contest_page(user=None) -> str:
             {rules}
         </div>
     </main>
-    {render_footer(user)}
+    {render_footer(user, "business")}
 </body>
 </html>"""

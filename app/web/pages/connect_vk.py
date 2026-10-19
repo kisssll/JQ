@@ -15,7 +15,6 @@
 """
 from __future__ import annotations
 
-from app.core.config import settings
 from app.web.components.escaping import e
 from app.web.components.footer import render_footer
 from app.web.components.header import render_header
@@ -61,8 +60,8 @@ def render_already_linked(user) -> str:
             </div>""", user)
 
 
-def render_connect_vk(user, code: str) -> str:
-    link = f"https://vk.me/{settings.vk_bot_address}?ref={e(code)}"
+def render_connect_vk(user, code: str, address: str) -> str:
+    link = f"https://vk.me/{e(address)}?ref={e(code)}"
     return _page("Привязать ВКонтакте", f"""
             <h1 class="text-display" style="margin-bottom:0.75rem">Привязать ВКонтакте</h1>
             <p class="text-body">Нажмите кнопку — откроется диалог с сообществом Руми.

@@ -187,7 +187,7 @@ def render_tariffs_page(user=None) -> str:
             </div>
         </section>
 
-        {render_footer(user)}
+        {render_footer(user, "business")}
     </main>
 </body>
 </html>"""

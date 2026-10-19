@@ -265,7 +265,7 @@ async def update_notify_channel_form(
     addresses = {
         NotifyChannel.TG: user.tg_chat_id,
         NotifyChannel.MAX: user.max_chat_id,
-        NotifyChannel.VK: user.vk_peer_id,
+        NotifyChannel.VK: user.vk_client_peer_id or user.vk_business_peer_id,
         NotifyChannel.EMAIL: (user.email or "").strip() or None,
     }
     if target == NotifyChannel.NONE or not addresses.get(target):
@@ -290,7 +290,8 @@ async def disconnect_channel_form(
     """
     from app.web.auth import get_current_user_from_cookie
     from app.models.models import NotifyChannel
-    from app.services.notify_channel import resolve
+    from app.services import vk_link
+    from app.services.notify_channel import display_channel
 
     user = await get_current_user_from_cookie(request, db)
     if not user:
@@ -309,7 +310,7 @@ async def disconnect_channel_form(
         remaining.append(NotifyChannel.TG)
     if user.max_chat_id and target != NotifyChannel.MAX:
         remaining.append(NotifyChannel.MAX)
-    if user.vk_peer_id and target != NotifyChannel.VK:
+    if (user.vk_client_peer_id or user.vk_business_peer_id) and target != NotifyChannel.VK:
         remaining.append(NotifyChannel.VK)
     if (user.email or "").strip():
         remaining.append(NotifyChannel.EMAIL)
@@ -321,16 +322,14 @@ async def disconnect_channel_form(
     elif target == NotifyChannel.MAX:
         user.max_chat_id = None
     else:
-        user.vk_peer_id = None
-        user.vk_name = None
-        user.vk_broken_at = None
+        await vk_link.unlink(db, user)   # оба сообщества: это один аккаунт ВК
 
     # Если отвязали текущий канал доставки — переводим на оставшийся
     if user.notify_channel == target:
         user.notify_channel = remaining[0]
     await db.commit()
     # Страховка: канал мог протухнуть иначе — синхронизируем с реальностью
-    actual, _addr = resolve(user)
+    actual, _addr = display_channel(user)
     if user.notify_channel != actual:
         user.notify_channel = actual
         await db.commit()
@@ -353,7 +352,7 @@ async def vk_connect_form(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-    if not settings.vk_bot_address:
+    if not settings.vk_link_address:
         return RedirectResponse(url="/profile?error=vk_unavailable", status_code=302)
     code = await vk_link.create_code(user.id)
     return RedirectResponse(url=vk_api.vk_me_url(code), status_code=303)

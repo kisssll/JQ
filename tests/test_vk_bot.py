@@ -16,7 +16,7 @@ from app import tasks, vk_bot
 import app.core.config as config_mod
 from app.core.security import get_password_hash
 from app.models.models import NotifyChannel, SupportRequest, User, UserRole
-from app.services import vk_api, vk_link
+from app.services import bot_texts, vk_api, vk_community, vk_link
 from app.services.notify_channel import has_channel_clause, resolve, task_for
 
 
@@ -47,13 +47,13 @@ def vk(monkeypatch):
         monkeypatch.setattr(target, "VK_GROUP_SCREEN_NAME", "rumi_test")
     sent, answered = [], []
 
-    async def send_message(peer_id, text, keyboard=None):
-        sent.append({"peer": peer_id, "text": text, "kb": keyboard})
+    async def send_message(peer_id, text, keyboard=None, *, token):
+        sent.append({"peer": peer_id, "text": text, "kb": keyboard, "token": token})
 
-    async def answer_event(event_id, user_id, peer_id, snackbar=None):
+    async def answer_event(event_id, user_id, peer_id, snackbar=None, *, token):
         answered.append((event_id, snackbar))
 
-    async def user_name(user_id):
+    async def user_name(user_id, *, token):
         return "Анна Клиентова"
 
     monkeypatch.setattr(vk_api, "send_message", send_message)
@@ -72,6 +72,10 @@ def _commands(keyboard) -> list[str]:
     return out
 
 
+def _labels(keyboard) -> list[str]:
+    return [b["action"]["label"] for row in (keyboard or {}).get("buttons", []) for b in row]
+
+
 def _msg(peer_id, text="", **extra):
     return {"message": {"peer_id": peer_id, "from_id": peer_id, "text": text, **extra}}
 
@@ -88,15 +92,17 @@ def test_callback_button_fits_vk_limits():
 # ── доставка ────────────────────────────────────────────────────────────────
 
 def test_vk_is_a_channel():
-    user = User(phone="+7", vk_peer_id=777, notify_channel=NotifyChannel.VK)
-    assert resolve(user) == (NotifyChannel.VK, 777)
-    assert task_for(NotifyChannel.VK) == "send_vk_message"
+    user = User(phone="+7", vk_business_peer_id=777, notify_channel=NotifyChannel.VK)
+    assert resolve(user, "business") == (NotifyChannel.VK, 777)
+    # ВК ставится в очередь только с сообществом (enqueue_message), а не по имени задачи
+    with pytest.raises(ValueError):
+        task_for(NotifyChannel.VK)
 
 
 async def test_vk_only_user_is_reachable(client, db_session):
-    user_id = await _user(db_session, vk_peer_id=701, notify_channel=NotifyChannel.VK)
+    user_id = await _user(db_session, vk_business_peer_id=701, notify_channel=NotifyChannel.VK)
     async with db_session() as db:
-        ids = set((await db.execute(select(User.id).where(has_channel_clause()))).scalars())
+        ids = set((await db.execute(select(User.id).where(has_channel_clause("business")))).scalars())
     assert user_id in ids
 
 
@@ -116,24 +122,24 @@ def vk_api_answers(monkeypatch):
 async def test_vk_recipient_gone(vk_api_answers, code):
     vk_api_answers({"error": {"error_code": code, "error_msg": "нельзя"}})
     with pytest.raises(tasks.RecipientGone):
-        await tasks._send_via_vk(1, "hi")
+        await tasks._send_via_vk(1, "hi", community="business")
 
 
 @pytest.mark.parametrize("code", [6, 9, 10])
 async def test_vk_transient(vk_api_answers, code):
     vk_api_answers({"error": {"error_code": code, "error_msg": "позже"}})
     with pytest.raises(tasks.TransientTaskError):
-        await tasks._send_via_vk(1, "hi")
+        await tasks._send_via_vk(1, "hi", community="business")
 
 
 async def test_vk_our_fault_does_not_blame_recipient(vk_api_answers):
     vk_api_answers({"error": {"error_code": 5, "error_msg": "User authorization failed"}})
-    assert await tasks._send_via_vk(1, "hi") is False
+    assert await tasks._send_via_vk(1, "hi", community="business") is False
 
 
 async def test_vk_delivered(vk_api_answers):
     vk_api_answers({"response": 123})
-    assert await tasks._send_via_vk(1, "hi") is True
+    assert await tasks._send_via_vk(1, "hi", community="business") is True
 
 
 async def test_reminder_goes_to_vk_not_telegram(monkeypatch):
@@ -141,8 +147,8 @@ async def test_reminder_goes_to_vk_not_telegram(monkeypatch):
     ВК-адрес ушёл бы в Telegram-чат с тем же номером."""
     calls = []
 
-    async def vk_send(peer_id, text, keyboard=None):
-        calls.append(("vk", peer_id))
+    async def vk_send(peer_id, text, keyboard=None, *, community):
+        calls.append(("vk", peer_id, community))
         return True
 
     async def tg_send(*a, **kw):
@@ -150,8 +156,8 @@ async def test_reminder_goes_to_vk_not_telegram(monkeypatch):
 
     monkeypatch.setattr(tasks, "_send_via_vk", vk_send)
     monkeypatch.setattr(tasks, "_send_via_telegram", tg_send)
-    await tasks._deliver(NotifyChannel.VK, 42, "⏰")
-    assert calls == [("vk", 42)]
+    await tasks._deliver(NotifyChannel.VK, 42, "⏰", audience="client")
+    assert calls == [("vk", 42, "client")]
 
 
 async def test_vk_refusal_reroutes(client, db_session, monkeypatch):
@@ -164,17 +170,17 @@ async def test_vk_refusal_reroutes(client, db_session, monkeypatch):
     async def get_pool():
         return Pool()
 
-    async def refuse(peer_id, text, keyboard=None):
+    async def refuse(peer_id, text, keyboard=None, *, community):
         raise tasks.RecipientGone("901")
 
     monkeypatch.setattr("app.core.worker.get_arq_pool", get_pool)
     monkeypatch.setattr(tasks, "_send_via_vk", refuse)
-    user_id = await _user(db_session, vk_peer_id=702, email="v@example.com",
+    user_id = await _user(db_session, vk_business_peer_id=702, email="v@example.com",
                           notify_channel=NotifyChannel.VK)
 
     assert await tasks.send_vk_message({"job_try": 1}, 702, "текст") == "gone:rerouted:1"
     assert jobs == [("send_email", "v@example.com", "Руми", "текст")]
-    assert (await _get(db_session, user_id)).vk_broken_at is not None
+    assert (await _get(db_session, user_id)).vk_business_broken_at is not None
 
 
 # ── привязка ────────────────────────────────────────────────────────────────
@@ -190,26 +196,26 @@ async def test_link_makes_vk_the_channel_when_there_was_none(client, db_session)
     user_id = await _user(db_session, email="a@example.com", notify_channel=NotifyChannel.EMAIL)
     async with db_session() as db:
         user = await db.get(User, user_id)
-        assert await vk_link.link(db, user, 703, "Анна") is False
+        assert await vk_link.link(db, user, 703, "Анна", community=vk_community.BUSINESS) is False
     user = await _get(db_session, user_id)
-    assert (user.vk_peer_id, user.vk_name, user.notify_channel) == (703, "Анна", NotifyChannel.VK)
+    assert (user.vk_business_peer_id, user.vk_name, user.notify_channel) == (703, "Анна", NotifyChannel.VK)
 
 
 async def test_link_does_not_silently_override_telegram(client, db_session):
     user_id = await _user(db_session, tg_chat_id=1, notify_channel=NotifyChannel.TG)
     async with db_session() as db:
         user = await db.get(User, user_id)
-        assert await vk_link.link(db, user, 704) is True
+        assert await vk_link.link(db, user, 704, community=vk_community.BUSINESS) is True
     assert (await _get(db_session, user_id)).notify_channel == NotifyChannel.TG
 
 
 async def test_one_vk_dialog_belongs_to_one_account(client, db_session):
-    old = await _user(db_session, vk_peer_id=705, vk_name="Старый")
+    old = await _user(db_session, vk_business_peer_id=705, vk_name="Старый")
     new = await _user(db_session, phone="+79998880002")
     async with db_session() as db:
-        await vk_link.link(db, await db.get(User, new), 705)
-    assert (await _get(db_session, old)).vk_peer_id is None
-    assert (await _get(db_session, new)).vk_peer_id == 705
+        await vk_link.link(db, await db.get(User, new), 705, community=vk_community.BUSINESS)
+    assert (await _get(db_session, old)).vk_business_peer_id is None
+    assert (await _get(db_session, new)).vk_business_peer_id == 705
 
 
 async def test_vk_id_login_remembers_vk_user(client, db_session, monkeypatch):
@@ -232,7 +238,7 @@ async def test_vk_id_login_remembers_vk_user(client, db_session, monkeypatch):
     async with db_session() as db:
         user = (await db.execute(select(User).where(User.phone == "+79998880003"))).scalar_one()
     assert user.vk_user_id == 706
-    assert user.vk_peer_id is None   # писать ему бот ещё не может
+    assert user.vk_business_peer_id is None   # писать ему бот ещё не может
 
 
 # ── бот: сообщения ──────────────────────────────────────────────────────────
@@ -243,7 +249,7 @@ async def test_profile_link_binds_account(client, db_session, vk):
 
     await vk_bot.on_message_new(_msg(707, "Начать", ref=code))
 
-    assert (await _get(db_session, user_id)).vk_peer_id == 707
+    assert (await _get(db_session, user_id)).vk_business_peer_id == 707
     assert "привязан" in vk.sent[-1]["text"]
 
 
@@ -260,7 +266,7 @@ async def test_code_sent_as_message_links_account(client, db_session, vk):
     user_id = await _user(db_session, phone="+79998880031")
     code = await vk_link.create_code(user_id)
     await vk_bot.on_message_new(_msg(731, f"  {code.lower()} "))
-    assert (await _get(db_session, user_id)).vk_peer_id == 731
+    assert (await _get(db_session, user_id)).vk_business_peer_id == 731
     assert "привязан" in vk.sent[-1]["text"]
 
 
@@ -273,13 +279,13 @@ async def test_vk_id_user_is_recognised_without_code(client, db_session, vk):
     user_id = await _user(db_session, vk_user_id=709)
     await vk_bot.on_message_new(_msg(709, "привет"))
     user = await _get(db_session, user_id)
-    assert user.vk_peer_id == 709 and user.vk_name == "Анна Клиентова"
+    assert user.vk_business_peer_id == 709 and user.vk_name == "Анна Клиентова"
     assert len(vk.sent) == 1 and "привязан" in vk.sent[0]["text"]
 
 
 async def test_stranger_gets_explanation_not_menu(client, db_session, vk):
     await vk_bot.on_message_new(_msg(710, "Начать", payload='{"command":"start"}'))
-    assert vk.sent[-1]["text"] == vk_bot.UNLINKED_TEXT
+    assert vk.sent[-1]["text"] == vk_bot._unlinked_text()
     assert "menu:bookings" not in _commands(vk.sent[-1]["kb"])
     assert "menu:support" in _commands(vk.sent[-1]["kb"])   # написать можно без привязки
 
@@ -290,9 +296,12 @@ async def test_linked_user_gets_menu(client, db_session, vk, monkeypatch):
     from app.services import contest
 
     monkeypatch.setattr(contest, "is_menu_visible", lambda today=None: False)
-    await _user(db_session, vk_peer_id=711)
+    await _user(db_session, vk_business_peer_id=711)
     await vk_bot.on_message_new(_msg(711, "Начать", payload='{"command":"start"}'))
-    assert _commands(vk.sent[-1]["kb"]) == ["menu:bookings", "menu:prefs", "menu:support"]
+    # Бизнесовое сообщество (роль по умолчанию): панель и тариф — ссылками на сайт
+    assert _labels(vk.sent[-1]["kb"]) == [bot_texts.MENU_PANEL, bot_texts.MENU_TARIFF,
+                                          bot_texts.MENU_SALON_SUPPORT]
+    assert _commands(vk.sent[-1]["kb"]) == ["menu:support"]
 
 
 async def test_footer_ref_opens_support_topics(client, db_session, vk):
@@ -329,7 +338,7 @@ async def test_every_button_press_is_answered(client, db_session, vk):
 
 
 async def test_choose_vk_channel_button(client, db_session, vk):
-    user_id = await _user(db_session, tg_chat_id=2, vk_peer_id=715, notify_channel=NotifyChannel.TG)
+    user_id = await _user(db_session, tg_chat_id=2, vk_business_peer_id=715, notify_channel=NotifyChannel.TG)
     await vk_bot.on_message_event({"peer_id": 715, "user_id": 715, "event_id": "e4",
                                    "payload": {"c": "chn:vk"}})
     assert (await _get(db_session, user_id)).notify_channel == NotifyChannel.VK
@@ -339,7 +348,7 @@ async def test_advertising_topic_needs_consent_record(client, db_session, vk):
     from app.services.notifications import TOPIC_PROMOS, wants
     from app.models.models import ConsentDocument, UserConsent
 
-    user_id = await _user(db_session, vk_peer_id=716)
+    user_id = await _user(db_session, vk_business_peer_id=716)
     await vk_bot.on_message_event({"peer_id": 716, "user_id": 716, "event_id": "e5",
                                    "payload": {"c": f"ntf:{TOPIC_PROMOS}"}})
     assert wants(await _get(db_session, user_id), TOPIC_PROMOS) is True
@@ -351,12 +360,12 @@ async def test_advertising_topic_needs_consent_record(client, db_session, vk):
 
 
 async def test_deny_and_allow_messages(client, db_session, vk):
-    user_id = await _user(db_session, vk_peer_id=717, email="d@example.com",
+    user_id = await _user(db_session, vk_business_peer_id=717, email="d@example.com",
                           notify_channel=NotifyChannel.VK)
     await vk_bot.on_message_deny({"user_id": 717})
-    assert resolve(await _get(db_session, user_id))[0] == NotifyChannel.EMAIL
+    assert resolve(await _get(db_session, user_id), "business")[0] == NotifyChannel.EMAIL
     await vk_bot.on_message_allow({"user_id": 717})
-    assert resolve(await _get(db_session, user_id))[0] == NotifyChannel.VK
+    assert resolve(await _get(db_session, user_id), "business")[0] == NotifyChannel.VK
 
 
 # ── Long Poll ───────────────────────────────────────────────────────────────
@@ -421,20 +430,20 @@ async def test_connect_requires_login(client, vk):
 
 
 async def test_disconnect_vk(client, db_session, vk):
-    user_id = await _user(db_session, phone="+79998880011", vk_peer_id=718, vk_name="Анна",
+    user_id = await _user(db_session, phone="+79998880011", vk_business_peer_id=718, vk_name="Анна",
                           email="x@example.com", notify_channel=NotifyChannel.VK)
     await _login(client, "+79998880011")
     r = await client.post("/api/v1/users/me/disconnect-channel", data={"channel": "vk"},
                           follow_redirects=False)
     assert "notify_channel_disconnected" in r.headers["location"]
     user = await _get(db_session, user_id)
-    assert user.vk_peer_id is None and user.notify_channel == NotifyChannel.EMAIL
+    assert user.vk_business_peer_id is None and user.notify_channel == NotifyChannel.EMAIL
 
 
 def test_profile_shows_whose_vk_is_linked(vk):
     from app.web.pages.profile import _notify_channel_block
 
-    user = User(phone="+7", vk_peer_id=1, vk_name="Анна <b>Клиентова</b>",
+    user = User(phone="+7", vk_business_peer_id=1, vk_name="Анна <b>Клиентова</b>",
                 notify_channel=NotifyChannel.VK)
     html = _notify_channel_block(user)
     assert "подключён: Анна &lt;b&gt;Клиентова&lt;/b&gt;" in html   # имя видно и экранировано
@@ -456,7 +465,10 @@ def test_reminder_step_offers_channel_without_blocking(vk):
 
     assert "Подключить ВКонтакте" in _reminder_channel_hint(User(phone="+7"))
     assert "код" in _reminder_channel_hint(User(phone="+7"))
-    assert _reminder_channel_hint(User(phone="+7", vk_peer_id=1)) == ""
+    assert _reminder_channel_hint(User(phone="+7", vk_client_peer_id=1)) == ""
+    # Напоминание — клиентское: диалог только с бизнесовым сообществом его не
+    # доставит, и подключить клиентское предложить нужно.
+    assert "Подключить ВКонтакте" in _reminder_channel_hint(User(phone="+7", vk_business_peer_id=1))
     assert _reminder_channel_hint(None) == ""
 
 
@@ -468,7 +480,7 @@ def test_connect_explains_missing_start_button(vk):
 
     html = _notify_channel_block(User(phone="+7", email="a@b.ru", notify_channel=NotifyChannel.EMAIL))
     assert "код" in html and "/connect/vk" in html
-    linked = _notify_channel_block(User(phone="+7", vk_peer_id=1, notify_channel=NotifyChannel.VK))
+    linked = _notify_channel_block(User(phone="+7", vk_business_peer_id=1, notify_channel=NotifyChannel.VK))
     assert "код" not in linked   # привязанному подсказка не нужна
 
 
@@ -477,7 +489,7 @@ async def test_typed_message_after_profile_link_binds(client, db_session, vk):
     user_id = await _user(db_session, phone="+79998880020")
     code = await vk_link.create_code(user_id)
     await vk_bot.on_message_new(_msg(719, "привет", ref=code))
-    assert (await _get(db_session, user_id)).vk_peer_id == 719
+    assert (await _get(db_session, user_id)).vk_business_peer_id == 719
 
 
 # ── страница привязки /connect/vk ───────────────────────────────────────────
@@ -517,7 +529,7 @@ async def test_connect_page_tells_when_already_linked(client, db_session, vk):
     client.cookies.set("access_token", data["access_token"])
     async with db_session() as db:
         await db.execute(_update(User).where(User.phone == "+79998880042")
-                         .values(vk_peer_id=742, vk_name="Диана Мальцева"))
+                         .values(vk_business_peer_id=742, vk_name="Диана Мальцева"))
         await db.commit()
     r = await client.get("/connect/vk")
     assert "уже подключён" in r.text and "Диана Мальцева" in r.text
@@ -535,7 +547,7 @@ async def test_contest_entry_through_the_bot(client, db_session, vk, monkeypatch
 
     monkeypatch.setattr(contest, "accepts_entries", lambda today=None: True)
     monkeypatch.setattr(contest, "is_menu_visible", lambda today=None: True)
-    user_id = await _user(db_session, phone="+79998880051", vk_peer_id=751)
+    user_id = await _user(db_session, phone="+79998880051", vk_business_peer_id=751)
 
     await vk_bot._dispatch_command(751, contest.CMD_START)
     assert "Хеллоуин" in vk.sent[-1]["text"]

@@ -184,7 +184,7 @@ def _render_tbank_page(slug: str, user=None) -> str:
             </div>
         </div>
     </main>
-    {render_footer(user)}
+    {render_footer(user, "business")}
 </body>
 </html>"""
 

@@ -232,7 +232,7 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
                 </div>
             </div>
         </section>
-        {render_footer(user)}
+        {render_footer(user, "business")}
     </main>
 
     <script>

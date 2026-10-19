@@ -30,7 +30,7 @@ async def render_master_inventory(db: AsyncSession, user, audit_id: str | None =
         <body>{render_header("master", user)}{render_sidebar("master", user)}
         <main style="margin-right:16rem;padding-top:3rem"><div class="section-container">
         <h1>Профиль мастера не найден</h1>
-        </div></main>{render_footer(user)}</body></html>"""
+        </div></main>{render_footer(user, "business")}</body></html>"""
 
     stock = await InventoryService.get_master_stock(db, master.id)
     audit = None
@@ -153,6 +153,6 @@ async def render_master_inventory(db: AsyncSession, user, audit_id: str | None =
         </div>
     </main>
 
-    {render_footer(user)}
+    {render_footer(user, "business")}
 </body>
 </html>"""

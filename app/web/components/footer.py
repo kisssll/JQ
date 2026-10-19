@@ -7,7 +7,7 @@ from app.web.components.icons import ICON_MAIL, ICON_MESSAGE_CIRCLE
 SUPPORT_EMAIL = "hello@rrumi.ru"
 
 
-def _support_block() -> str:
+def _support_block(vk_audience: str = "client") -> str:
     """Способы задать вопрос: почта и боты (Telegram, MAX, ВКонтакте).
 
     Ссылки на ботов ведут не на их главное меню, а сразу на выбор темы
@@ -32,7 +32,13 @@ def _support_block() -> str:
             "MAX", f"https://max.ru/{html.escape(mx, quote=True)}?start=support",
             f"@{mx}", ' target="_blank" rel="noopener"', ICON_MESSAGE_CIRCLE,
         ))
-    vk = settings.vk_bot_address
+    # Поддержка открыта в обоих сообществах, ответ уходит в то, куда человек
+    # написал. Посетитель обычных страниц — клиент, страницы бизнеса ведут в
+    # бизнесовое. Нет клиентского адреса — бизнесовое: лучше так, чем без ВК.
+    if vk_audience == "business":
+        vk = settings.vk_bot_address
+    else:
+        vk = settings.vk_clients_bot_address or settings.vk_bot_address
     if vk:
         # ref=support ВК вернёт в первом сообщении — бот сразу откроет темы.
         options.append((
@@ -67,9 +73,12 @@ def _support_block() -> str:
             </div>"""
 
 
-def render_footer(user=None) -> str:
+def render_footer(user=None, vk_audience: str = "client") -> str:
     """
     Рендерит футер с адаптивными ссылками в зависимости от роли пользователя.
+
+    vk_audience — в какое сообщество ВК ведёт ссылка поддержки: "client"
+    (по умолчанию) или "business" для страниц панели, подключения и лендингов.
     """
     # Ссылки общие для всех
     client_links = [("Салоны", "/salons")]
@@ -162,7 +171,7 @@ def render_footer(user=None) -> str:
                 </div>
             </div>
 
-            {_support_block()}
+            {_support_block(vk_audience)}
 
             <!-- Контакты оператора. Статья 10 149-ФЗ обязывает владельца сайта
                  разместить наименование, место нахождения с адресом и адрес

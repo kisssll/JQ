@@ -131,7 +131,7 @@ services:
       disable: true
     restart: unless-stopped
 
-  # ВК-бот сообщества (Bots Long Poll). Как tg-/max-бот: POSTGRES_HOST из .env.
+  # ВК-бот БИЗНЕСОВОГО (старого) сообщества (Bots Long Poll). Как tg-/max-бот: POSTGRES_HOST из .env.
   # Спит, пока в .env пусты VK_BOT_TOKEN/VK_GROUP_ID. Сообщество у прода СВОЁ:
   # второй процесс на том же Long Poll отнимал бы сообщения.
   vk-bot:
@@ -140,6 +140,33 @@ services:
     env_file: .env
     command: ["python", "-m", "app.vk_bot"]
     environment:
+      # Старое сообщество — бизнесовое (решение 0013). Ключ клиентского
+      # вычищен: процесс не должен даже знать ключ чужого сообщества.
+      VK_BOT_ROLE: business
+      VK_CLIENTS_BOT_TOKEN: ""
+      ENVIRONMENT: production
+      TZ: Asia/Novosibirsk
+      REDIS_URL: redis://redis:6379/0
+      LOG_FORMAT: json
+    logging: *default-logging
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  # ВК-бот КЛИЕНТСКОГО сообщества: тот же образ и команда, своя роль и свой
+  # ключ (VK_CLIENTS_* в env-файле). Бизнесовый ключ вычищен — написать «не в
+  # своё» сообщество процесс не может. Нет ключа — бот спит.
+  vk-client-bot:
+    image: rumi-app:prod
+    container_name: rumi-prod-vk-client-bot
+    env_file: .env
+    command: ["python", "-m", "app.vk_bot"]
+    environment:
+      VK_BOT_ROLE: client
+      VK_BOT_TOKEN: ""
       ENVIRONMENT: production
       TZ: Asia/Novosibirsk
       REDIS_URL: redis://redis:6379/0

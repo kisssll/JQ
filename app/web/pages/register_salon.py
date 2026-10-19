@@ -114,7 +114,7 @@ def render_register_salon_page(user=None, error: str = "") -> str:
                 <p class="text-muted" style="text-align: center; margin-top: 1rem; font-size: 0.8rem;">Салон появится в каталоге и станет доступен для записи после проверки модератором.</p>
             </div>
         </div>
-        {render_footer(user)}
+        {render_footer(user, "business")}
     </main>
 </body>
 </html>"""

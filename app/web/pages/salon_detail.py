@@ -55,10 +55,11 @@ def _reminder_channel_hint(user) -> str:
     from app.services.notify_channel import has_channel
     from app.web.pages.profile import VK_START_HINT
 
-    if has_channel(user):
+    # Это про напоминание о записи — клиентское сообщение.
+    if has_channel(user, "client"):
         return ""
     buttons = []
-    if settings.vk_bot_address:
+    if settings.vk_link_address:
         buttons.append(
             '<form method="post" action="/api/v1/users/me/vk-connect" target="_blank" style="display:inline">'
             '<button class="btn-outline" type="submit">Подключить ВКонтакте</button></form>'

@@ -41,6 +41,41 @@ STATUS_LABELS: dict[SupportStatus, str] = {
 }
 
 
+#: Как админ видит источник обращения из ВК. Без пометки не понять, с кем
+#: говоришь: в клиентское пишут клиенты, в бизнесовое — мастера и салоны.
+VK_AUDIENCE_LABELS = {"client": "клиенты", "business": "бизнес"}
+
+
+def source_label(request: SupportRequest) -> str:
+    """«VK · клиенты» для обращений из ВК, иначе просто имя канала."""
+    name = request.channel.value.upper()
+    audience = VK_AUDIENCE_LABELS.get(request.vk_audience or "")
+    if request.channel == NotifyChannel.VK and audience:
+        return f"{name} · {audience}"
+    return name
+
+
+def _reply_audience(request: SupportRequest):
+    """Сообщество, в которое уходит ответ.
+
+    Для ВК — то, откуда пришло обращение: чужой токен ВК отвергнет, а наш код
+    принял бы отказ за «человек закрыл сообщения» и пометил канал сломанным.
+    Пусто у обращения из ВК быть не должно (миграция проставила бизнесовое,
+    новые пишут сообщество явно); если всё же пусто — бизнесовое, потому что
+    до открытия клиентской поддержки других не было. Остальные каналы:
+    ответ клиентским — клиентов больше, и у них скорее есть диалог с
+    клиентским сообществом.
+    """
+    from app.services.vk_community import Audience
+
+    if request.channel != NotifyChannel.VK:
+        return Audience.CLIENT
+    try:
+        return Audience(request.vk_audience or Audience.BUSINESS.value)
+    except ValueError:
+        return Audience.BUSINESS
+
+
 class RateLimited(Exception):
     """Лимит обращений исчерпан — вызывающий показывает вежливый отказ."""
 
@@ -100,12 +135,18 @@ async def create_request(
     db, *, topic: SupportTopic, text: str, channel: NotifyChannel,
     chat_id: Optional[int] = None, user: Optional[User] = None,
     photos: Optional[Sequence[str]] = None, rating: Optional[int] = None,
-    notify: bool = True,
+    notify: bool = True, vk_audience: Optional[str] = None,
 ) -> SupportRequest:
-    """Сохранить обращение и позвать админов."""
+    """Сохранить обращение и позвать админов.
+
+    vk_audience обязателен для channel=VK: без него ответ не знает, каким
+    токеном отправляться.
+    """
+    if channel == NotifyChannel.VK and not vk_audience:
+        raise ValueError("обращение из ВК без сообщества: ответ уйдёт не тем токеном")
     request = SupportRequest(
         topic=topic, text=(text or "").strip(), channel=channel,
-        chat_id=chat_id, user_id=user.id if user else None,
+        chat_id=chat_id, vk_audience=vk_audience if channel == NotifyChannel.VK else None, user_id=user.id if user else None,
         photos=list(photos) if photos else None, rating=rating,
         status=SupportStatus.NEW,
     )
@@ -130,7 +171,7 @@ async def _alert_admins(db, request: SupportRequest, user: Optional[User]) -> No
         extra = f"\nФото: {len(request.photos)}" if request.photos else ""
         await notify_admins(
             db, f"Обращение №{request.id}: {TOPIC_LABELS[request.topic]}",
-            f"От: {who} · из {request.channel.value.upper()}{extra}\n\n{preview}",
+            f"От: {who} · из {source_label(request)}{extra}\n\n{preview}",
         )
     except Exception:
         logger.exception("support: алерт админам не отправлен (обращение %s)", request.id)
@@ -154,10 +195,12 @@ async def send_answer(db, request: SupportRequest, answer: str, admin: User) -> 
     if author is not None:
         from app.services.notifications import deliver
 
-        await deliver(author, f"💬 {text}", subject="Ответ поддержки — Руми")
+        await deliver(author, f"💬 {text}", subject="Ответ поддержки — Руми",
+                      audience=_reply_audience(request))
         delivered = True
     elif request.chat_id:
-        delivered = await _send_to_chat(request.channel, request.chat_id, text)
+        delivered = await _send_to_chat(
+            request.channel, request.chat_id, text, _reply_audience(request))
 
     request.answer = answer.strip()
     request.answered_by_id = admin.id
@@ -167,15 +210,17 @@ async def send_answer(db, request: SupportRequest, answer: str, admin: User) -> 
     return delivered
 
 
-async def _send_to_chat(channel: NotifyChannel, chat_id: int, text: str) -> bool:
-    """Сообщение в чат мессенджера мимо аккаунта — для непривязанных."""
+async def _send_to_chat(channel: NotifyChannel, chat_id: int, text: str, audience) -> bool:
+    """Сообщение в чат мессенджера мимо аккаунта — для непривязанных.
+
+    audience — сообщество, в которое человек писал: у ВК у каждого свой токен."""
     try:
         from app.core.worker import get_arq_pool
 
         pool = await get_arq_pool()
-        from app.services.notify_channel import task_for
+        from app.services.notify_channel import enqueue_message
 
-        await pool.enqueue_job(task_for(channel), chat_id, text)
+        await enqueue_message(pool, channel, chat_id, text, audience=audience)
         return True
     except Exception:
         logger.exception("support: не удалось ответить в чат %s", chat_id)

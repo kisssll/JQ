@@ -529,7 +529,7 @@ def _contest_tab(entries, phone_by_id):
 
 def _support_tab(requests, phone_by_id):
     """Обращения из ботов. Ответ уходит человеку его же каналом."""
-    from app.services.support import STATUS_LABELS, TOPIC_LABELS
+    from app.services.support import STATUS_LABELS, TOPIC_LABELS, source_label
 
     rows = ""
     for r in requests:
@@ -560,7 +560,7 @@ def _support_tab(requests, phone_by_id):
             <td style="white-space:nowrap">№{r.id}<br>
                 <span class="text-muted" style="font-size:0.75rem">{r.created_at:%d.%m %H:%M}</span></td>
             <td style="white-space:nowrap">{_esc(TOPIC_LABELS[r.topic])}{rating}<br>
-                <span class="text-muted" style="font-size:0.75rem">{r.channel.value.upper()} · {_esc(STATUS_LABELS[r.status])}</span></td>
+                <span class="text-muted" style="font-size:0.75rem">{_esc(source_label(r))} · {_esc(STATUS_LABELS[r.status])}</span></td>
             <td>{who_html}</td>
             <td style="max-width:340px">{_esc(r.text)}<div style="margin-top:0.3rem">{photos}</div></td>
             <td>{action}</td>
@@ -573,8 +573,9 @@ def _support_tab(requests, phone_by_id):
     <div class="tab-content" id="tab-support">
         <h2 style="margin-bottom:1rem">Обращения ({len(requests)})</h2>
         <p class="text-muted" style="margin-bottom:1rem;font-size:0.85rem">
-            Пришли из ботов Telegram и MAX. Ответ уходит человеку тем же каналом,
-            которым он написал, и закрывает обращение.</p>
+            Пришли из ботов Telegram, MAX и ВКонтакте. Во ВКонтакте два сообщества: «клиенты» и
+            «бизнес» — пометка рядом со статусом. Ответ уходит человеку тем же каналом
+            (и в то же сообщество), которым он написал, и закрывает обращение.</p>
         <div style="overflow-x:auto"><table>
             <thead><tr><th>Когда</th><th>Тема</th><th>От кого</th><th>Текст</th><th>Ответ</th></tr></thead>
             <tbody>{rows}</tbody>
@@ -912,7 +913,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         {reviews_tab}
         {audit_tab}
     </main>
-    {render_footer(user)}
+    {render_footer(user, "business")}
     <script>
         function switchTab(name) {{
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));

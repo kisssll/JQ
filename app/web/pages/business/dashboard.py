@@ -829,7 +829,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             {tabs_body_html}
         </div>
     </main>
-    {render_footer(user)}
+    {render_footer(user, "business")}
     {publish_gate_modal_html}
     {tour_bar_html}
 </body>

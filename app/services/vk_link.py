@@ -84,16 +84,38 @@ async def pop_code(code: str) -> Optional[int]:
         return None
 
 
-async def linked_user(db, peer_id: int) -> Optional[User]:
+async def linked_user(db, peer_id: int, community) -> Optional[User]:
+    """Аккаунт, привязанный к диалогу с ЭТИМ сообществом."""
     return (await db.execute(
-        select(User).where(User.vk_peer_id == peer_id).order_by(User.id)
+        select(User).where(getattr(User, community.peer_field) == peer_id).order_by(User.id)
     )).scalars().first()
 
 
 async def user_by_vk_id(db, vk_user_id: int) -> Optional[User]:
-    return (await db.execute(
+    """Аккаунт, за которым этот человек ВК уже подтверждён — входом через
+    VK ID или привязкой к любому из двух сообществ.
+
+    На этом держится автопривязка ко второму сообществу (решение 0013, п. 5):
+    в личном диалоге peer_id и есть id человека ВК, одинаковый в обоих
+    сообществах, и приходит он от самого ВК — подделать его в сообщении нельзя.
+    Повторный код здесь ничего не проверил бы: это тот же аккаунт ВК.
+
+    Порядок важен, когда отметки разошлись по разным аккаунтам: сначала
+    vk_user_id — его переносит на себя последний вход через VK ID, это самое
+    свежее «я вот этот»; потом диалоги с сообществами.
+    """
+    from app.services import vk_community
+
+    user = (await db.execute(
         select(User).where(User.vk_user_id == vk_user_id).order_by(User.id)
     )).scalars().first()
+    if user is not None:
+        return user
+    for community in vk_community.ALL:
+        user = await linked_user(db, vk_user_id, community)
+        if user is not None:
+            return user
+    return None
 
 
 def needs_channel_question(user: User) -> bool:
@@ -105,38 +127,45 @@ def needs_channel_question(user: User) -> bool:
     return bool(address) and not is_broken(user, current)
 
 
-async def link(db, user: User, peer_id: int, name: str = "") -> bool:
-    """Привязать диалог ВК к аккаунту. → нужно ли спросить про канал.
+async def link(db, user: User, peer_id: int, name: str = "", *, community) -> bool:
+    """Привязать диалог с сообществом ВК к аккаунту. → нужно ли спросить про канал.
 
-    Один диалог ВК — один аккаунт: у прежнего владельца привязка снимается,
-    иначе уведомления двух людей сыпались бы в один чат.
+    Один диалог ВК — один аккаунт: у прежнего владельца привязка к ЭТОМУ
+    сообществу снимается, иначе уведомления двух людей сыпались бы в один чат.
+    Диалог со вторым сообществом не трогаем — это отдельное разрешение.
 
     Канал: не было или была почта — становится ВК. Был Telegram или MAX —
     оставляем, бот спросит кнопкой.
     """
     await db.execute(
         update(User)
-        .where(User.vk_peer_id == peer_id, User.id != user.id)
-        .values(vk_peer_id=None, vk_name=None, vk_broken_at=None)
+        .where(getattr(User, community.peer_field) == peer_id, User.id != user.id)
+        .values({community.peer_field: None, community.broken_field: None})
     )
-    user.vk_peer_id = peer_id
+    setattr(user, community.peer_field, peer_id)
     if user.vk_user_id is None:
         user.vk_user_id = peer_id   # в личном диалоге peer_id и есть id человека
     user.vk_name = (name or "")[:200] or None
-    user.vk_broken_at = None
+    setattr(user, community.broken_field, None)
 
     ask = needs_channel_question(user)
     if not ask:
         user.notify_channel = NotifyChannel.VK
     await db.commit()
-    logger.info("vk: привязан user=%s peer=%s (спросить про канал: %s)", user.id, peer_id, ask)
+    logger.info("vk: привязан user=%s peer=%s к сообществу %s (спросить про канал: %s)",
+                user.id, peer_id, community.audience.value, ask)
     return ask
 
 
 async def unlink(db, user: User) -> None:
-    user.vk_peer_id = None
+    """«Отвязать ВКонтакте» на сайте — это один аккаунт ВК, поэтому оба
+    сообщества разом."""
+    from app.services import vk_community
+
+    for community in vk_community.ALL:
+        setattr(user, community.peer_field, None)
+        setattr(user, community.broken_field, None)
     user.vk_name = None
-    user.vk_broken_at = None
     await db.commit()
 
 

@@ -87,3 +87,35 @@ def test_footer_link_payload_matches_the_bots():
     from app.tg_bot import SUPPORT_DEEP_LINK as tg_mark
     from app.max_bot import SUPPORT_DEEP_LINK as max_mark
     assert tg_mark == max_mark == "support"
+
+
+def _vk_href(monkeypatch, audience, *, clients=True):
+    monkeypatch.setattr(settings, "VK_GROUP_ID", 1001)
+    monkeypatch.setattr(settings, "VK_GROUP_SCREEN_NAME", "rumi_biz")
+    monkeypatch.setattr(settings, "VK_CLIENTS_GROUP_ID", 2002 if clients else 0)
+    monkeypatch.setattr(settings, "VK_CLIENTS_GROUP_SCREEN_NAME", "rumi_clients")
+    return [h for h in _links(render_footer(None, audience)) if "vk.me" in h]
+
+
+def test_vk_link_goes_to_client_community_on_ordinary_pages(monkeypatch):
+    assert _vk_href(monkeypatch, "client") == ["https://vk.me/rumi_clients?ref=support"]
+    assert [h for h in _links(render_footer()) if "vk.me" in h] == ["https://vk.me/rumi_clients?ref=support"]
+
+
+def test_vk_link_goes_to_business_community_on_business_pages(monkeypatch):
+    assert _vk_href(monkeypatch, "business") == ["https://vk.me/rumi_biz?ref=support"]
+
+
+def test_vk_link_falls_back_to_business_without_client_community(monkeypatch):
+    assert _vk_href(monkeypatch, "client", clients=False) == ["https://vk.me/rumi_biz?ref=support"]
+
+
+@pytest.mark.parametrize("path, expected", [
+    ("/business", "rumi_biz"), ("/salons", "rumi_clients"), ("/", "rumi_clients"),
+    ("/tariffs", "rumi_biz"),
+])
+async def test_real_pages_pick_the_right_community(client, monkeypatch, path, expected):
+    _vk_href(monkeypatch, "client")
+    r = await client.get(path)
+    assert r.status_code == 200
+    assert f"https://vk.me/{expected}?ref=support" in r.text

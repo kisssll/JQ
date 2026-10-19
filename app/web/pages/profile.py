@@ -50,7 +50,7 @@ def _vk_connect_button(label: str, css: str = "btn-mini") -> str:
     кнопки «Начать» в диалоге не было, человек оставался без подсказки."""
     from app.core.config import settings
 
-    if not settings.vk_bot_address:
+    if not settings.vk_link_address:
         return ""
     return f'<a class="{css}" href="/connect/vk">{label}</a>'
 
@@ -102,7 +102,7 @@ def _channels_overview(user, available) -> str:
     from app.services.notify_channel import is_broken
 
     vk_hint = ""
-    if settings.vk_bot_address and (
+    if settings.vk_link_address and (
         NotifyChannel.VK not in available or is_broken(user, NotifyChannel.VK)
     ):
         vk_hint = (f'<p class="settings-card-hint" style="margin:0.5rem 0 0">'
@@ -128,9 +128,12 @@ def _vk_row(user, available):
     from app.core.config import settings
     from app.models.models import NotifyChannel
     from app.services import vk_api
-    from app.services.notify_channel import is_broken
+    from app.services.notify_channel import broken_vk_communities, is_broken
 
-    if not settings.vk_bot_address:
+    # settings — локально: конфиг перезагружается, см. docstring модуля.
+    from app.core.config import settings
+
+    if not settings.vk_link_address:
         return None
     if NotifyChannel.VK in available:
         who = e(getattr(user, "vk_name", None) or "")
@@ -162,14 +165,17 @@ def _broken_banner(user, broken, channel) -> str:
     """
     from app.core.config import settings
     from app.models.models import NotifyChannel
-    from app.services.notify_channel import CHANNEL_LABELS
+    from app.services.notify_channel import CHANNEL_LABELS, broken_vk_communities
 
     if not broken:
         return ""
+    vk_broken = broken_vk_communities(user)
     links = {
         NotifyChannel.TG: ("https://t.me/{}", settings.TG_BOT_USERNAME),
         NotifyChannel.MAX: ("https://max.ru/{}", settings.MAX_BOT_USERNAME),
-        NotifyChannel.VK: ("https://vk.me/{}", settings.vk_bot_address),
+        # В отказавшее сообщество: «Начать» снимает отметку только там.
+        NotifyChannel.VK: ("https://vk.me/{}",
+                           vk_broken[0].address if vk_broken else settings.vk_link_address),
     }
     names = " и ".join(CHANNEL_LABELS[c] for c in broken)
     buttons = "".join(
@@ -205,18 +211,18 @@ def _notify_channel_block(user) -> str:
     from app.core.config import settings
     from app.models.models import NotifyChannel
     from app.services import vk_api
-    from app.services.notify_channel import CHANNEL_LABELS, broken_channels, resolve
+    from app.services.notify_channel import CHANNEL_LABELS, broken_channels, display_channel
 
     if user is None:
         return ""
 
-    channel, _address = resolve(user)
+    channel, _address = display_channel(user)
     available = []
     if getattr(user, "tg_chat_id", None):
         available.append(NotifyChannel.TG)
     if getattr(user, "max_chat_id", None):
         available.append(NotifyChannel.MAX)
-    if getattr(user, "vk_peer_id", None):
+    if getattr(user, "vk_client_peer_id", None) or getattr(user, "vk_business_peer_id", None):
         available.append(NotifyChannel.VK)
     if (getattr(user, "email", "") or "").strip():
         available.append(NotifyChannel.EMAIL)
@@ -263,8 +269,8 @@ def _notify_channel_block(user) -> str:
         missing.append(
             f'<a href="https://max.ru/{settings.MAX_BOT_USERNAME}" target="_blank" rel="noopener">MAX</a>'
         )
-    if NotifyChannel.VK not in available and settings.vk_bot_address:
-        missing.append(_vk_connect_button("ВКонтакте", "btn-mini"))
+    if NotifyChannel.VK not in available and settings.vk_link_address:
+        missing.append('<a href="/connect/vk">ВКонтакте</a>')
     missing_hint = (
         f'<p class="settings-card-hint" style="margin:0.5rem 0 0">Можно подключить ещё: {", ".join(missing)}.</p>'
         if missing else ""

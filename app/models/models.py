@@ -35,7 +35,8 @@ class NotifyChannel(str, enum.Enum):
     tg    — Telegram (users.tg_chat_id);
     max   — MAX (users.max_chat_id);
     email — почта (users.email), запасной канал;
-    vk    — ВКонтакте, бот сообщества (users.vk_peer_id).
+    vk    — ВКонтакте: адрес свой у клиентского и бизнесового сообщества
+            (users.vk_client_peer_id / users.vk_business_peer_id).
 
     Ставится автоматически по способу подтверждения телефона: чем подтвердил,
     туда и шлём. Меняется вручную в профиле.
@@ -281,14 +282,21 @@ class User(Base):
     max_broken_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     # ВКонтакте. Два разных идентификатора, потому что знаем мы их в разное время:
     # vk_user_id — кто этот человек во ВК, приходит при входе через VK ID;
-    # vk_peer_id — куда бот МОЖЕТ писать, появляется, только когда человек сам
-    # написал сообществу (писать первым сообщество не может). Адрес доставки —
-    # vk_peer_id. vk_name — чтобы на сайте было видно, КАКОЙ аккаунт привязан:
-    # это защита от переданной чужому ссылки привязки.
+    # vk_*_peer_id — куда бот МОЖЕТ писать, появляется, только когда человек сам
+    # написал сообществу (писать первым сообщество не может). vk_name — чтобы на
+    # сайте было видно, КАКОЙ аккаунт привязан: это защита от переданной чужому
+    # ссылки привязки.
+    #
+    # Сообществ два (решение 0013): клиентское и бизнесовое. Разрешение на
+    # переписку человек даёт КАЖДОМУ сообществу отдельно, поэтому и адрес, и
+    # отметка отказа у каждого свои: письмо «не в то» сообщество ВК отвергнет, а
+    # общая отметка из-за отказа в одном погасила бы и второе.
     vk_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
-    vk_peer_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    vk_business_peer_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    vk_business_broken_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    vk_client_peer_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    vk_client_broken_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     vk_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
-    vk_broken_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     # Куда слать уведомления. Ставится автоматически при подтверждении телефона
     # (чем подтвердил — туда и шлём), меняется в профиле. NONE = канала нет,
     # доставка попробует email, иначе уведомление не уйдёт (мягко логируем).
@@ -995,6 +1003,11 @@ class SupportRequest(Base):
     # Откуда пришло и куда отвечать, если аккаунта нет.
     channel: Mapped[NotifyChannel] = mapped_column(Enum(NotifyChannel), nullable=False)
     chat_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    # Для channel=VK — из какого сообщества пришло ("client" / "business", см.
+    # vk_community.Audience). chat_id одинаков в обоих сообществах, а ответить
+    # можно только тем токеном, которому человек написал: чужой токен ВК
+    # отвергнет, и мы пометили бы канал сломанным. Для остальных каналов пусто.
+    vk_audience: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
 
     # Список URL картинок. Отдельной таблицы не заводим: снимки к обращению
     # нужны только целиком и живут ровно столько же, сколько само обращение
