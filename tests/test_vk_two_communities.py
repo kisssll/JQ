@@ -791,3 +791,28 @@ async def test_admin_alert_and_list_show_the_community(client, db_session, two_c
     client.cookies.set("access_token", r.json()["access_token"])
     page = (await client.get("/admin")).text
     assert "VK · клиенты" in page and "VK · бизнес" in page
+
+
+async def test_support_answer_to_a_legacy_request_goes_through_business(
+        client, db_session, two_communities, pool):
+    """Обращение, заведённое ДО разделения сообществ: поля сообщества нет.
+
+    Такие строки заполняет миграция, но умолчание в коде всё равно должно быть
+    бизнесовым: до разделения обращения во ВК принимало только старое
+    сообщество, и оно стало бизнесовым. Ответь мы клиентским токеном — ВК
+    отверг бы сообщение, наш код счёл бы получателя недоступным и пометил канал
+    сломанным (решение 0002). Поэтому умолчание закреплено тестом, а не
+    оставлено на усмотрение следующей правки.
+    """
+    from app.services.support import send_answer
+
+    admin_id = await _user(db_session, "+79990014901", role=UserRole.ADMIN)
+    async with db_session() as db:
+        request = SupportRequest(topic=SupportTopic.QUESTION, text="старое обращение",
+                                 channel=NotifyChannel.VK, chat_id=8901,
+                                 vk_audience=None, status=SupportStatus.NEW)
+        db.add(request)
+        await db.commit()
+        await send_answer(db, request, "ответ", await db.get(User, admin_id))
+
+    assert pool.vk() == [(8901, "business")]
