@@ -77,8 +77,14 @@ MENU_SALON_SUPPORT = "❓ Поддержка для салонов"
 
 #: Что приходит в каждое сообщество — повторяется в приглашении и в
 #: подтверждении привязки, чтобы человек понимал, зачем ему второй диалог.
-VK_CLIENT_GETS = "напоминания о записях, отмены и вопросы об отзыве"
+VK_CLIENT_GETS = "напоминания о записях, отмены, вопросы об отзыве и ответы поддержки"
 VK_BUSINESS_GETS = "новые записи к вам, сообщения о тарифе и оплате, ответы поддержки"
+
+
+def vk_support_label(audience: str) -> str:
+    """Подпись кнопки поддержки: клиенту «салоны» ни к чему, а владельцу
+    «Другой вопрос» не объясняет, что это канал для бизнеса."""
+    return MENU_SUPPORT if audience == "client" else MENU_SALON_SUPPORT
 
 
 def vk_menu_hint(audience: str, *, with_contest: bool = False) -> str:
@@ -88,6 +94,7 @@ def vk_menu_hint(audience: str, *, with_contest: bool = False) -> str:
             f"{MENU_BOOKINGS} — ближайшие записи, можно отменить",
             f"{MENU_PREFS} — напоминания, вопросы об отзыве, вечерние окна",
             f"{MENU_EVENING} — свободные вечерние окна со скидкой",
+            f"{MENU_SUPPORT} — вопрос или проблема, ответим сюда же",
         ])
     lines = [
         f"{MENU_PANEL} — новые записи в панели салона",
@@ -102,7 +109,8 @@ def vk_menu_hint(audience: str, *, with_contest: bool = False) -> str:
 def vk_link_offer(audience: str) -> str:
     """Приглашение привязать аккаунт — тем, кого бот не узнал."""
     if audience == "client":
-        return f"Привяжите аккаунт Руми — и сюда будут приходить {VK_CLIENT_GETS}."
+        return (f"Привяжите аккаунт Руми — и сюда будут приходить {VK_CLIENT_GETS}.\n\n"
+                f"Если вопрос о другом, нажмите «{MENU_SUPPORT}».")
     return (f"Привяжите аккаунт Руми — и сюда будут приходить {VK_BUSINESS_GETS}.\n\n"
             f"Если вопрос о другом, нажмите «{MENU_SALON_SUPPORT}».")
 

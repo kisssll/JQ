@@ -107,7 +107,7 @@ def render_contest_page(user=None) -> str:
             <div class="contest-links">{_bot_links()}</div>
             <div class="contest-rules">{rules}</div>
         </div>
-        {render_footer(user)}
+        {render_footer(user, "business")}
     </main>
 </body>
 </html>"""

@@ -68,10 +68,11 @@ def _is_client() -> bool:
     return _community().audience == vk_community.Audience.CLIENT
 
 
-#: Кнопки, которые понимает клиентский бот. Остальное — бизнесовое: обращения
-#: в поддержку (ответ на них уходит бизнесовым токеном, см. support._send_to_chat),
-#: опрос владельца о сервисе и конкурс мастеров.
-_CLIENT_COMMANDS = ("menu:bookings", "menu:prefs", "cnl:", "ntf:", "adc:yes", "rev:", "chn:")
+#: Кнопки, которые понимает клиентский бот. Остальное — бизнесовое: опрос
+#: владельца о сервисе (nps:) и конкурс мастеров. Поддержка (menu:support,
+#: sup:) есть в обоих: ответ уходит в то сообщество, откуда пришло обращение.
+_CLIENT_COMMANDS = ("menu:bookings", "menu:prefs", "menu:support", "sup:", "cnl:", "ntf:",
+                    "adc:yes", "rev:", "chn:")
 
 
 def _allowed(command: str) -> bool:
@@ -97,17 +98,22 @@ def _site_url(path: str) -> str:
     return f"{config.settings.PUBLIC_BASE_URL.rstrip('/')}{path}"
 
 
+def _support_label() -> str:
+    return bot_texts.vk_support_label(_community().audience.value)
+
+
 def _menu_kb() -> dict:
     if _is_client():
         return vk_api.inline_keyboard([
             [vk_api.callback_button(MENU_BOOKINGS, "menu:bookings", "primary")],
             [vk_api.callback_button(MENU_PREFS, "menu:prefs")],
             [vk_api.link_button(bot_texts.MENU_EVENING, _site_url("/evening-deals"))],
+            [vk_api.callback_button(_support_label(), "menu:support")],
         ])
     rows = [
         [vk_api.link_button(bot_texts.MENU_PANEL, _site_url("/business/dashboard"))],
         [vk_api.link_button(bot_texts.MENU_TARIFF, _site_url("/business/dashboard?tab=billing"))],
-        [vk_api.callback_button(bot_texts.MENU_SALON_SUPPORT, "menu:support")],
+        [vk_api.callback_button(_support_label(), "menu:support")],
     ]
     if contest.is_menu_visible():
         # Кнопка живёт только на время конкурса: меню не должно расти
@@ -160,9 +166,8 @@ def _connect_url() -> str:
 
 
 def _unlinked_kb() -> dict:
-    rows = [[vk_api.link_button(bot_texts.MENU_LINK, _connect_url())]]
-    if not _is_client():
-        rows.append([vk_api.callback_button(bot_texts.MENU_SALON_SUPPORT, "menu:support")])
+    rows = [[vk_api.link_button(bot_texts.MENU_LINK, _connect_url())],
+            [vk_api.callback_button(_support_label(), "menu:support")]]
     return vk_api.inline_keyboard(rows)
 
 
@@ -232,7 +237,10 @@ async def _revive(peer_id: int) -> None:
 
 
 def _draft_key(peer_id: int) -> str:
-    return f"support:draft:vk:{peer_id}"
+    # peer_id одинаков в обоих сообществах, а Redis общий: без сообщества в
+    # ключе обращение, начатое в одном диалоге, дописывалось бы в другом — и
+    # ушло бы в чужое сообщество, откуда ответ не дойдёт.
+    return f"support:draft:vk:{_community().audience.value}:{peer_id}"
 
 
 async def _draft_get(peer_id: int) -> Optional[dict]:
@@ -444,6 +452,7 @@ async def continue_support(peer_id: int, message: dict, draft: dict) -> None:
         request = await create_request(
             db, topic=SupportTopic(draft["topic"]), text=text, channel=NotifyChannel.VK,
             chat_id=peer_id, user=user, photos=draft["photos"],
+            vk_audience=_community().audience.value,
         )
     await _draft_clear(peer_id)
     await send(peer_id, f"Обращение №{request.id} принято — спасибо.\nОтветим сюда же, в этот чат.",
@@ -471,9 +480,10 @@ async def save_service_rating(peer_id: int, rating: int) -> None:
         await create_request(
             db, topic=SupportTopic.NPS, text=f"Оценка сервиса: {rating}/5",
             channel=NotifyChannel.VK, chat_id=peer_id, user=user, rating=rating,
+            vk_audience=_community().audience.value,
         )
     await send(peer_id, f"Ваша оценка: {rating}/5. Спасибо!\n\n"
-                        f"Если хотите добавить, чего не хватает — напишите нам через «{bot_texts.MENU_SALON_SUPPORT}».")
+                        f"Если хотите добавить, чего не хватает — напишите нам через «{_support_label()}».")
 
 
 async def grant_promos(peer_id: int) -> None:
@@ -545,7 +555,7 @@ async def on_message_new(obj: dict) -> None:
     await _revive(peer_id)
     ref = (message.get("ref") or "").strip()
 
-    if ref == vk_link.REF_SUPPORT and not _is_client():
+    if ref == vk_link.REF_SUPPORT:
         # Ссылка «Написать во ВКонтакте» из подвала: сразу выбор темы.
         await show_topics(peer_id)
         return
@@ -563,9 +573,10 @@ async def on_message_new(obj: dict) -> None:
     # Анкета конкурса важнее: человек отвечает на вопрос бота. Иначе короткий
     # латинский ответ из пяти букв (город «TOMSK») был бы принят за код
     # привязки, и человек получил бы «код не подошёл» вместо следующего вопроса.
-    # Черновики анкеты и обращения лежат в общем Redis по peer_id, одинаковому
-    # в обоих сообществах. Клиентский бот их не читает: иначе ответ человека
-    # в клиентском диалоге ушёл бы в анкету, начатую в бизнесовом.
+    # Анкета конкурса — только бизнесового сообщества, а лежит в общем Redis по
+    # peer_id, одинаковому в обоих: клиентский бот её не читает, иначе ответ
+    # человека в клиентском диалоге ушёл бы в анкету, начатую в бизнесовом.
+    # Черновик обращения от этого защищён сообществом в ключе (_draft_key).
     business = not _is_client()
     in_contest = business and await contest.draft_get(NotifyChannel.VK, peer_id) is not None
     # Код со страницы привязки, присланный сообщением. Проверяем ДО черновика
@@ -587,7 +598,7 @@ async def on_message_new(obj: dict) -> None:
             await send(peer_id, reply, _contest_kb(with_send=True) if ready else None)
         return
 
-    draft = await _draft_get(peer_id) if business else None
+    draft = await _draft_get(peer_id)
     if draft is not None:
         await continue_support(peer_id, message, draft)
         return

@@ -295,7 +295,7 @@ async def render_master_business_dashboard(db: AsyncSession, user, salon: Salon,
         </div>
     </main>
 
-    {render_footer(user)}
+    {render_footer(user, "business")}
 
     <script>
         function switchTab(tabName) {{

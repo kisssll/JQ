@@ -1003,6 +1003,11 @@ class SupportRequest(Base):
     # Откуда пришло и куда отвечать, если аккаунта нет.
     channel: Mapped[NotifyChannel] = mapped_column(Enum(NotifyChannel), nullable=False)
     chat_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
+    # Для channel=VK — из какого сообщества пришло ("client" / "business", см.
+    # vk_community.Audience). chat_id одинаков в обоих сообществах, а ответить
+    # можно только тем токеном, которому человек написал: чужой токен ВК
+    # отвергнет, и мы пометили бы канал сломанным. Для остальных каналов пусто.
+    vk_audience: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
 
     # Список URL картинок. Отдельной таблицы не заводим: снимки к обращению
     # нужны только целиком и живут ровно столько же, сколько само обращение

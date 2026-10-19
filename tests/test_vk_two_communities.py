@@ -269,7 +269,7 @@ async def test_new_review_goes_through_business_community(client, db_session, tw
     assert pool.vk() == [(102, "business")]
 
 
-async def test_support_answer_from_vk_goes_through_business_community(
+async def test_support_answer_to_business_request_goes_through_business_community(
         client, db_session, two_communities, pool):
     from app.services.support import send_answer
 
@@ -278,21 +278,21 @@ async def test_support_answer_from_vk_goes_through_business_community(
     async with db_session() as db:
         request = SupportRequest(topic=SupportTopic.QUESTION, text="вопрос", user_id=user_id,
                                  channel=NotifyChannel.VK, chat_id=802,
-                                 status=SupportStatus.NEW)
+                                 vk_audience="business", status=SupportStatus.NEW)
         db.add(request)
         await db.commit()
         await send_answer(db, request, "ответ", await db.get(User, admin_id))
     assert pool.vk() == [(802, "business")]
 
 
-async def test_support_answer_to_unlinked_vk_chat_goes_through_business_community(
+async def test_support_answer_to_unlinked_business_chat_goes_through_business_community(
         client, db_session, two_communities, pool):
     from app.services.support import send_answer
 
     admin_id = await _user(db_session, "+79990013811", role=UserRole.ADMIN)
     async with db_session() as db:
         request = SupportRequest(topic=SupportTopic.QUESTION, text="вопрос", channel=NotifyChannel.VK,
-                                 chat_id=8812, status=SupportStatus.NEW)
+                                 chat_id=8812, vk_audience="business", status=SupportStatus.NEW)
         db.add(request)
         await db.commit()
         await send_answer(db, request, "ответ", await db.get(User, admin_id))
@@ -544,7 +544,8 @@ def test_menus_differ_and_come_from_registry(role, monkeypatch):
     role("business")
     business_menu = _labels(vk_bot._menu_kb())
 
-    assert client_menu == [bot_texts.MENU_BOOKINGS, bot_texts.MENU_PREFS, bot_texts.MENU_EVENING]
+    assert client_menu == [bot_texts.MENU_BOOKINGS, bot_texts.MENU_PREFS, bot_texts.MENU_EVENING,
+                           bot_texts.MENU_SUPPORT]
     assert business_menu == [bot_texts.MENU_PANEL, bot_texts.MENU_TARIFF,
                              bot_texts.MENU_SALON_SUPPORT]
     assert not set(client_menu) & set(business_menu)
@@ -560,26 +561,6 @@ def test_contest_button_only_in_business_menu(role, monkeypatch):
     assert bot_texts.MENU_CONTEST not in _labels(vk_bot._menu_kb())
     role("business")
     assert bot_texts.MENU_CONTEST in _labels(vk_bot._menu_kb())
-
-
-async def test_client_bot_does_not_take_support_requests(client, db_session, bot, role):
-    """Ответ на обращение из ВК уходит бизнесовым ключом, поэтому клиентский
-    бот обращений не принимает: ни кнопкой, ни ссылкой из подвала, ни
-    дописыванием черновика, начатого в бизнесовом диалоге (общий Redis)."""
-    role("business")
-    await vk_bot.on_message_event({"peer_id": 1040, "user_id": 1040, "event_id": "e1",
-                                   "payload": {"c": "sup:question"}})   # черновик начат
-    role("client")
-    bot.sent.clear()
-    await vk_bot.on_message_event({"peer_id": 1040, "user_id": 1040, "event_id": "e2",
-                                   "payload": {"c": "sup:bug"}})
-    await vk_bot.on_message_new({"message": {"peer_id": 1040, "from_id": 1040,
-                                             "text": "Не могу найти салон", "ref": "support"}})
-    async with db_session() as db:
-        assert (await db.execute(select(SupportRequest).where(
-            SupportRequest.chat_id == 1040))).scalars().all() == []
-    assert all("Тема:" not in m["text"] for m in bot.sent)
-    assert ("e2", CLIENT_TOKEN) in bot.answered   # кнопку всё равно подтвердили
 
 
 async def test_each_process_answers_with_its_own_token(client, db_session, bot, role):
@@ -661,3 +642,152 @@ def test_compose_runs_two_bots_each_with_one_token(path):
     assert biz["environment"]["VK_CLIENTS_BOT_TOKEN"] == ""
     assert cli["environment"]["VK_BOT_ROLE"] == "client"
     assert cli["environment"]["VK_BOT_TOKEN"] == ""
+
+
+# ── поддержка в клиентском сообществе ───────────────────────────────────────
+
+async def _requests(db_session, chat_id):
+    async with db_session() as db:
+        return (await db.execute(select(SupportRequest).where(
+            SupportRequest.chat_id == chat_id))).scalars().all()
+
+
+async def _write_support(peer, button_topic="sup:question", text="Не получается отменить запись"):
+    await vk_bot.on_message_event({"peer_id": peer, "user_id": peer, "event_id": "m",
+                                   "payload": {"c": "menu:support"}})
+    await vk_bot.on_message_event({"peer_id": peer, "user_id": peer, "event_id": "t",
+                                   "payload": {"c": button_topic}})
+    await vk_bot.on_message_new({"message": {"peer_id": peer, "from_id": peer, "text": text}})
+
+
+@pytest.mark.parametrize("bot_role, token", [("client", CLIENT_TOKEN), ("business", BUSINESS_TOKEN)])
+async def test_support_request_remembers_its_community(client, db_session, bot, role, bot_role, token):
+    role(bot_role)
+    await _write_support(1100)
+    [request] = await _requests(db_session, 1100)
+    assert request.vk_audience == bot_role
+    # весь диалог ведётся токеном своего сообщества
+    assert bot.sent and {m["token"] for m in bot.sent} == {token}
+    assert any("принято" in m["text"] for m in bot.sent)
+
+
+async def test_client_menu_has_support_but_not_service_rating(client, db_session, bot, role):
+    role("client")
+    assert bot_texts.MENU_SUPPORT in _labels(vk_bot._menu_kb())
+    assert bot_texts.MENU_SALON_SUPPORT not in _labels(vk_bot._menu_kb())
+    await vk_bot.on_message_event({"peer_id": 1110, "user_id": 1110, "event_id": "m",
+                                   "payload": {"c": "menu:support"}})
+    topics = [b["action"]["label"] for row in bot.sent[-1]["kb"]["buttons"] for b in row]
+    assert "Оценка сервиса" not in topics and len(topics) == 4
+    # опрос владельцев клиентскому боту не принадлежит: оценка не сохраняется
+    await vk_bot.on_message_event({"peer_id": 1110, "user_id": 1110, "event_id": "n",
+                                   "payload": {"c": "nps:5"}})
+    assert await _requests(db_session, 1110) == []
+
+
+async def test_support_draft_does_not_leak_between_communities(client, db_session, bot, role):
+    """peer_id и Redis общие: обращение, начатое в бизнесовом диалоге, нельзя
+    дописать из клиентского — оно ушло бы в чужое сообщество."""
+    role("business")
+    await vk_bot.on_message_event({"peer_id": 1120, "user_id": 1120, "event_id": "a",
+                                   "payload": {"c": "sup:question"}})
+    role("client")
+    await vk_bot.on_message_new({"message": {"peer_id": 1120, "from_id": 1120,
+                                             "text": "Это уже другой разговор, не обращение"}})
+    assert await _requests(db_session, 1120) == []
+    role("business")
+    await vk_bot.on_message_new({"message": {"peer_id": 1120, "from_id": 1120,
+                                             "text": "А это продолжение в своём сообществе"}})
+    [request] = await _requests(db_session, 1120)
+    assert request.vk_audience == "business"
+
+
+async def test_footer_ref_opens_topics_in_client_bot(client, db_session, bot, role):
+    role("client")
+    await vk_bot.on_message_new({"message": {"peer_id": 1130, "from_id": 1130, "ref": "support",
+                                             "text": "Начать"}})
+    assert any("О чём хотите написать" in m["text"] for m in bot.sent)
+
+
+async def test_vk_request_without_community_is_refused(db_session):
+    from app.services.support import create_request
+
+    async with db_session() as db:
+        with pytest.raises(ValueError):
+            await create_request(db, topic=SupportTopic.QUESTION, text="вопрос без сообщества",
+                                 channel=NotifyChannel.VK, chat_id=1140)
+
+
+async def _answer(db_session, *, audience, chat_id, user_id=None):
+    from app.services.support import send_answer
+
+    admin_id = await _user(db_session, f"+7999001{chat_id}", role=UserRole.ADMIN)
+    async with db_session() as db:
+        request = SupportRequest(topic=SupportTopic.QUESTION, text="вопрос", user_id=user_id,
+                                 channel=NotifyChannel.VK, chat_id=chat_id,
+                                 vk_audience=audience, status=SupportStatus.NEW)
+        db.add(request)
+        await db.commit()
+        await send_answer(db, request, "ответ", await db.get(User, admin_id))
+
+
+async def test_support_answer_to_client_request_goes_through_client_community(
+        client, db_session, two_communities, pool, vk_http):
+    user_id = await _user(db_session, "+79990014800", **_vk_fields(1200))
+    await _answer(db_session, audience="client", chat_id=1202, user_id=user_id)
+    # адрес — клиентский диалог пользователя (1201), а не бизнесовый (1202)
+    assert pool.vk() == [(1201, "client")]
+    fn, args, kwargs = pool.jobs[-1]
+    await tasks.send_vk_message({"job_try": 1}, *args, **kwargs)
+    assert [(c["token"], c["peer"]) for c in vk_http] == [(CLIENT_TOKEN, 1201)]
+
+
+async def test_support_answer_to_unlinked_client_chat_goes_through_client_community(
+        client, db_session, two_communities, pool):
+    await _answer(db_session, audience="client", chat_id=8821)
+    assert pool.vk() == [(8821, "client")]
+
+
+async def test_support_answer_failure_in_client_community_keeps_business(
+        client, db_session, two_communities, pool, monkeypatch):
+    async def refuse(peer_id, text, keyboard=None, *, community):
+        raise tasks.RecipientGone("901")
+
+    monkeypatch.setattr(tasks, "_send_via_vk", refuse)
+    user_id = await _user(db_session, "+79990014830", email="s@example.com",
+                          vk_client_peer_id=1230, vk_business_peer_id=1230,
+                          notify_channel=NotifyChannel.VK)
+    await _answer(db_session, audience="client", chat_id=1230, user_id=user_id)
+    fn, args, kwargs = pool.jobs[-1]
+    await tasks.send_vk_message({"job_try": 1}, *args, **kwargs)
+    user = await _get(db_session, user_id)
+    assert user.vk_client_broken_at is not None
+    assert user.vk_business_broken_at is None
+
+
+async def test_admin_alert_and_list_show_the_community(client, db_session, two_communities,
+                                                       monkeypatch):
+    from app.core.security import get_password_hash
+    from app.services.support import create_request
+
+    alerts = []
+
+    async def capture(db, subject, body=""):
+        alerts.append(body)
+
+    monkeypatch.setattr("app.services.notifications.notify_admins", capture)
+    async with db_session() as db:
+        db.add(User(phone="+79990014900", full_name="Админ", role=UserRole.ADMIN, is_active=True,
+                    is_senior_admin=True, hashed_password=get_password_hash("Adminpass1")))
+        await db.commit()
+        await create_request(db, topic=SupportTopic.QUESTION, text="Вопрос от клиента из ВК",
+                             channel=NotifyChannel.VK, chat_id=1300, vk_audience="client")
+        await create_request(db, topic=SupportTopic.QUESTION, text="Вопрос от салона из ВК",
+                             channel=NotifyChannel.VK, chat_id=1301, vk_audience="business")
+    assert "VK · клиенты" in alerts[0] and "VK · бизнес" in alerts[1]
+
+    r = await client.post("/api/v1/auth/login",
+                          json={"phone": "+79990014900", "password": "Adminpass1"})
+    client.cookies.set("access_token", r.json()["access_token"])
+    page = (await client.get("/admin")).text
+    assert "VK · клиенты" in page and "VK · бизнес" in page
