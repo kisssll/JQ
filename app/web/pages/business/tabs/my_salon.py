@@ -150,7 +150,7 @@ def _render_edit_card(salon: Salon, photos: list, w) -> str:
                            class="salon-edit-input{' address-geocode' if yandex_maps_enabled() else ''}"
                            {'data-lat-field="salonEditLat" data-lon-field="salonEditLon" data-map-id="salonEditAddressMap" data-confirmed="1" autocomplete="off"' if yandex_maps_enabled() else ''}>
                     {'<p class="my-salon-card-hint" style="margin-top:0.35rem">Если меняете адрес — выберите новый вариант из подсказок, иначе сохранить не получится.</p>' if yandex_maps_enabled() else ''}
-                    {'<div id="salonEditAddressMap" style="display:none;height:200px;border-radius:0.75rem;margin-top:0.5rem;overflow:hidden"></div>' if yandex_maps_enabled() else ''}
+                    {'<div id="salonEditAddressMap" style="display:none;height:200px;border-radius:var(--radius-16);margin-top:0.5rem;overflow:hidden"></div>' if yandex_maps_enabled() else ''}
                     {f'<input type="hidden" id="salonEditLat" value="{salon.latitude}"><input type="hidden" id="salonEditLon" value="{salon.longitude}">' if yandex_maps_enabled() else ''}
                 </div>
                 <div class="salon-edit-field">
@@ -378,7 +378,7 @@ def _render_danger_zone(salon: Salon, is_creator: bool, w) -> str:
                     data-confirm-text="{e(w("delete_confirm_body"))}"
                     data-confirm-btn="{e(w("delete_btn"))}"
                     data-done-text="{e(w("delete_done"))}"
-                    style="color:#dc2626;border-color:#dc2626">
+                    style="color:var(--color-danger);border-color:var(--color-danger)">
                 {ICON_TRASH} {w("delete_btn")}
             </button>
         </div>
@@ -421,7 +421,7 @@ async def _render_chain_section(db: AsyncSession, salon: Salon, is_creator: bool
         <p class="my-salon-card-hint">Салон в сети «{chain.name if chain else "?"}» вместе с {len(siblings)} другими:</p>
         <ul class="chain-siblings-list">{siblings_html}</ul>
         <button type="button" class="my-salon-btn-outline" id="chainLeaveBtn" data-salon-id="{salon.id}"
-                style="color:#dc2626;border-color:#dc2626;margin-top:0.75rem">
+                style="color:var(--color-danger);border-color:var(--color-danger);margin-top:0.75rem">
             Покинуть сеть
         </button>
         """

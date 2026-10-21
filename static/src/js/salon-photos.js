@@ -20,7 +20,7 @@
     var p = document.createElement('div');
     p.textContent = text;
     p.style.cssText = 'font-size:0.85rem;margin-top:0.25rem;color:' +
-      (isError ? '#991B1B' : 'var(--color-muted)');
+      (isError ? 'var(--color-danger)' : 'var(--color-muted)');
     statusBox.appendChild(p);
   }
 
@@ -32,7 +32,7 @@
       if (!f.type.startsWith('image/')) return;
       var img = document.createElement('img');
       img.src = URL.createObjectURL(f);
-      img.style.cssText = 'width:72px;height:52px;object-fit:cover;border-radius:0.4rem;opacity:0.6';
+      img.style.cssText = 'width:72px;height:52px;object-fit:cover;border-radius:var(--radius-8);opacity:0.6';
       strip.appendChild(img);
     });
     statusBox.appendChild(strip);

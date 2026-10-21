@@ -21,7 +21,7 @@
             if (li) {
                 var mark = li.querySelector('.mark');
                 if (mark) mark.textContent = ok ? '✓' : '✗';
-                li.style.color = ok ? '#16A34A' : 'var(--color-muted)';
+                li.style.color = ok ? 'var(--color-success)' : 'var(--color-muted)';
             }
         });
         btn.disabled = !all;

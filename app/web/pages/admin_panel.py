@@ -47,24 +47,24 @@ def _esc(v) -> str:
 
 
 def _badge(text, color):
-    return f'<span style="display:inline-block;border-radius:2rem;padding:0.1rem 0.6rem;font-size:0.7rem;font-weight:700;color:#fff;background:{color}">{text}</span>'
+    return f'<span style="display:inline-block;border-radius:var(--radius-28);padding:0.1rem 0.6rem;font-size:0.7rem;font-weight:700;color:var(--color-on-dark);background:{color}">{text}</span>'
 
 
 def _active_badge(is_active):
-    return _badge("активен", "#16a34a") if is_active else _badge("заблокирован", "#dc2626")
+    return _badge("активен", "var(--color-success)") if is_active else _badge("заблокирован", "var(--color-danger)")
 
 
 def _deleted_badge():
-    return _badge("удален", "#6b7280")
+    return _badge("удален", "var(--color-muted)")
 
 
 def _moderation_badge(status):
     m = {
-        SalonModerationStatus.PENDING: ("на модерации", "#d97706"),
-        SalonModerationStatus.APPROVED: ("одобрен", "#16a34a"),
-        SalonModerationStatus.REJECTED: ("отклонён", "#dc2626"),
+        SalonModerationStatus.PENDING: ("на модерации", "var(--color-warning)"),
+        SalonModerationStatus.APPROVED: ("одобрен", "var(--color-success)"),
+        SalonModerationStatus.REJECTED: ("отклонён", "var(--color-danger)"),
     }
-    text, color = m.get(status, (str(status), "#6b7280"))
+    text, color = m.get(status, (str(status), "var(--color-muted)"))
     return _badge(text, color)
 
 
@@ -78,9 +78,9 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
         extra = extra_by_id.get(s.id, {"photo": None, "services": []})
 
         photo_html = (
-            f'<img src="{_esc(extra["photo"])}" loading="lazy" style="width:88px;height:88px;object-fit:cover;border-radius:0.75rem;flex-shrink:0">'
+            f'<img src="{_esc(extra["photo"])}" loading="lazy" style="width:88px;height:88px;object-fit:cover;border-radius:var(--radius-16);flex-shrink:0">'
             if extra["photo"] else
-            '<div style="width:88px;height:88px;border-radius:0.75rem;background:var(--color-border);'
+            '<div style="width:88px;height:88px;border-radius:var(--radius-16);background:var(--color-border);'
             f'display:flex;align-items:center;justify-content:center;flex-shrink:0">{ICON_BUILDING2}</div>'
         )
         services = extra["services"]
@@ -91,13 +91,13 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
 
         approve = (
             f'<form method="post" action="/api/v1/admin/salons/{s.id}/approve" style="display:inline">'
-            f'<button class="btn-mini" style="border-color:#16a34a;color:#16a34a">{ICON_CHECK} Одобрить</button></form>'
+            f'<button class="btn-mini" style="border-color:var(--color-success);color:var(--color-success)">{ICON_CHECK} Одобрить</button></form>'
         )
         reject = (
             f'<form method="post" action="/api/v1/admin/salons/{s.id}/reject" style="display:inline-flex;gap:0.25rem" '
             f'data-confirm="Отклонить заявку «{_esc(s.name)}»?" data-confirm-label="Подтвердить">'
             f'<input name="reason" placeholder="причина" '
-            f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:0.4rem;width:140px">'
+            f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:var(--radius-8);width:140px">'
             f'<button class="btn-mini btn-danger">{ICON_X} Отклонить</button></form>'
         )
 
@@ -114,7 +114,7 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
                 </p>
                 <p style="font-size:0.85rem;margin:0.25rem 0">{services_line}</p>
                 <details style="margin:0.5rem 0">
-                    <summary style="cursor:pointer;color:var(--color-primary);font-size:0.85rem">{ICON_EYE} Посмотреть подробнее</summary>
+                    <summary style="cursor:pointer;color:var(--color-accent-text);font-size:0.85rem">{ICON_EYE} Посмотреть подробнее</summary>
                     <div style="margin-top:0.5rem;font-size:0.85rem">
                         <p>{_esc(s.description) or '<span class="text-muted">Без описания</span>'}</p>
                         <p style="margin-top:0.4rem"><strong>Все услуги:</strong> {", ".join(f"{_esc(n)} ({p}₽)" for n, p in services) or "—"}</p>
@@ -141,20 +141,20 @@ def _model_applications_tab(pending_models):
     for u in pending_models:
         submitted = u.updated_at.strftime("%d.%m.%Y") if u.updated_at else "—"
         photo_html = (
-            f'<img src="{_esc(u.model_photo_url)}" loading="lazy" style="width:88px;height:88px;object-fit:cover;border-radius:0.75rem;flex-shrink:0">'
+            f'<img src="{_esc(u.model_photo_url)}" loading="lazy" style="width:88px;height:88px;object-fit:cover;border-radius:var(--radius-16);flex-shrink:0">'
             if u.model_photo_url else
-            '<div style="width:88px;height:88px;border-radius:0.75rem;background:var(--color-border);'
+            '<div style="width:88px;height:88px;border-radius:var(--radius-16);background:var(--color-border);'
             f'display:flex;align-items:center;justify-content:center;flex-shrink:0">{ICON_MODEL}</div>'
         )
         approve = (
             f'<form method="post" action="/api/v1/admin/models/{u.id}/approve" style="display:inline">'
-            f'<button class="btn-mini" style="border-color:#16a34a;color:#16a34a">{ICON_CHECK} Одобрить</button></form>'
+            f'<button class="btn-mini" style="border-color:var(--color-success);color:var(--color-success)">{ICON_CHECK} Одобрить</button></form>'
         )
         reject = (
             f'<form method="post" action="/api/v1/admin/models/{u.id}/reject" style="display:inline-flex;gap:0.25rem" '
             f'data-confirm="Отклонить анкету «{_esc(u.full_name or u.phone)}»?" data-confirm-label="Подтвердить">'
             f'<input name="reason" placeholder="причина" '
-            f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:0.4rem;width:140px">'
+            f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:var(--radius-8);width:140px">'
             f'<button class="btn-mini btn-danger">{ICON_X} Отклонить</button></form>'
         )
         cards += f"""
@@ -273,7 +273,7 @@ def _users_tab(users, me_id):
                 f'<button class="btn-mini" {"disabled" if is_self else ""}>'
                 f'{"Снять старшинство" if u.is_senior_admin else "Сделать старшим"}</button></form>'
             )
-        senior_badge = ' ' + _badge("старший", "#7c3aed") if u.role.value == "admin" and u.is_senior_admin else ""
+        senior_badge = ' ' + _badge("старший", "var(--color-accent)") if u.role.value == "admin" and u.is_senior_admin else ""
         me_mark = ' <span class="text-muted">(вы)</span>' if is_self else ""
         rows += f"""<tr>
             <td>{u.id}</td>
@@ -287,7 +287,7 @@ def _users_tab(users, me_id):
     <div class="tab-content" id="tab-users">
         <h2 style="margin-bottom:1rem">Пользователи ({len(users)})</h2>
         <input id="userFilter" onkeyup="filterTable('userFilter','usersTable')" placeholder="Поиск по телефону/имени…"
-               style="width:100%;max-width:360px;padding:0.5rem 0.75rem;border:1px solid var(--color-border);border-radius:0.5rem;margin-bottom:1rem">
+               style="width:100%;max-width:360px;padding:0.5rem 0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-8);margin-bottom:1rem">
         <div style="overflow-x:auto"><table id="usersTable">
             <thead><tr><th>ID</th><th>Телефон</th><th>Имя</th><th>Роль</th><th>Статус</th><th>Действия</th></tr></thead>
             <tbody>{rows}</tbody>
@@ -460,7 +460,7 @@ def _reports_tab(reports):
     rows = ""
     for r in reports:
         thumb = (f'<a href="{_esc(r["url"])}" target="_blank"><img src="{_esc(r["url"])}" loading="lazy" '
-                 f'style="width:64px;height:64px;object-fit:cover;border-radius:0.5rem"></a>') if r["url"] else "—"
+                 f'style="width:64px;height:64px;object-fit:cover;border-radius:var(--radius-8)"></a>') if r["url"] else "—"
         resolve = (
             f'<form method="post" action="/api/v1/admin/reports/{r["id"]}/resolve" style="display:inline" '
             f'data-confirm="Удалить фото и закрыть жалобу?" data-confirm-label="Подтвердить">'
@@ -539,7 +539,7 @@ def _support_tab(requests, phone_by_id):
         for url in (r.photos or []):
             photos += (f'<a href="{_esc(url)}" target="_blank" rel="noopener">'
                        f'<img src="{_esc(url)}" loading="lazy" style="width:48px;height:48px;'
-                       f'object-fit:cover;border-radius:0.4rem;margin-right:0.25rem"></a>')
+                       f'object-fit:cover;border-radius:var(--radius-8);margin-right:0.25rem"></a>')
         rating = f' · оценка {r.rating}/5' if r.rating else ""
 
         if r.answer:
@@ -552,7 +552,7 @@ def _support_tab(requests, phone_by_id):
                 f'<textarea name="answer" rows="2" required minlength="2" '
                 f'placeholder="Ответ человеку…" '
                 f'style="flex:1;min-width:220px;padding:0.4rem;border:1px solid var(--color-border);'
-                f'border-radius:0.4rem;font-family:inherit;font-size:0.85rem"></textarea>'
+                f'border-radius:var(--radius-8);font-family:inherit;font-size:0.85rem"></textarea>'
                 f'<button class="btn-mini">Отправить</button></form>'
             )
 
@@ -588,7 +588,7 @@ def _support_tab(requests, phone_by_id):
 def _subscription_cell(s) -> str:
     """Тариф, статус и срок доступа салона.
 
-    Цвета берём из токенов: тут стояли #f59e0b / #22c55e / #ef4444 мимо
+    Цвета берём из токенов: тут стояли var(--color-warning) / var(--color-success) / var(--color-danger) мимо
     палитры продукта."""
     from datetime import datetime, timezone
     from app.services.tariffs import TARIFF_CATALOG
@@ -788,11 +788,11 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     default_tab = "overview" if is_senior else "applications"
     _tab = q.get("tab", default_tab)
     active_tab = _tab if _tab in allowed_tabs else default_tab
-    pending_badge = f' <span style="background:#d97706;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(pending)}</span>' if pending else ""
-    models_badge = f' <span style="background:#d97706;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(pending_models)}</span>' if pending_models else ""
-    reports_badge = f' <span style="background:#dc2626;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(reports_data)}</span>' if reports_data else ""
-    contest_badge = f' <span style="background:#7c3aed;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(contest_entries)}</span>' if contest_entries else ""
-    support_badge = f' <span style="background:#2563eb;color:#fff;border-radius:1rem;padding:0 0.4rem;font-size:0.7rem">{len(support_new)}</span>' if support_new else ""
+    pending_badge = f' <span style="background:var(--color-warning);color:var(--color-on-status);border-radius:var(--radius-16);padding:0 0.4rem;font-size:0.7rem">{len(pending)}</span>' if pending else ""
+    models_badge = f' <span style="background:var(--color-warning);color:var(--color-on-status);border-radius:var(--radius-16);padding:0 0.4rem;font-size:0.7rem">{len(pending_models)}</span>' if pending_models else ""
+    reports_badge = f' <span style="background:var(--color-danger);color:var(--color-on-status);border-radius:var(--radius-16);padding:0 0.4rem;font-size:0.7rem">{len(reports_data)}</span>' if reports_data else ""
+    contest_badge = f' <span style="background:var(--color-accent);color:var(--color-on-dark);border-radius:var(--radius-16);padding:0 0.4rem;font-size:0.7rem">{len(contest_entries)}</span>' if contest_entries else ""
+    support_badge = f' <span style="background:var(--color-info);color:var(--color-on-status);border-radius:var(--radius-16);padding:0 0.4rem;font-size:0.7rem">{len(support_new)}</span>' if support_new else ""
 
     tab_nav = ""
     if is_senior:
@@ -844,7 +844,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         .adm-salon-section h3 {{ margin:0 0 0.75rem; font-size:1rem }}
         .adm-salon-list {{ display:flex; flex-direction:column; gap:1rem }}
         .adm-salon {{ background:var(--color-surface); border:1px solid var(--color-border);
-                      border-radius:1rem; padding:1.25rem }}
+                      border-radius:var(--radius-16); padding:1.25rem }}
         .adm-salon-head {{ display:flex; align-items:center; justify-content:space-between;
                            gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem }}
         .adm-salon-title {{ display:flex; align-items:baseline; gap:0.5rem; font-size:1.05rem }}
@@ -872,13 +872,13 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         .adm-field {{ display:flex; flex-direction:column; gap:0.2rem }}
         .adm-field-label {{ font-size:0.7rem; color:var(--color-muted) }}
         .adm-input {{ padding:0.35rem 0.55rem; border:1px solid var(--color-border);
-                      border-radius:0.45rem; font-size:0.85rem; font-family:var(--font-body);
+                      border-radius:var(--radius-8); font-size:0.85rem; font-family:var(--font-body);
                       background:var(--color-surface); color:var(--color-heading); width:11rem }}
         .adm-input.is-num {{ width:5rem; font-variant-numeric:tabular-nums }}
         .adm-hint {{ font-size:0.72rem; color:var(--color-muted); align-self:center }}
         .adm-empty {{ padding:2rem; text-align:center; color:var(--color-muted) }}
-        .stat-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:1rem; padding:1.25rem; text-align:center }}
-        .stat-value {{ font-size:1.6rem; font-weight:700; color:var(--color-primary) }}
+        .stat-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-16); padding:1.25rem; text-align:center }}
+        .stat-value {{ font-size:1.6rem; font-weight:700; color:var(--color-accent-text) }}
         .stat-label {{ font-size:0.8rem; color:var(--color-muted); margin-top:0.25rem }}
         table {{ width:100%; border-collapse:collapse; font-size:0.875rem }}
         th {{ text-align:left; padding:0.6rem; border-bottom:2px solid var(--color-border); font-weight:600; color:var(--color-heading); white-space:nowrap }}
@@ -886,10 +886,10 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         /* .btn-mini переехал в дизайн-систему (components.css): тот же класс
            использует профиль, а этот блок там не подключается — кнопки
            «Отвязать» и «Подключить» рисовались голыми системными. */
-        select {{ font-size:0.8rem; padding:0.3rem 0.55rem; border:1px solid var(--color-border); border-radius:0.4rem; background:var(--color-surface); color:var(--color-heading); cursor:pointer }}
-        .alert {{ padding:0.75rem 1rem; border-radius:0.5rem; margin-bottom:0.75rem; font-size:0.875rem }}
-        .alert-ok {{ background:#dcfce7; color:#166534; border:1px solid #86efac }}
-        .alert-err {{ background:#fee2e2; color:#991b1b; border:1px solid #fca5a5 }}
+        select {{ font-size:0.8rem; padding:0.3rem 0.55rem; border:1px solid var(--color-border); border-radius:var(--radius-8); background:var(--color-surface); color:var(--color-heading); cursor:pointer }}
+        .alert {{ padding:0.75rem 1rem; border-radius:var(--radius-8); margin-bottom:0.75rem; font-size:0.875rem }}
+        .alert-ok {{ background:var(--color-success-light); color:var(--color-success); border:1px solid var(--color-success-border) }}
+        .alert-err {{ background:var(--color-danger-light); color:var(--color-danger); border:1px solid var(--color-danger-border) }}
         .text-muted {{ color:var(--color-muted) }}
     </style>
 </head>

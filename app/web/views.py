@@ -158,11 +158,11 @@ self.addEventListener('fetch', (e) => {
 
 _OFFLINE_HTML = """<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Нет сети — Руми</title></head>
-<body style="font-family:system-ui,-apple-system,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:#ffffff;color:#1a1115">
+<body style="font-family:system-ui,-apple-system,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:var(--color-surface);color:var(--color-heading)">
 <div style="text-align:center;padding:2rem">
-<div style="font-size:1.6rem;font-weight:700;color:#ca3e74">руми.</div>
-<p style="color:#6b5c63">Нет подключения к интернету.<br>Проверьте связь и попробуйте снова.</p>
-<button onclick="location.reload()" style="background:#ca3e74;color:#fff;border:none;border-radius:12px;padding:.7rem 1.3rem;min-height:44px;font-size:1rem;cursor:pointer">Обновить</button>
+<div style="font-size:1.6rem;font-weight:700;color:var(--color-accent-text)">руми.</div>
+<p style="color:var(--color-muted)">Нет подключения к интернету.<br>Проверьте связь и попробуйте снова.</p>
+<button onclick="location.reload()" style="background:var(--color-accent);color:var(--color-on-dark);border:none;border-radius:var(--radius-16);padding:.7rem 1.3rem;min-height:44px;font-size:1rem;cursor:pointer">Обновить</button>
 </div></body></html>"""
 
 
@@ -182,8 +182,8 @@ async def pwa_manifest():
         # Те же значения, что у --color-background и --color-accent: с этими
         # цветами система рисует заставку и полосу состояния установленного
         # приложения, и расхождение видно в первую секунду запуска.
-        "background_color": "#ffffff",
-        "theme_color": "#ca3e74",
+        "background_color": "var(--color-background)",
+        "theme_color": "var(--color-accent)",
         "icons": [
             {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
             {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
@@ -481,7 +481,7 @@ async def book_service_page(salon_id: int, request: Request, db: AsyncSession = 
             </div>
             <div style="margin-bottom:1rem">
                 <label style="display:block;font-weight:500;margin-bottom:0.5rem">Дата и время</label>
-                <input type="datetime-local" name="start_time" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem" required>
+                <input type="datetime-local" name="start_time" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-8)" required>
             </div>
             <button type="submit" class="btn-primary" style="width:100%">Записаться</button>
         </form>
@@ -529,8 +529,8 @@ def _alert(msg: str) -> str:
     if not msg:
         return ""
     return (
-        '<div style="background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;'
-        'border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
+        '<div style="background:var(--color-danger-light);color:var(--color-danger);border:1px solid var(--color-danger-border);'
+        'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
         f'{msg}</div>'
     )
 
@@ -724,13 +724,13 @@ async def book_page(request: Request, db: AsyncSession = Depends(get_db)):
 <div class="card" style="max-width:500px;width:100%;padding:2rem">
     <h2 style="margin-bottom:1.5rem">Подтверждение записи</h2>
     
-    <div style="margin-bottom:1rem;padding:1rem;background:var(--color-surface-alt);border-radius:0.75rem">
+    <div style="margin-bottom:1rem;padding:1rem;background:var(--color-surface-alt);border-radius:var(--radius-16)">
         <p><strong>{ICON_BUILDING2} Салон:</strong> {e(salon_name)}</p>
         <p><strong>{ICON_SCISSORS} Мастер:</strong> {e(master_name)}</p>
         <p><strong>{ICON_SCISSORS} Услуга:</strong> {e(service.name)}</p>
         <p><strong>{ICON_CLOCK} Длительность:</strong> {service.duration_minutes} мин</p>
         <p><strong>{ICON_CALENDAR_DAYS} Время:</strong> {time_str.replace('T', ' ')}</p>
-        <p><strong>{ICON_MONEY} Цена:</strong> <span style="font-size:1.25rem;font-weight:700;color:var(--color-primary)">{e(format_service_price(service.price, service.price_max))}</span></p>
+        <p><strong>{ICON_MONEY} Цена:</strong> <span style="font-size:1.25rem;font-weight:700;color:var(--color-accent-text)">{e(format_service_price(service.price, service.price_max))}</span></p>
     </div>
     
     <form action="/api/v1/bookings/confirm" method="post">
@@ -963,10 +963,10 @@ def render_status_page(code: int, title: str, message: str, extra: str = "") -> 
         .notfound .path {{
             background: var(--color-surface);
             padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
+            border-radius: var(--radius-8);
             font-family: monospace;
             font-size: 0.9rem;
-            color: var(--color-primary);
+            color: var(--color-accent-text);
             border: 1px solid var(--color-border);
             margin-bottom: 1.5rem;
         }}

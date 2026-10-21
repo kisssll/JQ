@@ -28,7 +28,7 @@ from app.services.tariffs import TARIFF_CATALOG, compute_amount, resolve_plan_fo
 from app.web.tariff_presentation import all_plans
 
 # Статус читается цветом, а не только текстом. Цвета — из токенов: раньше тут
-# стояли #f59e0b/#22c55e/#ef4444, мимо палитры продукта.
+# стояли var(--color-warning) и два буквальных цвета мимо палитры продукта.
 _STATUS_TONE = {
     SalonSubscriptionStatus.NONE: ("Тариф не выбран", "is-none"),
     SalonSubscriptionStatus.TRIALING: ("Пробный период", "is-trial"),

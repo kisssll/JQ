@@ -235,7 +235,7 @@ async def render_guest_manage_page(db, token: str) -> str:
 
     # Статус — плашка слоя ui: слово плюс тон. Раньше тут был инлайновый
     # color по словарю, и цвета не совпадали ни с токенами, ни между собой
-    # (#27ae60 против --color-success), а в тёмной теме не читались вовсе.
+    # (var(--color-success) против --color-success), а в тёмной теме не читались вовсе.
     status_ru = {
         BookingStatus.PENDING: ("Ожидает подтверждения салона", "warning"),
         BookingStatus.CONFIRMED: ("Подтверждена", "success"),

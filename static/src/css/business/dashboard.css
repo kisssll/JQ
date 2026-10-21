@@ -70,7 +70,7 @@
     display: flex !important;
     align-items: center !important;
     border: 1px solid var(--color-border) !important;
-    border-radius: 0.5rem !important;
+    border-radius: var(--radius-8) !important;
     background-color: var(--color-surface) !important;
     color: var(--color-heading) !important;
     box-shadow: none !important;
@@ -79,11 +79,11 @@
 
 .salon-switcher.is-focused .choices__inner {
     border-color: var(--color-primary) !important;
-    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 15%, transparent) !important;
 }
 
 .salon-switcher.is-open .choices__inner {
-    border-radius: 0.5rem 0.5rem 0 0 !important;
+    border-radius: var(--radius-8) var(--radius-8) 0 0 !important;
 }
 
 .salon-switcher .choices__list--single {
@@ -110,7 +110,7 @@
 .salon-switcher .choices__list--dropdown {
     border: 1px solid var(--color-border) !important;
     border-top: none !important;
-    border-radius: 0 0 0.5rem 0.5rem !important;
+    border-radius: 0 0 var(--radius-8) var(--radius-8) !important;
     background: var(--color-surface) !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
     z-index: 100 !important;
@@ -127,10 +127,10 @@
     gap: 0.35rem;
     padding: 0 1rem;
     border: 1px dashed var(--color-border);
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 0.8rem;
     font-weight: 500;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     text-decoration: none;
     white-space: nowrap;
     height: 42.5px;
@@ -157,7 +157,7 @@
     gap: 0.5rem;
     margin-right: 0.75rem;
     padding: 0 0.75rem;
-    border-radius: 2rem;
+    border-radius: var(--radius-28);
     background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(4px);
     font-size: 0.7rem;
@@ -172,7 +172,7 @@
 .dashboard-badge svg {
     width: 0.9rem;
     height: 0.9rem;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 /* ===== Десктоп ===== */
@@ -323,7 +323,7 @@
     text-decoration: none;   /* вкладки теперь <a> */
     padding: 0.6rem 1.2rem;
     border: none;
-    border-radius: 2rem;
+    border-radius: var(--radius-28);
     background: transparent;
     cursor: pointer;
     font-size: 0.875rem;
@@ -368,7 +368,7 @@
     gap: 0.45rem;
     padding: 0.55rem 0.9rem;
     border: 1px solid var(--color-border);
-    border-radius: 2rem;
+    border-radius: var(--radius-28);
     background: var(--color-surface);
     color: var(--color-muted);
     font-family: inherit;
@@ -387,7 +387,7 @@
 .dashboard-page .panel-edit-gear[aria-pressed="true"] {
     background: var(--color-accent-light);
     border-color: var(--color-primary);
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .dashboard-page .panel-edit-gear svg {
@@ -529,7 +529,7 @@
     height: 1.1rem;
     padding: 0;
     border: 1px solid var(--color-border);
-    border-radius: 0.35rem;
+    border-radius: var(--radius-8);
     background: var(--color-surface);
     color: var(--color-muted);
     cursor: pointer;
@@ -555,7 +555,7 @@
     padding: 1rem 1.15rem 1.1rem;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     box-shadow: 0 8px 24px -16px rgba(0, 0, 0, 0.35);
 }
 
@@ -586,7 +586,7 @@
     gap: 0.4rem;
     padding: 0.45rem 0.8rem;
     border: 1px dashed var(--color-border);
-    border-radius: 2rem;
+    border-radius: var(--radius-28);
     background: transparent;
     color: var(--color-muted);
     font-family: inherit;
@@ -598,7 +598,7 @@
 .dashboard-page .panel-edit-chip:hover {
     border-color: var(--color-primary);
     background: var(--color-accent-light);
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .dashboard-page .panel-edit-chip svg {
@@ -611,7 +611,7 @@
     font-size: 1.05rem;
     font-weight: 600;
     line-height: 1;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .dashboard-page .panel-edit-empty {
@@ -641,7 +641,7 @@
         animation: none;
         outline: 2px dashed var(--color-primary);
         outline-offset: 3px;
-        border-radius: 2rem;
+        border-radius: var(--radius-28);
     }
 
     .dashboard-page .tab-nav.is-editing .tab-item[data-pinned] {
@@ -658,7 +658,7 @@
 .dashboard-page .stat-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: 1.25rem;
     text-align: center;
     transition: box-shadow 0.2s;
@@ -671,7 +671,7 @@
 .dashboard-page .stat-value {
     font-size: 2rem;
     font-weight: 700;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .dashboard-page .stat-label {
@@ -682,7 +682,7 @@
 
 .dashboard-page .promo-badge {
     display: inline-block;
-    border-radius: 2rem;
+    border-radius: var(--radius-28);
     padding: 0.125rem 0.5rem;
     font-size: 0.625rem;
     font-weight: 700;
@@ -731,13 +731,13 @@
 .dashboard-page .chart-fill {
     width: 100%;
     max-width: 3rem;
-    border-radius: 0.375rem 0.375rem 0 0;
+    border-radius: var(--radius-8) var(--radius-8) 0 0;
     background: linear-gradient(to top, var(--color-primary), var(--color-accent));
     transition: height 0.3s;
 }
 
 .dashboard-page .chart-fill.highest {
-    background: linear-gradient(to top, #22c55e, #4ade80);
+    background: linear-gradient(to top, var(--color-success), var(--color-success));
 }
 
 .dashboard-page .chart-fill.prev {
@@ -767,7 +767,7 @@
 .dashboard-page .kpi-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: 1.25rem 1.5rem;
 }
 
@@ -798,7 +798,7 @@
 .dashboard-page .legend-dot {
     width: 12px;
     height: 12px;
-    border-radius: 3px;
+    border-radius: var(--radius-8);
     display: inline-block;
     margin-right: 0.3rem;
 }
@@ -818,7 +818,7 @@
 .dashboard-page .card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: 1.5rem;
     margin-bottom: 1.5rem;
     transition: box-shadow 0.2s;
@@ -839,7 +839,7 @@
 .dashboard-page .rating-big {
     font-size: 3rem;
     font-weight: 800;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     line-height: 1;
 }
 
@@ -848,7 +848,7 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     border: 1px solid var(--color-border);
     background: var(--color-surface-alt);
 }
@@ -899,11 +899,11 @@
 }
 
 .dashboard-page .status-paid {
-    color: #22c55e;
+    color: var(--color-success);
 }
 
 .dashboard-page .status-waiting {
-    color: #f59e0b;
+    color: var(--color-warning);
 }
 
 .dashboard-page .sidebar-container {
@@ -958,9 +958,9 @@
     width: max-content;
     max-width: 260px;
     padding: 0.6rem 0.8rem;
-    border-radius: 0.5rem;
-    background: var(--color-text, #1f2937);
-    color: #fff;
+    border-radius: var(--radius-8);
+    background: var(--color-text);
+    color: var(--color-on-dark);
     font-size: 0.78rem;
     font-weight: 400;
     line-height: 1.4;
@@ -1026,7 +1026,7 @@
         padding: 0.5rem 0.8rem;
         font-size: 0.8rem;
         white-space: nowrap;
-        border-radius: 1.5rem;
+        border-radius: var(--radius-28);
         background: var(--color-surface-alt);
         border: 1px solid var(--color-border);
     }
@@ -1083,7 +1083,7 @@
 
 .publish-gate-modal-box {
     background: var(--color-surface);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: 2rem;
     max-width: 420px;
     width: 90%;
@@ -1147,7 +1147,7 @@
     gap: 0.3rem;
     padding: 0.9rem 0.6rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     cursor: pointer;
     text-align: center;
 }
@@ -1168,7 +1168,7 @@
 .model-tariff-price {
     font-size: 1.1rem;
     font-weight: 700;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .model-tariff-period {
@@ -1205,7 +1205,7 @@
     height: 2.5rem;
     padding: 0 0.75rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
     background: var(--color-surface);
     color: var(--color-heading);
     font-size: 0.9rem;
@@ -1216,7 +1216,7 @@
 .dashboard-page .period-input:focus {
     outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 /* Высота как у полей — иначе кнопка «висит» ниже линии ввода. */

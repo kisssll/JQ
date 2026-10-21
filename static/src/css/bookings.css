@@ -83,7 +83,7 @@
 
 /* Ссылка на салон внутри списка фактов — обычная текстовая ссылка акцентом. */
 .booking-salon-link {
-    color: var(--color-accent);
+    color: var(--color-accent-text);
     text-decoration: none;
 }
 
@@ -112,7 +112,7 @@
 .booking-review__stars {
     display: inline-flex;
     gap: 2px;
-    color: var(--color-accent);
+    color: var(--color-accent-text);
 }
 
 .booking-review__stars svg {
@@ -162,7 +162,7 @@
 }
 
 .review-star.is-on {
-    color: var(--color-accent);
+    color: var(--color-accent-text);
 }
 
 .review-star:focus-visible {
@@ -175,7 +175,7 @@
 }
 
 @media (hover: hover) {
-    .review-star:hover { color: var(--color-accent-hover); }
+    .review-star:hover { color: var(--color-accent-text); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -214,7 +214,7 @@
     text-align: center;
     padding: 3rem 1.5rem;
     background: var(--color-surface);
-    border-radius: 1.5rem;
+    border-radius: var(--radius-28);
     border: 1px solid var(--color-border);
     margin-bottom: 1.5rem;
 }

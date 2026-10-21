@@ -120,7 +120,7 @@ async def get_overview_revenue_data(db: AsyncSession, master_ids: list) -> dict:
     prev_total_revenue = sum(prev_revenue_data.values())
     revenue_diff = total_revenue - prev_total_revenue
     revenue_trend = "▲" if revenue_diff > 0 else "▼" if revenue_diff < 0 else "—"
-    revenue_color = "#22c55e" if revenue_diff > 0 else "#ef4444" if revenue_diff < 0 else "var(--color-muted)"
+    revenue_color = "var(--color-success)" if revenue_diff > 0 else "var(--color-danger)" if revenue_diff < 0 else "var(--color-muted)"
 
     today_bookings_list = []
     if master_ids:

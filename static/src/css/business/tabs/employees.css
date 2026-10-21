@@ -27,7 +27,7 @@
     padding: 0.75rem 1.5rem;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -37,7 +37,7 @@
 #tab-employees .stat-card.compact .stat-value {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     line-height: 1.2;
 }
 
@@ -124,11 +124,11 @@
 }
 
 #tab-employees .status-badge.on {
-    color: #22c55e;
+    color: var(--color-success);
 }
 
 #tab-employees .status-badge.off {
-    color: #ef4444;
+    color: var(--color-danger);
 }
 
 /* --- Действия --- */
@@ -143,7 +143,7 @@
     border: none;
     cursor: pointer;
     padding: 0.25rem;
-    border-radius: 0.25rem;
+    border-radius: var(--radius-8);
     transition: background 0.2s, color 0.2s;
     color: var(--color-muted);
     display: inline-flex;
@@ -157,27 +157,27 @@
 }
 
 #tab-employees .action-btn.edit-btn {
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 #tab-employees .action-btn.edit-btn:hover {
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
 }
 
 #tab-employees .action-btn.toggle-btn.on {
-    color: #ef4444;
+    color: var(--color-danger);
 }
 #tab-employees .action-btn.toggle-btn.off {
-    color: #22c55e;
+    color: var(--color-success);
 }
 #tab-employees .action-btn.toggle-btn:hover {
     opacity: 0.7;
 }
 
 #tab-employees .action-btn.delete-btn {
-    color: #ef4444;
+    color: var(--color-danger);
 }
 #tab-employees .action-btn.delete-btn:hover {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 /* --- Блок участников --- */
@@ -195,7 +195,7 @@
 
 #tab-employees .creator-badge {
     font-size: 0.7rem;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 #tab-employees .perms-cell {
@@ -266,27 +266,27 @@
 /* --- Уведомления --- */
 #tab-employees .notice-banner {
     padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
     margin-bottom: 1.5rem;
     font-size: 0.875rem;
 }
 
 #tab-employees .notice-banner.success {
-    background: #dcfce7;
-    color: #166534;
-    border: 1px solid #86efac;
+    background: var(--color-success-light);
+    color: var(--color-success);
+    border: 1px solid var(--color-success-border);
 }
 
 #tab-employees .notice-banner.error {
-    background: #fee2e2;
-    color: #991b1b;
-    border: 1px solid #fca5a5;
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+    border: 1px solid var(--color-danger-border);
 }
 
 #tab-employees .temp-pw {
     background: var(--color-surface);
     padding: 0.15rem 0.5rem;
-    border-radius: 0.25rem;
+    border-radius: var(--radius-8);
     font-weight: 700;
 }
 
@@ -310,7 +310,7 @@
 
 #tab-employees .modal-box {
     background: var(--color-surface);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: 2rem;
     max-width: 500px;
     width: 90%;
@@ -360,7 +360,7 @@
     width: 100%;
     padding: 0.75rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
     font-size: 0.9rem;
     background: var(--color-surface);
     color: var(--color-heading);
@@ -372,7 +372,7 @@
 #tab-employees .form-group textarea:focus {
     outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 #tab-employees .checkbox-label {
@@ -393,19 +393,19 @@
 .dashboard-page .creds-row {
     display: flex; align-items: center; justify-content: space-between; gap: 1rem;
     padding: 0.6rem 0.85rem; background: var(--color-surface-2);
-    border-radius: 0.6rem; margin-bottom: 0.5rem; font-size: 0.9rem;
+    border-radius: var(--radius-16); margin-bottom: 0.5rem; font-size: 0.9rem;
 }
-.dashboard-page .creds-row span { color: var(--color-muted, #888); }
+.dashboard-page .creds-row span { color: var(--color-muted); }
 .dashboard-page .creds-row b { font-weight: 700; }
 .dashboard-page .creds-row code {
     font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700;
-    background: var(--color-surface); padding: 0.2rem 0.5rem; border-radius: 0.4rem; border: 1px solid var(--color-border, #e5e5ea);
+    background: var(--color-surface); padding: 0.2rem 0.5rem; border-radius: var(--radius-8); border: 1px solid var(--color-border);
 }
 .dashboard-page .creds-actions { display: flex; gap: 0.6rem; margin-top: 1rem; }
 .dashboard-page .creds-actions button { flex: 1; }
 .dashboard-page .creds-email-result { margin-top: 0.7rem; font-size: 0.85rem; min-height: 1.1rem; text-align: center; }
-.dashboard-page .creds-email-result.ok { color: #16a34a; }
-.dashboard-page .creds-email-result.err { color: #e5484d; }
+.dashboard-page .creds-email-result.ok { color: var(--color-success); }
+.dashboard-page .creds-email-result.err { color: var(--color-danger); }
 
 /* ===== Мобильные карточки (для экранов < 1024px) ===== */
 /* По умолчанию карточки скрыты, таблицы видны */
@@ -421,7 +421,7 @@
     width: 100%;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     margin-bottom: 0.75rem;
     overflow: hidden;
     transition: box-shadow 0.2s;
@@ -458,7 +458,7 @@
 }
 .staff-card-role {
     font-size: 0.85rem;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     font-weight: 500;
 }
 .staff-card-bottom {
@@ -522,7 +522,7 @@
     width: 100%;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     margin-bottom: 0.75rem;
     overflow: hidden;
     transition: box-shadow 0.2s;
@@ -562,10 +562,10 @@
     font-weight: 500;
 }
 .master-card-status-text.on {
-    color: #22c55e;
+    color: var(--color-success);
 }
 .master-card-status-text.off {
-    color: #ef4444;
+    color: var(--color-danger);
 }
 .master-card-bottom {
     display: flex;
@@ -669,7 +669,7 @@
 #tab-employees .panel-card-group-title {
     font-family: var(--font-heading);
     font-size: 1.5rem;
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     color: var(--color-heading);
     margin: 0 0 1.25rem;
     padding-bottom: 0.6rem;

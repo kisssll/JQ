@@ -499,7 +499,7 @@ async def render_employees_tab(
                 <span class="stat-label">Всего</span>
             </div>
             <div class="stat-card compact">
-                <span class="stat-value" style="color:#22c55e">{active_masters}</span>
+                <span class="stat-value" style="color:var(--color-success)">{active_masters}</span>
                 <span class="stat-label">Активных</span>
             </div>
         </div>

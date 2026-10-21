@@ -10,7 +10,7 @@
 .choices__inner {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     padding: 5.25px 1.2rem !important;
     min-height: auto;
     height: auto;
@@ -34,14 +34,14 @@
    системный контрол. Эталон вида — дропдаун категорий на /salons. */
 .choices.is-open .choices__inner {
     border-color: var(--color-accent);
-    color: var(--color-accent);
+    color: var(--color-accent-text);
 }
 
 /* Панель отрывается от кнопки, как у .category-dropdown-panel */
 .choices__list--dropdown,
 .choices__list[aria-expanded] {
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     background: var(--color-surface);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     margin-top: 0.5rem;
@@ -59,7 +59,7 @@
 /* Элементы списка — как .category-option */
 .choices__list--dropdown .choices__item {
     padding: 0.5rem 0.6rem;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
     color: var(--color-heading);
     font-size: 0.85rem;
     background: transparent;
@@ -96,7 +96,7 @@
 /* Выбранный пункт раньше просто пропадал из списка — открыв дропдаун, нельзя
    было понять, что выбрано сейчас. Показываем и помечаем акцентом. */
 .choices__list--dropdown .choices__item.is-selected {
-    color: var(--color-accent);
+    color: var(--color-accent-text);
     font-weight: 600;
 }
 
@@ -149,7 +149,7 @@
 .custom-select .choices__inner {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     padding: 0.45rem 1.2rem;
     font-size: 0.875rem;
     font-family: var(--font-body);
@@ -190,7 +190,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .flatpickr-calendar {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     font-family: var(--font-body);
     padding: 0.5rem;
@@ -232,7 +232,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
 .flatpickr-calendar .flatpickr-prev-month:hover,
 .flatpickr-calendar .flatpickr-next-month:hover {
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     fill: var(--color-primary);
 }
 
@@ -337,7 +337,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 
 /* Прошедшие дни – серым шрифтом, но полностью кликабельные */
 .flatpickr-calendar .flatpickr-day.past-day {
-    color: var(--color-muted, #9ca3af) !important;
+    color: var(--color-muted) !important;
     opacity: 0.65;
     cursor: pointer !important;
     pointer-events: auto !important;
@@ -346,7 +346,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .flatpickr-calendar .flatpickr-day.past-day:hover {
     background: var(--color-accent-light);
     border-color: var(--color-primary);
-    color: var(--color-primary) !important;
+    color: var(--color-accent-text) !important;
     opacity: 1;
 }
 
@@ -371,8 +371,8 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .flatpickr-calendar .flatpickr-day.disabled,
 .flatpickr-calendar .flatpickr-day.flatpickr-disabled {
     opacity: 0.5;
-    background: #f3f4f6 !important;
-    color: #9ca3af !important;
+    background: var(--color-surface-2) !important;
+    color: var(--color-muted) !important;
     cursor: not-allowed;
 }
 
@@ -389,7 +389,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .flatpickr-calendar .flatpickr-time input {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
     padding: 0.2rem 0.4rem;
     font-size: 0.8rem;
     color: var(--color-heading);
@@ -430,7 +430,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .flatpickr-monthSelect-month {
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
     color: var(--color-heading);
     font-size: 0.8rem;
     font-weight: 400;
@@ -440,7 +440,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .flatpickr-monthSelect-month:focus {
     background: var(--color-accent-light);
     border-color: var(--color-primary);
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .flatpickr-monthSelect-month.today {
@@ -451,7 +451,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .flatpickr-monthSelect-month.today:focus {
     background: var(--color-accent-light);
     border-color: var(--color-primary);
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .flatpickr-monthSelect-month.selected {

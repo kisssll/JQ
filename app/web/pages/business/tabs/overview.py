@@ -619,7 +619,7 @@ async def render_overview_tab(
     <div class="card">
         <div class="chart-header">
             <h3 style="display:flex;align-items:center;gap:0.5rem">
-                <span style="display:inline-flex;align-items:center;color:var(--color-primary)">{ICON_USER_CHECK}</span>
+                <span style="display:inline-flex;align-items:center;color:var(--color-accent-text)">{ICON_USER_CHECK}</span>
                 Сегодня
             </h3>
             <span class="chart-total">{len(today_bookings_list)} клиентов</span>

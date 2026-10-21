@@ -12,8 +12,15 @@ body {
     background: var(--color-background);
     color: var(--color-heading);
     line-height: 1.6;
-    letter-spacing: 0.02em;
-    word-spacing: 0.02em;
+    /* Manrope и без того просторная, межбуквенный зазор не добавляем (с Inter
+       стояло 0.02em). */
+    letter-spacing: 0;
+}
+
+/* Выделение текста — её --pink-strong. */
+::selection {
+    background: var(--color-rose-strong);
+    color: var(--color-text);
 }
 
 /* Браузер сам темизацию полей ввода не подхватывает — без явного фона/цвета
@@ -55,7 +62,7 @@ input::placeholder, textarea::placeholder {
 
 .text-display {
     font-family: var(--font-heading);
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     letter-spacing: -0.02em;
     color: var(--color-heading);
 }
@@ -79,12 +86,12 @@ input::placeholder, textarea::placeholder {
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
-    border-radius: 0.35rem;
+    border-radius: var(--radius-8);
 }
 
 /* ---------- Текстовые ссылки ---------- */
 .text-link {
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     text-decoration: none;
     transition: opacity 0.2s;
 }
@@ -96,16 +103,17 @@ input::placeholder, textarea::placeholder {
    ПОДЛОЖКА: правила, общие для всего сервиса (заход 03.10.2026)
    =================================================================== */
 
-/* ---------- Антиква не имитируется ----------
-   У Prata единственный вес 400. Там, где в старом CSS осталось
-   font-weight: 700, браузер иначе рисует синтетический жир: обводит контур
-   второй раз, и тонкие штрихи антиквы превращаются в кашу. Запрещаем
-   подделку веса везде; подделку наклона оставляем — у Inter курсива мы не
-   возим, а <em> должен оставаться наклонным. */
+/* ---------- Вес не имитируется ----------
+   Playfair и Manrope переменные: любой вес из диапазона настоящий, поэтому
+   заголовок берёт 600 (--weight-heading) из самого шрифта. Подделку веса
+   всё равно запрещаем везде: если файл не доехал и вместо него Georgia,
+   браузер иначе обводит контур второй раз, и тонкие штрихи антиквы
+   превращаются в кашу. Подделку наклона оставляем — у Manrope курсива нет,
+   а <em> должен оставаться наклонным. */
 html {
     font-synthesis-weight: none;
     font-synthesis: style small-caps;
-    /* Сглаживание: Inter на светлом фоне без него выглядит жирнее, чем он есть. */
+    /* Сглаживание: Manrope на светлом фоне без него выглядит жирнее, чем он есть. */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }

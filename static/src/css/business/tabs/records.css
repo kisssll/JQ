@@ -29,7 +29,7 @@
 .records-filters .filter-group select {
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
     background: var(--color-surface);
     color: var(--color-heading);
     font-size: 0.9rem;
@@ -63,7 +63,7 @@
     padding: 0.7rem 1rem;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     font-size: 0.95rem;
     font-weight: 500;
     color: var(--color-heading);
@@ -83,7 +83,7 @@
     padding: 1rem;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
 }
 
 .records-filters-collapse .records-filters {
@@ -145,7 +145,7 @@
 .btn-action {
     padding: 0.3rem 0.9rem;
     border: 2px solid; /* толщина 2px, как у .btn-outline */
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
@@ -159,21 +159,21 @@
 }
 
 .btn-action-success {
-    border-color: #22c55e;
-    color: #22c55e;
+    border-color: var(--color-success);
+    color: var(--color-success);
 }
 .btn-action-success:hover {
-    background: #dcfce7;
-    color: #166534;
+    background: var(--color-success-light);
+    color: var(--color-success);
 }
 
 .btn-action-danger {
-    border-color: #ef4444;
-    color: #ef4444;
+    border-color: var(--color-danger);
+    color: var(--color-danger);
 }
 .btn-action-danger:hover {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--color-danger-light);
+    color: var(--color-danger);
 }
 
 /* ===== Мобильные карточки ===== */
@@ -184,7 +184,7 @@
 .record-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     margin-bottom: 0.75rem;
     overflow: hidden;
     transition: box-shadow 0.2s;
@@ -290,22 +290,22 @@
 .status-badge {
     display: inline-block;
     padding: 0.2rem 0.7rem;
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     font-size: 0.75rem;
     font-weight: 600;
 }
 
-.status-badge.pending { background: #fef3c7; color: #92400e; }
-.status-badge.confirmed { background: #dbeafe; color: #1e40af; }
-.status-badge.completed { background: #dcfce7; color: #166534; }
-.status-badge.cancelled { background: #f3f4f6; color: #6b7280; }
-.status-badge.no_show { background: #fee2e2; color: #991b1b; }
+.status-badge.pending { background: var(--color-warning-light); color: var(--color-warning); }
+.status-badge.confirmed { background: var(--color-info-light); color: var(--color-info); }
+.status-badge.completed { background: var(--color-success-light); color: var(--color-success); }
+.status-badge.cancelled { background: var(--color-surface-2); color: var(--color-muted); }
+.status-badge.no_show { background: var(--color-danger-light); color: var(--color-danger); }
 
 /* ===== Бейдж "не списано" ===== */
 .not-reported-badge {
-    background: #fef3c7;
-    color: #92400e;
-    border-radius: 1rem;
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+    border-radius: var(--radius-16);
     padding: 0.125rem 0.6rem;
     font-size: 0.7rem;
     font-weight: 600;

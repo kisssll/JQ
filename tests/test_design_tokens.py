@@ -83,22 +83,35 @@ PAIRS_NORMAL = [
     ("--color-muted", "--color-surface"),
     ("--color-muted", "--color-surface-alt"),
     ("--color-muted", "--color-surface-2"),
-    # Подпись на залитой акцентом кнопке: именно здесь в тёмной теме был
-    # белый на розовом с 2,64:1.
+    # Подпись на залитой акцентом кнопке (белая в обеих темах: 4,57:1 на
+    # ягодном, 5,92:1 на hover).
     ("--color-btn-text", "--color-accent"),
     ("--color-btn-text", "--color-accent-hover"),
-    ("--color-accent", "--color-surface"),
-    # Акцентный ТЕКСТ на подкрашенной подложке берётся из accent-hover:
-    # сам accent на ней проваливается ниже 4,5.
-    ("--color-accent-hover", "--color-surface-alt"),
-    ("--color-accent-hover", "--color-accent-light"),
-    ("--color-accent-hover", "--color-secondary"),
+    # Акцент ТЕКСТОМ — отдельный токен: сам ягодный #cf3d78 на кремовом даёт
+    # 4,36:1, на розовых подложках ещё меньше, а в тёмной теме на карточке
+    # 3,84:1. Ссылка, подпись, кнопка-текст берут --color-accent-text.
+    ("--color-accent-text", "--color-background"),
+    ("--color-accent-text", "--color-surface"),
+    ("--color-accent-text", "--color-surface-alt"),
+    ("--color-accent-text", "--color-surface-2"),
+    ("--color-accent-text", "--color-accent-light"),
+    ("--color-accent-text", "--color-secondary"),
+    ("--color-text", "--color-background"),
+    ("--color-body", "--color-background"),
+    ("--color-muted", "--color-background"),
     ("--color-danger", "--color-surface"),
     ("--color-danger", "--color-danger-light"),
     ("--color-success", "--color-surface"),
     ("--color-success", "--color-success-light"),
     ("--color-warning", "--color-surface"),
     ("--color-warning", "--color-warning-light"),
+    ("--color-info", "--color-surface"),
+    ("--color-info", "--color-info-light"),
+    # Подпись на СПЛОШНОЙ статусной заливке (бейдж-счётчик, кнопка «успех»).
+    ("--color-on-status", "--color-danger"),
+    ("--color-on-status", "--color-success"),
+    ("--color-on-status", "--color-warning"),
+    ("--color-on-status", "--color-info"),
 ]
 
 
@@ -116,14 +129,32 @@ def test_contrast_of_every_text_pair(theme):
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
-def test_accent_on_tinted_surface_needs_accent_hover(theme):
-    """Правило, по которому в ui.css подписи на розовой подложке берут
-    accent-hover: сам accent там не проходит. Если однажды accent станет
-    темнее и правило станет лишним — этот тест об этом скажет."""
+def test_accent_fill_is_only_for_fills(theme):
+    """Ягодный #cf3d78 — ЗАЛИВКА. Как текст он не проходит ни в одной теме на
+    розовых подложках (светлая: 3,7–4,1:1; тёмная: 3,2–3,8:1). Поэтому
+    «сырой» акцент не должен красить буквы: для этого есть accent-text.
+    Если однажды ягодный станет достаточно тёмным, и тест, и токен лишние."""
     light, dark = _theme_blocks()
     palette = light if theme == "light" else dark
-    assert contrast(palette["--color-accent-hover"],
-                    palette["--color-accent-light"]) >= 4.5
+    assert contrast(palette["--color-accent"],
+                    palette["--color-accent-light"]) < 4.5, (
+        "accent стал проходить как текст — accent-text больше не нужен")
+
+
+def test_no_text_is_painted_with_the_raw_accent():
+    """Регресс-страж: `color: var(--color-accent|primary|accent-hover)` —
+    это букву красят заливочным цветом. В светлой теме это 4,36:1 на кремовом,
+    в тёмной — 3,84:1. Правильно: var(--color-accent-text)."""
+    pat = re.compile(
+        r"(?<![\w-])color\s*:\s*var\(\s*--color-(?:accent|primary|accent-hover)(?![\w-])")
+    bad = []
+    for p in _source_files():
+        if p == TOKENS:
+            continue
+        for i, line in enumerate(p.read_text(errors="replace").splitlines(), 1):
+            if pat.search(line):
+                bad.append(f"{p.relative_to(ROOT)}:{i}")
+    assert not bad, "текст сырым акцентом: " + ", ".join(bad[:20])
 
 
 # ------------------------------------------------------------------ токены
@@ -131,7 +162,7 @@ def test_accent_on_tinted_surface_needs_accent_hover(theme):
 # Префиксы наших токенов. Локальные переменные страниц (--ml-cta-bg,
 # --readiness-rule, --i) под них не попадают и проверке не подлежат.
 OUR_PREFIXES = (
-    "--color-", "--page-gradient-", "--font-", "--text-", "--space-",
+    "--color-", "--page-gradient-", "--font-", "--weight-", "--text-", "--space-",
     "--radius-", "--shadow-", "--control-", "--ease-", "--duration-",
     "--leading-", "--tracking-", "--measure",
 )
@@ -184,7 +215,7 @@ def test_dark_theme_overrides_every_colour_that_needs_it():
 
 def test_scales_follow_the_grid():
     """Шкалы из docs/design.md, а не «на глаз»: отступы кратны 4, кегли —
-    перечисленные ступени, радиусы — 8/12/16/пилюля."""
+    перечисленные ступени, радиусы — 8/16/28/пилюля + арка."""
     light, _ = _theme_blocks()
     spaces = {k: v for k, v in light.items() if k.startswith("--space-")}
     assert spaces, "шкала отступов не объявлена"
@@ -198,8 +229,15 @@ def test_scales_follow_the_grid():
     assert sizes == [12, 13, 14, 16, 18, 22, 28, 36, 48, 64]
 
     assert light["--radius-pill"] == "999px"
-    for r in ("--radius-8", "--radius-12", "--radius-16"):
+    for r in ("--radius-8", "--radius-16", "--radius-28"):
         assert light[r] == r.rsplit("-", 1)[1] + "px"
+    # Три ступени и пилюля, не больше: у дизайнера в прототипе их семь
+    # (10/12/14/16/18/20/28), и именно эта россыпь не должна вернуться.
+    steps = sorted(k for k in light if k.startswith("--radius-")
+                   and k not in ("--radius-pill", "--radius-arch"))
+    assert steps == ["--radius-16", "--radius-28", "--radius-8"], steps
+    # Арка — приём, а не ступень: верх полукругом, низ радиусом карточки.
+    assert light["--radius-arch"] == "200px 200px var(--radius-28) var(--radius-28)"
 
 
 def test_input_scale_step_is_16px_exactly():
@@ -241,37 +279,59 @@ def test_cream_page_gradient_is_gone():
 
 # ------------------------------------------------------------------- шрифт
 
-def test_playfair_is_gone_and_prata_is_the_display_face():
+def test_playfair_is_the_display_face_and_manrope_the_text_face():
     light, _ = _theme_blocks()
-    # Именно ПЕРВОЕ семейство: запасное называется "Prata Fallback", и
-    # проверка на вхождение подстроки прошла бы и с Playfair впереди.
-    first = light["--font-heading"].split(",")[0].strip().strip('"')
-    assert first == "Prata", light["--font-heading"]
-    assert "Playfair" not in light["--font-heading"]
-    # Ни одного объявления с Playfair не осталось — ни в токенах, ни в
-    # f-строках страниц, ни в JS.
+    # Именно ПЕРВОЕ семейство: запасное называется "Playfair Display Fallback",
+    # и проверка на вхождение подстроки прошла бы с чем угодно впереди.
+    head = light["--font-heading"].split(",")[0].strip().strip('"')
+    body = light["--font-body"].split(",")[0].strip().strip('"')
+    assert head == "Playfair Display", light["--font-heading"]
+    assert body == "Manrope", light["--font-body"]
+
+
+def test_prata_and_inter_are_gone():
+    """Prata и Inter — выбор 03.10, отменённый решением 0014. Ни одного
+    объявления шрифта, preload и файла от них не осталось."""
     for p in _source_files():
         text = p.read_text(errors="replace")
         for m in re.finditer(r"font-family[^;{}]*", text):
-            assert "Playfair" not in m.group(0), f"{p}: {m.group(0)}"
-        assert "Playfair+Display" not in text, p
+            assert not re.search(r"Prata|\"Inter\"|'Inter'", m.group(0)), (
+                f"{p}: {m.group(0)}")
+        assert not re.search(r"(prata|inter)-(cyrillic|latin)\.woff2", text), p
+    fonts = ROOT / "static" / "fonts" / "rumi"
+    assert not list(fonts.glob("prata-*")) and not list(fonts.glob("inter-*"))
 
 
 def test_fonts_are_served_by_us_and_not_by_a_foreign_cdn():
     """Шрифт с fonts.gstatic.com отдаёт IP посетителя за границу, а в нашей
-    Политике написано, что трансграничной передачи нет."""
+    Политике написано, что трансграничной передачи нет (152-ФЗ).
+    Проверяем не только fonts.css: ссылка на чужой CDN могла бы сидеть в
+    любом файле, который отдаёт браузеру страница."""
     css = FONTS_CSS.read_text()
     # Ищем именно подключение, а не упоминание: в комментарии рядом с
     # @font-face записано, почему мы этот CDN не используем.
     for m in re.finditer(r"url\(([^)]+)\)", css):
         assert "gstatic" not in m.group(1) and "googleapis" not in m.group(1)
     assert "@import" not in css
-    assert css.count("@font-face") >= 7
-    for sub in ("prata-cyrillic", "inter-cyrillic"):
+    assert css.count("@font-face") >= 9
+    for sub in ("playfair-cyrillic", "manrope-cyrillic"):
         assert sub in css
         assert (ROOT / "static" / "fonts" / "rumi" / f"{sub}.woff2").exists()
     # Без swap первый экран на медленной сети остаётся вообще без текста.
-    assert css.count("font-display: swap") >= 7
+    assert css.count("font-display: swap") >= 9
+    # Каждый файл, на который ссылается @font-face, лежит у нас на диске.
+    for name in re.findall(r"/static/fonts/rumi/([\w.-]+\.woff2)", css):
+        assert (ROOT / "static" / "fonts" / "rumi" / name).exists(), name
+    # Именно подключение (url/href/src/@import), а не упоминание в комментарии.
+    foreign = re.compile(
+        r"(?:url\(|href=|src=|@import)\s*[\"']?(?:https?:)?//"
+        r"(fonts\.googleapis\.com|fonts\.gstatic\.com|use\.typekit\.net|"
+        r"fonts\.bunny\.net|cdn\.jsdelivr\.net/npm/@fontsource)")
+    for p in _source_files():
+        if p == Path(__file__):
+            continue
+        hit = foreign.search(p.read_text(errors="replace"))
+        assert not hit, f"{p.relative_to(ROOT)}: внешний шрифтовой CDN {hit.group(0)}"
 
 
 def test_the_serif_is_only_used_large():
@@ -296,20 +356,25 @@ def test_the_serif_is_only_used_large():
     assert not small, "антиква в мелком кегле: " + "; ".join(small)
 
 
-def test_the_serif_never_asks_for_a_weight_it_does_not_have():
-    """font-weight: 700 на Prata это обещание, которого шрифт не выполнит:
-    подделку жира мы запретили, и 700 всё равно нарисуется как 400, а
-    незагруженная запасная Georgia честно станет жирной."""
+def test_the_serif_weight_comes_from_the_token():
+    """Вес заголовка один на весь сервис — --weight-heading (600, как у
+    дизайнера). Руками `font-weight: 700` рядом с антиквой даёт то жирнее,
+    то легче, чем соседний заголовок на другой странице."""
+    light, _ = _theme_blocks()
+    assert light["--weight-heading"] == "600"
+    # переменный файл покрывает этот вес — иначе браузер рисует подделку
+    assert '"Playfair Display"' in FONTS_CSS.read_text()
+    assert "font-weight: 400 900" in FONTS_CSS.read_text()
     wrong = []
-    for p in (ROOT / "static" / "src" / "css").rglob("*.css"):
-        for m in re.finditer(r"([^{}/;]+)\{([^{}]*)\}", p.read_text()):
+    for p in _source_files():
+        for m in re.finditer(r"([^{}/;]+)\{([^{}]*)\}", p.read_text(errors="replace")):
             body = m.group(2)
             if "var(--font-heading)" not in body:
                 continue
-            fw = re.search(r"font-weight\s*:\s*(\d+)", body)
-            if fw and fw.group(1) != "400":
-                wrong.append(f"{p.name}: {' '.join(m.group(1).split())} = {fw.group(1)}")
-    assert not wrong, "вес, которого у антиквы нет: " + "; ".join(wrong)
+            fw = re.search(r"font-weight\s*:\s*([^;}]+)", body)
+            if fw and fw.group(1).strip() != "var(--weight-heading)":
+                wrong.append(f"{p.name}: {' '.join(m.group(1).split())[:40]} = {fw.group(1).strip()}")
+    assert not wrong, "вес антиквы мимо токена: " + "; ".join(wrong)
     assert "font-synthesis-weight: none" in GLOBAL_CSS.read_text()
 
 

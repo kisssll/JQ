@@ -277,7 +277,7 @@ async def render_schedule_tab(
             closure = closures_by_date.get(d)
             hours = day_hours.get(d)
             if closure:
-                closed_label = f'<div style="font-size:0.65rem;color:#ef4444">{ICON_LOCK_SMALL} закрыто' + ('' if closure.master_id is None else ' (личное)') + '</div>'
+                closed_label = f'<div style="font-size:0.65rem;color:var(--color-danger)">{ICON_LOCK_SMALL} закрыто' + ('' if closure.master_id is None else ' (личное)') + '</div>'
             elif is_past:
                 closed_label = ""
             elif hours is None or is_outside:
@@ -429,7 +429,7 @@ async def render_schedule_tab(
                 <h2 style="margin-bottom:1.5rem">Закрыть дату</h2>
                 <div style="margin-bottom:1rem">
                     <label style="display:block;font-weight:500;margin-bottom:0.5rem">Дата *</label>
-                    <input type="date" id="closeDateInput" required style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                    <input type="date" id="closeDateInput" required style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                 </div>
                 <div style="margin-bottom:1rem">
                     <label style="display:block;font-weight:500;margin-bottom:0.5rem">Кто закрывается</label>
@@ -440,7 +440,7 @@ async def render_schedule_tab(
                 </div>
                 <div style="margin-bottom:1rem">
                     <label style="display:block;font-weight:500;margin-bottom:0.5rem">Причина</label>
-                    <input type="text" id="closeDateReason" placeholder="Праздник, ремонт, отпуск…" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                    <input type="text" id="closeDateReason" placeholder="Праздник, ремонт, отпуск…" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                 </div>
                 <button type="button" class="btn-primary" style="width:100%" onclick="submitCloseDate()">Закрыть дату</button>
             </div>

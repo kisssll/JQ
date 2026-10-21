@@ -6,7 +6,7 @@
     padding-bottom: 5rem;
     position: relative;
     overflow: hidden;
-    background: linear-gradient(135deg, var(--color-background) 0%, var(--color-secondary) 50%, rgba(246, 158, 188, 0.2) 100%);
+    background: linear-gradient(135deg, var(--color-background) 0%, var(--color-secondary) 50%, color-mix(in srgb, var(--color-rose-strong) 20%, transparent) 100%);
 }
 
 .model-hero .section-container {
@@ -26,9 +26,9 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1.25rem;
-    border-radius: 9999px;
-    background: rgba(202, 62, 116, 0.1);
-    color: var(--color-primary);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    color: var(--color-accent-text);
     margin-bottom: 1.5rem;
 }
 
@@ -41,7 +41,7 @@
 }
 
 .model-hero-title .highlight {
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .model-hero-subtitle {
@@ -72,7 +72,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 1rem 2rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--color-btn-text);
@@ -91,7 +91,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 1rem 2rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -135,7 +135,7 @@
     text-align: center;
     padding: 2rem 1.5rem;
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     background: var(--color-surface);
 }
 
@@ -146,13 +146,13 @@
     width: 4rem;
     align-items: center;
     justify-content: center;
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 .step-icon svg {
-    color: #fff;
+    color: var(--color-on-dark);
     width: 1.75rem;
     height: 1.75rem;
 }
@@ -193,7 +193,7 @@
 .plan-card {
     position: relative;
     padding: 2rem;
-    border-radius: 1.5rem;
+    border-radius: var(--radius-28);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     transition: box-shadow 0.2s, transform 0.2s;
@@ -211,11 +211,11 @@
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
     color: var(--color-btn-text);
     border-color: transparent;
-    box-shadow: 0 10px 15px -3px rgba(202, 62, 116, 0.28);
+    box-shadow: 0 10px 15px -3px color-mix(in srgb, var(--color-accent) 28%, transparent);
 }
 
 .plan-card.popular:hover {
-    box-shadow: 0 15px 35px -10px rgba(202, 62, 116, 0.35);
+    box-shadow: 0 15px 35px -10px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
 .plan-card.popular .popular-badge {
@@ -223,10 +223,10 @@
     top: -0.75rem;
     left: 50%;
     transform: translateX(-50%);
-    background: #fff;
-    color: var(--color-primary);
+    background: var(--color-surface);
+    color: var(--color-accent-text);
     padding: 0.25rem 1rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 0.75rem;
     font-weight: 700;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
@@ -243,7 +243,7 @@
 }
 
 .plan-card.popular .plan-name {
-    color: #fff;
+    color: var(--color-on-dark);
 }
 
 .plan-desc {
@@ -263,11 +263,11 @@
 .plan-price .amount {
     font-size: 2.25rem;
     font-weight: 700;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .plan-card.popular .plan-price .amount {
-    color: #fff;
+    color: var(--color-on-dark);
 }
 
 .plan-price .period {
@@ -295,7 +295,7 @@
 }
 
 .plan-features li svg {
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;
@@ -303,7 +303,7 @@
 }
 
 .plan-card.popular .plan-features li svg {
-    color: #fff;
+    color: var(--color-on-dark);
 }
 
 .plan-features li span {
@@ -322,7 +322,7 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 0.75rem 1.5rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 0.875rem;
     font-weight: 600;
     text-decoration: none;
@@ -338,8 +338,8 @@
 }
 
 .plan-card.popular .plan-btn {
-    background: #fff;
-    color: var(--color-primary);
+    background: var(--color-surface);
+    color: var(--color-accent-text);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
@@ -349,9 +349,9 @@
 
 /* ---------- Партнёр ---------- */
 .partner-horizontal {
-    border: 1px solid #ffcaca;
-    border-radius: 1rem;
-    background: #fef2f2;
+    border: 1px solid var(--color-danger-border);
+    border-radius: var(--radius-16);
+    background: var(--color-danger-light);
     overflow: hidden;
 }
 
@@ -383,7 +383,7 @@
     width: 2.75rem;
     align-items: center;
     justify-content: center;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     background: #EE3424;
     flex-shrink: 0;
 }
@@ -397,19 +397,19 @@
 .partner-h-name {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #1a1a1f;
+    color: var(--color-heading);
     margin: 0;
 }
 
 .partner-h-label {
     font-size: 0.7rem;
-    color: #6b6470;
+    color: var(--color-muted);
 }
 
 .partner-h-text {
     flex: 1;
     font-size: 0.875rem;
-    color: #1a1a1f;
+    color: var(--color-heading);
     margin: 0;
 }
 
@@ -418,9 +418,9 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1.25rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     background: #EE3424;
-    color: #fff;
+    color: var(--color-on-dark);
     font-size: 0.75rem;
     font-weight: 500;
     text-decoration: none;
@@ -436,12 +436,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-top: 1px solid #ffcaca;
+    border-top: 1px solid var(--color-danger-border);
     padding: 0.5rem 1.5rem;
     font-size: 0.6rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: rgba(0, 0, 0, 0.45);
+    color: color-mix(in srgb, var(--color-text) 45%, transparent);
 }
 
 /* ---------- FAQ ---------- */
@@ -459,7 +459,7 @@
 
 .faq-item {
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     overflow: hidden;
     background: var(--color-surface);
 }
@@ -482,7 +482,7 @@
 
 .faq-icon {
     font-size: 1.25rem;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     flex-shrink: 0;
     margin-left: 1rem;
 }
@@ -505,13 +505,13 @@
 .section-header-center .badge {
     display: inline-block;
     padding: 0.375rem 1rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    background: rgba(202, 62, 116, 0.1);
-    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    color: var(--color-accent-text);
     margin-bottom: 1rem;
 }
 
@@ -542,7 +542,7 @@
     overflow: hidden;
     padding-top: 3rem;
     padding-bottom: 5rem;
-    background: linear-gradient(135deg, var(--color-background) 0%, var(--color-secondary) 50%, rgba(246, 158, 188, 0.2) 100%);
+    background: linear-gradient(135deg, var(--color-background) 0%, var(--color-secondary) 50%, color-mix(in srgb, var(--color-rose-strong) 20%, transparent) 100%);
 }
 
 /* Изображение – на всю ширину, с наклоном и полупрозрачностью */

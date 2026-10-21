@@ -15,8 +15,8 @@ def _alert(msg: str) -> str:
     if not msg:
         return ""
     return (
-        '<div style="background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;'
-        'border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
+        '<div style="background:var(--color-danger-light);color:var(--color-danger);border:1px solid var(--color-danger-border);'
+        'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
         f'{msg}</div>'
     )
 
@@ -28,7 +28,7 @@ def _sms_code_block() -> str:
             <div class="form-group" id="codeGroup" style="display:none">
                 <label for="code">Код из SMS / звонка</label>
                 <input type="text" id="code" name="code" placeholder="1234" inputmode="numeric" autocomplete="one-time-code">
-                <p id="codeHint" style="font-size:0.75rem;color:var(--color-muted,#6B7280);margin-top:0.375rem"></p>
+                <p id="codeHint" style="font-size:0.75rem;color:var(--color-muted);margin-top:0.375rem"></p>
             </div>"""
 
 
@@ -49,7 +49,7 @@ def _messenger_verify_block(tg: bool, max_: bool) -> str:
             <div class="form-group" id="msgrVerifyGroup">
                 <div style="display:flex;gap:0.5rem;flex-wrap:wrap">{buttons}
                 </div>
-                <p id="msgrHint" style="font-size:0.75rem;color:var(--color-muted,#6B7280);margin-top:0.375rem">Откроется наш бот — нажмите в нём «Поделиться контактом», код вводить не нужно</p>
+                <p id="msgrHint" style="font-size:0.75rem;color:var(--color-muted);margin-top:0.375rem">Откроется наш бот — нажмите в нём «Поделиться контактом», код вводить не нужно</p>
             </div>"""
 
 
@@ -81,7 +81,7 @@ def render_register_page(request: Request) -> str:
         # своей же формы: первый запрос успел создать аккаунт, второй увидел
         # номер занятым (инцидент 04.09.2026). Поэтому не тупик, а выходы.
         back = html.escape(quote(q.get("phone") or "", safe=""), quote=True)
-        link = 'color:#991B1B;font-weight:600;text-decoration:underline'
+        link = 'color:var(--color-danger);font-weight:600;text-decoration:underline'
         banner = _alert(
             "Пользователь с таким телефоном уже зарегистрирован. "
             f'<a href="/login?phone={back}" style="{link}">Войти</a> · '

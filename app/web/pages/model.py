@@ -52,7 +52,7 @@ def render_model_page(user=None) -> str:
         .pricing-card {{
             background: var(--color-surface);
             border: 2px solid var(--color-border);
-            border-radius: 1.5rem;
+            border-radius: var(--radius-28);
             padding: 2rem;
             text-align: center;
             transition: all 0.2s;
@@ -65,7 +65,7 @@ def render_model_page(user=None) -> str:
         }}
         .pricing-card.popular {{
             border-color: var(--color-primary);
-            background: linear-gradient(to bottom, #fff, #fff5f5);
+            background: linear-gradient(to bottom, var(--color-surface), var(--color-danger-light));
         }}
         .popular-badge {{
             position: absolute;
@@ -75,7 +75,7 @@ def render_model_page(user=None) -> str:
             background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
             color: white;
             padding: 0.35rem 1.5rem;
-            border-radius: 2rem;
+            border-radius: var(--radius-28);
             font-size: 0.75rem;
             font-weight: 700;
             white-space: nowrap;
@@ -89,7 +89,7 @@ def render_model_page(user=None) -> str:
         .plan-price {{
             font-size: 3rem;
             font-weight: 800;
-            color: var(--color-primary);
+            color: var(--color-accent-text);
         }}
         .plan-price span {{
             font-size: 1rem;
@@ -111,7 +111,7 @@ def render_model_page(user=None) -> str:
         }}
         .plan-features li::before {{
             content: "\2713";
-            color: #22c55e;
+            color: var(--color-success);
             font-weight: 700;
             font-size: 1rem;
         }}
@@ -142,7 +142,7 @@ def render_model_page(user=None) -> str:
             margin: 0 auto 1rem;
         }}
         .benefits {{
-            background: linear-gradient(135deg, #FFF8F6, #F8C8DC33);
+            background: linear-gradient(135deg, var(--color-background), color-mix(in srgb, var(--color-accent) 20%, transparent));
             padding: 4rem 0;
             margin-top: 4rem;
         }}
@@ -167,7 +167,7 @@ def render_model_page(user=None) -> str:
         }}
         .benefit-card {{
             background: var(--color-surface);
-            border-radius: 1rem;
+            border-radius: var(--radius-16);
             padding: 1.5rem;
             display: flex;
             gap: 1rem;

@@ -5,7 +5,7 @@ import path from 'path';
 export default defineConfig({
   // Бандл отдаётся из /static/dist, и base должен это повторять. Без него Vite
   // переписывал url() из CSS от корня сайта: шрифт, объявленный как
-  // /static/fonts/rumi/inter-cyrillic.woff2, превращался в /inter-cyrillic.woff2,
+  // /static/fonts/rumi/manrope-cyrillic.woff2, превращался в /manrope-cyrillic.woff2,
   // то есть в 404, и страница тихо оставалась на системном шрифте.
   base: '/static/dist/',
   build: {

@@ -32,9 +32,9 @@ from app.web.service_categories import SERVICE_CATEGORY_GROUPS, match_category_s
 
 _STATUS_LABELS = {
     SalonSubscriptionStatus.NONE: ("Тариф не выбран", "var(--color-muted)"),
-    SalonSubscriptionStatus.TRIALING: ("Пробный период", "#f59e0b"),
-    SalonSubscriptionStatus.ACTIVE: ("Активна", "#22c55e"),
-    SalonSubscriptionStatus.PAST_DUE: ("Платёж не прошёл", "#ef4444"),
+    SalonSubscriptionStatus.TRIALING: ("Пробный период", "var(--color-warning)"),
+    SalonSubscriptionStatus.ACTIVE: ("Активна", "var(--color-success)"),
+    SalonSubscriptionStatus.PAST_DUE: ("Платёж не прошёл", "var(--color-danger)"),
     SalonSubscriptionStatus.CANCELED: ("Отменена", "var(--color-muted)"),
 }
 
@@ -68,12 +68,12 @@ def _billing_section_html(user) -> str:
     else:
         cancel_btn = (
             '<button id="modelCancelBtn" class="btn-outline" '
-            'style="padding:0.65rem 1.4rem;border-radius:0.6rem">Отменить автопродление</button>'
+            'style="padding:0.65rem 1.4rem;border-radius:var(--radius-16)">Отменить автопродление</button>'
             if user.auto_renew else ""
         )
         actions_html = (
             f'<div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1.25rem">'
-            f'<button id="modelPayBtn" class="btn-primary" style="padding:0.65rem 1.4rem;border-radius:0.6rem">Оплатить</button>'
+            f'<button id="modelPayBtn" class="btn-primary" style="padding:0.65rem 1.4rem;border-radius:var(--radius-16)">Оплатить</button>'
             f'{cancel_btn}</div>'
             f'<p class="checkout-note" id="model-billing-note" style="margin-top:0.75rem;min-height:1.2em"></p>'
         )
@@ -196,7 +196,7 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
                 <button type="button" class="mj-back-btn mj-back" data-to="photo">← Назад</button>
                 <div class="mj-step-h"><span class="mj-step-num">2</span><h2>О себе</h2></div>
                 <p class="mj-hint">Расскажите про рост, особенности внешности, опыт съёмок или тестовых работ — это первое, что читают мастера.</p>
-                <textarea name="bio" rows="4" placeholder="Расскажите о себе — рост, особенности внешности, опыт..." style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">{bio}</textarea>
+                <textarea name="bio" rows="4" placeholder="Расскажите о себе — рост, особенности внешности, опыт..." style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">{bio}</textarea>
                 <div class="mj-step-actions">
                     <button type="button" class="mj-next-btn mj-next" data-next="categories">Далее</button>
                 </div>
@@ -231,25 +231,25 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
     <style>
         .model-gallery-grid {{ display:flex; flex-wrap:wrap; gap:0.75rem }}
         .model-gallery-item {{ position:relative; width:96px; height:96px }}
-        .model-gallery-item img {{ width:100%; height:100%; object-fit:cover; border-radius:0.75rem }}
-        .model-gallery-item button {{ position:absolute; top:-0.4rem; right:-0.4rem; width:1.5rem; height:1.5rem; border-radius:50%; border:none; background:#ef4444; color:#fff; cursor:pointer; font-size:0.9rem; line-height:1 }}
+        .model-gallery-item img {{ width:100%; height:100%; object-fit:cover; border-radius:var(--radius-16) }}
+        .model-gallery-item button {{ position:absolute; top:-0.4rem; right:-0.4rem; width:1.5rem; height:1.5rem; border-radius:50%; border:none; background:var(--color-danger); color:var(--color-on-status); cursor:pointer; font-size:0.9rem; line-height:1 }}
         .model-tariff-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(9rem,1fr)); gap:0.75rem }}
-        .model-tariff-card {{ display:flex; flex-direction:column; align-items:center; gap:0.3rem; padding:0.9rem 0.6rem; border:1px solid var(--color-border); border-radius:0.75rem; cursor:pointer; text-align:center }}
+        .model-tariff-card {{ display:flex; flex-direction:column; align-items:center; gap:0.3rem; padding:0.9rem 0.6rem; border:1px solid var(--color-border); border-radius:var(--radius-16); cursor:pointer; text-align:center }}
         .model-tariff-card:has(input:checked) {{ border-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 8%, transparent) }}
         .model-tariff-card input {{ accent-color:var(--color-primary) }}
         .model-tariff-name {{ font-weight:600 }}
-        .model-tariff-price {{ font-size:1.1rem; font-weight:700; color:var(--color-primary) }}
+        .model-tariff-price {{ font-size:1.1rem; font-weight:700; color:var(--color-accent-text) }}
         .model-tariff-period {{ font-size:0.75rem; font-weight:400; color:var(--color-muted) }}
 
         .mj-progress-label {{ font-size:0.8rem; color:var(--color-muted); margin-bottom:0.5rem }}
-        .mj-progress-track {{ height:4px; background:var(--color-border); border-radius:2px; overflow:hidden; margin-bottom:1.5rem }}
+        .mj-progress-track {{ height:4px; background:var(--color-border); border-radius:var(--radius-8); overflow:hidden; margin-bottom:1.5rem }}
         .mj-progress-fill {{ height:100%; width:0; background:var(--color-primary); transition:width 0.25s ease }}
         .mj-step-h {{ display:flex; align-items:center; gap:0.6rem; margin:0 0 0.5rem }}
-        .mj-step-num {{ width:26px; height:26px; border-radius:50%; background:var(--color-primary); color:#fff; font-size:0.8rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0 }}
+        .mj-step-num {{ width:26px; height:26px; border-radius:50%; background:var(--color-primary); color:var(--color-on-dark); font-size:0.8rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0 }}
         .mj-step-h h2 {{ font-size:1.05rem; margin:0; font-weight:600 }}
         .mj-hint {{ color:var(--color-muted); font-size:0.85rem; margin:0 0 0.9rem }}
-        .mj-back-btn {{ background:none; border:none; color:var(--color-muted, #888); cursor:pointer; padding:0; margin-bottom:0.75rem; font-size:0.85rem }}
-        .mj-back-btn:hover {{ color:var(--color-primary, #c081b8) }}
+        .mj-back-btn {{ background:none; border:none; color:var(--color-muted); cursor:pointer; padding:0; margin-bottom:0.75rem; font-size:0.85rem }}
+        .mj-back-btn:hover {{ color:var(--color-accent-text) }}
         /* justify-content:flex-end тут нарочно НЕ используем — <main> не
            резервирует место под фиксированный сайдбар (у него нет ширины
            #main-content под это, position:fixed сайдбара не участвует в
@@ -262,13 +262,13 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
            от того, что где-то ещё на странице переопределит эти классы. */
         .mj-next-btn {{
             display:inline-flex; align-items:center; justify-content:center;
-            background:linear-gradient(135deg, var(--color-primary, #c081b8), var(--color-accent-hover, #a566a0));
-            color:#fff !important; padding:10px 24px; border-radius:9999px; border:none;
+            background:linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
+            color:var(--color-on-dark) !important; padding:10px 24px; border-radius:var(--radius-pill); border:none;
             font-weight:600; font-size:0.95rem; cursor:pointer; opacity:1; visibility:visible;
         }}
         .mj-next-btn:hover {{ opacity:0.92 }}
         .mj-category-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(11rem,1fr)); gap:0.5rem }}
-        .mj-category-option {{ border:1px solid var(--color-border); border-radius:0.6rem; white-space:normal }}
+        .mj-category-option {{ border:1px solid var(--color-border); border-radius:var(--radius-16); white-space:normal }}
         .mj-category-option:has(input:checked) {{ border-color:var(--color-primary); background:color-mix(in srgb, var(--color-primary) 8%, transparent) }}
 
         /* На десктопе сайдбар уже даёт всю навигацию, а гамбургер из шапки

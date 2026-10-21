@@ -91,7 +91,7 @@
     margin-bottom: 1.5rem;
     padding: 0.9rem 1.1rem;
     border: 1px solid var(--color-danger);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     background: var(--color-danger-light);
     color: var(--color-danger);
     font-size: 0.875rem;
@@ -126,7 +126,7 @@
     gap: 0.35rem;
     padding: 1rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.85rem;
+    border-radius: var(--radius-16);
     background: var(--color-surface);
     cursor: pointer;
     transition: border-color 0.15s, box-shadow 0.15s;
@@ -173,9 +173,9 @@
 .billing-plan-badge {
     flex-shrink: 0;
     padding: 0.1rem 0.45rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--color-accent-light);
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
     font-size: 0.62rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -240,7 +240,7 @@
 /* ===== Кнопки и подсказки ===== */
 .billing-btn {
     padding: 0.6rem 1.25rem;
-    border-radius: 0.6rem;
+    border-radius: var(--radius-16);
     font-size: 0.85rem;
 }
 
@@ -276,7 +276,7 @@
     margin: 0;
     padding: 0.9rem 1.1rem;
     border: 1px dashed var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     background: var(--color-surface);
     font-size: 0.85rem;
     line-height: 1.5;

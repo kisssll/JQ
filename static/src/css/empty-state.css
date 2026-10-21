@@ -20,7 +20,7 @@
     padding: 3.5rem 1.5rem;
     background: var(--color-surface);
     border: 1px dashed var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
 }
 
 .empty-state-icon {
@@ -37,7 +37,7 @@
 .empty-state-icon svg {
     width: 1.5rem;
     height: 1.5rem;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .empty-state-title {
@@ -60,7 +60,7 @@
 
 /* Ссылка внутри простого варианта — так было в избранном, сохраняем. */
 .empty-state .text-link {
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     text-decoration: none;
     font-weight: 500;
 }

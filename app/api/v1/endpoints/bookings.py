@@ -355,10 +355,10 @@ async def confirm_booking_web(
     if duplicate.scalar_one_or_none():
         return HTMLResponse(content="""
         <!DOCTYPE html><html><body style="text-align:center;padding:3rem;font-family:sans-serif">
-        <h2 style="color:#e53e3e">⚠️ Вы уже записаны</h2>
+        <h2 style="color:var(--color-danger)">⚠️ Вы уже записаны</h2>
         <p>У вас уже есть запись на это время в другой салон.</p>
-        <a href="/bookings" style="color:#F28C6F">Мои записи</a> · 
-        <a href="/salons" style="color:#F28C6F">Назад к салонам</a>
+        <a href="/bookings" style="color:var(--color-danger)">Мои записи</a> · 
+        <a href="/salons" style="color:var(--color-danger)">Назад к салонам</a>
         </body></html>""", status_code=409)
     
     # ===== ПРОВЕРКА 2: Не больше 5 предстоящих записей =====
@@ -372,9 +372,9 @@ async def confirm_booking_web(
     #if active_count.scalar() >= 5:
         #return HTMLResponse(content="""
         #<!DOCTYPE html><html><body style="text-align:center;padding:3rem;font-family:sans-serif">
-        #<h2 style="color:#e53e3e">⚠️ Слишком много записей</h2>
+        #<h2 style="color:var(--color-danger)">⚠️ Слишком много записей</h2>
         #<p>У вас уже 5 активных записей. Отмените ненужные, чтобы записаться снова.</p>
-        #<a href="/bookings" style="color:#F28C6F">Мои записи</a>
+        #<a href="/bookings" style="color:var(--color-danger)">Мои записи</a>
         #</body></html>""", status_code=429)
     
     # ===== ПРОВЕРКА 3: Слот ещё свободен (единая проверка пересечений + рабочие часы) =====
@@ -382,9 +382,9 @@ async def confirm_booking_web(
     if not is_available:
         return HTMLResponse(content="""
         <!DOCTYPE html><html><body style="text-align:center;padding:3rem;font-family:sans-serif">
-        <h2 style="color:#e53e3e">⚠️ Время занято</h2>
+        <h2 style="color:var(--color-danger)">⚠️ Время занято</h2>
         <p>Кто-то уже записался на это время. Выберите другой слот.</p>
-        <a href="javascript:history.back()" style="color:#F28C6F">← Назад</a>
+        <a href="javascript:history.back()" style="color:var(--color-danger)">← Назад</a>
         </body></html>""", status_code=409)
     
     if not await _salon_bookable(db, master_id):

@@ -26,7 +26,7 @@
 .legal-doc {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: clamp(1.25rem, 4vw, 2.5rem);
 }
 
@@ -36,14 +36,14 @@
     font-weight: 700;
     letter-spacing: .14em;
     text-transform: uppercase;
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
 }
 
 .legal-title {
     margin: 0 0 .4rem;
     font-family: var(--font-heading);
     font-size: clamp(1.6rem, 4vw, 2.1rem);
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     line-height: 1.2;
     color: var(--color-heading);
     text-wrap: balance;
@@ -90,11 +90,11 @@
 }
 
 .legal-body li::marker {
-    color: var(--color-accent);
+    color: var(--color-accent-text);
 }
 
 .legal-body a {
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
 }
 
 /* Таблицы в документах (категории cookie, реквизиты). Обёртка со своим
@@ -123,13 +123,13 @@
 .legal-table th {
     font-weight: 650;
     color: var(--color-heading);
-    background: var(--color-surface-alt, rgba(0, 0, 0, .025));
+    background: var(--color-surface-alt);
 }
 
 /* ===== Боковая колонка ===== */
 .legal-aside {
     background: var(--color-surface-alt);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: 1.25rem;
     font-size: .85rem;
     color: var(--color-muted);
@@ -162,7 +162,7 @@
 }
 
 .legal-nav-link {
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
     text-decoration: none;
 }
 
@@ -229,7 +229,7 @@
 
 .consent-check-text a,
 .consent-note a {
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
 }
 
 .consent-note {
@@ -280,8 +280,8 @@
     padding: .85rem 1rem;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: .75rem;
-    box-shadow: 0 8px 24px rgba(26, 26, 31, .12);
+    border-radius: var(--radius-16);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     animation: cookie-notice-in .2s ease-out;
 }
 
@@ -294,14 +294,14 @@
 }
 
 .cookie-notice-text a {
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
 }
 
 .cookie-notice-btn {
     flex-shrink: 0;
     padding: .45rem 1.15rem;
     border: 1px solid var(--color-accent);
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     background: var(--color-accent);
     color: var(--color-btn-text);
     font-size: .82rem;
@@ -333,7 +333,7 @@
 
 .cookie-notice-btn-secondary:hover {
     border-color: var(--color-accent);
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
     filter: none;
 }
 

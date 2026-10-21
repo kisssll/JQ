@@ -25,18 +25,16 @@ if ('serviceWorker' in navigator) {
         s.id = 'pwa-banner-style';
         s.textContent =
             '#pwa-banner{position:fixed;left:.5rem;right:.5rem;bottom:.5rem;z-index:9999;' +
-            'background:#fff;border:1px solid #ececec;border-radius:14px;box-shadow:0 6px 28px rgba(20,10,40,.16);' +
+            'background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-16);box-shadow:0 6px 28px rgba(0, 0, 0, 0.16);' +
             'padding:.8rem .9rem;display:flex;align-items:center;gap:.75rem;font-family:system-ui,-apple-system,sans-serif}' +
-            '#pwa-banner img{width:42px;height:42px;border-radius:11px;flex:none}' +
-            '#pwa-banner .pwa-txt{flex:1;font-size:.88rem;line-height:1.3;color:#1a1523}' +
+            '#pwa-banner img{width:42px;height:42px;border-radius:var(--radius-16);flex:none}' +
+            '#pwa-banner .pwa-txt{flex:1;font-size:.88rem;line-height:1.3;color:var(--color-heading)}' +
             '#pwa-banner .pwa-txt b{display:block;margin-bottom:.1rem}' +
-            '#pwa-banner .pwa-txt small{color:#6b6577}' +
-            '#pwa-banner .pwa-install{background:#c081b8;color:#fff;border:none;border-radius:10px;' +
+            '#pwa-banner .pwa-txt small{color:var(--color-muted)}' +
+            '#pwa-banner .pwa-install{background:var(--color-accent);color:var(--color-on-dark);border:none;border-radius:var(--radius-16);' +
             'padding:.55rem .95rem;font-weight:600;font-size:.9rem;cursor:pointer;flex:none}' +
-            '#pwa-banner .pwa-close{background:none;border:none;color:#9a93a8;font-size:1.5rem;' +
-            'line-height:1;cursor:pointer;padding:0 .2rem;flex:none}' +
-            '@media (prefers-color-scheme:dark){#pwa-banner{background:#1b1725;border-color:#2a2438}' +
-            '#pwa-banner .pwa-txt{color:#ece9f4}#pwa-banner .pwa-txt small{color:#9a93a8}}';
+            '#pwa-banner .pwa-close{background:none;border:none;color:var(--color-muted);font-size:1.5rem;' +
+            'line-height:1;cursor:pointer;padding:0 .2rem;flex:none}';
         document.head.appendChild(s);
     }
 

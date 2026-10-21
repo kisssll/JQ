@@ -70,8 +70,8 @@ def render_inventory_audit_flow(audit, rows, *, return_url: str, title: str = "Ð
             position:fixed;right:1.5rem;bottom:1.5rem;z-index:1000;
         }}
         .inventory-audit-launcher button {{
-            min-height:3rem;padding:.8rem 1.25rem;border:0;border-radius:9999px;
-            background:var(--color-primary);color:#fff;font:inherit;font-weight:650;
+            min-height:3rem;padding:.8rem 1.25rem;border:0;border-radius:var(--radius-pill);
+            background:var(--color-primary);color:var(--color-on-dark);font:inherit;font-weight:650;
             box-shadow:0 8px 24px color-mix(in srgb,var(--color-primary) 30%,transparent);
             transition:transform .18s ease,box-shadow .18s ease;
         }}
@@ -87,11 +87,11 @@ def render_inventory_audit_flow(audit, rows, *, return_url: str, title: str = "Ð
         .inventory-audit-dialog {{
             position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
             width:min(560px,calc(100% - 2rem));max-width:none;max-height:calc(100dvh - 2rem);
-            padding:0;border:1px solid color-mix(in srgb,var(--color-primary) 18%,var(--color-border));border-radius:24px;
-            background:var(--color-surface,#fff);color:var(--color-text,inherit);
-            box-shadow:0 28px 90px rgba(40,20,30,.22);overflow:auto;
+            padding:0;border:1px solid color-mix(in srgb,var(--color-primary) 18%,var(--color-border));border-radius:var(--radius-28);
+            background:var(--color-surface);color:var(--color-text);
+            box-shadow:0 28px 90px rgba(0, 0, 0, 0.22);overflow:auto;
         }}
-        .inventory-audit-dialog::backdrop {{ background:rgba(36,20,31,.48);backdrop-filter:blur(5px); }}
+        .inventory-audit-dialog::backdrop {{ background:rgba(0, 0, 0, 0.48);backdrop-filter:blur(5px); }}
         .inventory-audit-modal {{
             margin:0;border:0;border-radius:inherit;box-shadow:none;
             padding:clamp(1.35rem,4vw,2rem);background:var(--color-surface);
@@ -107,12 +107,12 @@ def render_inventory_audit_flow(audit, rows, *, return_url: str, title: str = "Ð
         }}
         .inventory-audit-minimize {{ flex-shrink:0; }}
         .inventory-audit-modal #auditStepProgress {{
-            display:inline-flex;padding:.35rem .8rem;border-radius:9999px;
+            display:inline-flex;padding:.35rem .8rem;border-radius:var(--radius-pill);
             background:color-mix(in srgb,var(--color-primary) 10%,var(--color-surface));
-            color:var(--color-primary);font-size:.82rem;font-weight:700;
+            color:var(--color-accent-text);font-size:.82rem;font-weight:700;
         }}
         .inventory-audit-modal .audit-step-card {{
-            padding:1.15rem;border:1px solid var(--color-border);border-radius:1rem;
+            padding:1.15rem;border:1px solid var(--color-border);border-radius:var(--radius-16);
             background:var(--color-surface-alt);
         }}
         .inventory-audit-modal .audit-step-card h3 {{
@@ -123,7 +123,7 @@ def render_inventory_audit_flow(audit, rows, *, return_url: str, title: str = "Ð
         }}
         .inventory-audit-modal .audit-step-quantity {{
             box-sizing:border-box;min-height:3rem;padding:.7rem .85rem;
-            border:1px solid var(--color-border);border-radius:.75rem;
+            border:1px solid var(--color-border);border-radius:var(--radius-16);
             background:var(--color-surface);color:var(--color-heading);
             font:inherit;outline:none;transition:border-color .18s ease,box-shadow .18s ease;
         }}
@@ -133,12 +133,12 @@ def render_inventory_audit_flow(audit, rows, *, return_url: str, title: str = "Ð
         }}
         .inventory-audit-modal .audit-step-card button,
         .inventory-audit-modal #auditStepComplete button {{
-            min-height:2.75rem;padding:.65rem 1rem;border-radius:9999px;
+            min-height:2.75rem;padding:.65rem 1rem;border-radius:var(--radius-pill);
             font:inherit;font-size:.88rem;font-weight:650;cursor:pointer;transition:.18s ease;
         }}
         .inventory-audit-modal .audit-step-card button[data-audit-action="adjust"],
         .inventory-audit-modal #auditStepComplete button {{
-            border:1px solid var(--color-primary);background:var(--color-primary);color:#fff;
+            border:1px solid var(--color-primary);background:var(--color-primary);color:var(--color-on-dark);
         }}
         .inventory-audit-modal .audit-step-card button[data-audit-action="correct"],
         .inventory-audit-modal .audit-step-card button[data-audit-action="archive"],
@@ -151,8 +151,8 @@ def render_inventory_audit_flow(audit, rows, *, return_url: str, title: str = "Ð
             border-color:var(--color-primary);filter:brightness(.98);
         }}
         .inventory-audit-modal #auditStepComplete {{
-            padding:1rem;border:1px solid color-mix(in srgb,#16a34a 25%,var(--color-border));
-            border-radius:1rem;background:color-mix(in srgb,#16a34a 7%,var(--color-surface));
+            padding:1rem;border:1px solid color-mix(in srgb,var(--color-success) 25%,var(--color-border));
+            border-radius:var(--radius-16);background:color-mix(in srgb,var(--color-success) 7%,var(--color-surface));
         }}
         .inventory-audit-modal #auditStepComplete p {{
             margin:0 0 1rem;color:var(--color-heading);line-height:1.55;

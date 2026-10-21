@@ -73,7 +73,7 @@ def render_sidebar(current_page: str = "home", user=None) -> str:
     role_links = ""
     if role_items:
         role_links = f"""
-                <div class="space-y-1" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--color-border,#E5E7EB)">
+                <div class="space-y-1" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--color-border)">
                     {role_items}
                 </div>"""
 

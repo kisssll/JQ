@@ -26,7 +26,7 @@
     z-index: 890;   /* ниже тостов (1000) и диалога (1010): они перебивают полосу */
     background: var(--color-surface);
     border-top: 1px solid var(--color-border);
-    box-shadow: 0 -0.5rem 1.5rem rgba(26, 26, 31, 0.12);
+    box-shadow: 0 -0.5rem 1.5rem rgba(0, 0, 0, 0.12);
     animation: panel-tour-in 0.2s ease-out;
 }
 
@@ -86,7 +86,7 @@ body.panel-tour-open {
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .panel-tour-exit {
@@ -134,7 +134,7 @@ body.panel-tour-open {
     justify-content: center;
     padding: 0.5rem 1.2rem;
     border: 1px solid var(--color-border);
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     background: var(--color-surface);
     color: var(--color-heading);
     text-decoration: none;
@@ -213,7 +213,7 @@ body.panel-tour-open {
     padding: 0.6rem 0.9rem;
     background: var(--color-surface-alt);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
 }
 
 .panel-tour-invite-text {
@@ -226,7 +226,7 @@ body.panel-tour-open {
 .panel-tour-invite-btn {
     flex-shrink: 0;
     padding: 0.4rem 1rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     background: var(--color-primary);
     color: var(--color-btn-text);
     text-decoration: none;
@@ -268,7 +268,7 @@ body.panel-tour-open {
 
 .instructions-restart-link {
     font-weight: 600;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 /* ===== Узкий экран =====

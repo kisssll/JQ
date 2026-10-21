@@ -12,7 +12,7 @@
 
 .tb-products {
     --tb-yellow: #ffdd2d;
-    --tb-ink: #1a1a1f;
+    --tb-ink: #1a1a1f; /* чернила на жёлтом Т-Банка: фирменные, в тёмной теме не светлеют */
 }
 
 /* ===== Плашка «Официальный партнёр» ===== */
@@ -46,7 +46,7 @@
 .tb-banner {
     display: block;
     overflow: hidden;
-    border-radius: 1.25rem;
+    border-radius: var(--radius-28);
     /* Своего фона у ссылки нет — весь вид даёт сам креатив. */
     transition: transform 0.2s ease;
 }
@@ -81,7 +81,7 @@
 
 .tb-strip-link {
     display: block;
-    border-radius: 0.85rem;
+    border-radius: var(--radius-16);
     transition: transform 0.2s ease;
 }
 
@@ -99,7 +99,7 @@
 .tb-products {
     margin: 3rem 0 0;
     padding: 1.75rem;
-    border-radius: 1.5rem;
+    border-radius: var(--radius-28);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
 }
@@ -123,7 +123,7 @@
     margin: 0;
     font-family: var(--font-heading);
     font-size: 1.5rem;
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     color: var(--color-heading);
 }
 
@@ -140,9 +140,9 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.8rem 1.6rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--tb-yellow, #ffdd2d);
-    color: var(--tb-ink, #1a1a1f);
+    color: var(--tb-ink);
     font-size: 0.95rem;
     font-weight: 600;
     text-decoration: none;
@@ -158,7 +158,7 @@
     transform: translateY(-1px);
     /* Нейтральная тень, а не жёлтое свечение: свечение вокруг фирменного
        цвета читается как эффект на бренде, а гайд их запрещает. */
-    box-shadow: 0 6px 16px rgba(26, 26, 31, 0.12);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 /* QR всегда на белом: код читается по контрасту, и на цветной подложке
@@ -172,9 +172,9 @@
 .tb-qr-link {
     display: block;
     padding: 0.75rem;
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     border: 1px solid var(--color-border);
-    background: #fff;
+    background: var(--color-surface);
 }
 
 /* 61 модуль (ссылка длинная). При 11.25rem на модуль приходилось 3.1px —
@@ -200,6 +200,9 @@
 
 .tb-erid {
     margin-left: 0.35rem;
+    /* Токен маркировки рекламы — длинная строка без пробелов; на 375px она
+       выталкивала страницу вправо на ~50px. */
+    overflow-wrap: anywhere;
 }
 
 @media (max-width: 760px) {

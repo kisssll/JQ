@@ -44,7 +44,7 @@ def get_base_styles() -> str:
     """HTML-теги подключения собранного CSS/JS-бандла (с cache-busting по хэшу)
     + PWA-теги (manifest, тема, apple-touch) для установки на экран смартфона.
 
-    preload на кириллические подмножества Prata и Inter: @font-face лежит
+    preload на кириллические подмножества Manrope и Playfair Display: @font-face лежит
     внутри собранного CSS, и без подсказки браузер узнаёт о шрифте только
     после разбора стилей — то есть на один круг позже, чем мог бы, и успевает
     нарисовать первый экран системным шрифтом. Эти два файла нужны русской
@@ -61,13 +61,13 @@ def get_base_styles() -> str:
     return f"""
     <script>(function(){{try{{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);}}catch(e){{}}}})();</script>
     {_metrika_meta()}
-    <link rel="preload" href="/static/dist/inter-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="/static/dist/prata-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/dist/manrope-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/dist/playfair-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/static/dist/main.css?v={_CSS_V}">
     <script type="module" src="/static/dist/main.js?v={_JS_V}"></script>
     <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#121013" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="var(--color-background)" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#141113" media="(prefers-color-scheme: dark)">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16.png">
     <link rel="icon" type="image/png" sizes="96x96" href="/static/icons/favicon-96.png">

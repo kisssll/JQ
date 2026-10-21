@@ -135,11 +135,11 @@ async def render_payroll_tab(db: AsyncSession, salon, masters, master_ids, date_
         <div class="payroll-kpi">
             <div class="kpi-card">
                 <div class="kpi-label">Выручка за период</div>
-                <div class="kpi-value" style="color:#22c55e">{f"{total_revenue:,}".replace(",", " ")} ₽</div>
+                <div class="kpi-value" style="color:var(--color-success)">{f"{total_revenue:,}".replace(",", " ")} ₽</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Фонд зарплаты</div>
-                <div class="kpi-value" style="color:#f59e0b">{f"{total_payroll:,}".replace(",", " ")} ₽</div>
+                <div class="kpi-value" style="color:var(--color-warning)">{f"{total_payroll:,}".replace(",", " ")} ₽</div>
             </div>
         </div>
 

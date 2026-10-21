@@ -30,7 +30,7 @@
     min-height: var(--control-h);
     padding: 0 var(--space-24);
     border: 1px solid transparent;
-    border-radius: var(--radius-12);
+    border-radius: var(--radius-16);
     font-family: var(--font-body);
     font-size: var(--text-16);
     font-weight: 600;
@@ -173,7 +173,7 @@
 }
 
 .r-field__req {
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
     margin-left: 2px;
 }
 
@@ -256,7 +256,7 @@
    ===================================================================== */
 .r-card {
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-16);
+    border-radius: var(--radius-28);
     background: var(--color-surface);
     padding: var(--space-24);
 }
@@ -296,7 +296,7 @@
     gap: var(--space-16);
     width: 100%;
     padding: var(--space-16);
-    border-radius: var(--radius-12);
+    border-radius: var(--radius-16);
     text-align: left;
     text-decoration: none;
     color: var(--color-heading);
@@ -346,7 +346,7 @@
 .r-status--accent {
     background: var(--color-accent-light);
     /* Не --color-accent: на светло-розовой подложке он даёт 4,08:1. */
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
 }
 
 .r-status--success {
@@ -395,13 +395,14 @@
 
 /* =====================================================================
    ТИПОГРАФИКА
-   Антиква — только здесь, в крупном. Prata одного веса, поэтому 400:
-   font-weight: 700 на ней даёт синтетический жир (запрещён в global.css).
+   Антиква (Playfair Display) — только здесь, в крупном, вес 600 из токена
+   --weight-heading. Руками 700/800 не пишем: тест следит, чтобы вес
+   заголовка шёл через токен.
    ===================================================================== */
 .r-display {
     margin: 0;
     font-family: var(--font-heading);
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     font-size: var(--text-36);
     line-height: var(--leading-display);
     letter-spacing: var(--tracking-display);
@@ -411,7 +412,7 @@
 .r-title {
     margin: 0;
     font-family: var(--font-heading);
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     font-size: var(--text-28);
     line-height: var(--leading-display);
     letter-spacing: var(--tracking-display);
@@ -457,11 +458,11 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    border-radius: var(--radius-12);
+    border-radius: var(--radius-16);
     background: var(--color-surface-alt);
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
     font-family: var(--font-heading);
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     line-height: 1;
     /* Цифры и буквы в монограмме не должны прыгать по вертикали между
        карточками: буква центрируется flex'ом, а не базовой линией. */
@@ -477,7 +478,7 @@
 .r-mark--sm { width: 36px; height: 36px; font-size: var(--text-16); border-radius: var(--radius-8); }
 .r-mark--md { width: 44px; height: 44px; font-size: var(--text-18); }
 .r-mark--lg { width: 56px; height: 56px; font-size: var(--text-28); }
-.r-mark--xl { width: 88px; height: 88px; font-size: var(--text-36); border-radius: var(--radius-16); }
+.r-mark--xl { width: 88px; height: 88px; font-size: var(--text-36); border-radius: var(--radius-28); }
 
 /* =====================================================================
    СПИСОК УСЛУГ
@@ -576,7 +577,7 @@
 .r-slot.is-active {
     border-color: var(--color-accent);
     background: var(--color-accent-light);
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
 }
 
 @media (hover: hover) {
@@ -596,7 +597,7 @@
     flex-direction: column;
     padding: var(--space-16);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-16);
+    border-radius: var(--radius-28);
     background: var(--color-surface);
     transition: border-color var(--duration-2) var(--ease-out);
 }
@@ -630,7 +631,7 @@
 .r-salon__name {
     display: block;
     font-family: var(--font-heading);
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     font-size: var(--text-22);
     line-height: var(--leading-title);
     letter-spacing: var(--tracking-title);
@@ -649,7 +650,7 @@
 }
 
 @media (hover: hover) {
-    .r-salon__face:hover .r-salon__name { color: var(--color-accent-hover); }
+    .r-salon__face:hover .r-salon__name { color: var(--color-accent-text); }
 }
 
 .r-salon__aside {
@@ -670,13 +671,13 @@
     white-space: nowrap;
 }
 
-/* ICON_STAR_FILLED приезжает с зашитым золотым #facc15 — он стоит ещё в
+/* ICON_STAR_FILLED приезжает с зашитым золотым var(--color-star) — он стоит ещё в
    полудюжине мест панели, и менять сам файл иконок значило бы трогать чужие
    разделы. Поэтому цвет перекрывается здесь: третьего цвета в палитре нет,
    оценка окрашена акцентом, как и всё остальное акцентное. */
 .r-salon__star {
     display: inline-flex;
-    color: var(--color-accent);
+    color: var(--color-accent-text);
 }
 
 .r-salon__star svg {
@@ -715,12 +716,12 @@
 
 .r-salon__fav svg { width: 20px; height: 20px; }
 
-.r-salon__fav.liked { color: var(--color-accent); }
+.r-salon__fav.liked { color: var(--color-accent-text); }
 
 @media (hover: hover) {
     .r-salon__fav:hover {
         background: var(--color-surface-alt);
-        color: var(--color-accent);
+        color: var(--color-accent-text);
     }
 }
 
@@ -755,7 +756,7 @@
 }
 
 .r-salon__promo-tag {
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
     font-weight: 600;
 }
 
@@ -780,7 +781,7 @@
 .r-salon__all {
     margin-top: auto;
     padding-top: var(--space-16);
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
     font-size: var(--text-14);
     font-weight: 600;
     text-decoration: none;
@@ -828,7 +829,7 @@
     display: inline-flex;
     align-items: center;
     min-height: var(--control-h);
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
     font-size: var(--text-14);
     font-weight: 600;
     text-decoration: none;
@@ -859,7 +860,7 @@
 .r-sheet__scrim {
     position: absolute;
     inset: 0;
-    background: rgba(26, 17, 21, 0.45);
+    background: rgba(0, 0, 0, 0.45);
 }
 
 .r-sheet__panel {
@@ -869,7 +870,7 @@
     max-height: 88dvh;
     display: flex;
     flex-direction: column;
-    border-radius: var(--radius-16) var(--radius-16) 0 0;
+    border-radius: var(--radius-28) var(--radius-28) 0 0;
     background: var(--color-surface);
     /* Тень без границы: граница по верхнему краю листа на тёмной подложке
        читается как шов, а не как край. */
@@ -882,7 +883,7 @@
     /* На планшете лист не растягивается во всю ширину: диалог шириной 900px
        перестаёт читаться как лист и становится вторым экраном. */
     .r-sheet { align-items: center; justify-content: center; padding: var(--space-24); }
-    .r-sheet__panel { max-width: 32rem; border-radius: var(--radius-16); }
+    .r-sheet__panel { max-width: 32rem; border-radius: var(--radius-28); }
 }
 
 .r-sheet__head {
@@ -1237,3 +1238,13 @@
 .r-deal__master .r-slots { margin-bottom: var(--space-4); }
 
 .r-deal__action { margin-top: var(--space-24); }
+
+
+/* ---------- Арка ----------
+   Приём дизайнера: верх полукругом, низ со скруглением карточки. Только для
+   крупных иллюстративных блоков (фото, обложка, иллюстрация) — не для
+   карточек интерфейса. Форма живёт в токене --radius-arch. */
+.r-arch {
+    border-radius: var(--radius-arch);
+    overflow: hidden;
+}

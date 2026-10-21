@@ -117,29 +117,29 @@ def render_about_page(user=None) -> str:
     <meta name="description" content="Мы убрали из красоты всё лишнее. Остались вы и мастер.">
     {get_base_styles()}
     <style>
-        .tb-badge {{ display:inline-flex; align-items:center; gap:0.5rem; background:color-mix(in srgb, var(--color-primary, #c081b8) 12%, transparent);
-            color:var(--color-primary, #c081b8); font-weight:600; font-size:0.8rem; padding:0.4rem 0.9rem; border-radius:9999px; margin-bottom:1rem }}
+        .tb-badge {{ display:inline-flex; align-items:center; gap:0.5rem; background:color-mix(in srgb, var(--color-primary) 12%, transparent);
+            color:var(--color-accent-text); font-weight:600; font-size:0.8rem; padding:0.4rem 0.9rem; border-radius:var(--radius-pill); margin-bottom:1rem }}
         .tb-badge-letter {{ display:inline-flex; align-items:center; justify-content:center; width:1.25rem; height:1.25rem;
-            border-radius:50%; background:var(--color-primary, #c081b8); color:#fff; font-weight:700; font-size:0.75rem }}
+            border-radius:50%; background:var(--color-primary); color:var(--color-on-dark); font-weight:700; font-size:0.75rem }}
         .tb-intro {{ color:var(--color-muted); font-size:1rem; line-height:1.6; margin:0 0 1.5rem }}
         .tb-bullets {{ list-style:none; margin:0 0 1.75rem; padding:0; display:flex; flex-direction:column; gap:0.85rem }}
         .tb-bullet {{ display:flex; align-items:flex-start; gap:0.65rem; line-height:1.55 }}
-        .tb-bullet svg {{ flex-shrink:0; margin-top:0.15rem; color:var(--color-primary, #c081b8) }}
-        .tb-note {{ background:var(--color-surface-alt, #f6f5f8); border-radius:0.75rem; padding:1rem 1.25rem; font-size:0.9rem; color:var(--color-muted); margin:0 0 1.5rem }}
-        .tb-cta {{ display:inline-flex; align-items:center; gap:0.5rem; background:linear-gradient(135deg, var(--color-primary, #c081b8), var(--color-accent-hover, #a566a0));
-            color:#fff !important; padding:0.85rem 1.75rem; border-radius:9999px; text-decoration:none; font-weight:600 }}
+        .tb-bullet svg {{ flex-shrink:0; margin-top:0.15rem; color:var(--color-accent-text) }}
+        .tb-note {{ background:var(--color-surface-alt); border-radius:var(--radius-16); padding:1rem 1.25rem; font-size:0.9rem; color:var(--color-muted); margin:0 0 1.5rem }}
+        .tb-cta {{ display:inline-flex; align-items:center; gap:0.5rem; background:linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
+            color:var(--color-on-dark) !important; padding:0.85rem 1.75rem; border-radius:var(--radius-pill); text-decoration:none; font-weight:600 }}
         .tb-cta:hover {{ opacity:0.92 }}
         .tb-conditions {{ margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--color-border) }}
         .tb-conditions h3 {{ font-size:0.9rem; color:var(--color-muted); font-weight:600; margin:0 0 0.6rem }}
         .tb-conditions ul {{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.4rem }}
         .tb-condition-link {{ font-size:0.85rem; color:var(--color-muted); text-decoration:underline }}
-        .tb-condition-link:hover {{ color:var(--color-primary, #c081b8) }}
+        .tb-condition-link:hover {{ color:var(--color-accent-text) }}
 
         .news-tbank-card {{ max-width:820px; margin:0 auto; padding:2rem }}
         .news-tbank-subhead {{ font-size:1.05rem; margin:0 0 0.85rem }}
         .news-tbank-dash-list {{ list-style:none; margin:0 0 1.75rem; padding:0; display:flex; flex-direction:column; gap:0.6rem; color:var(--color-muted); line-height:1.55 }}
         .news-tbank-dash-list li {{ padding-left:1.1rem; position:relative }}
-        .news-tbank-dash-list li::before {{ content:"—"; position:absolute; left:0; color:var(--color-primary, #c081b8) }}
+        .news-tbank-dash-list li::before {{ content:"—"; position:absolute; left:0; color:var(--color-accent-text) }}
         .news-tbank-cta-lead {{ margin:0 0 1rem; font-weight:500 }}
     </style>
 </head>

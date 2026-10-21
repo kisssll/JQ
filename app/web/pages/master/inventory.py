@@ -15,9 +15,9 @@ from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 
 MOVEMENT_LABELS = {
-    InventoryMovementType.RECEIPT: ("Приход", "#22c55e"),
-    InventoryMovementType.CONSUMPTION: ("Списание", "#ef4444"),
-    InventoryMovementType.ADJUSTMENT: ("Корректировка", "#3b82f6"),
+    InventoryMovementType.RECEIPT: ("Приход", "var(--color-success)"),
+    InventoryMovementType.CONSUMPTION: ("Списание", "var(--color-danger)"),
+    InventoryMovementType.ADJUSTMENT: ("Корректировка", "var(--color-info)"),
 }
 
 
@@ -82,7 +82,7 @@ async def render_master_inventory(db: AsyncSession, user, audit_id: str | None =
     stock_rows = "".join(f"""
         <tr>
             <td>{e(i.name)}</td>
-            <td><strong style="{'color:#ef4444' if i.quantity <= i.min_quantity else ''}">{i.quantity:g}</strong> {i.unit}</td>
+            <td><strong style="{'color:var(--color-danger)' if i.quantity <= i.min_quantity else ''}">{i.quantity:g}</strong> {i.unit}</td>
             <td>{i.min_quantity:g} {i.unit}</td>
         </tr>""" for i in stock)
 
@@ -100,7 +100,7 @@ async def render_master_inventory(db: AsyncSession, user, audit_id: str | None =
 
     movement_rows = ""
     for mv, item in movements:
-        label, color = MOVEMENT_LABELS.get(mv.type, (mv.type.value, "#9ca3af"))
+        label, color = MOVEMENT_LABELS.get(mv.type, (mv.type.value, "var(--color-muted)"))
         sign = "+" if mv.delta > 0 else ""
         movement_rows += f"""
         <tr>

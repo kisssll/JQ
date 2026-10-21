@@ -20,7 +20,7 @@ import { esc } from '../../escape-html.js';
         if (activeColumn) {
             const prevFill = activeColumn.querySelector('.chart-fill');
             if (prevFill) {
-                prevFill.style.background = 'linear-gradient(to top, #34d399, #34d399cc)';
+                prevFill.style.background = 'linear-gradient(to top, var(--color-success), color-mix(in srgb, var(--color-success) 80%, transparent))';
             }
             activeColumn.classList.remove('active');
         }
@@ -28,7 +28,7 @@ import { esc } from '../../escape-html.js';
         if (col) {
             const fill = col.querySelector('.chart-fill');
             if (fill) {
-                fill.style.background = 'linear-gradient(to top, #059669, #059669cc)';
+                fill.style.background = 'linear-gradient(to top, var(--color-success), color-mix(in srgb, var(--color-success) 80%, transparent))';
             }
             col.classList.add('active');
         }

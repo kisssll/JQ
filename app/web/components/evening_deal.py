@@ -5,7 +5,7 @@
 рендерит только активную вкладку, поэтому дублирования id в DOM нет).
 
 Раньше здесь жили инлайновые <style> и <script>: собственная модалка мимо
-общего диалога, системный confirm(), хардкод-цвета (#dc2626, #ddd,
+общего диалога, системный confirm(), хардкод-цвета (var(--color-danger), var(--color-border),
 rgba(0,0,0,.45)) и семь чекбоксов дней в одну строку. Оформление переехало в
 static/src/css/business/evening-deal.css, поведение — в
 static/src/js/business/evening-deal.js.

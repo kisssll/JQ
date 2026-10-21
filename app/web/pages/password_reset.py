@@ -78,8 +78,8 @@ def render_reset_password_page(request: Request) -> str:
     banner = ""
     if error == "weak_password":
         banner = (
-            '<div style="background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;'
-            'border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
+            '<div style="background:var(--color-danger-light);color:var(--color-danger);border:1px solid var(--color-danger-border);'
+            'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
             "Пароль не отвечает требованиям сложности</div>"
         )
 

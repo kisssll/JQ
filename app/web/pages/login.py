@@ -16,8 +16,8 @@ OAUTH_DIVIDER = """
 YANDEX_BUTTON = """
         <a href="/api/v1/auth/yandex/start" class="auth-btn"
            style="display:flex;align-items:center;justify-content:center;gap:0.5rem;width:100%;
-                  background:#000;color:#fff;border-radius:0.5rem;padding:0.75rem;text-decoration:none;font-weight:600">
-            <span style="background:#FC3F1D;color:#fff;border-radius:50%;width:1.4rem;height:1.4rem;
+                  background:#000;color:var(--color-on-dark);border-radius:var(--radius-8);padding:0.75rem;text-decoration:none;font-weight:600">
+            <span style="background:#FC3F1D;color:var(--color-on-dark);border-radius:50%;width:1.4rem;height:1.4rem;
                          display:inline-flex;align-items:center;justify-content:center;font-weight:700">Я</span>
             Войти с Яндекс ID
         </a>"""
@@ -26,8 +26,8 @@ YANDEX_BUTTON = """
 VK_BUTTON = """
         <a href="/api/v1/auth/vk/start" class="auth-btn"
            style="display:flex;align-items:center;justify-content:center;gap:0.5rem;width:100%;
-                  background:#0077FF;color:#fff;border-radius:0.5rem;padding:0.75rem;text-decoration:none;font-weight:600;margin-top:0.5rem">
-            <span style="background:#fff;color:#0077FF;border-radius:0.35rem;width:1.4rem;height:1.4rem;
+                  background:#0077FF;color:var(--color-on-dark);border-radius:var(--radius-8);padding:0.75rem;text-decoration:none;font-weight:600;margin-top:0.5rem">
+            <span style="background:var(--color-surface);color:#0077FF;border-radius:var(--radius-8);width:1.4rem;height:1.4rem;
                          display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:0.7rem">VK</span>
             Войти с VK ID
         </a>"""
@@ -38,8 +38,8 @@ def _alert(msg: str) -> str:
     if not msg:
         return ""
     return (
-        '<div style="background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;'
-        'border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
+        '<div style="background:var(--color-danger-light);color:var(--color-danger);border:1px solid var(--color-danger-border);'
+        'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
         f'{msg}</div>'
     )
 
@@ -63,8 +63,8 @@ def render_login_page(request: Request) -> str:
     success = ""
     if q.get("reset"):
         success = (
-        '<div style="background:#DCFCE7;color:#166534;border:1px solid #86EFAC;'
-        'border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
+        '<div style="background:var(--color-success-light);color:var(--color-success);border:1px solid var(--color-success-border);'
+        'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
         'Пароль изменён — войдите с новым</div>'
         )
     banner = _alert(errors.get(q.get("error", ""), ""))

@@ -47,19 +47,19 @@ async def render_cost_tab(db: AsyncSession, salon, masters, master_ids, date_fro
         cogs_str = f"{cogs:,}".replace(",", " ")
         payroll_str = f"{payroll['total']:,}".replace(",", " ")
         margin_str = f"{margin:,}".replace(",", " ")
-        margin_color = "#22c55e" if margin >= 0 else "#ef4444"
+        margin_color = "var(--color-success)" if margin >= 0 else "var(--color-danger)"
 
         rows_html += f"""
         <tr>
             <td><strong>{master_user_names.get(m.id, '—')}</strong></td>
             <td>{revenue_str} ₽</td>
-            <td style="color:#ef4444">{cogs_str} ₽</td>
-            <td style="color:#f59e0b">{payroll_str} ₽</td>
+            <td style="color:var(--color-danger)">{cogs_str} ₽</td>
+            <td style="color:var(--color-warning)">{payroll_str} ₽</td>
             <td><strong style="color:{margin_color}">{margin_str} ₽</strong></td>
         </tr>"""
 
     total_profit = total_revenue - total_cogs - total_payroll
-    profit_color = "#22c55e" if total_profit >= 0 else "#ef4444"
+    profit_color = "var(--color-success)" if total_profit >= 0 else "var(--color-danger)"
 
     if masters and total_revenue == 0 and total_cogs == 0 and total_payroll == 0:
         rows_html = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--color-muted)">Данных за этот период нет</td></tr>'
@@ -81,9 +81,9 @@ async def render_cost_tab(db: AsyncSession, salon, masters, master_ids, date_fro
         </form>
 
         <div class="analytics-kpi">
-            <div class="kpi-card"><div class="kpi-label">Выручка</div><div class="kpi-value" style="color:#22c55e">{f"{total_revenue:,}".replace(",", " ")} ₽</div></div>
-            <div class="kpi-card"><div class="kpi-label">Себестоимость расходников {_hint("Сумма реально списанных расходников по цене на момент списания — берётся из складских форм мастеров, а не из плановых норм расхода.")}</div><div class="kpi-value" style="color:#ef4444">{f"{total_cogs:,}".replace(",", " ")} ₽</div></div>
-            <div class="kpi-card"><div class="kpi-label">Зарплаты {_hint("Начисления мастерам за период: ставка/процент от выручки плюс ручные бонусы, минус штрафы — как настроено во вкладке «Зарплаты».")}</div><div class="kpi-value" style="color:#f59e0b">{f"{total_payroll:,}".replace(",", " ")} ₽</div></div>
+            <div class="kpi-card"><div class="kpi-label">Выручка</div><div class="kpi-value" style="color:var(--color-success)">{f"{total_revenue:,}".replace(",", " ")} ₽</div></div>
+            <div class="kpi-card"><div class="kpi-label">Себестоимость расходников {_hint("Сумма реально списанных расходников по цене на момент списания — берётся из складских форм мастеров, а не из плановых норм расхода.")}</div><div class="kpi-value" style="color:var(--color-danger)">{f"{total_cogs:,}".replace(",", " ")} ₽</div></div>
+            <div class="kpi-card"><div class="kpi-label">Зарплаты {_hint("Начисления мастерам за период: ставка/процент от выручки плюс ручные бонусы, минус штрафы — как настроено во вкладке «Зарплаты».")}</div><div class="kpi-value" style="color:var(--color-warning)">{f"{total_payroll:,}".replace(",", " ")} ₽</div></div>
             <div class="kpi-card"><div class="kpi-label">Прибыль салона {_hint("Выручка минус себестоимость расходников минус зарплаты мастеров — то, что реально остаётся салону за период.")}</div><div class="kpi-value" style="color:{profit_color}">{f"{total_profit:,}".replace(",", " ")} ₽</div></div>
         </div>
 

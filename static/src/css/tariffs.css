@@ -69,15 +69,15 @@
     flex-direction: column;
     padding: 1.5rem;
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     background: var(--color-surface);
-    box-shadow: 0 1px 3px rgba(26, 26, 31, 0.04);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
 }
 
 .tariffs-page .plan-card:hover {
     border-color: var(--color-accent-light);
-    box-shadow: 0 8px 20px rgba(26, 26, 31, 0.07);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.07);
     transform: translateY(-2px);
 }
 
@@ -106,9 +106,9 @@
 .tariffs-page .plan-badge {
     flex-shrink: 0;
     padding: 0.15rem 0.55rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--color-accent-light);
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
     font-size: 0.62rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -171,7 +171,7 @@
     width: 0.95rem;
     height: 0.95rem;
     margin-top: 0.1rem;
-    color: var(--color-accent);
+    color: var(--color-accent-text);
 }
 
 /* Кнопка прижата к низу — у тарифов разное число пунктов, иначе кнопки
@@ -183,7 +183,7 @@
     gap: 0.4rem;
     margin-top: auto;
     padding: 0.7rem 1.25rem;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     /* background задаём явно: у .plan-btn в model-landing.css градиентная
        заливка, и без сброса розовый текст лёг бы на розовый фон. */
     background: var(--color-accent);
@@ -207,7 +207,7 @@
 
 .tariffs-page .plan-card:not(.is-popular) .plan-btn:hover {
     background: var(--color-accent-light);
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
 }
 
 .tariffs-page .plan-btn svg {
@@ -233,7 +233,7 @@
     gap: 0.9rem;
     padding: 1.15rem 1.25rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.9rem;
+    border-radius: var(--radius-16);
     background: var(--color-surface);
     text-decoration: none;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -241,7 +241,7 @@
 
 .doc-card:hover {
     border-color: var(--color-accent);
-    box-shadow: 0 6px 16px rgba(26, 26, 31, 0.06);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
 }
 
 .doc-card-icon {
@@ -251,9 +251,9 @@
     justify-content: center;
     width: 2.25rem;
     height: 2.25rem;
-    border-radius: 0.6rem;
+    border-radius: var(--radius-16);
     background: var(--color-accent-light);
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
 }
 
 .doc-card-icon svg {
@@ -297,7 +297,7 @@
 }
 
 .doc-card:hover .doc-card-arrow {
-    color: var(--color-accent);
+    color: var(--color-accent-text);
     transform: translateX(3px);
 }
 

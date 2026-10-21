@@ -75,7 +75,7 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
     # Формируем список чатов
     chat_list = ""
     for member in other_members:
-        online_dot = '<span style="width:8px;height:8px;background:#22c55e;border-radius:50%;position:absolute;bottom:0;right:0;border:2px solid white"></span>' if member["online"] else '<span style="width:8px;height:8px;background:#9ca3af;border-radius:50%;position:absolute;bottom:0;right:0;border:2px solid white"></span>'
+        online_dot = '<span style="width:8px;height:8px;background:var(--color-success);border-radius:50%;position:absolute;bottom:0;right:0;border:2px solid white"></span>' if member["online"] else '<span style="width:8px;height:8px;background:var(--color-border-strong);border-radius:50%;position:absolute;bottom:0;right:0;border:2px solid white"></span>'
         
         chat_list += f"""
         <div class="chat-item" onclick="openChat({member['id']}, '{e(member['name'])}', '{member['role']}')" data-chat-id="{member['id']}">
@@ -87,12 +87,12 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
                 <div class="chat-name">{e(member['name'])}</div>
                 <div class="chat-last-msg" style="font-size:0.75rem;color:var(--color-muted)">{member['role']}</div>
             </div>
-            <div class="chat-time" style="color:#22c55e">{'● В сети' if member['online'] else '○ Не в сети'}</div>
+            <div class="chat-time" style="color:var(--color-success)">{'● В сети' if member['online'] else '○ Не в сети'}</div>
         </div>"""
     
     return f"""
     <div id="tab-chat" class="tab-content">
-        <div style="display:flex;height:calc(100vh - 250px);min-height:400px;border:1px solid var(--color-border);border-radius:1rem;overflow:hidden">
+        <div style="display:flex;height:calc(100vh - 250px);min-height:400px;border:1px solid var(--color-border);border-radius:var(--radius-16);overflow:hidden">
             <!-- Список чатов -->
             <div style="width:320px;border-right:1px solid var(--color-border);background:var(--color-surface-alt);overflow-y:auto">
                 <div style="padding:1rem;border-bottom:1px solid var(--color-border);background:var(--color-surface)">
@@ -163,7 +163,7 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
         .message-bubble {{
             max-width:70%;
             padding:0.6rem 0.9rem;
-            border-radius:1rem;
+            border-radius:var(--radius-16);
             margin-bottom:0.3rem;
             font-size:0.9rem;
             line-height:1.4;
@@ -172,13 +172,13 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
             background:linear-gradient(135deg, var(--color-primary), var(--color-accent));
             color:white;
             align-self:flex-end;
-            border-bottom-right-radius:0.25rem;
+            border-bottom-right-radius:var(--radius-8);
         }}
         .message-bubble.received {{
             background:var(--color-surface-alt);
             color:var(--color-body);
             align-self:flex-start;
-            border-bottom-left-radius:0.25rem;
+            border-bottom-left-radius:var(--radius-8);
         }}
     </style>
     
@@ -207,9 +207,9 @@ async def render_chat_tab(db: AsyncSession, salon, user) -> str:
                 </div>
                 <div style="padding:0.75rem;border-top:1px solid var(--color-border);display:flex;gap:0.5rem;background:var(--color-surface)">
                     <input type="text" placeholder="Введите сообщение..." id="msgInput-${{userId}}" 
-                        style="flex:1;padding:0.6rem 0.75rem;border:1px solid var(--color-border);border-radius:2rem;font-size:0.85rem"
+                        style="flex:1;padding:0.6rem 0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-28);font-size:0.85rem"
                         onkeydown="if(event.key==='Enter')sendMessage(${{userId}})">
-                    <button onclick="sendMessage(${{userId}})" class="btn-primary" style="padding:0.5rem 1rem;border-radius:2rem;font-size:0.85rem">Отправить</button>
+                    <button onclick="sendMessage(${{userId}})" class="btn-primary" style="padding:0.5rem 1rem;border-radius:var(--radius-28);font-size:0.85rem">Отправить</button>
                 </div>
             `;
         }}

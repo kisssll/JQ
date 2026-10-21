@@ -7,7 +7,7 @@
        с белой подписью даёт 3.31:1 в светлой теме и 4.28:1 в тёмной, ниже нормы
        4.5 для текста этого размера (17.85px жирный — чуть меньше порога
        «крупного» 18.66px). Тот же тон бренда, только темнее: 4.72 и 4.71. */
-    --ml-cta-bg: #ca3e74;
+    --ml-cta-bg: var(--color-accent);
     margin: 0;
     background: var(--color-background);
     color: var(--color-body);
@@ -21,7 +21,7 @@
 }
 
 :root[data-theme="dark"] .ml-body {
-    --ml-cta-bg: #a35f77;
+    --ml-cta-bg: var(--color-accent);
 }
 
 /* Отступ по горизонтали даёт .ml-container: раньше логотип стоял у края окна
@@ -59,7 +59,7 @@
     height: 26rem;
     right: -8rem;
     top: -9rem;
-    background: #F69EBC;
+    background: var(--color-rose-strong);
     opacity: 0.32;
     animation: ml-drift 14s ease-in-out infinite alternate;
 }
@@ -68,7 +68,7 @@
     height: 22rem;
     left: -8rem;
     bottom: -10rem;
-    background: #FFC9B8;
+    background: var(--color-secondary);
     opacity: 0.4;
     animation: ml-drift 18s ease-in-out infinite alternate-reverse;
 }
@@ -86,7 +86,7 @@
 .ml-badge {
     display: inline-block;
     padding: 0.35rem 0.85rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     background: var(--color-accent-light);
     color: var(--color-heading);
     font-size: 0.8rem;
@@ -144,7 +144,7 @@
     gap: 0.4rem;
     padding: 0.4rem 0.85rem;
     border: 1px solid var(--color-border);
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     background: var(--color-surface);
     color: var(--color-heading);
     font-size: 0.85rem;
@@ -157,7 +157,7 @@
     color: var(--ml-cta-bg);
 }
 
-/* Главная кнопка: светлый #F69EBC с белой подписью не читался (≈2:1),
+/* Главная кнопка: светлый var(--color-rose-strong) с белой подписью не читался (≈2:1),
    поэтому фон — более тёмный акцент. */
 .ml-cta {
     display: inline-flex;
@@ -166,9 +166,9 @@
     gap: 0.5rem;
     min-height: 3.25rem;
     padding: 0.85rem 1.6rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     background: var(--ml-cta-bg);
-    color: #fff;
+    color: var(--color-on-dark);
     font-weight: 700;
     font-size: 1.05rem;
     text-decoration: none;
@@ -228,7 +228,7 @@
 .ml-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: 1.25rem;
 }
 
@@ -268,7 +268,7 @@
     color: var(--ml-cta-bg);
     font-family: var(--font-heading);
     font-size: 3.25rem;
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     line-height: 1;
     /* У антиквы цифры по умолчанию бывают «старого стиля» (разной высоты),
        для номера шага нужны ровные. Правило оставлено и после перехода на
@@ -301,7 +301,7 @@
     text-align: center;
     font-family: var(--font-heading);
     font-size: 5.5rem;
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     line-height: 1;
     /* Ровные цифры одной высоты и одной ширины: «1» и «4» не сдвигают текст. */
     font-variant-numeric: lining-nums tabular-nums;
@@ -352,9 +352,9 @@
     justify-content: center;
     /* Корпус телефона тёмный в обеих темах: цвет заголовка в тёмной теме
        светлый, и рамка становилась белой, перетягивая внимание с кадра. */
-    border: 0.45rem solid #2a1a20;
+    border: 0.45rem solid var(--color-heading);
     outline: 1px solid var(--color-border);
-    border-radius: 2rem;
+    border-radius: var(--radius-28);
     background: var(--color-background);
     box-shadow: 0 24px 48px -30px #000a;
     overflow: hidden;
@@ -366,14 +366,14 @@
     height: auto;
     max-height: 100%;
     object-fit: contain;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
 }
 
 .ml-chat {
     width: 100%;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: 0.85rem;
     font-size: 0.9rem;
 }
@@ -395,13 +395,13 @@
     height: 2rem;
     border-radius: 50%;
     background: var(--ml-cta-bg);
-    color: #fff;
+    color: var(--color-on-dark);
     font-size: 0.85rem;
 }
 
 .ml-chat-bubble {
     background: var(--color-surface-alt);
-    border-radius: 0.25rem 1rem 1rem 1rem;
+    border-radius: var(--radius-8) var(--radius-16) var(--radius-16) var(--radius-16);
     padding: 0.75rem 0.9rem;
     line-height: 1.5;
     color: var(--color-heading);
@@ -413,7 +413,7 @@
 .ml-price {
     background: var(--color-surface);
     border: 2px solid var(--color-primary);
-    border-radius: 1.25rem;
+    border-radius: var(--radius-28);
     padding: 1.5rem;
     max-width: 30rem;
 }
@@ -450,7 +450,7 @@
 .ml-faq-item {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.9rem;
+    border-radius: var(--radius-16);
     margin-bottom: 0.6rem;
 }
 
@@ -563,7 +563,7 @@
     padding: 1rem 0.9rem;
     box-sizing: border-box;
     overflow: hidden;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     background: var(--color-surface);
     color: var(--color-body);
     font-size: 0.85rem;
@@ -578,7 +578,7 @@
     padding: 0.4rem 0;
     text-align: center;
     border: 1px solid var(--color-border);
-    border-radius: 0.6rem;
+    border-radius: var(--radius-16);
     font-size: 0.78rem;
     font-weight: 600;
     color: var(--color-heading);
@@ -599,7 +599,7 @@
     padding: 0.55rem 0;
     text-align: center;
     border: 1px solid var(--color-border);
-    border-radius: 0.6rem;
+    border-radius: var(--radius-16);
     font-weight: 600;
     color: var(--color-heading);
 }
@@ -626,9 +626,9 @@
 .ml-live-btn {
     padding: 0.7rem;
     text-align: center;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     background: var(--ml-cta-bg);
-    color: #fff;
+    color: var(--color-on-dark);
     font-weight: 700;
     animation: ml-press 9s infinite;
 }
@@ -643,7 +643,7 @@
     align-items: flex-start;
     padding: 0.75rem 0.85rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.9rem;
+    border-radius: var(--radius-16);
     background: var(--color-surface);
     box-shadow: 0 12px 28px -14px #0007;
     opacity: 0;
@@ -665,7 +665,7 @@
 }
 @keyframes ml-pick-text {
     0%, 30%   { color: var(--color-heading); }
-    34%, 90%  { color: #fff; }
+    34%, 90%  { color: var(--color-on-dark); }
     96%, 100% { color: var(--color-heading); }
 }
 @keyframes ml-press {
@@ -767,7 +767,7 @@
 }
 .ml-js .ml-steps > li.is-visible .ml-step-num {
     background: var(--ml-cta-bg);
-    color: #fff;
+    color: var(--color-on-dark);
 }
 
 /* ---------- уменьшенное движение (держать в конце файла) ---------- */
@@ -781,7 +781,7 @@
     .ml-live-done { animation: none; }
 
     /* Статичный кадр: окно выбрано, плашка подтверждения не нужна. */
-    .ml-slot-pick { color: #fff; }
+    .ml-slot-pick { color: var(--color-on-dark); }
     .ml-slot-pick::before { opacity: 1; }
 
     .ml-cta::after { display: none; }
@@ -790,7 +790,7 @@
 .ml-tour-item {
     padding: 1.25rem;
     border: 1px solid var(--color-border);
-    border-radius: 1.5rem;
+    border-radius: var(--radius-28);
     background: var(--color-surface);
 }
 .ml-tour-item:nth-child(even) {

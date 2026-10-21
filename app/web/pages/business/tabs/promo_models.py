@@ -43,8 +43,8 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
             quota_label = f"{booked_count}/{s.model_quota}" if s.model_quota else f"{booked_count}/∞"
             date_label = s.model_desired_date.strftime("%d.%m.%Y") if s.model_desired_date else ""
             status_badge = (
-                '<span class="badge-tag" style="background:#d1fae5;color:#065f46">открыт</span>' if is_open else
-                '<span class="badge-tag" style="background:#fee2e2;color:#991b1b">закрыт</span>'
+                '<span class="badge-tag" style="background:var(--color-success-light);color:var(--color-success)">открыт</span>' if is_open else
+                '<span class="badge-tag" style="background:var(--color-danger-light);color:var(--color-danger)">закрыт</span>'
             )
             toggle_label = "Закрыть" if s.model_seeking_open else "Открыть"
             practice_cards_html += f"""
@@ -52,7 +52,7 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
                 <div style="display:flex;justify-content:space-between;align-items:start;gap:0.5rem;flex-wrap:wrap">
                     <div>
                         <strong>{e(s.name)}</strong>
-                        <span class="badge-tag" style="margin-left:0.4rem;background:#d1fae5;color:#065f46">{responses_count} откликов</span>
+                        <span class="badge-tag" style="margin-left:0.4rem;background:var(--color-success-light);color:var(--color-success)">{responses_count} откликов</span>
                     </div>
                     {status_badge}
                 </div>
@@ -119,31 +119,31 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
                     </div>
                     <div>
                         <label class="text-muted" style="font-size:0.8rem;display:block;margin-bottom:0.3rem">Услуга</label>
-                        <input name="name" placeholder="Например: балаяж" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                        <input name="name" placeholder="Например: балаяж" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                     </div>
                     <div style="display:flex;gap:0.75rem">
                         <div style="flex:1">
                             <label class="text-muted" style="font-size:0.8rem;display:block;margin-bottom:0.3rem">Цена, ₽ (0 — бесплатно)</label>
-                            <input name="price" type="number" min="0" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                            <input name="price" type="number" min="0" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                         </div>
                         <div style="flex:1">
                             <label class="text-muted" style="font-size:0.8rem;display:block;margin-bottom:0.3rem">Минут</label>
-                            <input name="duration_minutes" type="number" min="1" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                            <input name="duration_minutes" type="number" min="1" required style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                         </div>
                     </div>
                     <div style="display:flex;gap:0.75rem">
                         <div style="flex:1">
                             <label class="text-muted" style="font-size:0.8rem;display:block;margin-bottom:0.3rem">Нужно моделей (необязательно)</label>
-                            <input name="model_quota" type="number" min="1" style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                            <input name="model_quota" type="number" min="1" style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                         </div>
                         <div style="flex:1">
                             <label class="text-muted" style="font-size:0.8rem;display:block;margin-bottom:0.3rem">Дата (необязательно)</label>
-                            <input name="model_desired_date" type="date" style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                            <input name="model_desired_date" type="date" style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                         </div>
                     </div>
                     <div>
                         <label class="text-muted" style="font-size:0.8rem;display:block;margin-bottom:0.3rem">Описание / требования</label>
-                        <textarea name="description" rows="3" placeholder="Что хотите отработать, пожелания к модели..." style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:0.5rem;resize:vertical"></textarea>
+                        <textarea name="description" rows="3" placeholder="Что хотите отработать, пожелания к модели..." style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:var(--radius-8);resize:vertical"></textarea>
                     </div>
                     <input type="hidden" name="is_model_practice" value="true">
                     <button type="submit" class="btn-primary">Опубликовать поиск</button>
@@ -158,26 +158,26 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
     </div>
 
     <style>
-        .models-subtab-nav {{ display:flex; gap:0.5rem; background:var(--color-surface-alt,#f3f4f6); border-radius:0.75rem; padding:0.25rem; margin-bottom:1.5rem; max-width:32rem }}
-        .models-subtab-btn {{ flex:1; padding:0.6rem; border:none; background:transparent; border-radius:0.5rem; cursor:pointer; font-size:0.85rem; font-weight:500; color:var(--color-muted) }}
-        .models-subtab-btn.active {{ background:var(--color-surface,#fff); color:var(--color-heading); box-shadow:0 1px 2px rgba(0,0,0,0.06) }}
+        .models-subtab-nav {{ display:flex; gap:0.5rem; background:var(--color-surface-alt); border-radius:var(--radius-16); padding:0.25rem; margin-bottom:1.5rem; max-width:32rem }}
+        .models-subtab-btn {{ flex:1; padding:0.6rem; border:none; background:transparent; border-radius:var(--radius-8); cursor:pointer; font-size:0.85rem; font-weight:500; color:var(--color-muted) }}
+        .models-subtab-btn.active {{ background:var(--color-surface); color:var(--color-heading); box-shadow:0 1px 2px rgba(0,0,0,0.06) }}
         .models-swipe-grid {{ display:grid; grid-template-columns:1fr; gap:1.5rem }}
         @media (min-width: 1024px) {{ .models-swipe-grid {{ grid-template-columns:1fr 320px }} }}
         .models-card-stack {{ position:relative; width:100%; max-width:340px; margin:0 auto; aspect-ratio:3/4; }}
-        .models-swipe-card {{ position:absolute; inset:0; border:1px solid var(--color-border); border-radius:1rem; overflow:hidden; background:var(--color-surface,#fff); box-shadow:0 10px 25px rgba(0,0,0,0.12); cursor:grab; touch-action:pan-y; user-select:none }}
+        .models-swipe-card {{ position:absolute; inset:0; border:1px solid var(--color-border); border-radius:var(--radius-16); overflow:hidden; background:var(--color-surface); box-shadow:0 10px 25px rgba(0,0,0,0.12); cursor:grab; touch-action:pan-y; user-select:none }}
         .models-swipe-card.dragging {{ transition:none }}
-        .models-swipe-card-photo {{ position:relative; height:65%; background-size:cover; background-position:center; background-color:var(--color-surface-alt,#eee) }}
+        .models-swipe-card-photo {{ position:relative; height:65%; background-size:cover; background-position:center; background-color:var(--color-surface-alt) }}
         .models-swipe-card-photo::after {{ content:''; position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.6), transparent 60%) }}
-        .models-swipe-card-name {{ position:absolute; left:1rem; right:1rem; bottom:0.75rem; color:#fff; z-index:1 }}
+        .models-swipe-card-name {{ position:absolute; left:1rem; right:1rem; bottom:0.75rem; color:var(--color-on-dark); z-index:1 }}
         .models-swipe-card-body {{ padding:0.9rem 1rem; height:35%; overflow:hidden }}
-        .models-swipe-overlay {{ position:absolute; top:1.5rem; padding:0.4rem 1rem; border:3px solid; border-radius:0.5rem; font-weight:900; font-size:1.4rem; opacity:0; pointer-events:none }}
-        .models-swipe-overlay-like {{ left:1rem; color:#22c55e; border-color:#22c55e; transform:rotate(-15deg) }}
-        .models-swipe-overlay-nope {{ right:1rem; color:#ef4444; border-color:#ef4444; transform:rotate(15deg) }}
+        .models-swipe-overlay {{ position:absolute; top:1.5rem; padding:0.4rem 1rem; border:3px solid; border-radius:var(--radius-8); font-weight:900; font-size:1.4rem; opacity:0; pointer-events:none }}
+        .models-swipe-overlay-like {{ left:1rem; color:var(--color-success); border-color:var(--color-success); transform:rotate(-15deg) }}
+        .models-swipe-overlay-nope {{ right:1rem; color:var(--color-danger); border-color:var(--color-danger); transform:rotate(15deg) }}
         .models-swipe-buttons {{ display:flex; justify-content:center; gap:1.25rem; margin-top:1.25rem }}
-        .models-swipe-btn {{ width:3.25rem; height:3.25rem; border-radius:50%; border:2px solid var(--color-border); background:#fff; cursor:pointer; font-size:1.3rem; display:flex; align-items:center; justify-content:center }}
-        .models-swipe-btn-like {{ width:3.75rem; height:3.75rem; color:#22c55e; border-color:#bbf7d0 }}
-        .models-swipe-btn-pass {{ color:#ef4444; border-color:#fecaca }}
-        .models-swipe-btn-eye {{ color:#3b82f6; border-color:#bfdbfe }}
+        .models-swipe-btn {{ width:3.25rem; height:3.25rem; border-radius:50%; border:2px solid var(--color-border); background:var(--color-surface); cursor:pointer; font-size:1.3rem; display:flex; align-items:center; justify-content:center }}
+        .models-swipe-btn-like {{ width:3.75rem; height:3.75rem; color:var(--color-success); border-color:var(--color-success-border) }}
+        .models-swipe-btn-pass {{ color:var(--color-danger); border-color:var(--color-danger-border) }}
+        .models-swipe-btn-eye {{ color:var(--color-info); border-color:var(--color-info-border) }}
     </style>
 
     <script>
@@ -340,7 +340,7 @@ async def render_promo_models_tab(db: AsyncSession, salon, masters) -> str:
             }} else if (m.status === 'matched') {{
                 actions = '<p class="text-muted" style="font-size:0.85rem;margin-top:0.5rem">' + m.service_name + ' · ' + (m.price ? m.price + ' ₽' : 'бесплатно') + ' — модель выбирает время сама</p>';
             }} else if (m.status === 'booked') {{
-                actions = '<p style="margin-top:0.5rem;color:var(--color-success,#065f46)">Запись создана' + (m.chosen_slot ? ' на ' + new Date(m.chosen_slot).toLocaleString('ru-RU', {{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}}) : '') + '</p>';
+                actions = '<p style="margin-top:0.5rem;color:var(--color-success)">Запись создана' + (m.chosen_slot ? ' на ' + new Date(m.chosen_slot).toLocaleString('ru-RU', {{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}}) : '') + '</p>';
             }}
             return '<div class="card" style="padding:1rem;margin-bottom:0.75rem">' +
                 '<div style="display:flex;justify-content:space-between;align-items:start">' +

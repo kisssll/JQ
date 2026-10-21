@@ -58,7 +58,7 @@ async def _render_master_overview(db: AsyncSession, salon: Salon, master: Master
         <div class="grid-3">
             <div class="stat-card"><div class="stat-value">{my_today}</div><div class="stat-label">Ваших записей сегодня</div></div>
             <div class="stat-card"><div class="stat-value">{my_week}</div><div class="stat-label">Ваших записей за неделю</div></div>
-            <div class="stat-card"><div class="stat-value" style="color:#f59e0b">{my_unreported}</div><div class="stat-label">Не списано расходников</div></div>
+            <div class="stat-card"><div class="stat-value" style="color:var(--color-warning)">{my_unreported}</div><div class="stat-label">Не списано расходников</div></div>
         </div>
     </div>"""
     warehouse_html = await _render_master_warehouse_card(db, salon, master)
@@ -155,7 +155,7 @@ async def _render_master_schedule(db: AsyncSession, salon: Salon, master: Master
             for b in unreported
         )
         unreported_card = f"""
-        <div class="card" style="overflow-x:auto;margin-bottom:1.5rem;border:2px solid #f59e0b">
+        <div class="card" style="overflow-x:auto;margin-bottom:1.5rem;border:2px solid var(--color-warning)">
             <h3 style="margin-bottom:1rem">{ICON_ALERT_TRIANGLE} Требуют списания расходников</h3>
             <table><thead><tr><th>Дата</th><th></th></tr></thead><tbody>{rows}</tbody></table>
         </div>"""
@@ -170,7 +170,7 @@ async def _render_master_schedule(db: AsyncSession, salon: Salon, master: Master
     stock_options = "".join(
         f'<div class="consumption-line" data-item-id="{i.id}" style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem">'
         f'<label style="flex:1;font-size:0.875rem">{e(i.name)} <span class="text-muted">(остаток {i.quantity:g} {i.unit})</span></label>'
-        f'<input type="number" step="0.01" min="0" class="consumption-qty" placeholder="0" style="width:6rem;padding:0.4rem;border:1px solid var(--color-border);border-radius:0.4rem">'
+        f'<input type="number" step="0.01" min="0" class="consumption-qty" placeholder="0" style="width:6rem;padding:0.4rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">'
         f'<span class="text-muted" style="width:2.5rem">{i.unit}</span>'
         f'</div>' for i in stock
     )
@@ -190,7 +190,7 @@ async def _render_master_schedule(db: AsyncSession, salon: Salon, master: Master
     <style>
         .modal-overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center }}
         .modal-overlay.open {{ display:flex }}
-        .modal-box {{ background:var(--color-surface); border-radius:1rem; padding:1.5rem; max-width:480px; width:90%; max-height:80vh; overflow-y:auto }}
+        .modal-box {{ background:var(--color-surface); border-radius:var(--radius-16); padding:1.5rem; max-width:480px; width:90%; max-height:80vh; overflow-y:auto }}
     </style>
     <script>
         let currentBookingId = null;
@@ -261,18 +261,18 @@ async def render_master_business_dashboard(db: AsyncSession, user, salon: Salon,
     <style>
         .tab-nav {{ display:flex; gap:0.25rem; border-bottom:1px solid var(--color-border); margin-bottom:2rem; flex-wrap:wrap }}
         .tab-btn {{ padding:0.75rem 1.5rem; border:none; background:transparent; cursor:pointer; font-size:0.875rem; font-weight:500; color:var(--color-muted); border-bottom:2px solid transparent; transition:all 0.2s; white-space:nowrap }}
-        .tab-btn.active {{ color:var(--color-primary); border-bottom-color:var(--color-primary) }}
+        .tab-btn.active {{ color:var(--color-accent-text); border-bottom-color:var(--color-primary) }}
         .tab-content {{ display:none }}
         .tab-content.active {{ display:block }}
-        .stat-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:1rem; padding:1.5rem; text-align:center }}
-        .stat-value {{ font-size:2rem; font-weight:700; color:var(--color-primary) }}
+        .stat-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-16); padding:1.5rem; text-align:center }}
+        .stat-value {{ font-size:2rem; font-weight:700; color:var(--color-accent-text) }}
         .stat-label {{ font-size:0.85rem; color:var(--color-muted); margin-top:0.25rem }}
         table {{ width:100%; border-collapse:collapse }}
         th {{ text-align:left; padding:0.75rem; border-bottom:2px solid var(--color-border); font-weight:600; color:var(--color-heading); white-space:nowrap }}
         td {{ padding:0.75rem; border-bottom:1px solid var(--color-border) }}
         .chart-bar {{ height:200px; display:flex; align-items:flex-end; gap:1rem; padding:1rem 0 }}
         .chart-column {{ flex:1; display:flex; flex-direction:column; align-items:center; gap:0.25rem; min-width:40px }}
-        .chart-fill {{ width:100%; max-width:3.5rem; border-radius:0.5rem 0.5rem 0 0; background:linear-gradient(to top,var(--color-primary),var(--color-accent)); transition:height 0.3s }}
+        .chart-fill {{ width:100%; max-width:3.5rem; border-radius:var(--radius-8) var(--radius-8) 0 0; background:linear-gradient(to top,var(--color-primary),var(--color-accent)); transition:height 0.3s }}
         .chart-label {{ font-size:0.75rem; color:var(--color-muted) }}
         .chart-value {{ font-size:0.7rem; font-weight:600; color:var(--color-heading); white-space:nowrap }}
     </style>

@@ -242,17 +242,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                     renderGallery();
                     updateLogoInCard();
-                    statusDiv.innerHTML = '<p style="color:#22c55e">Фото загружены</p>';
+                    statusDiv.innerHTML = '<p style="color:var(--color-success)">Фото загружены</p>';
                 } else {
-                    statusDiv.innerHTML = '<p style="color:#ef4444">Ошибка: фото не сохранены</p>';
+                    statusDiv.innerHTML = '<p style="color:var(--color-danger)">Ошибка: фото не сохранены</p>';
                 }
                 setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
             } else {
                 const d = await res.json();
-                statusDiv.innerHTML = `<p style="color:#ef4444">Ошибка: ${esc(d.detail || 'Неизвестная ошибка')}</p>`;
+                statusDiv.innerHTML = `<p style="color:var(--color-danger)">Ошибка: ${esc(d.detail || 'Неизвестная ошибка')}</p>`;
             }
         } catch (e) {
-            statusDiv.innerHTML = '<p style="color:#ef4444">Ошибка сети</p>';
+            statusDiv.innerHTML = '<p style="color:var(--color-danger)">Ошибка сети</p>';
         } finally {
             isUploading = false;
             const fileInput = document.getElementById('photoFileInputMySalon');

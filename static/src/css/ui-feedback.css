@@ -20,13 +20,13 @@
     align-items: flex-start;
     gap: 0.75rem;
     padding: 0.75rem 0.85rem 0.75rem 1rem;
-    border-radius: 0.65rem;
+    border-radius: var(--radius-16);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-heading);
     font-size: 0.875rem;
     line-height: 1.45;
-    box-shadow: 0 8px 24px rgba(26, 26, 31, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     pointer-events: auto;
     /* Появление и уход — пружиной из static/src/js/motion.js (Motion One).
        Здесь анимации нет намеренно: CSS-кадры нельзя подхватить с середины,
@@ -91,7 +91,7 @@
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    background: rgba(26, 26, 31, 0.45);
+    background: rgba(0, 0, 0, 0.45);
 }
 
 body.rumi-dialog-open {
@@ -102,7 +102,7 @@ body.rumi-dialog-open {
     width: 100%;
     max-width: 25rem;
     background: var(--color-surface);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: 1.5rem;
     box-shadow: var(--shadow-3);
 }
@@ -139,9 +139,9 @@ body.rumi-dialog-open {
 .rumi-dialog-confirm {
     padding: 0.5rem 1.25rem;
     border: 1px solid var(--color-accent);
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     background: var(--color-accent);
-    /* Не #fff: в тёмной теме акцент светлеет и белая подпись давала 2,64:1. */
+    /* Не var(--color-on-dark): в тёмной теме акцент светлеет и белая подпись давала 2,64:1. */
     color: var(--color-btn-text);
     font-size: 0.875rem;
     font-weight: 600;

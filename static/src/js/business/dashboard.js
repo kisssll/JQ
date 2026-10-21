@@ -20,7 +20,7 @@ import { confirmDialog, toastNetworkError } from '../ui-feedback.js';
     window.showDayDetails = function(index, dayName, revenue, prevRevenue) {
         const diff = revenue - prevRevenue;
         const trend = diff > 0 ? '▲' : diff < 0 ? '▼' : '—';
-        const color = diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : 'gray';
+        const color = diff > 0 ? 'var(--color-success)' : diff < 0 ? 'var(--color-danger)' : 'gray';
         alert(`${dayName}\nВыручка: ${revenue.toLocaleString()} ₽\nПрошлая неделя: ${prevRevenue.toLocaleString()} ₽\n${trend} ${Math.abs(diff).toLocaleString()} ₽`);
     };
 

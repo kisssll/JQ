@@ -57,7 +57,7 @@
 
 .tariff-btn {
     padding: 0.5rem 1.25rem;
-    border-radius: 2rem;
+    border-radius: var(--radius-28);
     border: 1px solid var(--color-border);
     background: transparent;
     font-size: 0.875rem;
@@ -108,7 +108,7 @@
     width: 100%;
     padding: 0.75rem 1rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     font-size: 0.875rem;
     background: var(--color-surface);
     color: var(--color-heading);
@@ -160,7 +160,7 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 1rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     border: none;
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
     color: var(--color-btn-text);
@@ -203,7 +203,7 @@
 .checkout-summary {
     padding: 1.5rem;
     border: 1px solid var(--color-border);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     background: var(--color-surface);
     align-self: start;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
@@ -229,7 +229,7 @@
 .price-amount {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .price-period {
@@ -258,7 +258,7 @@
     margin-top: 0.125rem;
     width: 1rem;
     height: 1rem;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     flex-shrink: 0;
 }
 

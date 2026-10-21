@@ -69,11 +69,11 @@ async def render_crm_tab(db: AsyncSession, salon, masters, master_ids) -> str:
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Новых за месяц</div>
-                <div class="kpi-value" style="color:#22c55e">{new_this_month}</div>
+                <div class="kpi-value" style="color:var(--color-success)">{new_this_month}</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">Вернувшихся</div>
-                <div class="kpi-value" style="color:var(--color-primary)">{total_clients - new_this_month}</div>
+                <div class="kpi-value" style="color:var(--color-accent-text)">{total_clients - new_this_month}</div>
             </div>
         </div>
         

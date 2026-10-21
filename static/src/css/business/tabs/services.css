@@ -29,7 +29,7 @@
 .services-filters .filter-group select {
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
     background: var(--color-surface);
     color: var(--color-heading);
     font-size: 0.9rem;
@@ -65,7 +65,7 @@
     padding: 0.7rem 1rem;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     font-size: 0.95rem;
     font-weight: 500;
     color: var(--color-heading);
@@ -85,7 +85,7 @@
     padding: 1rem;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
 }
 
 .services-filters-collapse .services-filters {
@@ -125,14 +125,14 @@
     gap: 0.5rem;
     background: var(--color-surface);
     padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     border: 1px solid var(--color-border);
 }
 
 .services-count {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .services-label {
@@ -145,7 +145,7 @@
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
     color: var(--color-btn-text);
     border: none;
-    border-radius: 2rem;
+    border-radius: var(--radius-28);
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
@@ -154,7 +154,7 @@
 
 .services-add-btn:hover {
     transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(192, 129, 184, 0.3);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 /* === Десктопная таблица === */
@@ -217,18 +217,18 @@
 }
 
 .services-edit-btn {
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     margin-right: 0.5rem;
 }
 .services-edit-btn:hover {
-    color: var(--color-accent-hover);
+    color: var(--color-accent-text);
 }
 
 .services-delete-btn {
-    color: #ef4444;
+    color: var(--color-danger);
 }
 .services-delete-btn:hover {
-    color: #dc2626;
+    color: var(--color-danger);
 }
 
 /* === Мобильные карточки === */
@@ -239,7 +239,7 @@
 .service-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     margin-bottom: 0.75rem;
     overflow: hidden;
     transition: box-shadow 0.2s;
@@ -281,7 +281,7 @@
 
 .service-card-price {
     font-weight: 700;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     font-size: 1rem;
 }
 
@@ -360,7 +360,7 @@
 
 .services-modal-box {
     background: var(--color-surface);
-    border-radius: 1rem;
+    border-radius: var(--radius-16);
     padding: 2rem;
     max-width: 500px;
     width: 90%;
@@ -410,7 +410,7 @@
     width: 100%;
     padding: 0.75rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
     font-size: 0.95rem;
     background: var(--color-surface);
     color: var(--color-heading);
@@ -423,7 +423,7 @@
 .services-form-group textarea:focus {
     outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(192, 129, 184, 0.15);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 .services-form-row {
@@ -442,7 +442,7 @@
 .services-btn-cancel,
 .services-btn-save {
     padding: 0.6rem 1.5rem;
-    border-radius: 2rem;
+    border-radius: var(--radius-28);
     font-size: 0.875rem;
     font-weight: 500;
     border: none;
@@ -464,7 +464,7 @@
 }
 .services-btn-save:hover {
     transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(192, 129, 184, 0.3);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .services-upload-btn {
@@ -474,7 +474,7 @@
     width: 2rem;
     height: 2rem;
     cursor: pointer;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 .services-upload-btn input {
@@ -497,7 +497,7 @@
     width: 6rem;
     height: 6rem;
     object-fit: cover;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
 }
 
 .service-photo-delete {
@@ -510,7 +510,7 @@
     border: 0;
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.7);
-    color: #fff;
+    color: var(--color-on-dark);
     cursor: pointer;
     line-height: 1;
 }

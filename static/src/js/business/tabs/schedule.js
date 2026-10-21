@@ -248,7 +248,7 @@ import { confirmDialog } from '../../ui-feedback.js';
 
         html += `<div style="margin-top:0.75rem">
             <label style="display:block;font-weight:500;margin-bottom:0.25rem">Списать баллов (доступно: ${status.bonus_points || 0})</label>
-            <input type="number" id="completeBonusPoints" min="0" max="${status.bonus_points || 0}" value="0" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:0.5rem">
+            <input type="number" id="completeBonusPoints" min="0" max="${status.bonus_points || 0}" value="0" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
         </div>`;
 
         body.innerHTML = html;

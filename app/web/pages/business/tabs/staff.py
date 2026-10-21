@@ -42,23 +42,23 @@ async def render_staff_tab(db: AsyncSession, salon, user, membership: SalonMembe
     if notice.get("temp_pw"):
         safe_pw = html.escape(notice["temp_pw"], quote=True)
         notice_banner = (
-            '<div style="background:#DCFCE7;color:#166534;border:1px solid #86EFAC;'
-            'border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
+            '<div style="background:var(--color-success-light);color:var(--color-success);border:1px solid var(--color-success-border);'
+            'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
             f'Сотрудник добавлен. Временный пароль (передайте лично, он больше нигде не отобразится): '
-            f'<code style="background:white;padding:0.15rem 0.5rem;border-radius:0.25rem;font-weight:700">{safe_pw}</code>'
+            f'<code style="background:white;padding:0.15rem 0.5rem;border-radius:var(--radius-8);font-weight:700">{safe_pw}</code>'
             '</div>'
         )
     elif notice.get("added"):
         notice_banner = (
-            '<div style="background:#DCFCE7;color:#166534;border:1px solid #86EFAC;'
-            'border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
+            '<div style="background:var(--color-success-light);color:var(--color-success);border:1px solid var(--color-success-border);'
+            'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
             'Сотрудник добавлен.</div>'
         )
     elif notice.get("error"):
         message = _ERROR_MESSAGES.get(notice["error"], "Что-то пошло не так, попробуйте ещё раз.")
         notice_banner = (
-            '<div style="background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;'
-            'border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
+            '<div style="background:var(--color-danger-light);color:var(--color-danger);border:1px solid var(--color-danger-border);'
+            'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
             f'{message}</div>'
         )
 
@@ -76,7 +76,7 @@ async def render_staff_tab(db: AsyncSession, salon, user, membership: SalonMembe
     rows = ""
     for member, u in members:
         role_label = "Владелец" if member.role == SalonRole.OWNER else "Админ"
-        creator_badge = ' <span style="font-size:0.7rem;color:var(--color-primary)">(создатель)</span>' if member.is_creator else ""
+        creator_badge = ' <span style="font-size:0.7rem;color:var(--color-accent-text)">(создатель)</span>' if member.is_creator else ""
         perms_summary = ", ".join(
             PERMISSION_LABELS[k] for k in SALON_PERMISSION_KEYS
             if (member.is_creator or member.permissions.get(k, False))
@@ -95,9 +95,9 @@ async def render_staff_tab(db: AsyncSession, salon, user, membership: SalonMembe
         if can_edit_this:
             actions = f"""
             <button onclick='openPermissionsModal({member.id}, "{member_name}", {perms_json})'
-                style="background:none;border:none;color:var(--color-primary);cursor:pointer;font-size:1.1rem" title="Права">{ICON_SETTINGS}</button>
+                style="background:none;border:none;color:var(--color-accent-text);cursor:pointer;font-size:1.1rem" title="Права">{ICON_SETTINGS}</button>
             <button onclick="removeMember({member.id}, '{member_name}')"
-                style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;margin-left:0.5rem" title="Снять">{ICON_TRASH}</button>"""
+                style="background:none;border:none;color:var(--color-danger);cursor:pointer;font-size:1.1rem;margin-left:0.5rem" title="Снять">{ICON_TRASH}</button>"""
 
         rows += f"""
         <tr>
@@ -126,15 +126,15 @@ async def render_staff_tab(db: AsyncSession, salon, user, membership: SalonMembe
                     <input type="hidden" name="salon_id" value="{salon.id}">
                     <div style="margin-bottom:1rem">
                         <label style="display:block;font-weight:500;margin-bottom:0.5rem">Телефон *</label>
-                        <input type="tel" name="phone" required placeholder="+7XXXXXXXXXX" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                        <input type="tel" name="phone" required placeholder="+7XXXXXXXXXX" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                     </div>
                     <div style="margin-bottom:1rem">
                         <label style="display:block;font-weight:500;margin-bottom:0.5rem">Имя (если новый пользователь)</label>
-                        <input type="text" name="full_name" placeholder="Имя" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                        <input type="text" name="full_name" placeholder="Имя" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                     </div>
                     <div style="margin-bottom:1rem">
                         <label style="display:block;font-weight:500;margin-bottom:0.5rem">Роль {_hint("Владелец и Админ отличаются только тем, кто вправе ими управлять: снять/изменить права владельца может лишь тот, у кого есть право «Совладельцы», админа — у кого есть право «Админы». Конкретные возможности каждого настраиваются галочками ниже, отдельно для каждого участника.")}</label>
-                        <select name="role" class="custom-select" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:0.5rem">{role_options}</select>
+                        <select name="role" class="custom-select" style="width:100%;padding:0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">{role_options}</select>
                     </div>
                     <button type="submit" class="btn-primary" style="width:100%">Добавить</button>
                 </form>

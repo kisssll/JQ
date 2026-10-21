@@ -53,16 +53,16 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
         return mu.full_name if mu else "—"
 
     status_labels = {
-        BookingStatus.PENDING: ("Ожидает", "#f59e0b"),
-        BookingStatus.CONFIRMED: ("Подтверждена", "#3b82f6"),
-        BookingStatus.COMPLETED: ("Завершена", "#22c55e"),
-        BookingStatus.CANCELLED: ("Отменена", "#9ca3af"),
-        BookingStatus.NO_SHOW: ("Неявка", "#ef4444"),
+        BookingStatus.PENDING: ("Ожидает", "var(--color-warning)"),
+        BookingStatus.CONFIRMED: ("Подтверждена", "var(--color-info)"),
+        BookingStatus.COMPLETED: ("Завершена", "var(--color-success)"),
+        BookingStatus.CANCELLED: ("Отменена", "var(--color-muted)"),
+        BookingStatus.NO_SHOW: ("Неявка", "var(--color-danger)"),
     }
 
     bookings_rows = ""
     for b, s in bookings:
-        label, color = status_labels.get(b.status, (b.status.value, "#9ca3af"))
+        label, color = status_labels.get(b.status, (b.status.value, "var(--color-muted)"))
         price = f"{(b.final_price or s.price):,}".replace(",", " ")
         bookings_rows += f"""
         <tr>
@@ -79,7 +79,7 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
     reviews = reviews_result.scalars().all()
     reviews_html = "".join(
         f"""<div class="card" style="margin-bottom:0.75rem">
-            <div style="color:#f59e0b">{'★' * r.rating}{'☆' * (5 - r.rating)}</div>
+            <div style="color:var(--color-warning)">{'★' * r.rating}{'☆' * (5 - r.rating)}</div>
             <p style="margin-top:0.25rem">{r.comment or '<span class="text-muted">без комментария</span>'}</p>
             <p class="text-muted" style="font-size:0.75rem;margin-top:0.25rem">{r.created_at.strftime('%d.%m.%Y')}</p>
         </div>""" for r in reviews
@@ -109,7 +109,7 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
     {get_base_styles()}
     <style>
         .analytics-kpi {{ display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap }}
-        .kpi-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:1rem; padding:1.25rem 1.5rem; flex:1; min-width:150px }}
+        .kpi-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-16); padding:1.25rem 1.5rem; flex:1; min-width:150px }}
         .kpi-value {{ font-size:1.75rem; font-weight:700; color:var(--color-heading) }}
         .kpi-label {{ font-size:0.8rem; color:var(--color-muted) }}
         table {{ width:100%; border-collapse:collapse }}
@@ -129,7 +129,7 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
 
             <div class="analytics-kpi">
                 <div class="kpi-card"><div class="kpi-label">Визитов</div><div class="kpi-value">{total_visits}</div></div>
-                <div class="kpi-card"><div class="kpi-label">Потрачено</div><div class="kpi-value" style="color:#22c55e">{f"{total_spent:,}".replace(",", " ")} ₽</div></div>
+                <div class="kpi-card"><div class="kpi-label">Потрачено</div><div class="kpi-value" style="color:var(--color-success)">{f"{total_spent:,}".replace(",", " ")} ₽</div></div>
                 <div class="kpi-card"><div class="kpi-label">Первый визит</div><div class="kpi-value" style="font-size:1.1rem">{first_visit.strftime('%d.%m.%Y') if first_visit else '—'}</div></div>
                 <div class="kpi-card"><div class="kpi-label">Последний визит</div><div class="kpi-value" style="font-size:1.1rem">{last_visit.strftime('%d.%m.%Y') if last_visit else '—'}</div></div>
             </div>
@@ -147,18 +147,18 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
                         <div style="display:flex;gap:0.5rem">
                             <input type="number" id="personalDiscountInput" min="1" max="99"
                                    value="{loyalty["personal_discount_percent"] or ''}" placeholder="Не назначена"
-                                   style="flex:1;padding:0.65rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                                   style="flex:1;padding:0.65rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                             <button type="button" class="btn-outline" style="font-size:0.8rem" onclick="savePersonalDiscount()">Сохранить</button>
                         </div>
                     </div>
                     <div>
                         <label style="display:block;font-weight:500;margin-bottom:0.5rem">Баллы: <strong id="bonusPointsValue">{loyalty["bonus_points"]}</strong></label>
                         <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
-                            <input type="number" id="pointsAmountInput" placeholder="+100 или -50" style="flex:1;padding:0.65rem;border:1px solid var(--color-border);border-radius:0.5rem">
+                            <input type="number" id="pointsAmountInput" placeholder="+100 или -50" style="flex:1;padding:0.65rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">
                             <button type="button" class="btn-outline" style="font-size:0.8rem" onclick="adjustPoints()">Начислить/списать</button>
                         </div>
                         <input type="text" id="pointsCommentInput" placeholder="Причина (например: перенос из старой системы салона)"
-                               style="width:100%;padding:0.65rem;border:1px solid var(--color-border);border-radius:0.5rem;font-size:0.85rem">
+                               style="width:100%;padding:0.65rem;border:1px solid var(--color-border);border-radius:var(--radius-8);font-size:0.85rem">
                     </div>
                 </div>
             </div>
@@ -180,7 +180,7 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
                     <h3 style="margin-bottom:1rem">Заметки</h3>
                     <form id="noteForm" style="display:flex;gap:0.5rem;margin-bottom:1rem">
                         <input id="noteText" type="text" placeholder="Например: аллергия на аммиак" required
-                               style="flex:1;padding:0.65rem 0.85rem;border:1px solid var(--color-border);border-radius:0.5rem;font-size:0.875rem">
+                               style="flex:1;padding:0.65rem 0.85rem;border:1px solid var(--color-border);border-radius:var(--radius-8);font-size:0.875rem">
                         <button type="submit" class="btn-primary">Добавить</button>
                     </form>
                     <div id="notesList">{notes_html}</div>

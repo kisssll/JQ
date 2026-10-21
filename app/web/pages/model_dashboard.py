@@ -31,7 +31,7 @@ def _profile_checklist(user) -> str:
     ]
     rows = "".join(f"""
         <li style="display:flex;align-items:center;gap:0.6rem;font-size:0.85rem;padding:0.3rem 0">
-            <span style="display:flex;height:1.25rem;width:1.25rem;align-items:center;justify-content:center;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;{'background:#d1fae5;color:#065f46' if done else 'background:var(--color-surface-alt,#f3f4f6);color:var(--color-muted)'}">{ICON_CHECK if done else '·'}</span>
+            <span style="display:flex;height:1.25rem;width:1.25rem;align-items:center;justify-content:center;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;{'background:var(--color-success-light);color:var(--color-success)' if done else 'background:var(--color-surface-alt);color:var(--color-muted)'}">{ICON_CHECK if done else '·'}</span>
             <span style="{'color:var(--color-muted);text-decoration:line-through' if done else ''}">{label}</span>
         </li>""" for label, done in items)
     return f'<ul style="list-style:none;padding:0;margin:0">{rows}</ul>'
@@ -56,11 +56,11 @@ async def render_model_dashboard(db: AsyncSession, user) -> str:
 
     status_banner = ""
     if moderation_value == "pending":
-        status_banner = f'<div class="profile-alert" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:0.75rem 1rem;border-radius:0.5rem;margin-bottom:1.5rem">{ICON_CLOCK} Анкета на модерации — лента и лайки станут доступны после одобрения.</div>'
+        status_banner = f'<div class="profile-alert" style="background:var(--color-warning-light);color:var(--color-warning);border:1px solid var(--color-warning-border);padding:0.75rem 1rem;border-radius:var(--radius-8);margin-bottom:1.5rem">{ICON_CLOCK} Анкета на модерации — лента и лайки станут доступны после одобрения.</div>'
     elif moderation_value == "rejected":
         reason = getattr(user, "model_rejection_reason", "") or ""
         status_banner = (
-            '<div class="profile-alert" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:0.75rem 1rem;border-radius:0.5rem;margin-bottom:1.5rem">'
+            '<div class="profile-alert" style="background:var(--color-danger-light);color:var(--color-danger);border:1px solid var(--color-danger-border);padding:0.75rem 1rem;border-radius:var(--radius-8);margin-bottom:1.5rem">'
             f'{ICON_ALERT_TRIANGLE} Анкета отклонена' + (f' — {reason}' if reason else '') +
             '. Обновите анкету в <a href="/model/join">редактировании</a> и она снова уйдёт на проверку.</div>'
         )
@@ -123,7 +123,7 @@ async def render_model_dashboard(db: AsyncSession, user) -> str:
         <div>
             <div class="card" style="padding:1.25rem;margin-bottom:1rem">
                 <div style="display:flex;align-items:center;gap:0.75rem">
-                    {f'<img src="{user.model_photo_url}" alt="" loading="lazy" style="width:56px;height:56px;border-radius:50%;object-fit:cover">' if getattr(user, "model_photo_url", None) else '<div style="width:56px;height:56px;border-radius:50%;background:var(--color-surface-alt,#f3f4f6);display:flex;align-items:center;justify-content:center;color:var(--color-muted)">?</div>'}
+                    {f'<img src="{user.model_photo_url}" alt="" loading="lazy" style="width:56px;height:56px;border-radius:50%;object-fit:cover">' if getattr(user, "model_photo_url", None) else '<div style="width:56px;height:56px;border-radius:50%;background:var(--color-surface-alt);display:flex;align-items:center;justify-content:center;color:var(--color-muted)">?</div>'}
                     <strong>{e(user.full_name or "Ваше имя")}</strong>
                 </div>
                 <a href="/model/join" class="btn-outline" style="display:block;text-align:center;margin-top:1rem;font-size:0.85rem">Редактировать профиль</a>
@@ -149,31 +149,31 @@ def _render_page(user, body: str, approved: bool = False) -> str:
         .invite-card {{
             background: var(--color-surface);
             border: 1px solid var(--color-border);
-            border-radius: 1rem;
+            border-radius: var(--radius-16);
             padding: 1.25rem;
             margin-bottom: 1rem;
         }}
-        .status-badge {{ padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 600; }}
-        .status-matched {{ background: #fef3c7; color: #92400e; }}
-        .status-booked {{ background: #d1fae5; color: #065f46; }}
-        .status-declined {{ background: #fee2e2; color: #991b1b; }}
+        .status-badge {{ padding: 0.25rem 0.75rem; border-radius: var(--radius-16); font-size: 0.75rem; font-weight: 600; }}
+        .status-matched {{ background: var(--color-warning-light); color: var(--color-warning); }}
+        .status-booked {{ background: var(--color-success-light); color: var(--color-success); }}
+        .status-declined {{ background: var(--color-danger-light); color: var(--color-danger); }}
         .models-stat-grid {{ display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; max-width:24rem; margin-bottom:1.5rem }}
         .models-dash-grid {{ display:grid; grid-template-columns:1fr; gap:1.5rem }}
         @media (min-width: 1024px) {{ .models-dash-grid {{ grid-template-columns:1fr 300px }} }}
-        .models-subtab-nav {{ display:flex; gap:0.25rem; background:var(--color-surface-alt,#f3f4f6); border-radius:0.75rem; padding:0.25rem; margin-bottom:1.25rem; flex-wrap:wrap }}
-        .models-subtab-btn {{ flex:1; min-width:8rem; padding:0.6rem; border:none; background:transparent; border-radius:0.5rem; cursor:pointer; font-size:0.85rem; font-weight:500; color:var(--color-muted); position:relative }}
-        .models-subtab-btn.active {{ background:var(--color-surface,#fff); color:var(--color-heading); box-shadow:0 1px 2px rgba(0,0,0,0.06) }}
-        .models-subtab-badge {{ display:inline-block; min-width:1.1rem; margin-left:0.3rem; padding:0 0.3rem; border-radius:1rem; background:var(--color-primary); color:#fff; font-size:0.65rem; font-weight:700 }}
+        .models-subtab-nav {{ display:flex; gap:0.25rem; background:var(--color-surface-alt); border-radius:var(--radius-16); padding:0.25rem; margin-bottom:1.25rem; flex-wrap:wrap }}
+        .models-subtab-btn {{ flex:1; min-width:8rem; padding:0.6rem; border:none; background:transparent; border-radius:var(--radius-8); cursor:pointer; font-size:0.85rem; font-weight:500; color:var(--color-muted); position:relative }}
+        .models-subtab-btn.active {{ background:var(--color-surface); color:var(--color-heading); box-shadow:0 1px 2px rgba(0,0,0,0.06) }}
+        .models-subtab-badge {{ display:inline-block; min-width:1.1rem; margin-left:0.3rem; padding:0 0.3rem; border-radius:var(--radius-16); background:var(--color-primary); color:var(--color-on-dark); font-size:0.65rem; font-weight:700 }}
         .models-card-stack {{ position:relative; width:100%; max-width:340px; margin:0 auto 1rem; aspect-ratio:3/4 }}
-        .models-swipe-card {{ position:absolute; inset:0; border:1px solid var(--color-border); border-radius:1rem; overflow:hidden; background:var(--color-surface,#fff); box-shadow:0 10px 25px rgba(0,0,0,0.12) }}
-        .models-swipe-card-photo {{ position:relative; height:65%; background-size:cover; background-position:center; background-color:var(--color-surface-alt,#eee) }}
+        .models-swipe-card {{ position:absolute; inset:0; border:1px solid var(--color-border); border-radius:var(--radius-16); overflow:hidden; background:var(--color-surface); box-shadow:0 10px 25px rgba(0,0,0,0.12) }}
+        .models-swipe-card-photo {{ position:relative; height:65%; background-size:cover; background-position:center; background-color:var(--color-surface-alt) }}
         .models-swipe-card-photo::after {{ content:''; position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.6), transparent 60%) }}
-        .models-swipe-card-name {{ position:absolute; left:1rem; right:1rem; bottom:0.75rem; color:#fff }}
+        .models-swipe-card-name {{ position:absolute; left:1rem; right:1rem; bottom:0.75rem; color:var(--color-on-dark) }}
         .models-swipe-card-body {{ padding:0.9rem 1rem; height:35%; overflow:hidden }}
         .models-swipe-buttons {{ display:flex; justify-content:center; gap:1.25rem; margin-top:1rem }}
-        .models-swipe-btn {{ width:3.25rem; height:3.25rem; border-radius:50%; border:2px solid var(--color-border); background:#fff; cursor:pointer; font-size:1.3rem; display:flex; align-items:center; justify-content:center }}
-        .models-swipe-btn-like {{ width:3.75rem; height:3.75rem; color:#22c55e; border-color:#bbf7d0 }}
-        .models-swipe-btn-pass {{ color:#ef4444; border-color:#fecaca }}
+        .models-swipe-btn {{ width:3.25rem; height:3.25rem; border-radius:50%; border:2px solid var(--color-border); background:var(--color-surface); cursor:pointer; font-size:1.3rem; display:flex; align-items:center; justify-content:center }}
+        .models-swipe-btn-like {{ width:3.75rem; height:3.75rem; color:var(--color-success); border-color:var(--color-success-border) }}
+        .models-swipe-btn-pass {{ color:var(--color-danger); border-color:var(--color-danger-border) }}
 
         /* Мобильная адаптация: на десктопе справа занят сайдбар (16rem),
            на телефоне сайдбар скрыт (см. .sidebar-container в components.css,

@@ -37,7 +37,7 @@
 }
 
 #tab-instructions .instructions-toc-first:hover {
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 #tab-instructions .instructions-toc-grid {
@@ -56,7 +56,7 @@
 }
 
 #tab-instructions .instructions-toc-title:hover {
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 #tab-instructions .instructions-toc ul {
@@ -74,7 +74,7 @@
 }
 
 #tab-instructions .instructions-toc ul a:hover {
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 /* ===== Группа секций ===== */
@@ -86,7 +86,7 @@
 #tab-instructions .instructions-group-title {
     font-family: var(--font-heading);
     font-size: 1.5rem;
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     color: var(--color-heading);
     margin: 0 0 0.4rem;
     /* Запас под закреплённую шапку: иначе якорь прячет заголовок под ней. */
@@ -154,7 +154,7 @@
 
 #tab-instructions .instructions-where-link {
     font-weight: 600;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 
 /* ===== Гайд «с чего начать» ===== */
@@ -187,7 +187,7 @@
     height: 1.75rem;
     border-radius: 50%;
     background: var(--color-accent-light);
-    color: var(--color-primary);
+    color: var(--color-accent-text);
     font-weight: 700;
     font-size: 0.85rem;
     display: flex;

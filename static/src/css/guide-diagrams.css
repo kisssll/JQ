@@ -25,7 +25,7 @@
     display: block;
     max-width: none;
     height: auto;
-    color: var(--color-accent);
+    color: var(--color-accent-text);
 }
 
 .gd-box {

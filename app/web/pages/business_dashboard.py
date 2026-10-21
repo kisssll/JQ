@@ -140,7 +140,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
     prev_total_revenue = sum(prev_revenue_data.values())
     revenue_diff = total_revenue - prev_total_revenue
     revenue_trend = "▲" if revenue_diff > 0 else "▼" if revenue_diff < 0 else "—"
-    revenue_color = "#22c55e" if revenue_diff > 0 else "#ef4444" if revenue_diff < 0 else "var(--color-muted)"
+    revenue_color = "var(--color-success)" if revenue_diff > 0 else "var(--color-danger)" if revenue_diff < 0 else "var(--color-muted)"
     
     # Топ-услуги
     top_services = []
@@ -237,32 +237,32 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
     <style>
         .tab-nav {{ display:flex; gap:0.25rem; border-bottom:1px solid var(--color-border); margin-bottom:2rem; flex-wrap:wrap }}
         .tab-btn {{ padding:0.75rem 1.5rem; border:none; background:transparent; cursor:pointer; font-size:0.875rem; font-weight:500; color:var(--color-muted); border-bottom:2px solid transparent; transition:all 0.2s; white-space:nowrap }}
-        .tab-btn.active {{ color:var(--color-primary); border-bottom-color:var(--color-primary) }}
+        .tab-btn.active {{ color:var(--color-accent-text); border-bottom-color:var(--color-primary) }}
         .tab-content {{ display:none }}
         .tab-content.active {{ display:block }}
-        .stat-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:1rem; padding:1.5rem; text-align:center }}
-        .stat-value {{ font-size:2rem; font-weight:700; color:var(--color-primary) }}
+        .stat-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-16); padding:1.5rem; text-align:center }}
+        .stat-value {{ font-size:2rem; font-weight:700; color:var(--color-accent-text) }}
         .stat-label {{ font-size:0.85rem; color:var(--color-muted); margin-top:0.25rem }}
-        .promo-badge {{ display:inline-block; border-radius:2rem; padding:0.125rem 0.5rem; font-size:0.625rem; font-weight:700; color:white; background:linear-gradient(135deg,var(--color-primary),var(--color-accent)) }}
+        .promo-badge {{ display:inline-block; border-radius:var(--radius-28); padding:0.125rem 0.5rem; font-size:0.625rem; font-weight:700; color:white; background:linear-gradient(135deg,var(--color-primary),var(--color-accent)) }}
         table {{ width:100%; border-collapse:collapse }}
         th {{ text-align:left; padding:0.75rem; border-bottom:2px solid var(--color-border); font-weight:600; color:var(--color-heading); white-space:nowrap }}
         td {{ padding:0.75rem; border-bottom:1px solid var(--color-border) }}
         .chart-bar {{ height:200px; display:flex; align-items:flex-end; gap:1rem; padding:1rem 0 }}
         .chart-column {{ flex:1; display:flex; flex-direction:column; align-items:center; gap:0.25rem; min-width:40px }}
-        .chart-fill {{ width:100%; max-width:3.5rem; border-radius:0.5rem 0.5rem 0 0; background:linear-gradient(to top,var(--color-primary),var(--color-accent)); transition:height 0.3s }}
-        .chart-fill.highest {{ background:linear-gradient(to top,#22c55e,#4ade80) }}
+        .chart-fill {{ width:100%; max-width:3.5rem; border-radius:var(--radius-8) var(--radius-8) 0 0; background:linear-gradient(to top,var(--color-primary),var(--color-accent)); transition:height 0.3s }}
+        .chart-fill.highest {{ background:linear-gradient(to top,var(--color-success),var(--color-success)) }}
         .chart-fill.prev {{ background:var(--color-border) }}
         .chart-label {{ font-size:0.75rem; color:var(--color-muted) }}
         .chart-value {{ font-size:0.7rem; font-weight:600; color:var(--color-heading); white-space:nowrap }}
         .rating-summary {{ display:flex; gap:1rem; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap }}
-        .rating-big {{ font-size:3rem; font-weight:800; color:var(--color-primary); line-height:1 }}
+        .rating-big {{ font-size:3rem; font-weight:800; color:var(--color-accent-text); line-height:1 }}
         .analytics-kpi {{ display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap }}
-        .kpi-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:1rem; padding:1.25rem 1.5rem; flex:1; min-width:150px }}
+        .kpi-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-16); padding:1.25rem 1.5rem; flex:1; min-width:150px }}
         .kpi-value {{ font-size:1.75rem; font-weight:700; color:var(--color-heading) }}
         .kpi-label {{ font-size:0.8rem; color:var(--color-muted) }}
         .kpi-trend {{ font-size:0.85rem; font-weight:600 }}
         .legend {{ display:flex; gap:1.5rem; align-items:center; margin-bottom:1rem; font-size:0.85rem }}
-        .legend-dot {{ width:12px; height:12px; border-radius:3px; display:inline-block }}
+        .legend-dot {{ width:12px; height:12px; border-radius:var(--radius-8); display:inline-block }}
     </style>
 </head>
 <body>
@@ -428,7 +428,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
         function showDayDetails(index, dayName, revenue, prevRevenue) {{
             const diff = revenue - prevRevenue;
             const trend = diff > 0 ? '▲' : diff < 0 ? '▼' : '—';
-            const color = diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : 'gray';
+            const color = diff > 0 ? 'var(--color-success)' : diff < 0 ? 'var(--color-danger)' : 'gray';
             alert(`${{dayName}}\\nВыручка: ${{revenue.toLocaleString()}} ₽\\nПрошлая неделя: ${{prevRevenue.toLocaleString()}} ₽\\n${{trend}} ${{Math.abs(diff).toLocaleString()}} ₽`);
         }}
     </script>

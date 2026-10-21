@@ -110,8 +110,8 @@
     justify-content: center;
     padding-bottom: 4px;
     border: 0;
-    background: linear-gradient(to top, rgba(26, 17, 21, 0.55), transparent 58%);
-    color: #fff;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent 58%);
+    color: var(--color-on-dark);
     cursor: pointer;
     opacity: 0;
     transition: opacity var(--duration-1) var(--ease-out);
@@ -282,7 +282,7 @@
 }
 
 .profile-docs a {
-    color: var(--color-accent);
+    color: var(--color-accent-text);
     text-decoration: none;
 }
 
@@ -330,32 +330,32 @@
 
 .profile-alert {
     padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-8);
     font-size: 0.875rem;
     margin-bottom: 0.75rem;
 }
 .profile-alert-error {
-    background: #fee2e2;
-    border: 1px solid #fecaca;
-    color: #991b1b;
+    background: var(--color-danger-light);
+    border: 1px solid var(--color-danger-border);
+    color: var(--color-danger);
 }
 .profile-alert-success {
-    background: #dcfce7;
-    border: 1px solid #bbf7d0;
-    color: #166534;
+    background: var(--color-success-light);
+    border: 1px solid var(--color-success-border);
+    color: var(--color-success);
 }
 
 .settings-title {
     font-family: var(--font-heading);
     font-size: 2rem;
-    font-weight: 400;
+    font-weight: var(--weight-heading);
     margin: 0;
 }
 
 .settings-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 1.5rem;
+    border-radius: var(--radius-28);
     padding: 2rem 2.5rem;
     margin-bottom: 1.5rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
@@ -379,7 +379,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 .settings-icon-wrapper svg {
     width: 1.5rem;
@@ -409,7 +409,7 @@
 
 .accordion-item {
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     overflow: hidden;
     background: var(--color-surface);
 }
@@ -443,7 +443,7 @@
 .accordion-header .accordion-icon {
     display: inline-flex;
     align-items: center;
-    color: var(--color-primary);
+    color: var(--color-accent-text);
 }
 .accordion-header .accordion-icon svg {
     width: 1.25rem;

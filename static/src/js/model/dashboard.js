@@ -27,17 +27,17 @@ import { toastNetworkError } from '../ui-feedback.js';
   function inviteCardHtml(inv) {
     return '<div class="invite-card">' +
       '<div style="display:flex;gap:1rem;align-items:start">' +
-      (inv.photo_url ? '<img src="' + inv.photo_url + '" style="width:56px;height:56px;border-radius:0.75rem;object-fit:cover;flex-shrink:0">' : '') +
+      (inv.photo_url ? '<img src="' + inv.photo_url + '" style="width:56px;height:56px;border-radius:var(--radius-16);object-fit:cover;flex-shrink:0">' : '') +
       '<div style="flex:1">' +
       '<div style="display:flex;justify-content:space-between;align-items:start;gap:0.5rem">' +
       '<strong>' + inv.salon_name + '</strong>' +
       (inv.salon_rating ? '<span class="text-muted" style="font-size:0.8rem">⭐ ' + inv.salon_rating + '</span>' : '') +
       '</div>' +
       '<p class="text-muted" style="font-size:0.8rem;margin:0.15rem 0">' + inv.service_name + ' · ' + (inv.price ? inv.price + ' ₽' : 'бесплатно') + ' · ' + inv.specialization + '</p>' +
-      (inv.description ? '<p style="font-size:0.85rem;background:var(--color-surface-alt,#f9fafb);border-radius:0.75rem;padding:0.6rem;margin-top:0.4rem">' + inv.description + '</p>' : '') +
+      (inv.description ? '<p style="font-size:0.85rem;background:var(--color-surface-alt);border-radius:var(--radius-16);padding:0.6rem;margin-top:0.4rem">' + inv.description + '</p>' : '') +
       '</div></div>' +
       '<div style="display:flex;gap:0.5rem;margin-top:0.75rem;border-top:1px solid var(--color-border);padding-top:0.75rem">' +
-      '<button class="btn-outline" style="flex:1;font-size:0.8rem;color:#ef4444;border-color:#fecaca" onclick="window.modelRespondInvitation(' + inv.service_id + ', false, this)">✕ Отклонить</button>' +
+      '<button class="btn-outline" style="flex:1;font-size:0.8rem;color:var(--color-danger);border-color:var(--color-danger-border)" onclick="window.modelRespondInvitation(' + inv.service_id + ', false, this)">✕ Отклонить</button>' +
       '<button class="btn-primary" style="flex:1;font-size:0.8rem" onclick="window.modelRespondInvitation(' + inv.service_id + ', true, this)">✓ Принять</button>' +
       '</div></div>';
   }
@@ -192,13 +192,13 @@ import { toastNetworkError } from '../ui-feedback.js';
     if (m.status === 'matched') {
       actions = '<p style="margin-top:0.5rem;font-size:0.85rem">' + m.service_name + ' · ' + (m.price ? m.price + ' ₽' : 'бесплатно') + '</p>' +
         '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;align-items:center">' +
-        '<input type="date" id="dashdate-' + m.match_id + '" min="' + todayIso() + '" value="' + todayIso() + '" onchange="window.modelDashLoadSlots(' + m.match_id + ')" style="padding:0.4rem;border:1px solid var(--color-border);border-radius:0.5rem">' +
-        '<select id="dashslot-' + m.match_id + '" style="padding:0.4rem;border:1px solid var(--color-border);border-radius:0.5rem"><option value="">Выберите время</option></select>' +
+        '<input type="date" id="dashdate-' + m.match_id + '" min="' + todayIso() + '" value="' + todayIso() + '" onchange="window.modelDashLoadSlots(' + m.match_id + ')" style="padding:0.4rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">' +
+        '<select id="dashslot-' + m.match_id + '" style="padding:0.4rem;border:1px solid var(--color-border);border-radius:var(--radius-8)"><option value="">Выберите время</option></select>' +
         '<button class="btn-primary" style="font-size:0.8rem" onclick="window.modelDashAcceptSlot(' + m.match_id + ')">Записаться</button>' +
         '</div>' +
         '<p class="text-muted" style="font-size:0.75rem;margin-top:0.3rem" id="dashslothint-' + m.match_id + '"></p>';
     } else if (m.status === 'booked') {
-      actions = '<p style="margin-top:0.5rem;color:var(--color-success,#065f46);font-size:0.85rem">Вы записаны</p>';
+      actions = '<p style="margin-top:0.5rem;color:var(--color-success);font-size:0.85rem">Вы записаны</p>';
     }
     return '<div class="invite-card" data-match-id="' + m.match_id + '"><div style="display:flex;justify-content:space-between;align-items:start">' +
       '<h3 style="font-weight:600;font-size:0.9rem;margin:0">' + m.master_name + '</h3>' +

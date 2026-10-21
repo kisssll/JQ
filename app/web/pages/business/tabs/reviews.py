@@ -55,15 +55,15 @@ async def render_reviews_tab(db: AsyncSession, reviews, salon) -> str:
         stars = f"{ICON_STAR_FILLED}" * r.rating + f"{ICON_STAR_EMPTY}" * (5 - r.rating)
         date_str = r.created_at.strftime("%d.%m.%Y") if r.created_at else ""
         verified_html = (
-            f'<span class="badge-tag" style="background:#dcfce7;color:#166534">{ICON_CIRCLE_CHECK} Подтверждено</span>'
+            f'<span class="badge-tag" style="background:var(--color-success-light);color:var(--color-success)">{ICON_CIRCLE_CHECK} Подтверждено</span>'
             if r.is_verified else
-            '<span class="badge-tag" style="background:#f3f4f6;color:var(--color-muted)">Без подтверждения</span>'
+            '<span class="badge-tag" style="background:var(--color-surface-2);color:var(--color-muted)">Без подтверждения</span>'
         )
 
         photos = (await db.execute(select(ReviewPhoto).where(ReviewPhoto.review_id == r.id))).scalars().all()
         photos_html = "".join(
             f'<img src="{p.url}" alt="" loading="lazy" style="width:48px;height:48px;object-fit:cover;'
-            f'border-radius:0.4rem;margin-right:0.25rem">'
+            f'border-radius:var(--radius-8);margin-right:0.25rem">'
             for p in photos
         )
 

@@ -15,8 +15,8 @@ def render_register_salon_page(user=None, error: str = "") -> str:
     if error:
         import html as _html
         error_banner = (
-            f'<div style="background:#fde8e8;color:#c0392b;padding:0.75rem 1rem;'
-            f'border-radius:0.75rem;margin-bottom:1.5rem;font-size:0.9rem;">'
+            f'<div style="background:var(--color-danger-light);color:var(--color-danger);padding:0.75rem 1rem;'
+            f'border-radius:var(--radius-16);margin-bottom:1.5rem;font-size:0.9rem;">'
             f'{_html.escape(error)}</div>'
         )
 
@@ -34,7 +34,7 @@ def render_register_salon_page(user=None, error: str = "") -> str:
         if geocoding else ""
     )
     address_map_block = (
-        '<div id="salonAddressMap" style="display:none;height:220px;border-radius:0.75rem;margin-bottom:1.5rem;overflow:hidden"></div>'
+        '<div id="salonAddressMap" style="display:none;height:220px;border-radius:var(--radius-16);margin-bottom:1.5rem;overflow:hidden"></div>'
         if geocoding else ""
     )
     address_hint = (
@@ -65,10 +65,10 @@ def render_register_salon_page(user=None, error: str = "") -> str:
                 {error_banner}
                 <form action="/api/v1/business/my-salon" method="post">
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Название салона *</label>
-                    <input type="text" name="name" required placeholder="Например: Студия красоты «Лотос»" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem;">
+                    <input type="text" name="name" required placeholder="Например: Студия красоты «Лотос»" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-16); font-size: 0.95rem; margin-bottom: 1.5rem;">
                     
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Описание</label>
-                    <textarea name="description" rows="3" placeholder="Опишите ваш салон, услуги, особенности..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem; resize: vertical;"></textarea>
+                    <textarea name="description" rows="3" placeholder="Опишите ваш салон, услуги, особенности..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-16); font-size: 0.95rem; margin-bottom: 1.5rem; resize: vertical;"></textarea>
                     
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Город *</label>
                     <select name="city" class="custom-select city-select" required style="margin-bottom: 1.5rem;">
@@ -76,16 +76,16 @@ def render_register_salon_page(user=None, error: str = "") -> str:
                     </select>
 
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Адрес *</label>
-                    <input type="text" name="address" required placeholder="Улица, дом" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 0.5rem;"{address_geo_attrs}>
+                    <input type="text" name="address" required placeholder="Улица, дом" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-16); font-size: 0.95rem; margin-bottom: 0.5rem;"{address_geo_attrs}>
                     {address_hint}
                     {address_map_block}
                     {address_hidden_coords}
 
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Телефон *</label>
-                    <input type="tel" name="phone" value="+7" required placeholder="+7XXXXXXXXXX" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 1.5rem;">
+                    <input type="tel" name="phone" value="+7" required placeholder="+7XXXXXXXXXX" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-16); font-size: 0.95rem; margin-bottom: 1.5rem;">
 
                     <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-heading);">Почта салона</label>
-                    <input type="email" name="email" placeholder="salon@example.com (необязательно)" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: 0.75rem; font-size: 0.95rem; margin-bottom: 0.4rem;">
+                    <input type="email" name="email" placeholder="salon@example.com (необязательно)" style="width: 100%; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-16); font-size: 0.95rem; margin-bottom: 0.4rem;">
                     <p class="text-muted" style="font-size: 0.8rem; margin: 0 0 1.5rem;">На неё можно отправлять реквизиты новых сотрудников и получать уведомления о записях.</p>
 
                     <!-- Раньше здесь была одна галочка, склеивавшая принятие оферты

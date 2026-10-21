@@ -68,7 +68,7 @@ def render_connect_vk(user, code: str, address: str) -> str:
                 Дальше бот узнает вас сам, и уведомления о записях смогут приходить туда.</p>
             <a class="btn-primary" href="{link}" style="display:inline-flex;margin:1.25rem 0 0.5rem"
                target="_blank" rel="noopener">Открыть ВКонтакте</a>
-            <div style="border:1px solid var(--color-border);border-radius:0.9rem;padding:1rem;margin-top:1.5rem">
+            <div style="border:1px solid var(--color-border);border-radius:var(--radius-16);padding:1rem;margin-top:1.5rem">
                 <p class="settings-card-hint" style="margin:0 0 0.5rem">
                     Если бот не ответил — отправьте ему этот код сообщением:</p>
                 <p style="font-size:1.6rem;font-weight:700;letter-spacing:0.08em;margin:0;

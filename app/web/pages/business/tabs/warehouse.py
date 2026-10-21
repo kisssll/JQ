@@ -116,9 +116,9 @@ async def render_warehouse_tab(db: AsyncSession, salon, masters, master_ids, war
     <div id="tab-warehouse" class="tab-content">
         <div class="analytics-kpi">
             <div class="kpi-card"><div class="kpi-label">Позиции в каталоге</div><div class="kpi-value">{stock_count}</div></div>
-            <div class="kpi-card"><div class="kpi-label">Нужно пополнить</div><div class="kpi-value" style="color:#ef4444">{low_stock_count}</div></div>
-            <div class="kpi-card"><div class="kpi-label">Сломано / утеряно</div><div class="kpi-value" style="color:{'#64748b' if unavailable_equipment_count == 0 else '#ef4444'}">{unavailable_equipment_count:g}</div><div class="kpi-label" style="margin-top:.25rem">Сломано: {broken_equipment_count:g} · утеряно: {lost_equipment_count:g}</div></div>
-            <div class="kpi-card"><div class="kpi-label">Заявок в очереди</div><div class="kpi-value" style="color:#f59e0b">{len(pending_requests)}</div></div>
+            <div class="kpi-card"><div class="kpi-label">Нужно пополнить</div><div class="kpi-value" style="color:var(--color-danger)">{low_stock_count}</div></div>
+            <div class="kpi-card"><div class="kpi-label">Сломано / утеряно</div><div class="kpi-value" style="color:{'var(--color-muted)' if unavailable_equipment_count == 0 else 'var(--color-danger)'}">{unavailable_equipment_count:g}</div><div class="kpi-label" style="margin-top:.25rem">Сломано: {broken_equipment_count:g} · утеряно: {lost_equipment_count:g}</div></div>
+            <div class="kpi-card"><div class="kpi-label">Заявок в очереди</div><div class="kpi-value" style="color:var(--color-warning)">{len(pending_requests)}</div></div>
         </div>
 
         {notify_toggle_html}
