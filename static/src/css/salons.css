@@ -49,6 +49,22 @@
     .catalog-hero { padding: 6rem 0 var(--space-32); }
 }
 
+.catalog-hero .section-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-8) var(--space-48);
+    align-items: end;
+}
+
+/* Макет дизайнера: заголовок слева, поиск справа в одной строке. На узком
+   экране они снова друг под другом — поиск первым по ширине, а не сбоку. */
+@media (min-width: 900px) {
+    .catalog-hero .section-container {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 30rem);
+    }
+    .catalog-hero .catalog-search { margin-top: 0; }
+}
+
 .catalog-hero__intro {
     max-width: 34rem;
 }
@@ -68,10 +84,11 @@
     margin-top: var(--space-24);
     max-width: 34rem;
     padding: var(--space-4);
-    padding-left: var(--space-16);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-16);
+    padding-left: var(--space-24);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
     background: var(--color-surface);
+    box-shadow: var(--shadow-2);
     transition: border-color var(--duration-1) var(--ease-out),
                 box-shadow var(--duration-1) var(--ease-out);
 }
@@ -105,7 +122,7 @@
 
 .catalog-search input:focus { outline: none; }
 
-.catalog-search .r-btn { flex-shrink: 0; }
+.catalog-search .r-btn { flex-shrink: 0; border-radius: var(--radius-pill); min-height: var(--control-h); }
 
 /* Список идёт сразу за фильтрами — стандартных 80px сверху здесь много. */
 .catalog-body {

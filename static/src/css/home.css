@@ -25,8 +25,10 @@
 }
 
 /* ---------- Первый экран ----------
-   Ни 100vh, ни подложки во всю ширину: на телефоне первый экран во всю высоту
-   означает, что до карточек надо доскроллить, а они и есть то, за чем пришли. */
+   Композиция из макета дизайнера: слева кикер, крупный заголовок с курсивом в
+   последних словах, поиск и строка под ним; справа арка. Ни 100vh, ни подложки
+   во всю ширину: на телефоне первый экран во всю высоту означает, что до
+   карточек надо доскроллить, а они и есть то, за чем пришли. */
 /* 5rem сверху — место под плашку с логотипом в шапке (она fixed, 180×60px в
    левом верхнем углу), а не воздух ради воздуха. */
 .home-hero {
@@ -37,9 +39,41 @@
     .home-hero { padding: var(--space-96) 0 var(--space-48); }
 }
 
+.home-hero__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-48);
+    align-items: center;
+}
+
+@media (min-width: 900px) {
+    .home-hero__grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
+}
+
+/* Кикер — приём дизайнера, но один на страницу и короткий. Заглавные с
+   трекингом читаются хуже строчных, поэтому кегль не меньше 12px. */
+.home-kicker {
+    margin: 0 0 var(--space-16);
+    color: var(--color-accent-text);
+    font-size: var(--text-12);
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.home-kicker--light { color: var(--color-rose-strong); }
+
 .home-hero__title {
-    max-width: 24ch;
+    max-width: 14ch;
+    font-size: clamp(var(--text-36), 7vw, var(--text-64));
     text-wrap: balance;
+}
+
+/* Курсив в заголовке — её приём: выделенные слова несёт цвет и наклон. */
+.home-hero__title em,
+.home-feature h2 em {
+    color: var(--color-accent-text);
+    font-style: italic;
 }
 
 .home-hero__text {
@@ -48,9 +82,38 @@
     font-size: var(--text-18);
 }
 
+.home-hero__micro {
+    margin: var(--space-16) 0 0;
+    color: var(--color-muted);
+    font-size: var(--text-13);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+/* Арка (.r-arch из ui.css). Занята знаком Руми, а не снимком: фотографий у
+   нас почти нет, а заглушка вместо снимка — запрещённая декорация. На
+   телефоне скрыта: первым там должен быть поиск, а не картинка. */
+.home-hero__art {
+    display: none;
+    place-items: center;
+    aspect-ratio: 4 / 5;
+    max-height: 32rem;
+    background: var(--color-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.home-hero__art img {
+    width: 62%;
+    height: auto;
+}
+
+@media (min-width: 900px) {
+    .home-hero__art { display: grid; }
+}
+
 /* ---------- Поиск ----------
-   Та же форма, что в каталоге: человек, перешедший в каталог, должен узнать
-   поле, в котором он уже печатал. */
+   Форма из макета — капсула. Та же в каталоге: человек, перешедший в каталог,
+   должен узнать поле, в котором он уже печатал. */
 .home-search {
     display: flex;
     align-items: center;
@@ -58,10 +121,11 @@
     margin-top: var(--space-32);
     max-width: 34rem;
     padding: var(--space-4);
-    padding-left: var(--space-16);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-16);
+    padding-left: var(--space-24);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
     background: var(--color-surface);
+    box-shadow: var(--shadow-2);
     transition: border-color var(--duration-1) var(--ease-out),
                 box-shadow var(--duration-1) var(--ease-out);
 }
@@ -95,7 +159,7 @@
 
 .home-search__input:focus { outline: none; }
 
-.home-search .r-btn { flex-shrink: 0; }
+.home-search .r-btn { flex-shrink: 0; border-radius: var(--radius-pill); min-height: var(--control-h); }
 
 /* ---------- Карточки ---------- */
 .home-catalog {
@@ -103,18 +167,34 @@
 }
 
 /* ---------- Как записаться ----------
-   Нумерация остаётся: последовательность и есть смысл блока. Но несёт её
-   номер в потоке строки, а не четыре одинаковые карточки «иконка + заголовок
-   + текст» — такой структуры страницы мы не делаем. */
+   Белая панель с заголовком слева и четырьмя шагами справа (макет). Номер —
+   крупный курсив: последовательность и есть смысл блока, поэтому нумерация
+   остаётся. Это строки списка, а не четыре одинаковые карточки. */
 .home-how {
     padding: var(--space-48) 0;
-    border-top: 1px solid var(--color-border);
+}
+
+.home-how__card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-32);
+    padding: var(--space-24);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-28);
+    background: var(--color-surface);
+}
+
+@media (min-width: 640px) {
+    .home-how__card { padding: var(--space-48); }
+}
+
+@media (min-width: 900px) {
+    .home-how__card { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--space-48); }
 }
 
 .home-steps {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-24);
+    grid-template-columns: minmax(0, 1fr);
     margin: 0;
     padding: 0;
     counter-reset: home-step;
@@ -122,37 +202,33 @@
 }
 
 @media (min-width: 640px) {
-    .home-steps { grid-template-columns: repeat(2, 1fr); gap: var(--space-32); }
-}
-
-@media (min-width: 1024px) {
-    .home-steps { grid-template-columns: repeat(4, 1fr); }
+    .home-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-24); }
 }
 
 .home-step {
     counter-increment: home-step;
-    padding-top: var(--space-12);
+    display: flex;
+    gap: var(--space-16);
+    padding: var(--space-24) var(--space-8);
     border-top: 1px solid var(--color-border);
 }
 
 .home-step::before {
     content: counter(home-step);
-    display: block;
-    margin-bottom: var(--space-8);
+    min-width: 28px;
     color: var(--color-accent-text);
     font-family: var(--font-heading);
+    font-style: italic;
     font-weight: var(--weight-heading);
-    font-size: var(--text-22);
+    font-size: var(--text-36);
     line-height: 1;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: lining-nums;
 }
 
 .home-step__name {
-    margin: 0;
+    display: block;
     font-size: var(--text-18);
-    font-weight: 600;
-    line-height: var(--leading-title);
-    letter-spacing: var(--tracking-title);
+    font-weight: 700;
     color: var(--color-heading);
 }
 
@@ -164,41 +240,102 @@
     line-height: var(--leading-text);
 }
 
-/* ---------- Стать моделью ---------- */
-.home-model {
-    padding: var(--space-48) 0;
-    border-top: 1px solid var(--color-border);
+/* ---------- Большие блоки: модель и бизнес ----------
+   Две плашки одной формы (радиус карточки, внутри два столбца): тёмная —
+   «стать моделью», розовая — «для бизнеса». */
+.home-model,
+.home-business {
+    padding: var(--space-24) 0;
 }
 
-.home-model__grid {
+.home-business { padding-bottom: var(--space-64); }
+
+.home-feature {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-32);
-    align-items: start;
+    align-items: center;
+    padding: var(--space-32) var(--space-24);
+    border-radius: var(--radius-28);
+}
+
+@media (min-width: 640px) {
+    .home-feature { padding: var(--space-48); }
 }
 
 @media (min-width: 900px) {
-    .home-model__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .home-feature { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: var(--space-48); padding: var(--space-64); }
 }
 
+.home-feature h2 {
+    max-width: 18ch;
+    margin: 0;
+    text-wrap: balance;
+}
+
+.home-feature__text {
+    margin: var(--space-16) 0 var(--space-24);
+    max-width: 44ch;
+    font-size: var(--text-16);
+    line-height: var(--leading-text);
+}
+
+.home-feature--model {
+    background: var(--color-dark);
+    color: var(--color-on-dark);
+}
+
+.home-feature--model h2 { color: var(--color-on-dark); }
+.home-feature--model h2 em { color: var(--color-rose-strong); }
+.home-feature--model .home-feature__text { color: var(--color-on-dark-muted); }
+
 .home-model__list {
+    display: grid;
+    gap: var(--space-12);
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
 .home-model__list li {
-    padding: var(--space-12) 0;
-    border-top: 1px solid var(--color-border);
-    color: var(--color-body);
+    padding: var(--space-16) var(--space-24);
+    border: 1px solid color-mix(in srgb, var(--color-on-dark) 22%, transparent);
+    border-radius: var(--radius-16);
+    color: var(--color-on-dark);
     font-size: var(--text-16);
     line-height: var(--leading-text);
 }
 
-/* ---------- Для бизнеса ---------- */
-.home-business {
-    padding: var(--space-48) 0 var(--space-64);
-    border-top: 1px solid var(--color-border);
+.home-feature--biz { background: var(--color-secondary); }
+.home-feature--biz .home-feature__text { color: var(--color-body); }
+
+.home-tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-12);
+}
+
+.home-tile {
+    padding: var(--space-16);
+    border-radius: var(--radius-16);
+    background: var(--color-surface);
+}
+
+@media (min-width: 640px) {
+    .home-tile { padding: var(--space-24); }
+}
+
+.home-tile b {
+    display: block;
+    color: var(--color-heading);
+    font-size: var(--text-16);
+}
+
+.home-tile p {
+    margin: var(--space-8) 0 0;
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    line-height: var(--leading-text);
 }
 
 /* =====================================================================

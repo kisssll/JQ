@@ -105,8 +105,21 @@
 
 /* ---------- Шапка страницы ---------- */
 .salon-head {
-    padding-bottom: var(--space-24);
-    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-24);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-28);
+    background: var(--color-surface);
+}
+
+@media (min-width: 640px) {
+    .salon-head { padding: var(--space-32); }
+}
+
+/* Монограмма салона — арка из макета: единственный крупный иллюстративный
+   блок страницы, пока у салона нет обложки. Работает и со снимком (логотип
+   обрезается по той же форме). */
+.salon-head .r-mark {
+    border-radius: var(--radius-arch);
 }
 
 .salon-head__top {
@@ -135,6 +148,15 @@
 
 @media (min-width: 1280px) {
     .salon-title { font-size: var(--text-48); }
+}
+
+/* На телефоне в строке с монограммой и сердечком имя получало ~180px и рвалось
+   по слогам («ВИТРИ-НА-команда»). Имя уходит на свою строку под них. */
+@media (max-width: 639px) {
+    .salon-head { padding: var(--space-16); }
+    .salon-head__top { flex-wrap: wrap; }
+    .salon-head__top .favorite-btn { margin-left: auto; }
+    .salon-head__id { order: 3; flex-basis: 100%; }
 }
 
 .salon-who {
@@ -362,7 +384,7 @@
     gap: var(--space-12);
     padding: var(--space-16);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-16);
+    border-radius: var(--radius-28);
 }
 
 .team-card__top {
@@ -702,7 +724,13 @@
 .day:active { transform: scale(0.96); }
 
 .day__dow { color: var(--color-muted); font-size: var(--text-12); }
-.day__num { font-size: var(--text-18); font-weight: 600; font-variant-numeric: tabular-nums; }
+.day__num {
+    font-family: var(--font-heading);
+    font-size: var(--text-22);
+    font-weight: var(--weight-heading);
+    line-height: 1.1;
+    font-variant-numeric: lining-nums;
+}
 .day__mon { color: var(--color-muted); font-size: var(--text-12); }
 
 .day.is-active {

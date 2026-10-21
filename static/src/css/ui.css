@@ -729,7 +729,9 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-4);
-    margin-top: var(--space-12);
+    /* Метки стоят над именем, как теги в макете: сначала «почему эта карточка
+       наверху», потом кто это. */
+    margin-bottom: var(--space-12);
 }
 
 /* Подстраховка: у плашки-статуса white-space: nowrap, и длинная подпись в ней
@@ -776,23 +778,41 @@
     font-size: var(--text-13);
 }
 
-/* Ссылка «все услуги и запись» прижата к низу: карточки в сетке имеют разную
-   высоту, и без этого нижняя строка плясала бы по ряду. */
+/* «Все услуги и запись» — кнопка-капсула из макета (контурная). Прижата к
+   низу: карточки в сетке имеют разную высоту, и без этого нижняя строка
+   плясала бы по ряду. Это ссылка, но по весу и размеру цели — кнопка: 44px. */
 .r-salon__all {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-h);
     margin-top: auto;
-    padding-top: var(--space-16);
+    padding: 0 var(--space-24);
+    border: 1.5px solid var(--color-accent-text);
+    border-radius: var(--radius-pill);
     color: var(--color-accent-text);
     font-size: var(--text-14);
-    font-weight: 600;
+    font-weight: 700;
     text-decoration: none;
+    transition: background var(--duration-1) var(--ease-out),
+                color var(--duration-1) var(--ease-out);
 }
+
+.r-salon__slots + .r-salon__all,
+.r-svc + .r-salon__all,
+.r-svc__none + .r-salon__all { margin-top: var(--space-16); }
 
 .r-salon__all::after {
     content: " →";
+    white-space: pre;
 }
 
 @media (hover: hover) {
-    .r-salon__all:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .r-salon__all:hover {
+        background: var(--color-accent);
+        border-color: var(--color-accent);
+        color: var(--color-btn-text);
+    }
 }
 
 /* Сетка карточек. Одна колонка на телефоне, дальше — сколько поместится по

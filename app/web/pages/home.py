@@ -1,10 +1,10 @@
 # app/web/pages/home.py
-"""Главная — вход в каталог (решение 0011, п. 12).
+"""Главная — вход в каталог (решение 0011, п. 12; композиция — решение 0014).
 
-Порядок экранов: крупный поиск, сразу под ним ЖИВЫЕ карточки салонов, ниже
-«как записаться», в конце приглашение стать моделью. Партнёрский блок Т‑Банка и
-блок для бизнеса стоят после клиентской части: они адресованы не клиенту, и у
-бизнесового мира свой заход.
+Порядок экранов: заголовок с поиском и аркой, сразу под ним ЖИВЫЕ карточки
+салонов, ниже «как записаться», приглашение стать моделью, партнёрский блок
+Т‑Банка и блок для бизнеса. Расположение блоков, ритм и подача поиска — из
+макета дизайнера; данные и ограничения — наши.
 
 Карточки — ТОТ ЖЕ компонент, что в каталоге (``salons.render_cards``), с тем же
 порядком (победители конкурса → платные → рейтинг). Второй похожий список на
@@ -12,8 +12,17 @@
 
 Сколько карточек: шесть и ссылка «смотреть все». Салонов на проде девять —
 сетка на тридцать мест с четырьмя заполненными выглядела бы сломанной, а шесть
-карточек в поток по 300px честны и при девяти салонах, и при девятистах.
+карточек в поток честны и при девяти салонах, и при девятистах.
+
+Арка в первом экране занята знаком Руми, а не снимком: фотографий у нас почти
+нет, а заглушка вместо снимка (градиент, пунктирная рамка, как в макете) —
+запрещённая бриф-ом декорация.
+
+Тексты сведены из трёх источников (решение 0014, «Долг»): строка бренда и
+заголовки блоков — Дианы/дизайнера; пункты, которые нельзя проверить по коду
+(«в один клик», «за 15 минут»), заменены проверяемыми.
 """
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.web.components import ui
@@ -29,22 +38,32 @@ from app.web.components.tbank import render_tbank_partner_banner
 HOME_CARDS = 6
 
 #: Как записаться. Нумерация здесь оправдана: последовательность и есть смысл
-#: блока. Это список шагов, а не четыре одинаковые карточки «иконка + заголовок
-#: + текст» — такой структуры страницы мы не делаем (docs/design.md).
+#: блока. Формулировки — из макета; «напоминание придёт само» проверено:
+#: напоминания о записи шлёт крон (app/tasks.py).
 _STEPS = [
-    ("Мастер", "Выберите мастера или салон — цены и свободные окна видны в списке."),
-    ("Услуга", "Отметьте, что нужно сделать."),
+    ("Салон", "Выберите подходящий салон с нужным мастером."),
+    ("Услуга", "Выберите, что нужно сделать."),
     ("Время", "Возьмите свободное окно."),
-    ("Готово", "Приходите. Заявку подтвердят."),
+    ("Готово", "Приходите. Напоминание придёт само."),
 ]
 
-#: Что даёт подписка модели. Утверждения проверяемые: скидка задаётся салоном в
-#: услуге для отработки, окна и фото — часть того же сценария. Обещаний объёма
-#: клиентов и выручки здесь нет и быть не может (ч. 7 ст. 5 «О рекламе»).
+#: Что даёт подписка модели. Скидка «до 100%» — решение владельца (0011, п. 15),
+#: не усиливаем и не показываем крупной цифрой, как в макете. Цену назначает
+#: мастер, окна и фото — часть того же сценария. Обещаний объёма клиентов и
+#: выручки здесь нет и быть не может (ч. 7 ст. 5 «О рекламе»).
 _MODEL_POINTS = [
-    "Услуги мастеров со скидкой — цену назначает сам мастер",
+    "Услуги мастеров со скидкой до 100% — цену назначает сам мастер",
     "Новые процедуры и техники раньше остальных",
     "Фотографии работы после визита",
+]
+
+#: Что внутри панели. Каждая строка есть в панели салона: расписание, клиенты
+#: (CRM), касса и отчёты, аналитика со складом и расчётом материалов.
+_BUSINESS_TILES = [
+    ("Расписание", "Записи мастеров — в одном окне."),
+    ("Клиенты", "История, заметки, повторные визиты."),
+    ("Оплата", "Касса, отчёты — внутри."),
+    ("Аналитика", "Загрузка, выручка, расчёт материалов."),
 ]
 
 
@@ -65,7 +84,7 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                 {ui.section_head(
                     "Кто принимает сейчас",
                     text="Цены и ближайшие свободные окна — сразу в карточке.",
-                    link_label="Смотреть все", link_href="/salons")}
+                    link_label="Смотреть все салоны", link_href="/salons")}
                 <div class="salons-grid">{cards}</div>"""
     else:
         # Пусто бывает не только «пока»: так же выглядит страница, если упала
@@ -78,12 +97,16 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
         )
 
     steps_html = "".join(
-        f'<li class="home-step"><h3 class="home-step__name">{title}</h3>'
-        f'<p class="home-step__text">{text}</p></li>'
+        f'<li class="home-step"><div><b class="home-step__name">{title}</b>'
+        f'<p class="home-step__text">{text}</p></div></li>'
         for title, text in _STEPS
     )
 
     model_points = "".join(f"<li>{point}</li>" for point in _MODEL_POINTS)
+    business_tiles = "".join(
+        f'<div class="home-tile"><b>{title}</b><p>{text}</p></div>'
+        for title, text in _BUSINESS_TILES
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="ru">
@@ -101,17 +124,25 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
 
     <main class="home-main">
         <section class="home-hero">
-            <div class="section-container">
-                <h1 class="r-display home-hero__title">Запись к мастеру<br>без звонков</h1>
-                <p class="r-text r-muted home-hero__text">Услуги, цены и свободные окна
-                    видно сразу — выберите время и приходите.</p>
-                <form class="home-search" action="/salons" method="get" role="search">
-                    <span class="home-search__icon" aria-hidden="true">{ICON_SEARCH}</span>
-                    <input type="search" name="q" class="home-search__input"
-                           placeholder="Маникюр, стрижка, имя мастера"
-                           aria-label="Что нужно сделать" enterkeyhint="search">
-                    {ui.button("Найти", type_="submit")}
-                </form>
+            <div class="section-container home-hero__grid">
+                <div class="home-hero__copy">
+                    <p class="home-kicker">Мастера и салоны в одном приложении</p>
+                    <h1 class="r-display home-hero__title">руми. Твой доступ <em>к красоте</em></h1>
+                    <p class="r-text r-muted home-hero__text">Подберём салон и услуги для вас.
+                        Без лишних забот.</p>
+                    <form class="home-search" action="/salons" method="get" role="search">
+                        <span class="home-search__icon" aria-hidden="true">{ICON_SEARCH}</span>
+                        <input type="search" name="q" class="home-search__input"
+                               placeholder="Маникюр, стрижка, имя мастера"
+                               aria-label="Что нужно сделать" enterkeyhint="search">
+                        {ui.button("Найти", type_="submit")}
+                    </form>
+                    <p class="home-hero__micro">Четыре шага · без звонков</p>
+                </div>
+                <div class="home-hero__art r-arch" aria-hidden="true">
+                    <img src="/static/images/rumi-logo.webp" alt="" width="320" height="320"
+                         decoding="async">
+                </div>
             </div>
         </section>
 
@@ -121,18 +152,22 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
 
         <section class="home-how">
             <div class="section-container">
-                {ui.section_head("Как записаться")}
-                <ol class="home-steps">{steps_html}</ol>
+                <div class="home-how__card">
+                    {ui.section_head("Как записаться", text="Подберём салон и услуги для вас. "
+                                                           "Без лишних забот.")}
+                    <ol class="home-steps">{steps_html}</ol>
+                </div>
             </div>
         </section>
 
         <section class="home-model" id="become-model">
             <div class="section-container">
-                <div class="home-model__grid">
+                <div class="home-feature home-feature--model">
                     <div>
-                        {ui.section_head("Стать моделью",
-                                         text="Мастерам нужна практика, вам — работа мастера "
-                                              "дешевле. Подписка открывает такие записи.")}
+                        <p class="home-kicker home-kicker--light">Для прекрасных и смелых, как ты!</p>
+                        <h2 class="r-title">Стань моделью не через агентство, а <em>по подписке</em>.</h2>
+                        <p class="home-feature__text">Помоги мастеру собрать портфолио и получи
+                            услугу намного дешевле.</p>
                         {ui.button("Оформить подписку", href="/model", icon=ICON_ARROW_RIGHT)}
                     </div>
                     <ul class="home-model__list">{model_points}</ul>
@@ -144,11 +179,16 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
 
         <section class="home-business" id="for-business">
             <div class="section-container">
-                {ui.section_head("Веду записи сам",
-                                 text="Расписание, клиенты, оплата и аналитика — в одном окне. "
-                                      "Первые 14 дней бесплатно.")}
-                {ui.button("Подробнее", kind="secondary", href="/business",
-                           icon=ICON_ARROW_RIGHT)}
+                <div class="home-feature home-feature--biz">
+                    <div>
+                        <p class="home-kicker">Для бизнеса</p>
+                        <h2 class="r-title">Управлять салоном с нами <em>проще</em>.</h2>
+                        <p class="home-feature__text">Одно окно и всё под рукой. Первые 14 дней
+                            бесплатно.</p>
+                        {ui.button("Подробнее", href="/business", icon=ICON_ARROW_RIGHT)}
+                    </div>
+                    <div class="home-tiles">{business_tiles}</div>
+                </div>
             </div>
         </section>
 

@@ -469,6 +469,7 @@ def salon_card(
 
     return (
         f'<article class="r-salon salon-card" data-salon-id="{salon_id}">'
+        f"{tags_html}"
         f'<div class="r-salon__top">'
         f'<a class="r-salon__face" href="{e(href)}" data-salon-link="{salon_id}">'
         f"{mark(name, image=logo_url, alt=name, size='lg')}"
@@ -478,7 +479,7 @@ def salon_card(
         + "</span></a>"
         f'<div class="r-salon__aside">{fav}</div>'
         "</div>"
-        f"{tags_html}{promos_html}{svc_html}{slots_html}"
+        f"{promos_html}{svc_html}{slots_html}"
         f'<a class="r-salon__all" href="{e(href)}">{e(all_label)}</a>'
         "</article>"
     )
