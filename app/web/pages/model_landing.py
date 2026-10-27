@@ -1,7 +1,6 @@
 # app/web/pages/model_landing.py
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import (
     ICON_CAMERA,
@@ -27,8 +26,7 @@ def render_model_landing_page(user=None) -> str:
     {get_base_styles()}
 </head>
 <body>
-    {render_header("model")}
-    {render_sidebar("model", user)}
+    {render_header("model", user)}
 
     <main class="home-main">
         <!-- Hero -->

@@ -130,6 +130,7 @@
 .bl-hero-btn-primary {
     display: inline-flex;
     align-items: center;
+    min-height: var(--control-h);
     gap: 0.5rem;
     border-radius: var(--radius-pill);
     background: var(--color-rose-strong);
@@ -147,6 +148,7 @@
 .bl-hero-btn-secondary {
     display: inline-flex;
     align-items: center;
+    min-height: var(--control-h);
     gap: 0.5rem;
     border-radius: var(--radius-pill);
     border: 2px solid color-mix(in srgb, var(--color-rose-strong) 42%, transparent);

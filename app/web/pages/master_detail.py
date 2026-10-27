@@ -29,7 +29,6 @@ from app.web.components.header import render_header
 from app.web.components.icons import (
     ICON_ARROW_LEFT, ICON_HEART, ICON_HEART_FILLED, ICON_STAR_FILLED, ICON_X,
 )
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 
 #: Сколько своих фото мастер может держать в портфолио (подпись на кнопке).
@@ -311,8 +310,7 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None,
     {get_base_styles()}
 </head>
 <body class="page-body salon-page">
-    {render_header("salons")}
-    {render_sidebar("salons", user)}
+    {render_header("salons", user)}
 
     <div class="main-wrapper">
         <main>

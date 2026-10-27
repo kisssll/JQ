@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from app.models.models import Salon, Master, Service, Promotion, Booking, Review, BookingStatus, User as UserModel
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import (
     ICON_CALENDAR_DAYS,
@@ -266,10 +265,9 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon) -> str
     </style>
 </head>
 <body>
-    {render_header("business")}
-    {render_sidebar("business", user)}
+    {render_header("business", user)}
     
-    <main style="margin-right:16rem;padding-top:2rem">
+    <main style="padding-top:5rem">
         <div class="section-container">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
                 <div>

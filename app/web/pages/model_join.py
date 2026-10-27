@@ -25,7 +25,6 @@ from app.models.models import SalonSubscriptionStatus
 from app.services.tariffs import MODEL_TARIFF_CATALOG
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import ICON_CAMERA
 from app.web.service_categories import SERVICE_CATEGORY_GROUPS, match_category_slugs
@@ -165,8 +164,7 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
     {get_base_styles()}
 </head>
 <body>
-    {render_header("model")}
-    {render_sidebar("model", user)}
+    {render_header("model", user)}
 
     <main class="main-content" style="padding:2rem 1.5rem 3rem;max-width:760px;box-sizing:border-box">
         <h1 style="margin-bottom:0.5rem">{ICON_CAMERA} {title}</h1>

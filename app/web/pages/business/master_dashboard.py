@@ -8,7 +8,6 @@ from app.models.models import Master, Salon, Service, Promotion, Booking, Bookin
 from app.services.inventory_service import InventoryService
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.pages.business.utils import get_masters_data, get_master_ids, get_overview_revenue_data
 from app.web.pages.business.tabs.overview import render_overview_tab
@@ -278,9 +277,8 @@ async def render_master_business_dashboard(db: AsyncSession, user, salon: Salon,
     </style>
 </head>
 <body>
-    {render_header("business")}
-    {render_sidebar("business_dashboard", user)}
-    <main style="margin-right:16rem;padding-top:2rem">
+    {render_header("business", user, panel=True)}
+    <main style="padding-top:5rem">
         <div class="section-container">
             <div style="margin-bottom:1rem">
                 <h1 class="text-display" style="font-size:2rem">{e(salon.name)}</h1>

@@ -1,7 +1,6 @@
 # app/web/pages/model.py
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import (
     ICON_CALENDAR_DAYS,
@@ -189,10 +188,9 @@ def render_model_page(user=None) -> str:
     </style>
 </head>
 <body>
-    {render_header("model")}
-    {render_sidebar("model", user)}
+    {render_header("model", user)}
     
-    <main style="margin-right: 16rem;">
+    <main style="">
         <!-- Hero -->
         <section class="model-hero">
             <div class="section-container">

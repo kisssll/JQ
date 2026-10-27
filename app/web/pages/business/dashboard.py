@@ -16,7 +16,6 @@ from app.models.models import (
 )
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.yandex_maps import render_yandex_maps_script
 from app.web.components.icons import (
@@ -811,9 +810,8 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     {render_yandex_maps_script()}
 </head>
 <body class="{body_class}">
-    {render_header("business")}
-    {render_sidebar("business_dashboard", user)}
-    <main style="margin-right:0;padding-top:0">
+    {render_header("business", user, panel=True)}
+    <main style="padding-top:60px">
         {header_html}
         <div class="section-container" id="salon-status" style="padding-top: 0;">{moderation_banner}</div>
         <div class="section-container" style="padding-top: 1.5rem;">

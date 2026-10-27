@@ -35,13 +35,13 @@ from app.services.public_words import dative, first_name, solo_from_facts
 from app.web.components import ui
 from app.web.components.escaping import e
 from app.web.components.footer import render_footer
+from app.web.components.cabinet import render_cabinet
 from app.web.components.header import render_header
 from app.web.components.icons import (
     ICON_EDIT_PENCIL,
     ICON_STAR_EMPTY,
     ICON_STAR_FILLED,
 )
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 
 #: Состояние записи словом и тоном плашки. NO_SHOW попал сюда не сразу: он
@@ -323,6 +323,10 @@ async def render_bookings_page(db: AsyncSession, user, notice: str = "") -> str:
             )
         body = "".join(sections)
 
+    # Числа — только настоящие: у человека без записей их нет.
+    stats = ([("%d" % len(upcoming), "предстоящих"), ("%d" % len(past), "в истории")]
+             if bookings else None)
+
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -333,18 +337,16 @@ async def render_bookings_page(db: AsyncSession, user, notice: str = "") -> str:
     {get_base_styles()}
 </head>
 <body class="page-body">
-    {render_header("bookings")}
-    {render_sidebar("bookings", user)}
+    {render_header("bookings", user)}
 
     <main class="main-content cabinet-main">
-        <div class="section-container">
-            <header class="cabinet-head">
-                <h1 class="r-display">Мои записи</h1>
-                <p class="r-text r-muted">Предстоящие визиты и всё, что уже было.</p>
-            </header>
-            {notice_html}
-            {body}
-        </div>
+        {render_cabinet(
+            user, "bookings", "Мои записи",
+            "Предстоящие визиты и всё, что уже было.",
+            notice_html + body,
+            action=("Новая запись", "/salons"),
+            stats=stats,
+        )}
         {render_footer(user)}
     </main>
 

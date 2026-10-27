@@ -10,7 +10,7 @@ import './cookie-notice.js';
 import './custom-forms.js';
 import './password-toggle.js';
 
-import './sidebar.js';
+import './header.js';
 import './password-validator.js';
 import './submit-lock.js';
 import './phone-mask.js';

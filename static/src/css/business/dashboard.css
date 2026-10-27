@@ -186,8 +186,6 @@
         align-items: center;
         justify-content: space-between;
         gap: 1rem;
-        margin-left: 230px;
-        margin-right: 50px;
     }
 
     .header-title {
@@ -904,36 +902,6 @@
 
 .dashboard-page .status-waiting {
     color: var(--color-warning);
-}
-
-.dashboard-page .sidebar-container {
-    display: flex !important;
-    transform: translateX(100%) !important;
-    transition: transform 0.3s ease;
-}
-
-.dashboard-page .sidebar-container.open {
-    transform: translateX(0) !important;
-}
-
-.dashboard-page #header-burger {
-    display: flex;
-}
-
-.dashboard-page main {
-    margin-right: 0 !important;
-}
-
-.dashboard-page .sidebar-overlay {
-    display: block !important;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
-
-.dashboard-page .sidebar-overlay.active {
-    opacity: 1;
-    pointer-events: auto;
 }
 
 .dashboard-page .info-hint {

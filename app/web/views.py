@@ -24,7 +24,6 @@ from app.web.pages.business.tbank_partner import (
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.styles import get_base_styles
-from app.web.components.sidebar import render_sidebar
 from app.web.auth import get_current_user_from_cookie
 from app.web.components.icons import (
     ICON_BUILDING2,
@@ -460,7 +459,7 @@ async def book_service_page(salon_id: int, request: Request, db: AsyncSession = 
     {get_base_styles()}
 </head>
 <body>
-    {render_header("salons")}
+    {render_header("salons", user)}
     <div class="section-container" style="padding-top:2rem;max-width:500px;margin:0 auto">
         <h1 class="text-display" style="font-size:1.75rem;margin-bottom:0.5rem">Запись в {e(salon.name)}</h1>
         <p class="text-muted" style="margin-bottom:2rem">Выберите мастера и услугу</p>

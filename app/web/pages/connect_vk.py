@@ -32,7 +32,7 @@ def _page(title: str, body: str, user=None) -> str:
     {get_base_styles()}
 </head>
 <body>
-    {render_header("profile")}
+    {render_header("profile", user)}
     <main class="main-content">
         <div class="section-container" style="max-width:34rem;padding-top:5.5rem;padding-bottom:3rem">
             {body}

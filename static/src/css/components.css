@@ -126,489 +126,289 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
-/* components/header.py */
+/* components/header.py
+   Шапка по макету дизайнера (.header-row / .header nav): логотип слева, шесть
+   публичных пунктов строкой, активный подсвечен. Под 900px пункты уходят в
+   выпадающий список за бургером. Высота 60px — на неё рассчитаны отступы
+   сверху у всех страниц, поэтому не 72px, как у неё. */
 #main-header {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     z-index: 100;
-    background: transparent !important;
-    border-bottom: none !important;
-    pointer-events: none;
+    background: color-mix(in srgb, var(--color-background) 88%, transparent);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.header-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-32);
+    max-width: 1440px;
+    height: 60px;
+    margin: 0 auto;
+    padding: 0 var(--space-24);
+    /* Справа висит этикетка (fixed, 28px от края, ~76px шириной): без этого
+       поля пункты уехали бы под неё. У дизайнера то же — .header-end. */
+    padding-right: 112px;
+}
+
+#header-logo {
+    display: block;
+    flex-shrink: 0;
+    text-decoration: none;
+    transition: opacity var(--duration-2) var(--ease-out);
+}
+
+#header-logo:hover { opacity: 0.8; }
+
+#header-logo img {
+    display: block;
+    height: 2.6rem;
+    width: auto;
 }
 
 #header-nav {
     display: flex;
-    justify-content: flex-end;
+    flex: 1;
+    gap: var(--space-4);
+}
+
+.header-link {
+    display: inline-flex;
     align-items: center;
-    max-width: 1440px;
-    margin: 0 auto;
-    height: 60px;
-    padding: 0 24px;
-    background: transparent !important;
-    pointer-events: none;
-}
-
-/* Плашка с лого сидит в самом левом верхнем углу ЭКРАНА, а не угле
-   #header-nav — та центрируется по max-width:1440px, и на широких экранах
-   margin:auto двигал её (и лого вместе с ней) вглубь, оставляя пустую
-   полосу фона слева. position:fixed убирает лого из этого центрируемого
-   потока совсем, поэтому зазора не будет на любой ширине экрана. */
-#header-logo-wrapper {
-    position: fixed;
-    top: 0;
-    left: 0;
-    display: flex;
-    align-items: center;
-    height: 60px;
-    padding: 0 1.75rem 0 1.25rem;
-    z-index: 1;
-    pointer-events: auto;
-}
-
-#header-logo-wrapper::before {
-    content: '';
-    position: absolute;
-    top: -2px;
-    bottom: -10px;
-    left: -2px;
-    right: 0;
-    background: var(--color-surface);
-    z-index: -1;
-    border-bottom-right-radius: var(--radius-28);
-    box-shadow: 6px 8px 24px rgba(0, 0, 0, 0.15);
-}
-
-/* Логотип теперь картинка, а не текст: начертание рукописное, шрифтом его
-   не набрать. Высота задана, ширина считается от пропорций файла — растягивать
-   фирменный знак нельзя. */
-#header-logo {
-    display: block;
-    padding: 0;
-    margin: 0;
+    min-height: var(--control-h);
+    padding: 0 14px;
+    border-radius: var(--radius-pill);
+    font-size: var(--text-14);
+    font-weight: 600;
+    color: var(--color-body);
     text-decoration: none;
-    transition: opacity 0.2s;
-    background: transparent !important;
+    white-space: nowrap;
+    transition: color var(--duration-1) var(--ease-out),
+                background-color var(--duration-1) var(--ease-out);
 }
 
-/* 3rem — почти вся высота шапки (60px): у рукописного начертания высокая
-   пропорция из-за росчерка, и при меньшей высоте само слово выходит слишком
-   узким и нечитаемым. */
-#header-logo img {
-    display: block;
-    height: 3rem;
-    width: auto;
+.header-link.active {
+    background: var(--color-secondary);
+    color: var(--color-heading);
 }
 
-@media (max-width: 1023px) {
-    #header-logo img {
-        height: 2.6rem;
-    }
+/* hover только там, где он есть: на телефоне он залипает после тапа. */
+@media (hover: hover) {
+    .header-link:hover { color: var(--color-accent-text); }
 }
 
-#header-logo:hover {
-    opacity: 0.8;
+/* Панель: своя навигация внутри, этикетки нет — справа короткие выходы. */
+.header-panel {
+    display: flex;
+    gap: var(--space-4);
+    margin-left: auto;
 }
 
 #header-burger {
     display: none;
-    background: transparent;
-    border: none;
-    color: var(--color-heading);
-    cursor: pointer;
-    padding: 0.375rem;
-    pointer-events: auto;
-    transition: color 0.2s;
-    margin-top: 10px; 
-    margin-right: 0;
-    flex-shrink: 0;
-}
-
-#header-burger:hover {
-    color: var(--color-accent-text);
-}
-
-@media (max-width: 1023px) {
-    #header-burger {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-}
-
-#header-burger.hidden {
-    display: none !important;
-}
-
-/* components/sidebar.py */
-.sidebar-container {
-    position: fixed;
-    right: 0;
-    top: 0;
-    z-index: 40;
-    display: none; 
-    height: 100vh;
-    width: 16rem; 
-    flex-direction: column;
-    border-left: 1px solid var(--color-border);
-    background-color: var(--color-surface);
-}
-
-@media (min-width: 1024px) {
-    .sidebar-container {
-        display: flex;
-    }
-}
-
-.sidebar-inner {
-    display: flex;
-    height: 100%;
-    flex-direction: column;
-}
-
-.sidebar-header {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem 0.75rem;
-    border-bottom: none;
-    flex-shrink: 0;
-}
-
-.sidebar-divider {
-    height: 1px;
-    background: var(--color-border);
-    margin: 0 0.75rem;
-    flex-shrink: 0;
-}
-
-.sidebar-logo {
-    font-size: 1.25rem;
-    font-weight: 800;
-    color: var(--color-accent-text);
-    text-decoration: none;
-}
-
-.sidebar-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.sidebar-icon-btn {
-    display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.375rem;
+    width: var(--control-h);
+    height: var(--control-h);
+    margin-left: auto;
+    padding: 0;
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-pill);
-    color: var(--color-muted);
-    transition: background-color 0.2s, color 0.2s;
     background: transparent;
-    border: none;
+    color: var(--color-heading);
     cursor: pointer;
 }
 
-.sidebar-icon-btn:hover {
-    background-color: var(--color-surface-alt);
-    color: var(--color-heading);
-}
-
-.sidebar-nav {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem 0.75rem;
-}
-
-.sidebar-nav .space-y-1 > * + * {
-    margin-top: 0.25rem;
-}
-
-.sidebar-link {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.625rem 0.75rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-muted);
-    text-decoration: none;
-    transition: color 0.2s;
-    background: transparent;
-    border: none;
-    width: 100%;
-    text-align: left;
-    cursor: pointer;
-    position: relative;
-    z-index: 1;
-}
-
-.sidebar-link::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 30px;
-    bottom: 0;
-    background: transparent;
-    border-radius: var(--radius-16) 0 0 var(--radius-16);
-    transition: background 0.2s ease;
-    z-index: -1;
-    pointer-events: none;
-}
-
-.sidebar-link::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: calc(100% - 50px);
-    right: 10px;
-    bottom: 0px;
-    background: transparent;
-    border-radius: 0 var(--radius-16) var(--radius-16) 0;
-    transform: skewX(15deg);
-    transform-origin: top right;
-    transition: background 0.2s ease;
-    z-index: -1;
-    pointer-events: none;
-}
-
-.sidebar-link:hover::before,
-.sidebar-link:hover::after {
-    background: var(--color-surface-alt);
-}
-
-.sidebar-link.active::before,
-.sidebar-link.active::after {
-    background: var(--color-accent-light);
-}
-
-.sidebar-link:hover,
-.sidebar-link.active {
-    color: var(--color-heading);
-}
-
-.sidebar-group {
-    margin-top: 1rem;
-    border-top: 1px solid var(--color-border);
-    padding-top: 1rem;
-}
-
-.sidebar-group-title {
-    padding: 0 0.75rem;
-    margin-bottom: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--color-muted);
-}
-
-.sidebar-section {
-    margin-top: 1.5rem;
-    border-top: 1px solid var(--color-border);
-    padding-top: 1rem;
-}
-
-.sidebar-logout {
-    color: var(--color-accent-text);
-}
-
-.sidebar-logout:hover {
-    background-color: var(--color-surface-alt);
-}
-
-.sidebar-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    background: rgba(0, 0, 0, 0.5);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
-
-.sidebar-overlay.active {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.sidebar-container {
-    position: fixed;
-    right: 0;
-    top: 0;
-    z-index: 200; 
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    width: 16rem;
-    background-color: var(--color-surface);
-    border-left: 1px solid var(--color-border);
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
-    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.05);
-}
-
-.sidebar-container.open {
-    transform: translateX(0);
-}
-
-@media (min-width: 1024px) {
-    .sidebar-overlay {
-        display: none !important;
+@media (max-width: 900px) {
+    .header-row {
+        gap: var(--space-16);
+        padding-left: var(--space-16);
+        /* бургер стоит левее этикетки (12px от края, ~60px шириной) */
+        padding-right: 84px;
     }
 
-    .sidebar-container {
-        transform: none !important;
-        position: fixed;
+    #header-burger { display: flex; }
+
+    #header-nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
         right: 0;
-        top: 0;
-        z-index: 40;
-        display: flex;
-        border-left: 1px solid var(--color-border);
-        background-color: var(--color-surface);
-        box-shadow: none;
+        flex-direction: column;
+        gap: 0;
+        padding: var(--space-8) var(--space-16) var(--space-16);
+        background: var(--color-background);
+        border-bottom: 1px solid var(--color-border);
     }
+
+    #header-nav.open { display: flex; }
+
+    .header-link {
+        padding: 0 var(--space-12);
+        border-radius: var(--radius-16);
+    }
+
+    .header-panel { margin-left: auto; }
 }
 
-.sidebar-user {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.625rem 0.75rem;
-    border-radius: var(--radius-16);
-    font-weight: 500;
-    color: var(--color-heading);
-    text-decoration: none;
-    transition: background 0.2s, color 0.2s;
-    width: 100%;
-    cursor: pointer;
-    position: relative;
-    z-index: 1;
-}
-
-.sidebar-user::before {
-    content: '';
-    position: absolute;
+/* Этикетка = вход в аккаунт (решение 0015, п. 2). Качается на шнурке, наведение
+   качание останавливает, открывается НАЖАТИЕМ: hover-меню на телефоне залипает
+   и недостижимо с клавиатуры. */
+.acct-tag {
+    position: fixed;
     top: 0;
-    left: 0;
-    right: 30px;
-    bottom: 0;
-    background: transparent;
-    border-radius: var(--radius-16) 0 0 var(--radius-16);
-    transition: background 0.2s ease;
-    z-index: -1;
-    pointer-events: none;
+    right: 28px;
+    z-index: 110;
+    transform-origin: 50% 0;
+    animation: acct-swing 4s ease-in-out infinite;
 }
 
-.sidebar-user::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: calc(100% - 50px);
-    right: 10px;
-    bottom: 0;
-    background: transparent;
-    border-radius: 0 var(--radius-16) var(--radius-16) 0;
-    transform: skewX(15deg);
-    transform-origin: top right;
-    transition: background 0.2s ease;
-    z-index: -1;
-    pointer-events: none;
+@media (hover: hover) {
+    .acct-tag:hover { animation-play-state: paused; }
 }
 
-.sidebar-user:hover::before,
-.sidebar-user:hover::after {
-    background: var(--color-surface-alt);
+/* Пока меню открыто, этикетка стоит: качающаяся опора под меню раздражает и
+   сдвигает пункты из-под пальца. */
+.acct-tag.is-open {
+    animation: none;
+    transform: none;
 }
 
-.sidebar-user:hover {
-    color: var(--color-heading);
+@keyframes acct-swing {
+    0%, 100% { transform: rotate(4deg); }
+    50% { transform: rotate(-4deg); }
 }
 
-/* Кнопка «Войти» (неавторизованный пользователь) — заливка акцентом,
-   контрастная подпись, а не наоборот, как раньше (белый фон, сиреневый текст).
-   Подпись через токен: в тёмной теме заливка светлая и белым по ней не видно. */
-.sidebar-user-login {
-    background: var(--color-primary);
-    color: var(--color-btn-text);
-    font-weight: 700;
-    justify-content: center;
-}
-.sidebar-user-login:hover,
-.sidebar-user-login:hover::before,
-.sidebar-user-login:hover::after {
-    background: var(--color-primary);
-    color: var(--color-btn-text);
-    opacity: 0.92;
+@media (prefers-reduced-motion: reduce) {
+    .acct-tag { animation: none; transform: none; }
 }
 
-.sidebar-user .sidebar-avatar {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    background: var(--color-accent-light);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    overflow: hidden;
-}
-
-.sidebar-user .sidebar-avatar-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-
-.sidebar-user .sidebar-avatar-placeholder {
-    font-size: 0.875rem;
-    font-weight: 600;
-    /* Не --color-primary: подложка кружка — --color-accent-light, и акцент
-       на ней даёт 4,08:1. Затемнённый вариант того же цвета — 5,65:1. */
-    color: var(--color-accent-text);
-}
-
-.sidebar-user .sidebar-user-info {
+.acct-tag__btn {
     display: flex;
     flex-direction: column;
-    min-width: 0;
-    gap: 0.1rem;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.sidebar-user .sidebar-username {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--color-heading);
-    white-space: nowrap;
+.acct-tag__string {
+    width: 2px;
+    height: 26px;
+    background: var(--color-heading);
+}
+
+.acct-tag__card {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-4);
+    width: 76px;
+    min-height: var(--control-h);
+    padding: var(--space-16) var(--space-8) var(--space-12);
+    background: var(--color-accent);
+    color: var(--color-btn-text);
+    border-radius: var(--radius-16) var(--radius-16) var(--radius-28) var(--radius-28);
+    box-shadow: var(--shadow-2);
+    text-align: center;
+}
+
+.acct-tag__hole {
+    width: 10px;
+    height: 10px;
+    margin: -8px 0 var(--space-4);
+    border-radius: var(--radius-pill);
+    background: var(--color-background);
+    border: 2px solid var(--color-heading);
+}
+
+.acct-tag__label {
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-13);
+    font-weight: 700;
 }
 
-.sidebar-user .sidebar-city {
+.acct-menu {
+    position: absolute;
+    top: calc(100% + var(--space-8));
+    right: 0;
+    width: 15rem;
+    max-width: calc(100vw - 24px);
+    padding: var(--space-8);
+    background: var(--color-surface);
+    border-radius: var(--radius-28);
+    box-shadow: var(--shadow-3);
+}
+
+.acct-menu[hidden] { display: none; }
+
+.acct-menu__who {
+    padding: var(--space-8) var(--space-12) var(--space-12);
+    font-weight: 700;
+    color: var(--color-heading);
+    overflow-wrap: anywhere;
+}
+
+.acct-menu__link {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 400;
-    color: var(--color-muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    gap: var(--space-12);
+    min-height: var(--control-h);
+    padding: 0 var(--space-12);
+    border-radius: var(--radius-16);
+    font-size: var(--text-14);
+    font-weight: 600;
+    color: var(--color-body);
+    text-decoration: none;
 }
 
-.sidebar-user .sidebar-city svg {
-    width: 0.75rem;
-    height: 0.75rem;
-    flex-shrink: 0;
+.acct-menu__link svg { flex-shrink: 0; }
+
+.acct-menu__link--main {
+    background: var(--color-accent);
+    color: var(--color-btn-text);
 }
 
-.sidebar-logout {
-    color: var(--color-accent-text) !important;
+.acct-menu__link--out { color: var(--color-accent-text); }
+
+@media (hover: hover) {
+    .acct-menu__link:hover { background: var(--color-secondary); color: var(--color-heading); }
+    .acct-menu__link--main:hover { background: var(--color-accent-hover); color: var(--color-btn-text); }
 }
 
-.sidebar-logout:hover {
-    color: var(--color-accent-text) !important;
+.acct-menu__sep {
+    height: 1px;
+    margin: var(--space-4) var(--space-12);
+    background: var(--color-border);
+}
+
+@media (max-width: 900px) {
+    .acct-tag { right: 12px; }
+    .acct-tag__card { width: 60px; }
+}
+
+.acct-tag__btn:focus-visible,
+.acct-menu__link:focus-visible,
+.header-link:focus-visible,
+#header-burger:focus-visible {
+    outline: 2px solid var(--color-accent-text);
+    outline-offset: 2px;
+}
+
+@media print {
+    #main-header, .acct-tag { display: none !important; }
 }
 
 /* components/footer.py */

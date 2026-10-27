@@ -1,7 +1,6 @@
 # app/web/pages/about.py
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.tbank import render_tbank_products_block
 from app.web.components.icons import ICON_CIRCLE_CHECK
@@ -144,8 +143,7 @@ def render_about_page(user=None) -> str:
     </style>
 </head>
 <body>
-    {render_header("manifest")}
-    {render_sidebar("manifest", user)}
+    {render_header("manifest", user)}
 
     <main class="home-main">
         <section class="about-hero">

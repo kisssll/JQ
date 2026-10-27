@@ -894,7 +894,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     </style>
 </head>
 <body>
-    {render_header("admin")}
+    {render_header("admin", user)}
     <main class="admin-main">
         <h1 class="text-display" style="font-size:1.75rem">{ICON_SHIELD_CHECK} Панель модератора</h1>
         <p class="text-muted">{_esc(user.full_name or user.phone)} · {role_label}</p>

@@ -17,7 +17,6 @@ from app.web.components import ui
 from app.web.components.escaping import e
 from app.web.components.footer import render_footer
 from app.web.components.header import render_header
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 
 
@@ -94,8 +93,7 @@ def render_contest_page(user=None) -> str:
     {get_base_styles()}
 </head>
 <body class="page-body">
-    {render_header("contest")}
-    {render_sidebar("contest", user)}
+    {render_header("contest", user)}
     <main class="main-content cabinet-main contest-main">
         <div class="section-container">
             <header class="cabinet-head">

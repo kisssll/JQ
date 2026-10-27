@@ -13,7 +13,6 @@ from app.web.components.escaping import e
 from app.web.components.footer import render_footer
 from app.web.components.header import render_header
 from app.web.components.icons import ICON_ARROW_RIGHT, ICON_MAP_PIN
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 
 
@@ -101,8 +100,7 @@ async def render_evening_deals_page(db: AsyncSession, city: str = None, user=Non
     {get_base_styles()}
 </head>
 <body class="page-body">
-    {render_header("evening")}
-    {render_sidebar("evening", user)}
+    {render_header("evening", user)}
     <main class="main-content cabinet-main evening-main">
         <div class="section-container">
             <header class="cabinet-head">

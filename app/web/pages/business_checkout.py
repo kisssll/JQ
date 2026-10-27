@@ -2,7 +2,6 @@
 from app.web.components.escaping import e
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import (
     ICON_ARROW_LEFT,
@@ -132,8 +131,7 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
     {get_base_styles()}
 </head>
 <body>
-    {render_header("business")}
-    {render_sidebar("business", user)}
+    {render_header("business", user)}
 
     <main class="home-main">
         <section class="section-py section-gradient checkout-section">

@@ -23,9 +23,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.models import Favorite, Master, Salon, User as UserModel
 from app.web.components import ui
 from app.web.components.footer import render_footer
+from app.web.components.cabinet import render_cabinet
 from app.web.components.header import render_header
 from app.web.components.icons import ICON_HEART, ICON_HEART_FILLED
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.pages.salons import load_cards_by_ids
 
@@ -72,6 +72,7 @@ async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str
     # ---------- Салоны ----------
     cards_by_id = await load_cards_by_ids(db, salon_order)
     salon_cards = ""
+    n_salons = 0
     for salon_id in salon_order:
         card = cards_by_id.get(salon_id)
         if not card:
@@ -81,9 +82,11 @@ async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str
         # закрашенным. Второй кнопки «Убрать» рядом с ним нет намеренно — это
         # был бы второй орган управления одним и тем же.
         salon_cards += card
+        n_salons += 1
 
     # ---------- Мастера ----------
     master_cards = ""
+    n_masters = 0
     if master_order:
         masters = {
             m.id: m for m in (await db.execute(
@@ -111,6 +114,7 @@ async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str
             master = masters.get(master_id)
             if master is None:
                 continue
+            n_masters += 1
             master_cards += ui.person_card(
                 name=names.get(master.user_id, "") or "Мастер",
                 href=f"/masters/{master.id}",
@@ -155,6 +159,9 @@ async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str
             )
         body = "".join(groups)
 
+    stats = ([(str(n_salons), "салонов"), (str(n_masters), "мастеров")]
+             if (n_salons or n_masters) else None)
+
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -165,19 +172,16 @@ async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str
     {get_base_styles()}
 </head>
 <body class="page-body">
-    {render_header("favorites")}
-    {render_sidebar("favorites", user)}
+    {render_header("favorites", user)}
 
     <main class="main-content cabinet-main favorites-main">
-        <div class="section-container">
-            <header class="cabinet-head">
-                <h1 class="r-display">Избранное</h1>
-                <p class="r-text r-muted">Мастера и салоны, к которым вы хотите
-                    вернуться.</p>
-            </header>
-            {notice_html}
-            {body}
-        </div>
+        {render_cabinet(
+            user, "favorites", "Избранное",
+            "Мастера и салоны, к которым вы хотите вернуться.",
+            notice_html + body,
+            action=("Открыть каталог", "/salons"),
+            stats=stats,
+        )}
         {render_footer(user)}
     </main>
 

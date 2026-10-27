@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.empty_state import render_empty_state
 from app.web.components.icons import (
@@ -592,8 +591,7 @@ async def render_salons_page(db: AsyncSession, user=None, p: Optional[SalonQuery
     {get_base_styles()}
 </head>
 <body>
-    {render_header("salons")}
-    {render_sidebar("salons", user)}
+    {render_header("salons", user)}
 
     <main class="main-content">
         <section class="catalog-hero">

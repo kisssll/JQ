@@ -54,7 +54,6 @@ from app.web.components.icons import (
     ICON_TROPHY,
     ICON_X,
 )
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.yandex_maps import render_yandex_maps_script, yandex_maps_enabled
 
@@ -542,8 +541,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None,
     {render_yandex_maps_script()}
 </head>
 <body class="page-body salon-page">
-    {render_header("salons")}
-    {render_sidebar("salons", user)}
+    {render_header("salons", user)}
 
     <div class="main-wrapper">
         <main>

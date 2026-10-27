@@ -1,7 +1,6 @@
 # app/web/pages/business_landing.py
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import (
     ICON_BRIEFCASE,
@@ -36,8 +35,7 @@ def render_business_landing_page(user=None) -> str:
     {get_base_styles()}
 </head>
 <body>
-    {render_header("business")}
-    {render_sidebar("business", user)}
+    {render_header("business", user)}
 
     <main class="home-main bl-wrapper">
 
@@ -51,6 +49,10 @@ def render_business_landing_page(user=None) -> str:
                     <div class="bl-hero-buttons">
                         <a href="/business/checkout?plan=business" class="bl-hero-btn-primary">
                             Подключить салон
+                            {ICON_ARROW_RIGHT}
+                        </a>
+                        <a href="/dlya-masterov" class="bl-hero-btn-primary">
+                            Начать как мастер
                             {ICON_ARROW_RIGHT}
                         </a>
                         <a href="#pricing" class="bl-hero-btn-secondary">Смотреть тарифы</a>

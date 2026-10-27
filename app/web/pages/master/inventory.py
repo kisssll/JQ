@@ -11,7 +11,6 @@ from app.services.inventory_service import InventoryService
 from app.web.components.inventory_audit import render_inventory_audit_flow
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 
 MOVEMENT_LABELS = {
@@ -27,8 +26,8 @@ async def render_master_inventory(db: AsyncSession, user, audit_id: str | None =
     master = (await db.execute(select(Master).where(Master.user_id == user.id))).scalar_one_or_none()
     if not master:
         return f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">{get_base_styles()}</head>
-        <body>{render_header("master", user)}{render_sidebar("master", user)}
-        <main style="margin-right:16rem;padding-top:3rem"><div class="section-container">
+        <body>{render_header("master", user)}
+        <main style="padding-top:5rem"><div class="section-container">
         <h1>Профиль мастера не найден</h1>
         </div></main>{render_footer(user, "business")}</body></html>"""
 
@@ -125,9 +124,8 @@ async def render_master_inventory(db: AsyncSession, user, audit_id: str | None =
 </head>
 <body>
     {render_header("master", user)}
-    {render_sidebar("master", user)}
 
-    <main style="margin-right:16rem;padding-top:2rem">
+    <main style="padding-top:5rem">
         <div class="section-container">
             <a href="/master/dashboard" class="text-muted" style="font-size:0.875rem">← Кабинет мастера</a>
             <h1 class="text-display" style="font-size:2rem;margin:0.5rem 0 1.5rem">Мой склад</h1>

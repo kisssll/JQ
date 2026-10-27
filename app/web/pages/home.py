@@ -28,7 +28,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.web.components import ui
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.structured_data import render_site_schema
 from app.web.components.icons import ICON_SEARCH, ICON_ARROW_RIGHT
@@ -119,8 +118,7 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
     {get_base_styles()}
 </head>
 <body>
-    {render_header("home")}
-    {render_sidebar("home", user)}
+    {render_header("home", user)}
 
     <main class="home-main">
         <section class="home-hero">

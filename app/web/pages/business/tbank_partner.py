@@ -9,7 +9,6 @@ TBANK_LINK — реферальная ссылка (CTA-кнопки), пока 
 переиспользует новость на странице «Манифест» (app/web/pages/about.py)."""
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import ICON_CIRCLE_CHECK, ICON_ARROW_RIGHT
 
@@ -159,8 +158,7 @@ def _render_tbank_page(slug: str, user=None) -> str:
     </style>
 </head>
 <body>
-    {render_header("business")}
-    {render_sidebar("business", user)}
+    {render_header("business", user)}
 
     <main class="main-content">
         <div class="tb-wrap">

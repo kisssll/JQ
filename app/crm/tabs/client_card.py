@@ -8,7 +8,6 @@ from app.models.models import (
 )
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.pages.business.utils import get_masters_data, get_master_ids
 from app.services.loyalty_service import LoyaltyService
@@ -20,8 +19,8 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
     client = (await db.execute(select(UserModel).where(UserModel.id == client_id))).scalar_one_or_none()
     if not client:
         return f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">{get_base_styles()}</head>
-        <body>{render_header("business")}{render_sidebar("business", user)}
-        <main style="margin-right:16rem;padding-top:3rem"><div class="section-container">
+        <body>{render_header("business", user, panel=True)}
+        <main style="padding-top:5rem"><div class="section-container">
         <h1>Клиент не найден</h1><a href="/business/dashboard?salon_id={salon.id}" class="btn-outline">← Назад в панель</a>
         </div></main>{render_footer(user, "business")}</body></html>"""
 
@@ -118,10 +117,9 @@ async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> s
     </style>
 </head>
 <body>
-    {render_header("business")}
-    {render_sidebar("business", user)}
+    {render_header("business", user, panel=True)}
 
-    <main style="margin-right:16rem;padding-top:2rem">
+    <main style="padding-top:5rem">
         <div class="section-container">
             <a href="/business/dashboard?salon_id={salon.id}" class="text-muted" style="font-size:0.875rem">← Назад в панель</a>
             <h1 class="text-display" style="font-size:2rem;margin:0.5rem 0 0.25rem">{client.full_name or 'Клиент'}</h1>

@@ -14,7 +14,6 @@
 from app.web.components.escaping import e
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import (
     ICON_ARROW_RIGHT,
@@ -144,8 +143,7 @@ def render_tariffs_page(user=None) -> str:
     {get_base_styles()}
 </head>
 <body class="tariffs-page">
-    {render_header("tariffs")}
-    {render_sidebar("tariffs", user)}
+    {render_header("tariffs", user)}
 
     <main class="main-content">
         <section class="section-py bg-surface-alt">

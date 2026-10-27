@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.model_matching_service import get_history_for_model, get_invitations_for_model
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import (
     ICON_ALERT_TRIANGLE,
@@ -175,25 +174,15 @@ def _render_page(user, body: str, approved: bool = False) -> str:
         .models-swipe-btn-like {{ width:3.75rem; height:3.75rem; color:var(--color-success); border-color:var(--color-success-border) }}
         .models-swipe-btn-pass {{ color:var(--color-danger); border-color:var(--color-danger-border) }}
 
-        /* Мобильная адаптация: на десктопе справа занят сайдбар (16rem),
-           на телефоне сайдбар скрыт (см. .sidebar-container в components.css,
-           брейкпоинт 1023px) — резервировать под него место незачем, иначе
-           контенту остаётся полоска шириной с телефон минус 16rem. */
-        .model-dash-main {{ margin-right: 16rem; padding-top: 5.5rem; }}
+        .model-dash-main {{ padding-top: 5.5rem; }}
         @media (max-width: 1023px) {{
-            .model-dash-main {{ margin-right: 0; padding-top: 4.5rem; }}
+            .model-dash-main {{ padding-top: 4.5rem; }}
             .models-stat-grid {{ max-width: none; }}
         }}
-
-        /* Плашка с лого в левом верхнем углу здесь лишняя — на этой странице
-           уже есть свой заголовок «Кабинет модели», а на узких экранах она
-           наезжает на контент. Бургер-меню (навигация) не трогаем. */
-        .model-dash-page #header-logo-wrapper {{ display: none; }}
     </style>
 </head>
 <body class="model-dash-page">
-    {render_header("model")}
-    {render_sidebar("model_dashboard", user)}
+    {render_header("model", user)}
 
     <main class="model-dash-main">
         <div class="section-container">

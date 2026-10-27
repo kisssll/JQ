@@ -13,7 +13,6 @@ import re
 
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 
 _LEGAL_DIR = pathlib.Path(__file__).resolve().parent.parent / "legal"
@@ -146,8 +145,7 @@ def render_legal_page(slug: str, user=None) -> str:
     {get_base_styles()}
 </head>
 <body>
-    {render_header("legal")}
-    {render_sidebar("legal", user)}
+    {render_header("legal", user)}
 
     <main class="main-content legal-main">
         <div class="section-container legal-container">
@@ -201,8 +199,7 @@ def render_legal_index(user=None) -> str:
     {get_base_styles()}
 </head>
 <body>
-    {render_header("legal")}
-    {render_sidebar("legal", user)}
+    {render_header("legal", user)}
 
     <main class="main-content legal-main">
         <div class="section-container legal-container">

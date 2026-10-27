@@ -15,7 +15,7 @@
    специфичности должны перекрывать новые, пока страница не переехала. */
 @import './ui.css';
 
-/* Компоненты (footer, header, sidebar) */
+/* Компоненты (footer, шапка с этикеткой) */
 @import './components.css';
 @import './password-toggle.css';
 
@@ -42,6 +42,7 @@
 @import './bookings.css';
 @import './guest-booking.css';
 @import './favorites.css';
+@import './cabinet.css';
 @import './evening-deals.css';
 @import './contest.css';
 

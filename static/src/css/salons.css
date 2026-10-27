@@ -2,16 +2,6 @@
 
 /* ===== Адаптивная раскладка и отступы страницы ===== */
 
-.main-content {
-    margin-right: 16rem;
-}
-
-@media (max-width: 1023px) {
-    .main-content {
-        margin-right: 0;
-    }
-}
-
 .main-content .section-container {
     width: 100%;
     max-width: 1200px;
@@ -24,7 +14,7 @@
 @media (min-width: 1024px) {
     .main-content .section-container {
         padding-left: 1.5rem;
-        padding-right: 3rem;
+        padding-right: 1.5rem;
     }
 }
 

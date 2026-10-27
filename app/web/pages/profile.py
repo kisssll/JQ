@@ -34,6 +34,7 @@ from app.web.cities import city_options_html
 from app.web.components import ui
 from app.web.components.escaping import e
 from app.web.components.footer import render_footer
+from app.web.components.cabinet import render_cabinet
 from app.web.components.header import render_header
 from app.web.components.icons import (
     ICON_CAMERA,
@@ -51,7 +52,6 @@ from app.web.components.icons import (
     ICON_USER,
     ICON_USERS,
 )
-from app.web.components.sidebar import render_sidebar
 from app.web.components.styles import get_base_styles
 from app.web.pages.legal import DOCUMENTS, LEGAL_VERSION_HUMAN
 
@@ -746,6 +746,32 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
         classes="r-card--danger",
     )
 
+    theme = ui.card(
+        '<div class="theme-toggle" role="group" '
+        'aria-label="Оформление интерфейса">'
+        + ui.button("Светлая", kind="secondary", small=True,
+                    icon=ICON_SUN, classes="theme-btn",
+                    data={"theme": "light"})
+        + ui.button("Тёмная", kind="secondary", small=True,
+                    icon=ICON_MOON, classes="theme-btn",
+                    data={"theme": "dark"})
+        + '</div>'
+          '<p class="r-field__hint">Выбор сохраняется в этом '
+          'браузере.</p>',
+        title="Оформление")
+
+    stack = (
+        who
+        + _role_blocks(user, master_profile, salon)
+        + ui.card(_notify_channel_block(user),
+                  title="Как со мной связаться",
+                  text="Сюда приходят напоминания о записях и ответы мастера.")
+        + change
+        + theme
+        + ui.card(_consents_block(user), title="Согласия и документы")
+        + danger
+    )
+
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -756,48 +782,12 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
     {get_base_styles()}
 </head>
 <body class="page-body">
-    {render_header("profile")}
-    {render_sidebar("profile", user)}
+    {render_header("profile", user)}
 
     <main class="main-content cabinet-main profile-main">
-        <div class="section-container">
-            <header class="cabinet-head">
-                <h1 class="r-display">Мой профиль</h1>
-                <p class="r-text r-muted">Кто вы, как с вами связаться и что мы
-                    о вас храним.</p>
-            </header>
-            {notice_html}
-
-            <div class="profile-stack">
-                {who}
-                {_role_blocks(user, master_profile, salon)}
-
-                {ui.card(_notify_channel_block(user),
-                         title="Как со мной связаться",
-                         text="Сюда приходят напоминания о записях и ответы "
-                              "мастера.")}
-
-                {change}
-
-                {ui.card(
-                    '<div class="theme-toggle" role="group" '
-                    'aria-label="Оформление интерфейса">'
-                    + ui.button("Светлая", kind="secondary", small=True,
-                                icon=ICON_SUN, classes="theme-btn",
-                                data={"theme": "light"})
-                    + ui.button("Тёмная", kind="secondary", small=True,
-                                icon=ICON_MOON, classes="theme-btn",
-                                data={"theme": "dark"})
-                    + '</div>'
-                      '<p class="r-field__hint">Выбор сохраняется в этом '
-                      'браузере.</p>',
-                    title="Оформление")}
-
-                {ui.card(_consents_block(user), title="Согласия и документы")}
-
-                {danger}
-            </div>
-        </div>
+        {render_cabinet(user, "profile", "Мой профиль",
+            "Кто вы, как с вами связаться и что мы о вас храним.",
+            notice_html + '<div class="profile-stack">' + stack + '</div>')}
         {render_footer(user)}
     </main>
 </body>
@@ -816,7 +806,6 @@ def _render_guest_page() -> str:
 </head>
 <body class="page-body">
     {render_header("profile")}
-    {render_sidebar("profile", None)}
     <main class="main-content cabinet-main profile-main">
         <div class="section-container">
             <header class="cabinet-head">
