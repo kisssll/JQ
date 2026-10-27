@@ -6,12 +6,14 @@ from typing import Optional
 from datetime import datetime
 from app.models.models import UserRole, SubscriptionTier
 
-PHONE_RE = re.compile(r"^\+7\d{10}$")
+# ASCII-цифры явно ([0-9]): \d принимает и арабо-индийские, и прочие
+# Unicode-цифры, и один номер получал бы вторую запись, которую не найдёт поиск.
+PHONE_RE = re.compile(r"^\+7[0-9]{10}\Z")
 
 
 def _normalize_phone(value: str) -> str:
     """Приводит телефон к формату +7XXXXXXXXXX, иначе ValueError."""
-    digits = re.sub(r"[^\d+]", "", value or "")
+    digits = re.sub(r"[^0-9+]", "", value or "")
     if digits.startswith("8") and len(digits) == 11:
         digits = "+7" + digits[1:]
     elif digits.startswith("7") and len(digits) == 11:

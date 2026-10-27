@@ -37,3 +37,7 @@ docs/status.md
 
 # Справочники по фронтенду, взятые со стороны (локально)
 docs/reference/
+
+# фаззинг: отчёты прогонов и база примеров Hypothesis
+fuzz-report/
+.hypothesis/

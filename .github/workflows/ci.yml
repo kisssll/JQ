@@ -67,6 +67,67 @@ jobs:
         run: pytest -q
 
   # ---------------------------------------------------------------
+  # Фаззинг (решение 0016, п. 3): Schemathesis по OpenAPI + свойства Hypothesis
+  # на запись/слоты, деньги, телефон и текст от человека. НЕ БЛОКИРУЕТ выкат:
+  # continue-on-error, и deploy-prod от этой джобы не зависит — случайная находка
+  # не должна останавливать релиз. Примеры ограничены, seed зафиксирован: упавший
+  # прогон воспроизводится локально теми же FUZZ_EXAMPLES/FUZZ_SEED. Отчёт —
+  # артефакт fuzz-report (JSON по ролям Schemathesis).
+  # ---------------------------------------------------------------
+  fuzz:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: beauty_user
+          POSTGRES_PASSWORD: ci_test_pass
+          POSTGRES_DB: postgres
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U beauty_user"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SECRET_KEY: ci-fuzz-only-secret-0123456789
+      POSTGRES_USER: beauty_user
+      POSTGRES_PASSWORD: ci_test_pass
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      TEST_REDIS_URL: redis://localhost:6379/9
+      FUZZ_EXAMPLES: "15"
+      FUZZ_SEED: "20261027"
+      FUZZ_REPORT: fuzz-report
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          # свой ключ кэша: набор зависимостей фаззинга другой, чем у tests
+          cache-dependency-path: requirements-fuzz.txt
+      - name: Install deps
+        run: pip install -r requirements-fuzz.txt
+      - name: Fuzz
+        run: pytest tests_fuzz -q -p no:randomly
+      - name: Upload fuzz report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-report
+          path: fuzz-report/
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------
   # Прод-деплой по SSH — ТОЛЬКО после зелёных тестов (needs: [tests]) и только
   # для пуша/ручного запуска в main. Если tests упали — джоба не стартует.
   # SSH-ключ на сервере ограничен форс-командой (умеет только deploy.sh prod).

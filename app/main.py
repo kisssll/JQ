@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy.exc import DataError, DBAPIError
 from slowapi import _rate_limit_exceeded_handler
 
 from app.api.v1.endpoints import users
@@ -107,6 +108,43 @@ async def unhandled_exception_handler(request, exc: Exception):
         extra=extra,
     )
     return HTMLResponse(content=html_content, status_code=500)
+
+def _db_input_problem(exc: DBAPIError) -> str | None:
+    """Если БД отвергла ввод человека (а не сломалась сама) — понятная причина.
+
+    Сюда попадает мусор, который пролез мимо pydantic: id вне int32 в пути,
+    NUL-байт в тексте (Postgres его не принимает), ссылка на несуществующую
+    запись (внешний ключ). Остальные ошибки БД остаются 500 — их надо видеть."""
+    import asyncpg
+
+    orig = getattr(exc, "orig", None)
+    cause = getattr(orig, "__cause__", None)
+    sqlstate = getattr(orig, "sqlstate", None) or getattr(cause, "sqlstate", None)
+    if sqlstate == "23503":
+        return "Связанная запись не найдена"
+    if (isinstance(exc, DataError) or isinstance(cause, asyncpg.exceptions.DataError)
+            or str(sqlstate or "").startswith("22")):
+        return "Некорректное значение параметра"
+    return None
+
+
+@app.exception_handler(DBAPIError)
+async def db_input_error_handler(request, exc: DBAPIError):
+    problem = _db_input_problem(exc)
+    if problem is None:
+        return await unhandled_exception_handler(request, exc)
+    _error_logger.warning("БД не приняла ввод (%s): %s %s", problem, request.method, request.url.path)
+    if request.url.path.startswith("/api/"):
+        # форма как у штатного 422 FastAPI, чтобы клиенты и схема не разъезжались
+        return JSONResponse(status_code=422, content={"detail": [
+            {"loc": ["request"], "msg": problem, "type": "value_error"},
+        ]})
+    from app.web.views import render_status_page
+    return HTMLResponse(
+        content=render_status_page(404, "Страница не найдена", "Такой страницы нет."),
+        status_code=404,
+    )
+
 
 # --- Middleware безопасности ---
 # CORS: явный список origin'ов (FastAPI не закрывает это по умолчанию)

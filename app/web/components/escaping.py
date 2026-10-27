@@ -25,6 +25,13 @@ def e(value: Any) -> str:
     return html.escape(str(value), quote=True)
 
 
+def initial(value: Any, fallback: str = "•") -> str:
+    """Первая буква для аватара-заглушки. Имя может быть пустым или из пробелов
+    (хранится как есть) — на `name[0]` это был IndexError и 500 на странице."""
+    text = str(value or "").strip()
+    return text[0].upper() if text else fallback
+
+
 def ejson(value: Any) -> str:
     """JSON для data-атрибута: сериализуем и экранируем кавычки.
 

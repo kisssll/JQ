@@ -1,0 +1,10 @@
+# Фаззинг (решение 0016, п. 3): Schemathesis по OpenAPI + свойства Hypothesis.
+# Отдельно от requirements-dev.txt: в прод-образ не попадает, гейт выката его не
+# ставит. Schemathesis требует pytest>=8.4, поэтому pytest здесь свой, а не
+# закреплённый 8.3.4 из requirements-dev.txt.
+# Установка: pip install -r requirements-fuzz.txt; запуск: pytest tests_fuzz -p no:randomly
+-r requirements.txt
+pytest==8.4.2
+pytest-asyncio==0.25.2
+schemathesis==4.32.5
+hypothesis==6.170.12

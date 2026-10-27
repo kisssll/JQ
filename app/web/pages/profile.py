@@ -32,7 +32,7 @@ guard'ы конфига и их тесты, — и после перезагру
 from app.services import ad_consent
 from app.web.cities import city_options_html
 from app.web.components import ui
-from app.web.components.escaping import e
+from app.web.components.escaping import e, initial
 from app.web.components.footer import render_footer
 from app.web.components.cabinet import render_cabinet
 from app.web.components.header import render_header
@@ -673,7 +673,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
         '<div class="profile-avatar" id="profile-avatar-container">'
         + (f'<img src="{e(avatar_url)}" alt="{e(name)}">' if avatar_url
            else f'<span class="profile-avatar-letter" aria-hidden="true">'
-                f'{e(name[0].upper())}</span>')
+                f'{e(initial(name))}</span>')
         + '<button class="profile-avatar-edit" id="profile-avatar-edit" '
           'type="button" aria-label="Изменить фото">'
         + ICON_CAMERA

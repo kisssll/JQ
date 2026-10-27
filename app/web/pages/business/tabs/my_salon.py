@@ -18,7 +18,7 @@
 никогда не перешёл бы в «у меня команда» и не смог бы нанять человека: дверь
 стала бы односторонней (решение 0009, п. 3).
 """
-from app.web.components.escaping import e
+from app.web.components.escaping import e, initial
 import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,7 +66,7 @@ def _render_edit_card(salon: Salon, photos: list, w) -> str:
     if salon.logo_url:
         photo_html = f'<img src="{salon.logo_url}" alt="{e(salon.name)}" class="salon-edit-photo" loading="lazy">'
     else:
-        photo_html = f'<div class="salon-edit-photo-placeholder">{e(salon.name[0].upper())}</div>'
+        photo_html = f'<div class="salon-edit-photo-placeholder">{e(initial(salon.name))}</div>'
 
     static_html = f"""
         <div class="salon-edit-static">
