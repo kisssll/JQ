@@ -6,7 +6,7 @@ role. Проверяем обе стороны: кто должен войти �
 не входит, даже со старой role=MASTER; и данные по-прежнему только свои.
 """
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.core.security import get_password_hash
 from app.models.models import (
@@ -237,6 +237,33 @@ async def test_as_master_without_a_card_is_just_the_own_panel(client, db_session
     assert "· Панель мастера" not in r.text
     assert "Чужая панель" not in r.text
     assert "Панель мастера ·" not in r.text, "ссылки на чужую панель быть не должно"
+
+
+async def test_a_deactivated_card_closes_the_master_panel(client, db_session):
+    """Карточку сняли — панель салона закрывается.
+
+    Своего салона у человека нет, так что ?as=master и обычный вход ведут в одно
+    место: пока карточка активна — в панель мастера Ани, после снятия — никуда.
+    Без проверки is_active уволенный мастер продолжал бы видеть панель салона.
+    """
+    async with db_session() as db:
+        anya = await _user(db, "+79996660061", UserRole.BUSINESS, "Аня")
+        anyas = await _salon(db, anya, "Салон Ани")
+        fired = await _user(db, "+79996660062", UserRole.MASTER, "Уволенный")
+        card = await _card(db, fired, anyas)
+        card_id = card.id
+    await _login(client, "+79996660062")
+
+    r = await client.get("/business/dashboard?as=master")
+    assert r.status_code == 200 and "Салон Ани" in r.text
+
+    async with db_session() as db:
+        await db.execute(update(Master).where(Master.id == card_id).values(is_active=False))
+        await db.commit()
+
+    for url in ("/business/dashboard?as=master", "/business/dashboard"):
+        r = await client.get(url, follow_redirects=False)
+        assert "Салон Ани" not in (r.text or ""), url
 
 
 async def test_no_master_entry_when_the_card_is_in_the_own_salon(client, db_session):

@@ -1,5 +1,5 @@
 # app/web/pages/business/tabs/employees.py
-from app.web.components.escaping import e
+from app.web.components.escaping import e, ejs
 import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -202,7 +202,7 @@ def _master_extra_actions(master_id, user_name, can_manage_masters, solo):
     actions = f'<a class="action-btn" href="/masters/{master_id}" title="Фото и портфолио">Фото</a>'
     if not solo:
         actions += f'<button class="action-btn" onclick="resetMasterPassword({master_id})" title="Сбросить пароль">{ICON_LOCK_MINI}</button>'
-        actions += f'<button class="action-btn delete-btn" onclick="deleteEmployee({master_id}, \'{user_name}\')" title="Удалить">{ICON_TRASH}</button>'
+        actions += f'<button class="action-btn delete-btn" onclick="deleteEmployee({master_id}, {ejs(user_name)})" title="Удалить">{ICON_TRASH}</button>'
     return actions
 
 
@@ -216,8 +216,8 @@ def _render_master_card(master, user_data, can_manage_masters, solo=False):
     status_text = "Активен" if master.is_active else "Отключён"
 
     actions = f"""
-        <button class="action-btn edit-btn" onclick="editEmployee({master.id}, '{user_name}', '{e(master.specialization)}', {master.experience_years})" title="Редактировать">{ICON_EDIT}</button>
-        <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({master.id}, '{user_name}', {str(master.is_active).lower()})" title="{'Отключить' if master.is_active else 'Включить'}">{ICON_POWER}</button>
+        <button class="action-btn edit-btn" onclick="editEmployee({master.id}, {ejs(user_name)}, {ejs(master.specialization)}, {master.experience_years})" title="Редактировать">{ICON_EDIT}</button>
+        <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({master.id}, {ejs(user_name)}, {str(master.is_active).lower()})" title="{'Отключить' if master.is_active else 'Включить'}">{ICON_POWER}</button>
     """
     actions += _master_extra_actions(master.id, user_name, can_manage_masters, solo)
 
@@ -226,7 +226,7 @@ def _render_master_card(master, user_data, can_manage_masters, solo=False):
         <div class="master-card-header">
             <div class="master-card-main">
                 <div class="master-card-top">
-                    <span class="master-card-name">{user_name}</span>
+                    <span class="master-card-name">{e(user_name)}</span>
                     <span class="master-card-status-text {status_class}">{status_text}</span>
                 </div>
                 <div class="master-card-bottom">
@@ -483,8 +483,8 @@ async def render_employees_tab(
         status_text = "Активен" if m.is_active else "Отключён"
 
         actions = f"""
-            <button class="action-btn edit-btn" onclick="editEmployee({m.id}, '{user_name}', '{e(m.specialization)}', {m.experience_years})" title="Редактировать">{ICON_EDIT}</button>
-            <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({m.id}, '{user_name}', {str(m.is_active).lower()})" title="{'Отключить' if m.is_active else 'Включить'}">{ICON_POWER}</button>
+            <button class="action-btn edit-btn" onclick="editEmployee({m.id}, {ejs(user_name)}, {ejs(m.specialization)}, {m.experience_years})" title="Редактировать">{ICON_EDIT}</button>
+            <button class="action-btn toggle-btn {status_class}" onclick="toggleEmployee({m.id}, {ejs(user_name)}, {str(m.is_active).lower()})" title="{'Отключить' if m.is_active else 'Включить'}">{ICON_POWER}</button>
         """
         actions += _master_extra_actions(m.id, user_name, can_manage_masters, solo)
 
@@ -492,10 +492,10 @@ async def render_employees_tab(
         <tr>
             <td>
                 <div class="employee-cell">
-                    <div class="employee-avatar">{user_name[0].upper() if user_name else '?'}</div>
+                    <div class="employee-avatar">{e(user_name.strip()[:1].upper()) or '?'}</div>
                     <div>
-                        <div class="employee-name">{user_name}</div>
-                        <div class="employee-phone">{phone}</div>
+                        <div class="employee-name">{e(user_name)}</div>
+                        <div class="employee-phone">{e(phone)}</div>
                     </div>
                 </div>
             </td>

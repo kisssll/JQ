@@ -283,3 +283,19 @@ async def test_profile_api_rejects_a_blank_name(client, db_session):
     r = await client.patch("/api/v1/users/me", json={"full_name": " "}, headers=headers)
     assert r.status_code == 422
     assert (await _get_user(db_session, phone)).full_name == "Анна"
+
+
+def test_register_request_rejects_a_blank_name():
+    """Регистрация принимала имя из одних пробелов: в базе оно выглядит
+    заполненным, а на экране его нет. Формы профиля чистят, схема — нет."""
+    from app.schemas.user import RegisterRequest
+
+    r = RegisterRequest(phone="+79990000099", password="Testpass1",
+                        full_name="   ", request_id="r", code="1234")
+    assert r.full_name is None
+    r = RegisterRequest(phone="+79990000099", password="Testpass1",
+                        full_name="  Анна Ветрова  ", request_id="r", code="1234")
+    assert r.full_name == "Анна Ветрова"
+    r = RegisterRequest(phone="+79990000099", password="Testpass1",
+                        full_name="я" * 150, request_id="r", code="1234")
+    assert len(r.full_name) == 100, "колонка в базе шире 100 не принимает"

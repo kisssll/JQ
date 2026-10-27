@@ -6,6 +6,8 @@
 в панели. Тесты бьют по реальным страницам и требуют, чтобы сырого тега в
 ответе не было.
 """
+import html
+import re
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -81,6 +83,41 @@ async def test_public_catalog_escapes_salon_name(client, db_session):
     r = await client.get("/salons")
     assert r.status_code == 200
     _assert_no_raw_payload(r.text, "каталог")
+
+
+async def test_employees_tab_escapes_the_name_inside_onclick(client, db_session):
+    """Вкладка «Сотрудники»: имя и специализация мастера уходят в onclick.
+
+    Здесь опасен не тег, а АПОСТРОФ: внутри атрибута onclick="...'имя'..."
+    html-экранирования мало — браузер раскодирует &#x27; обратно в апостроф,
+    JS-строка закрывается и дальше идёт код. Имя и специализацию задаёт сам
+    мастер через свой профиль, то есть сотрудник мог атаковать владельца.
+    Поэтому значения собираются ejs() (JSON-литерал + экранирование).
+    """
+    breakout = "');window.__pwn=1;//"
+    sid, _mid, _oid = await _make_salon(
+        db_session, salon_name="Салон",
+        master_name=f"Мастер{PAYLOAD}{breakout}", spec=f"Спец{breakout}",
+        service_name="Услуга",
+    )
+    await client.post("/api/v1/auth/login-web",
+                      data={"phone": "+79997770101", "password": "Bizpass1"})
+
+    r = await client.get(f"/business/dashboard?salon_id={sid}&tab=employees")
+    assert r.status_code == 200
+    _assert_no_raw_payload(r.text, "вкладка «Сотрудники»")
+
+    # Проверять исходник страницы здесь мало: html.escape прячет апостроф как
+    # &#x27;, в тексте его не видно, а браузер перед разбором JS раскодирует
+    # атрибут обратно. Поэтому смотрим onclick ПОСЛЕ раскодирования.
+    onclicks = [html.unescape(m) for m in re.findall(r'onclick="([^"]*)"', r.text)]
+    calls = [c for c in onclicks if "Employee(" in c and "__pwn" in c]
+    assert calls, "кнопок с именем мастера на вкладке не нашлось"
+    for call in calls:
+        assert "'Мастер" not in call, (
+            f"имя передано JS-строкой в апострофах, а в нём апостроф: {call}"
+        )
+        assert '"Мастер' in call, f"имя должно быть JSON-литералом: {call}"
 
 
 async def test_guest_booking_page_escapes_names(client, db_session):

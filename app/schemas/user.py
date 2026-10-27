@@ -62,6 +62,16 @@ class RegisterRequest(BaseModel):
     def _check_phone(cls, v: str) -> str:
         return _normalize_phone(v)
 
+    @field_validator("full_name")
+    @classmethod
+    def _clean_name(cls, v: Optional[str]) -> Optional[str]:
+        """Имя из одних пробелов — не имя: в базе оно выглядит как заполненное,
+        а на экране пусто. Формы профиля его уже чистят, регистрация — нет."""
+        if v is None:
+            return None
+        cleaned = v.strip()
+        return cleaned[:100] or None
+
 
 class LoginRequest(BaseModel):
     phone: str
