@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.session import get_db
-from app.models.models import User, UserRole, SalonMember, ModelModerationStatus, SalonSubscriptionStatus
+from app.models.models import User, UserRole, SalonMember, Master, ModelModerationStatus, SalonSubscriptionStatus
 from app.core.config import settings
 from app.core.security import decode_access_token
 
@@ -77,6 +77,30 @@ async def require_is_model(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Требуется профиль модели",
+        )
+    return current_user
+
+
+async def require_is_master(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Статус «мастер» — факт активной карточки Master, а не role.
+
+    Роль у человека одна, и заявка на свой салон переписывает её в BUSINESS:
+    по role мастер, открывший салон, терял склад и расписание, хотя мастером
+    быть не перестал. И наоборот, role=MASTER остаётся после того, как
+    карточку сняли. Доступ это не расширяет: обработчики и так берут данные
+    по Master.user_id текущего человека (решение 0015, п. 5)."""
+    has_card = (await db.execute(
+        select(Master.id).where(
+            Master.user_id == current_user.id, Master.is_active == True,  # noqa: E712
+        )
+    )).scalar_one_or_none()
+    if has_card is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Требуется профиль мастера",
         )
     return current_user
 

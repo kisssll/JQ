@@ -589,7 +589,9 @@ async def test_solo_owner_who_is_master_elsewhere_gets_an_explanation(client, db
     assert "Создать мою карточку мастера" not in r.text, (
         "кнопка, которая заведомо ничего не сделает, хуже объяснения"
     )
-    assert "уже заведены мастером" in r.text
+    # Первый салон его же — так и говорим; про «чужой» салон отдельный тест
+    # в test_master_owner_access.py.
+    assert "в вашем салоне «Режимный»" in r.text
 
 
 async def test_solo_still_shows_existing_co_owners(client, db_session):

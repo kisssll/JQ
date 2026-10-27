@@ -253,3 +253,33 @@ async def test_update_form_does_not_change_email(client, db_session):
     user = await _get_user(db_session, phone)
     assert user.full_name == "Новое Имя"
     assert user.email != "sneaky@x.ru"
+
+
+@pytest.mark.parametrize("path", ["/api/v1/users/me/update-form", "/api/v1/users/me"])
+async def test_profile_name_is_stripped_and_never_blank(client, db_session, path):
+    """Имя из пробелов раньше доходило до базы как есть, и этикетка в шапке
+    валила 500 на каждой странице. Обе формы профиля чистят имя и пустое не
+    принимают — прежнее имя при этом остаётся."""
+    phone = "+79993330091" if path.endswith("update-form") else "+79993330092"
+    await register_user(client, phone, full_name="Анна")
+    await _login_web(client, phone)
+
+    r = await client.post(path, data={"full_name": "   "})
+    assert r.status_code == 302 and "error=bad_name" in r.headers["location"]
+    assert (await _get_user(db_session, phone)).full_name == "Анна"
+
+    r = await client.post(path, data={"full_name": "x" * 101})
+    assert "error=bad_name" in r.headers["location"], "длиннее колонки — 500 от базы"
+
+    r = await client.post(path, data={"full_name": "  Анна Петрова \t"})
+    assert "success=updated" in r.headers["location"]
+    assert (await _get_user(db_session, phone)).full_name == "Анна Петрова"
+
+
+async def test_profile_api_rejects_a_blank_name(client, db_session):
+    phone = "+79993330093"
+    tokens = await register_user(client, phone, full_name="Анна")
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    r = await client.patch("/api/v1/users/me", json={"full_name": " "}, headers=headers)
+    assert r.status_code == 422
+    assert (await _get_user(db_session, phone)).full_name == "Анна"

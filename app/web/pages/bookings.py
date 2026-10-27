@@ -323,6 +323,8 @@ async def render_bookings_page(db: AsyncSession, user, notice: str = "") -> str:
             )
         body = "".join(sections)
 
+    from app.services.cabinet_badge import load_badges
+    badges = await load_badges(db, user)
     # Числа — только настоящие: у человека без записей их нет.
     stats = ([("%d" % len(upcoming), "предстоящих"), ("%d" % len(past), "в истории")]
              if bookings else None)
@@ -346,6 +348,7 @@ async def render_bookings_page(db: AsyncSession, user, notice: str = "") -> str:
             notice_html + body,
             action=("Новая запись", "/salons"),
             stats=stats,
+            badge=badges,
         )}
         {render_footer(user)}
     </main>

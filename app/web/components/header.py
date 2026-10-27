@@ -40,7 +40,11 @@ def render_account_tag(user=None) -> str:
     на ней нет — ничем не подтверждены (ч. 7 ст. 5 закона «О рекламе»).
     """
     if user:
-        name = user.full_name or user.phone or "Пользователь"
+        # Имя чистим пробелами: форма профиля пишет full_name как есть
+        # (app/api/v1/endpoints/users.py), поэтому там может лежать один пробел —
+        # на нём name.split()[0] падал IndexError, и 500 получала КАЖДАЯ страница
+        # с шапкой, а не только профиль.
+        name = (user.full_name or "").strip() or getattr(user, "phone", "") or "Пользователь"
         label = e(name.split()[0])
         items = f'<div class="acct-menu__who">{e(name)}</div>'
         items += _link("/profile", ICON_USER, "Мой профиль")

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta
 
-from app.models.models import Master, Salon, Service, Promotion, Booking, BookingStatus
+from app.models.models import Master, Salon, SalonMember, Service, Promotion, Booking, BookingStatus
 from app.services.inventory_service import InventoryService
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
@@ -237,6 +237,19 @@ async def render_master_business_dashboard(db: AsyncSession, user, salon: Salon,
     if active_tab not in ("overview", "schedule"):
         active_tab = "overview"
 
+    # Обратная дорога для того, у кого есть и свой салон: сюда он пришёл по
+    # ?as=master, а без параметра /business/dashboard откроет его салон.
+    has_own_panel = (await db.execute(
+        select(SalonMember.id).where(
+            SalonMember.user_id == user.id, SalonMember.is_active == True,  # noqa: E712
+        ).limit(1)
+    )).scalar_one_or_none() is not None
+    back_link = (
+        '<a class="btn-outline" href="/business/dashboard" style="display:inline-flex;'
+        'align-items:center;min-height:44px;margin-top:0.75rem">Моя бизнес-панель</a>'
+        if has_own_panel else ""
+    )
+
     overview_html = await _render_master_overview(db, salon, master)
     schedule_html = await _render_master_schedule(db, salon, master)
 
@@ -283,6 +296,7 @@ async def render_master_business_dashboard(db: AsyncSession, user, salon: Salon,
             <div style="margin-bottom:1rem">
                 <h1 class="text-display" style="font-size:2rem">{e(salon.name)}</h1>
                 <p class="text-muted">{e(master.specialization)} · Панель мастера</p>
+                {back_link}
             </div>
 
             <div class="tab-nav">

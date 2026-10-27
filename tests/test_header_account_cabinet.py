@@ -83,6 +83,16 @@ def test_tag_is_a_real_button_and_makes_no_promises():
     assert "30 секунд" not in html and "4 клика" not in html and "0 звонков" not in html
 
 
+def test_tag_survives_a_blank_name():
+    """Имя из одних пробелов проходит форму профиля (full_name пишется как есть),
+    а на нём этикетка валила 500 КАЖДУЮ страницу с шапкой, не только профиль."""
+    html = render_account_tag(_guest_user(full_name="   "))
+    assert "+79990000001" in html
+    # телефона тоже может не быть — тогда остаётся подпись по умолчанию
+    html = render_account_tag(_guest_user(full_name=" ", phone=""))
+    assert "Пользователь" in html
+
+
 def test_tag_escapes_the_name():
     html = render_account_tag(_guest_user(full_name='<img src=x onerror=alert(1)>'))
     assert "<img src=x" not in html

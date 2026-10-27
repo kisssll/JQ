@@ -159,6 +159,8 @@ async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str
             )
         body = "".join(groups)
 
+    from app.services.cabinet_badge import load_badges
+    badges = await load_badges(db, user)
     stats = ([(str(n_salons), "салонов"), (str(n_masters), "мастеров")]
              if (n_salons or n_masters) else None)
 
@@ -181,6 +183,7 @@ async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str
             notice_html + body,
             action=("Открыть каталог", "/salons"),
             stats=stats,
+            badge=badges,
         )}
         {render_footer(user)}
     </main>

@@ -568,7 +568,7 @@ def _email_form(email: str) -> str:
 
 
 def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
-                        error=None, success=None) -> str:
+                        error=None, success=None, badges=None) -> str:
     """Страница профиля.
 
     ``error``/``success`` — коды из адреса. Все формы профиля отвечают
@@ -592,6 +592,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
         "email_not_verified": "Код неверный или истёк — запросите новый",
         "otp_unavailable": "Сервис подтверждения временно недоступен, попробуйте позже",
         "update_failed": "Не удалось обновить профиль",
+        "bad_name": "Укажите имя — до 100 символов, не из одних пробелов",
         "notify_channel_invalid": "Неизвестный канал уведомлений",
         "vk_unavailable": "Подключение ВКонтакте сейчас недоступно",
         "notify_channel_unavailable": "Этот канал не подключён — сначала привяжите "
@@ -787,7 +788,8 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
     <main class="main-content cabinet-main profile-main">
         {render_cabinet(user, "profile", "Мой профиль",
             "Кто вы, как с вами связаться и что мы о вас храним.",
-            notice_html + '<div class="profile-stack">' + stack + '</div>')}
+            notice_html + '<div class="profile-stack">' + stack + '</div>',
+            badge=badges or [])}
         {render_footer(user)}
     </main>
 </body>

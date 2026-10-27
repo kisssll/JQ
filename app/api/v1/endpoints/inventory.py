@@ -12,7 +12,7 @@ from app.models.models import (
     InventoryItem, InventoryMovement, InventoryMovementType, Master, User, UserRole,
     Booking, WarehouseAssignment, WarehouseRequestType, Equipment, EquipmentStatus, Service,
 )
-from app.api.deps import check_salon_permission, get_current_user, require_role
+from app.api.deps import check_salon_permission, get_current_user, require_is_master
 from app.services.inventory_service import InventoryService, InventoryError
 from app.services.notifications import (
     notify_warehouse_request_created,
@@ -553,7 +553,7 @@ async def confirm_audit_api(
 
 @router.get("/my/stock")
 async def get_my_stock(
-    current_user: User = Depends(require_role(UserRole.MASTER)),
+    current_user: User = Depends(require_is_master),
     db: AsyncSession = Depends(get_db),
 ):
     """Остаток своего мини-склада (для кабинета мастера)."""
@@ -580,7 +580,7 @@ class ConsumptionRequest(BaseModel):
 @router.post("/my/consumption")
 async def log_my_consumption(
     body: ConsumptionRequest,
-    current_user: User = Depends(require_role(UserRole.MASTER)),
+    current_user: User = Depends(require_is_master),
     db: AsyncSession = Depends(get_db),
 ):
     """Форма мастера после клиента: сколько расходников фактически потрачено."""

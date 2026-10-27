@@ -4,7 +4,7 @@ import html
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from app.models.models import Master, User as UserModel, SalonMember, SalonRole, AdminAudit, SALON_PERMISSION_KEYS
+from app.models.models import Master, Salon as SalonModel, User as UserModel, SalonMember, SalonRole, AdminAudit, SALON_PERMISSION_KEYS
 from app.web.components.icons import (
     ICON_EDIT,
     ICON_USER_PLUS,
@@ -96,6 +96,92 @@ def _render_staff_card(member, user_data, can_edit_perms, can_remove):
         </div>
     </div>
     """
+
+
+async def _render_own_master_card_gate(db, salon, user, solo, w) -> str:
+    """Блок «завести себе карточку мастера» — либо объяснение, почему нельзя.
+
+    Мастер у человека может быть только один (masters.user_id уникален).
+    Если он уже мастер в другом салоне, кнопка заведомо ничего не сделает —
+    объясняем это, а не оставляем нажимать пустышку. Объяснение разное: свой
+    там салон или чужой. Прежний текст говорил «в другом своём салоне» и врал
+    мастеру, которого завела в свой салон Аня."""
+    elsewhere = (await db.execute(
+        select(Master.salon_id, Master.is_active, SalonModel.name)
+        .join(SalonModel, SalonModel.id == Master.salon_id)
+        .where(Master.user_id == user.id)
+    )).one_or_none()
+
+    if elsewhere is not None:
+        other_salon_id, card_active, other_name = elsewhere
+        owns_other = (await db.execute(
+            select(SalonMember.id).where(
+                SalonMember.salon_id == other_salon_id,
+                SalonMember.user_id == user.id,
+                SalonMember.role == SalonRole.OWNER,
+                SalonMember.is_active == True,  # noqa: E712
+            )
+        )).scalar_one_or_none() is not None
+        where = e(other_name or "другой салон")
+        if owns_other:
+            body = (
+                f"Ваша карточка мастера — в вашем салоне «{where}», а карточка у "
+                "человека одна. Поэтому в этом салоне к вам записаться нельзя: "
+                f"клиенты найдут вас только в «{where}»."
+            )
+            tail = w("master_elsewhere_tail") if solo else ""
+            link = ""
+        else:
+            body = (
+                f"Вы мастер в салоне «{where}» — карточку там завёл его владелец, "
+                "а карточка у человека одна. Поэтому в этом салоне к вам записаться "
+                f"нельзя: клиенты найдут вас только в «{where}»."
+            )
+            tail = w("master_elsewhere_tail") if solo else ""
+            link = (
+                '<a class="btn-outline" href="/business/dashboard?as=master" '
+                'style="display:inline-flex;align-items:center;min-height:44px;'
+                f'margin-top:0.9rem">Моя панель мастера в «{where}»</a>'
+                if card_active else ""
+            )
+        return f"""
+        <div class="card" style="padding:1.1rem;margin-bottom:1.25rem">
+            <h3 style="margin:0 0 0.5rem">Вас пока нельзя записать в этом салоне</h3>
+            <p class="text-muted" style="font-size:0.9rem;margin:0">
+                {body} {tail}
+            </p>
+            {link}
+        </div>
+        """
+
+    if solo:
+        title = "Вас пока нельзя записать"
+        text = (
+            "Клиенты записываются к мастеру, а не к салону. Заведите свою карточку — "
+            "после этого появятся услуги, расписание и ссылка для записи."
+        )
+    else:
+        title = "Вы тоже принимаете клиентов?"
+        text = (
+            "Заведите свою карточку мастера — к вам смогут записываться, как к "
+            "остальным мастерам салона. Добавлять себя по своему же телефону не нужно."
+        )
+    return f"""
+        <div class="card" style="padding:1.1rem;margin-bottom:1.25rem">
+            <h3 style="margin:0 0 0.5rem">{title}</h3>
+            <p class="text-muted" style="font-size:0.9rem;margin:0 0 0.9rem">{text}</p>
+            <form method="post" action="/api/v1/business/my-salon/master-card"
+                  style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:flex-end">
+                <input type="hidden" name="salon_id" value="{salon.id}">
+                <div class="form-group" style="margin:0;flex:1 1 14rem">
+                    <label for="soloSpecialization">Чем занимаетесь</label>
+                    <input type="text" id="soloSpecialization" name="specialization"
+                           maxlength="100" placeholder="Например, маникюр">
+                </div>
+                <button type="submit" class="btn-primary">{ICON_USER_PLUS} Создать мою карточку мастера</button>
+            </form>
+        </div>
+        """
 
 
 def _master_extra_actions(master_id, user_name, can_manage_masters, solo):
@@ -447,44 +533,13 @@ async def render_employees_tab(
     # Соло-режим без карточки мастера — это ровно та дыра, из-за которой салон
     # на проде остался с нулём мастеров: к человеку нельзя записаться, а найма
     # в соло нет. Даём один способ завести себя, обычной формой без JS.
+    # В команде то же самое: владелец, который сам принимает клиентов, иначе
+    # вписывает себя через «Добавить мастера» своим же телефоном — так никто
+    # не делает, и к нему просто нельзя записаться (решение 0015, п. 5).
+    own_card_here = any(m.user_id == user.id for m in masters)
     master_card_gate = ""
-    if solo and not masters and can_manage_masters:
-        # Мастер у человека может быть только один (masters.user_id уникален).
-        # Если он уже мастер в другом салоне, кнопка заведомо ничего не сделает —
-        # объясняем это, а не оставляем нажимать пустышку.
-        master_elsewhere = (await db.execute(
-            select(Master.id).where(Master.user_id == user.id)
-        )).scalar_one_or_none()
-        if master_elsewhere is not None:
-            master_card_gate = f"""
-        <div class="card" style="padding:1.1rem;margin-bottom:1.25rem">
-            <h3 style="margin:0 0 0.5rem">Вас пока нельзя записать в этом салоне</h3>
-            <p class="text-muted" style="font-size:0.9rem;margin:0">
-                Вы уже заведены мастером в другом своём салоне, а один человек может быть
-                мастером только в одном месте. {w("master_elsewhere_tail")}
-            </p>
-        </div>
-        """
-        else:
-            master_card_gate = f"""
-        <div class="card" style="padding:1.1rem;margin-bottom:1.25rem">
-            <h3 style="margin:0 0 0.5rem">Вас пока нельзя записать</h3>
-            <p class="text-muted" style="font-size:0.9rem;margin:0 0 0.9rem">
-                Клиенты записываются к мастеру, а не к салону. Заведите свою карточку —
-                после этого появятся услуги, расписание и ссылка для записи.
-            </p>
-            <form method="post" action="/api/v1/business/my-salon/master-card"
-                  style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:flex-end">
-                <input type="hidden" name="salon_id" value="{salon.id}">
-                <div class="form-group" style="margin:0;flex:1 1 14rem">
-                    <label for="soloSpecialization">Чем занимаетесь</label>
-                    <input type="text" id="soloSpecialization" name="specialization"
-                           maxlength="100" placeholder="Например, маникюр">
-                </div>
-                <button type="submit" class="btn-primary">{ICON_USER_PLUS} Создать мою карточку мастера</button>
-            </form>
-        </div>
-        """
+    if can_manage_masters and not own_card_here and (not masters if solo else True):
+        master_card_gate = await _render_own_master_card_gate(db, salon, user, solo, w)
 
     masters_section = f"""
     <div class="employees-section">

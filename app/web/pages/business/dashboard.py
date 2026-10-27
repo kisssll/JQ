@@ -629,6 +629,21 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     if membership.is_creator:
         add_salon_html = f'<a class="salon-switcher-add" href="/business/register-salon">{ICON_PLUS} Добавить салон</a>'
 
+    # Мастер чужого салона, открывший свой: панель по умолчанию — его салон, и
+    # до мастерской панели у того, кто его нанял, иначе не дойти. Ссылка ведёт
+    # на ?as=master, а салон маршрут берёт из карточки, не из адреса.
+    master_panel_html = ""
+    own_card = (await db.execute(
+        select(Master.salon_id, Salon.name)
+        .join(Salon, Salon.id == Master.salon_id)
+        .where(Master.user_id == user.id, Master.is_active == True)  # noqa: E712
+    )).one_or_none()
+    if own_card is not None and own_card[0] not in salons_by_id:
+        master_panel_html = (
+            '<a class="salon-switcher-add" href="/business/dashboard?as=master">'
+            f'Панель мастера · {e(own_card[1])}</a>'
+        )
+
     # Баннер статуса заявки + модальное предупреждение (см. publish_gate_modal_html
     # ниже) — оба про один и тот же случай «модерация пройдена, тариф не выбран»,
     # баннер держит объяснение постоянно на экране, модалка обращает на него внимание
@@ -793,6 +808,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
             <div class="header-controls">
                 {switcher_html}
                 {add_salon_html}
+                {master_panel_html}
                 <span class="dashboard-badge">
                     {ICON_SPARKLES} Бизнес PRO
                 </span>

@@ -217,11 +217,14 @@ async def profile_page(request: Request, db: AsyncSession = Depends(get_db)):
     """
     from app.web.pages.profile import render_profile_page
 
+    from app.services.cabinet_badge import load_badges
+
     user = await get_current_user_from_cookie(request, db)
     return HTMLResponse(content=render_profile_page(
         user,
         success=request.query_params.get("success"),
         error=request.query_params.get("error"),
+        badges=await load_badges(db, user),
     ))
 
 
@@ -305,6 +308,15 @@ async def business_dashboard_page(
     if not user:
         return RedirectResponse(url="/login?redirect=/business/dashboard", status_code=302)
 
+    # Мастер чужого салона, открывший свой, иначе до мастерской панели не
+    # доходит: ниже свой салон всегда побеждает. ?as=master — явный вход туда.
+    # Салон берётся ТОЛЬКО из карточки: параметр выбирает вид, а не салон, и
+    # подставленный salon_id чужую панель не откроет (решение 0015, п. 5).
+    if request.query_params.get("as") == "master":
+        response = await _master_panel_by_card(db, user, request.query_params)
+        if response is not None:
+            return response
+
     # salon_id из URL (явное переключение через свитчер) в приоритете; если его
     # нет — пробуем салон, запомненный в cookie с прошлого визита, и только
     # если он тоже недоступен — стандартную эвристику get_user_primary_salon_id.
@@ -334,14 +346,23 @@ async def business_dashboard_page(
             )
             return response
 
-    master = (await db.execute(select(Master).where(Master.user_id == user.id, Master.is_active == True))).scalar_one_or_none()
-    if master is not None:
-        from app.web.pages.business.master_dashboard import render_master_business_dashboard
-        salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none()
-        if salon is not None:
-            return HTMLResponse(content=await render_master_business_dashboard(db, user, salon, master, request.query_params))
+    response = await _master_panel_by_card(db, user, request.query_params)
+    if response is not None:
+        return response
 
     return RedirectResponse(url="/business/register-salon", status_code=302)
+
+
+async def _master_panel_by_card(db: AsyncSession, user, query_params):
+    """Мастерская панель по активной карточке мастера, либо None, если карточки нет."""
+    master = (await db.execute(select(Master).where(Master.user_id == user.id, Master.is_active == True))).scalar_one_or_none()
+    if master is None:
+        return None
+    from app.web.pages.business.master_dashboard import render_master_business_dashboard
+    salon = (await db.execute(select(Salon).where(Salon.id == master.salon_id))).scalar_one_or_none()
+    if salon is None:
+        return None
+    return HTMLResponse(content=await render_master_business_dashboard(db, user, salon, master, query_params))
 
 
 @router.get("/business/register-salon", response_class=HTMLResponse)
@@ -396,12 +417,13 @@ async def master_dashboard_page_route():
 @router.get("/master/inventory", response_class=HTMLResponse)
 async def master_inventory_page_route(request: Request, db: AsyncSession = Depends(get_db)):
     from app.web.pages.master.inventory import render_master_inventory
-    from app.models.models import UserRole
 
     user = await get_current_user_from_cookie(request, db)
     if not user:
         return RedirectResponse(url="/login?redirect=/master/inventory", status_code=302)
-    if user.role != UserRole.MASTER:
+    # По карточке, а не по role: владелец своего салона остаётся мастером, хотя
+    # заявка переписала ему роль в BUSINESS (см. require_is_master).
+    if not getattr(user, "has_master_profile", False):
         return RedirectResponse(url="/", status_code=302)
 
     return HTMLResponse(content=await render_master_inventory(

@@ -12,6 +12,21 @@ from app.core.limiter import limiter
 
 router = APIRouter()
 
+# Длина колонки users.full_name: длиннее Postgres не запишет и отдаст 500.
+FULL_NAME_MAX = 100
+
+
+def clean_full_name(raw: str | None) -> str | None:
+    """Имя без краевых пробелов, либо None, если сохранять нечего.
+
+    Раньше формы писали full_name как есть, и «   » проходило: в базе лежало
+    имя из пробелов, а этикетка в шапке брала из него первое слово и падала
+    на КАЖДОЙ странице. Пустое имя не принимаем, а не стираем им прежнее."""
+    name = (raw or "").strip()
+    if not name or len(name) > FULL_NAME_MAX:
+        return None
+    return name
+
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     """Получить профиль текущего пользователя"""
@@ -29,8 +44,11 @@ async def update_me_form(
     user = await get_current_user_from_cookie(request, db)
     if not user:
         return RedirectResponse(url="/login", status_code=302)
-    
-    user.full_name = full_name
+
+    name = clean_full_name(full_name)
+    if name is None:
+        return RedirectResponse(url="/profile?error=bad_name", status_code=302)
+    user.full_name = name
     await db.commit()
     
     return RedirectResponse(url="/profile?success=updated", status_code=302)
@@ -44,7 +62,13 @@ async def update_me(
     """Обновить профиль текущего пользователя"""
     
     if user_data.full_name is not None:
-        current_user.full_name = user_data.full_name
+        name = clean_full_name(user_data.full_name)
+        if name is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Имя не может быть пустым или длиннее {FULL_NAME_MAX} символов",
+            )
+        current_user.full_name = name
 
     # Email НЕ меняется здесь: смена email требует подтверждения кодом на новый
     # адрес — единственный путь /me/email/send-code → /me/email-form (иначе
@@ -80,8 +104,10 @@ async def update_profile_form(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
 
-    # Обновляем базовые поля
-    user.full_name = full_name
+    name = clean_full_name(full_name)
+    if name is None:
+        return RedirectResponse(url="/profile?error=bad_name", status_code=302)
+    user.full_name = name
 
     if avatar_url is not None:
         user.avatar_url = avatar_url

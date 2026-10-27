@@ -11,7 +11,7 @@ import secrets
 from app.db.session import get_db
 from app.models.models import User, Master, Booking, Salon, UserRole, BookingStatus, Review, ReviewTargetType
 from app.api.deps import (
-    get_current_user, require_role, check_salon_permission,
+    get_current_user, require_is_master, check_salon_permission,
 )
 from app.core.security import get_password_hash
 from app.schemas.user import try_normalize_phone
@@ -22,10 +22,10 @@ router = APIRouter()
 
 @router.get("/schedule")
 async def get_my_schedule(
-    current_user: User = Depends(require_role(UserRole.MASTER)),
+    current_user: User = Depends(require_is_master),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить своё расписание (только для MASTER)"""
+    """Своё расписание — у кого есть активная карточка мастера (не по role)."""
     
     result = await db.execute(
         select(Master).where(Master.user_id == current_user.id)

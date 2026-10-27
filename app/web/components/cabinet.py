@@ -33,14 +33,17 @@ def _stats(stats) -> str:
 
 def render_cabinet(user, current: str, title: str, lead: str, content: str, *,
                    action: tuple[str, str] | None = None, stats=None,
-                   badge: str = "", extra_class: str = "") -> str:
+                   badge: str | list[str] = "", extra_class: str = "") -> str:
     """``action`` — (подпись, адрес) пилюли справа от заголовка; ``stats`` —
-    [(число, подпись)], только реальные; ``badge`` — подпись подписки, если она
-    у человека есть по-настоящему (иначе пусто)."""
-    name = user.full_name or user.phone or "Пользователь"
+    [(число, подпись)], только реальные; ``badge`` — подписи подписок, которые
+    у человека есть по-настоящему (app/services/cabinet_badge.py), иначе пусто."""
+    # Имя из пробелов — пустое имя (см. render_account_tag в шапке).
+    full_name = (user.full_name or "").strip()
+    name = full_name or user.phone or "Пользователь"
     phone = (f'<p class="acc-phone">{e(user.phone)}</p>'
-             if user.phone and user.full_name else "")
-    badge_html = f'<span class="acc-badge">{e(badge)}</span>' if badge else ""
+             if user.phone and full_name else "")
+    badges = [badge] if isinstance(badge, str) else list(badge or [])
+    badge_html = "".join(f'<span class="acc-badge">{e(b)}</span>' for b in badges if b)
     nav = "".join(_nav_link(href, label, key == current)
                   for key, href, label in CABINET_SECTIONS)
     act = (ui.button(action[0], href=action[1]) if action else "")
