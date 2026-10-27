@@ -441,13 +441,19 @@ async def delete_account_form(
     password: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Мягкое удаление аккаунта: деактивация + сброс cookie (выход).
+    """Мягкое удаление аккаунта: деактивация всей цепочки + сброс cookie (выход).
 
-    Данные (брони/отзывы/салоны) сохраняются — админ может восстановить.
-    Требует подтверждения текущим паролем.
+    Вместе с аккаунтом гаснут карточка мастера и салоны, где человек
+    единственный владелец, а не начавшиеся записи к нему отменяются с
+    уведомлением клиентам (решение 0016, правила — в app/services/departure.py).
+    Раньше гас только аккаунт, и к ушедшему человеку продолжали записываться.
+
+    Ничего не удаляется — админ может восстановить. Требует подтверждения
+    текущим паролем.
     """
     from app.web.auth import get_current_user_from_cookie
     from app.core.security import verify_password
+    from app.services.departure import depart_account
 
     user = await get_current_user_from_cookie(request, db)
     if not user:
@@ -456,8 +462,7 @@ async def delete_account_form(
     if not verify_password(password, user.hashed_password):
         return RedirectResponse(url="/profile?error=wrong_password", status_code=302)
 
-    user.is_active = False
-    await db.commit()
+    await depart_account(db, user, base_url=str(request.base_url))
 
     response = RedirectResponse(url="/?account_deleted=1", status_code=302)
     response.delete_cookie("access_token")

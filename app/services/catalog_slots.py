@@ -27,6 +27,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import BookingStatus
+from app.services.live_accounts import live_master_sql
 from app.services.schedule_utils import (
     MAX_BOOKING_DAYS_AHEAD,
     compute_effective_intervals,
@@ -126,7 +127,7 @@ SELECT s.id AS salon_id,
                              AND b.status IN :live_statuses))
                  ORDER BY m.id)
           FROM masters m
-         WHERE m.salon_id = s.id AND m.is_active = true) AS masters,
+         WHERE m.salon_id = s.id AND """ + live_master_sql("m") + """) AS masters,
        (SELECT json_agg(json_build_object('d', to_char(cl.date, 'YYYY-MM-DD'),
                                           'm', cl.master_id))
           FROM schedule_closures cl

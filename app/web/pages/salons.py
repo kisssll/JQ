@@ -20,6 +20,7 @@ from app.web.components.icons import (
     ICON_CHEVRON_DOWN,
 )
 from app.services.catalog_slots import CardExtras, load_card_extras
+from app.services.live_accounts import live_master_sql, salon_has_live_owner_sql
 from app.services.price import format_service_price
 from app.services.public_words import solo_from_facts, word
 from app.web.components import ui
@@ -128,9 +129,9 @@ _CARD_COLUMNS = f"""s.id, s.name, s.description, s.address, s.city, s.rating,
                -- ровно один активный мастер. Считаем подзапросами в том же
                -- SELECT — отдельный круг до базы за этим не ходит.
                (SELECT count(*) FROM masters mm
-                 WHERE mm.salon_id = s.id AND mm.is_active = true) AS master_count,
+                 WHERE mm.salon_id = s.id AND {live_master_sql("mm")}) AS master_count,
                EXISTS (SELECT 1 FROM masters mo
-                        WHERE mo.salon_id = s.id AND mo.is_active = true
+                        WHERE mo.salon_id = s.id AND {live_master_sql("mo")}
                           AND mo.user_id = s.creator_id) AS owner_is_master"""
 
 
@@ -145,6 +146,9 @@ def _build_search_sql(p: SalonQuery, trgm: bool):
         "s.is_hidden = false",
         # Тариф: доступ должен быть открыт (см. services/subscription.py)
         "s.access_until > now()",
+        # Аккаунт владельца не отключён (решение 0016, п. 3): даже если цепочка
+        # удаления где-то не отработала, салон ушедшего человека не всплывёт.
+        salon_has_live_owner_sql("s"),
     ]
 
     if p.city:
@@ -160,7 +164,7 @@ def _build_search_sql(p: SalonQuery, trgm: bool):
     if p.categories:
         where.append(
             "EXISTS (SELECT 1 FROM masters m JOIN services sv ON sv.master_id = m.id "
-            "WHERE m.salon_id = s.id AND m.is_active = true AND sv.is_active = true "
+            f"WHERE m.salon_id = s.id AND {live_master_sql('m')} AND sv.is_active = true "
             "AND sv.is_model_practice = false AND sv.category IN :cats)"
         )
         binds["cats"] = p.categories
@@ -226,7 +230,7 @@ def _build_search_sql(p: SalonQuery, trgm: bool):
         WITH sn AS (
             SELECT m.salon_id AS salon_id, string_agg(sv.name, ' ') AS svc
             FROM masters m JOIN services sv ON sv.master_id = m.id
-            WHERE m.is_active = true AND sv.is_active = true AND sv.is_model_practice = false
+            WHERE {live_master_sql("m")} AND sv.is_active = true AND sv.is_model_practice = false
             GROUP BY m.salon_id
         )
         SELECT {_CARD_COLUMNS}{extra_cols}
@@ -256,10 +260,11 @@ async def _available_cities(db: AsyncSession) -> list[str]:
     """Города, где есть видимые салоны — для дропдауна (не зависит от текущих
     фильтров, список стабилен)."""
     rows = await db.execute(text(
-        "SELECT DISTINCT city FROM salons "
-        "WHERE is_active = true AND moderation_status = 'APPROVED' "
-        "AND published_at IS NOT NULL AND is_hidden = false AND access_until > now() "
-        "AND city IS NOT NULL AND city <> '' ORDER BY city"
+        "SELECT DISTINCT s.city FROM salons s "
+        "WHERE s.is_active = true AND s.moderation_status = 'APPROVED' "
+        "AND s.published_at IS NOT NULL AND s.is_hidden = false AND s.access_until > now() "
+        f"AND {salon_has_live_owner_sql('s')} "
+        "AND s.city IS NOT NULL AND s.city <> '' ORDER BY s.city"
     ))
     return [r[0] for r in rows.all()]
 
@@ -276,7 +281,8 @@ async def _categories_by_city(db: AsyncSession) -> dict[str, list[str]]:
         "WHERE s.is_active = true AND s.moderation_status = 'APPROVED' "
         "AND s.published_at IS NOT NULL AND s.is_hidden = false AND s.access_until > now() "
         "AND s.city IS NOT NULL AND s.city <> '' "
-        "AND m.is_active = true AND sv.is_active = true "
+        f"AND {salon_has_live_owner_sql('s')} AND {live_master_sql('m')} "
+        "AND sv.is_active = true "
         "AND sv.is_model_practice = false AND sv.category IS NOT NULL"
     ))
     by_city: dict[str, set[str]] = {}
@@ -390,6 +396,7 @@ async def load_cards_by_ids(db: AsyncSession, salon_ids: list[int]) -> dict[int,
         SELECT {_CARD_COLUMNS}
         FROM salons s
         WHERE s.id IN :ids AND s.is_active = true AND s.is_hidden = false
+          AND {salon_has_live_owner_sql("s")}
     """).bindparams(bindparam("ids", expanding=True))
     rows = (await db.execute(stmt, {"ids": salon_ids})).mappings().all()
     if not rows:

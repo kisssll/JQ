@@ -567,8 +567,37 @@ def _email_form(email: str) -> str:
     )
 
 
+def _departure_text(departure) -> str:
+    """Последствия удаления аккаунта — перечнем, до подтверждения.
+
+    Удаление гасит карточку мастера и свои салоны и отменяет записи
+    (решение 0016). Человек должен увидеть это ДО кнопки: отменённые записи
+    не вернуть, а клиентам уйдёт уведомление. Про тариф говорим как есть —
+    обещать возврат, которого нет, нельзя.
+    """
+    if departure is None or not departure.touches_anything:
+        return ""
+    items = []
+    if departure.master is not None:
+        items.append("ваша карточка мастера уйдёт из каталога, записаться к вам будет нельзя")
+    for salon in departure.closed_salons:
+        items.append(f"салон «{e(salon.name)}» закроется: он уйдёт из каталога и из записи")
+    for salon in departure.shared_salons:
+        items.append(f"салон «{e(salon.name)}» останется у совладельца")
+    if departure.bookings:
+        line = f"отменятся будущие записи: {len(departure.bookings)}"
+        if departure.today:
+            line += f", из них сегодня — {departure.today}"
+        items.append(line + "; клиенты получат уведомление")
+    if departure.closed_salons:
+        items.append("автопродление тарифа отключится; оплаченный период "
+                     "автоматически не возвращается — вопрос о возврате можно задать поддержке")
+    return ('<p class="r-text">Вместе с аккаунтом:</p><ul class="r-text">'
+            + "".join(f"<li>{item}</li>" for item in items) + "</ul>")
+
+
 def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
-                        error=None, success=None, badges=None) -> str:
+                        error=None, success=None, badges=None, departure=None) -> str:
     """Страница профиля.
 
     ``error``/``success`` — коды из адреса. Все формы профиля отвечают
@@ -734,7 +763,8 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
         '<p class="r-text">Аккаунт будет деактивирован: вы выйдете из системы и '
         "не сможете войти. Данные сохраняются — для восстановления или полного "
         "удаления обратитесь в поддержку.</p>"
-        '<form id="delete-account-form" action="/api/v1/users/me/delete-form" '
+        + _departure_text(departure)
+        + '<form id="delete-account-form" action="/api/v1/users/me/delete-form" '
         'method="post">'
         + ui.field("Подтвердите паролем", name="password",
                    element_id="delete-password", type_="password",

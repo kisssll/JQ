@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.services.subscription import has_access
+from app.services.live_accounts import live_master, salon_is_live
 from app.models.models import (
     User, UserRole, Salon, Master, Service, Booking, BookingStatus,
     SalonModerationStatus, ConsentDocument,
@@ -70,6 +71,8 @@ async def create_guest_booking(
         or salon.published_at is None
         # Тариф: подписка салона должна быть живой
         or not has_access(salon)
+        # Аккаунт владельца не отключён (решение 0016, п. 3)
+        or not await salon_is_live(db, salon.id)
     ):
         raise HTTPException(status_code=404, detail="Салон недоступен")
     if not salon.guest_booking_enabled:
@@ -91,7 +94,7 @@ async def create_guest_booking(
     master = (await db.execute(
         select(Master).where(
             Master.id == data.master_id,
-            Master.is_active == True,
+            live_master(),
             Master.salon_id == salon.id,
         )
     )).scalar_one_or_none()

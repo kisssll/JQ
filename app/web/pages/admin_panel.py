@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.live_accounts import salon_has_live_owner
+
 from app.models.models import (
     User, UserRole, Salon, SalonPhoto, Master, Service, Booking, Review, BookingStatus, AdminAudit,
     SalonModerationStatus, PhotoReport, PhotoReportStatus, ModelModerationStatus,
@@ -56,6 +58,29 @@ def _active_badge(is_active):
 
 def _deleted_badge():
     return _badge("удален", "var(--color-muted)")
+
+
+def _user_status(u, master, self_deleted: set) -> str:
+    """Статус человека и, если он мастер, его карточки — одной картиной.
+
+    До решения 0016 у отключённого человека карточка числилась «активной»:
+    флаг карточки жил отдельно от флага аккаунта. Теперь карточка считается
+    принимающей, только когда живы оба, — ровно по тому же правилу, по
+    которому её показывает каталог (app/services/live_accounts.py).
+    """
+    if u.is_active:
+        badge = _active_badge(True)
+    elif u.id in self_deleted:
+        badge = _badge("удалил аккаунт", "var(--color-danger)")
+    else:
+        badge = _active_badge(False)
+    if master is None:
+        return badge
+    if u.is_active and master.is_active:
+        card = _badge("карточка: принимает", "var(--color-success)")
+    else:
+        card = _badge("карточка: не принимает", "var(--color-muted)")
+    return f"{badge} {card}"
 
 
 def _moderation_badge(status):
@@ -183,7 +208,7 @@ def _model_applications_tab(pending_models):
 
 
 # ── ВКЛАДКА: ОБЗОР ───────────────────────────────────────────────────────────
-async def _overview(db, users):
+async def _overview(db, users, salons_active=None):
     by_role = {}
     blocked = 0
     for u in users:
@@ -192,7 +217,8 @@ async def _overview(db, users):
             blocked += 1
 
     salons_total = (await db.execute(select(func.count(Salon.id)))).scalar() or 0
-    salons_active = (await db.execute(select(func.count(Salon.id)).where(Salon.is_active == True))).scalar() or 0
+    if salons_active is None:
+        salons_active = (await db.execute(select(func.count(Salon.id)).where(Salon.is_active == True))).scalar() or 0
     bookings_total = (await db.execute(select(func.count(Booking.id)))).scalar() or 0
     reviews_total = (await db.execute(select(func.count(Review.id)))).scalar() or 0
 
@@ -231,7 +257,9 @@ async def _overview(db, users):
 
 
 # ── ВКЛАДКА: ПОЛЬЗОВАТЕЛИ ────────────────────────────────────────────────────
-def _users_tab(users, me_id):
+def _users_tab(users, me_id, master_by_uid=None, self_deleted=None):
+    master_by_uid = master_by_uid or {}
+    self_deleted = self_deleted or set()
     rows = ""
     for u in users:
         opts = "".join(
@@ -280,7 +308,7 @@ def _users_tab(users, me_id):
             <td>{_esc(u.phone)}{me_mark}</td>
             <td>{_esc(u.full_name) or "—"}</td>
             <td>{role_form}{senior_badge}</td>
-            <td>{_active_badge(u.is_active)}</td>
+            <td>{_user_status(u, master_by_uid.get(u.id), self_deleted)}</td>
             <td style="white-space:nowrap">{trial_form} {toggle} {senior_toggle} {reset} {delete}</td>
         </tr>"""
     return f"""
@@ -303,7 +331,7 @@ def _now_utc():
     return datetime.now(timezone.utc)
 
 
-def _salons_tab(salons, owner_phone_by_id):
+def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
     """Салон = карточка, а не строка таблицы.
 
     В строке жили десять контролов в одной ячейке на 620px, разделённые голым
@@ -314,6 +342,9 @@ def _salons_tab(salons, owner_phone_by_id):
     Вкладка «Заявки» в этой же панели уже построена на карточках.
     """
     from app.services.tariffs import TARIFF_CATALOG
+
+    # None — значит не посчитали (старые вызовы): считаем все салоны живыми.
+    live_ids = live_salon_ids if live_salon_ids is not None else {s.id for s in salons}
 
     plan_options = "".join(
         f'<option value="{t.plan}">{e(t.name)}</option>' for t in TARIFF_CATALOG.values()
@@ -343,7 +374,14 @@ def _salons_tab(salons, owner_phone_by_id):
                     f'<button class="btn-mini">Победитель конкурса</button>'
                     f'</form>'
                 )
-            status_badges = _deleted_badge() if s.is_deleted else _active_badge(s.is_active)
+            if s.is_deleted:
+                status_badges = _deleted_badge()
+            elif s.is_active and s.id not in live_ids:
+                # Флаг салона «активен», но владелец отключён — в каталоге
+                # и записи салона нет, и админка не должна говорить обратное.
+                status_badges = _badge("владелец отключён", "var(--color-danger)")
+            else:
+                status_badges = _active_badge(s.is_active)
             salon_action = (
                 f'''<form method="post" action="/api/v1/admin/salons/{s.id}/restore"
                     data-confirm="Восстановить салон «{_esc(s.name)}»?" data-confirm-label="Восстановить">
@@ -434,8 +472,8 @@ def _salons_tab(salons, owner_phone_by_id):
             </article>"""
         return cards or '<p class="adm-empty">Салонов нет</p>'
 
-    active = [s for s in salons if not s.is_deleted and s.is_active]
-    blocked = [s for s in salons if not s.is_deleted and not s.is_active]
+    active = [s for s in salons if not s.is_deleted and s.is_active and s.id in live_ids]
+    blocked = [s for s in salons if not s.is_deleted and not (s.is_active and s.id in live_ids)]
     deleted = [s for s in salons if s.is_deleted]
     sections = (
         ("Действующие", active),
@@ -774,9 +812,24 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     if is_senior:
         reviews = (await db.execute(select(Review).order_by(Review.created_at.desc()).limit(200))).scalars().all()
         audits = (await db.execute(select(AdminAudit).order_by(AdminAudit.created_at.desc()).limit(100))).scalars().all()
-        overview = await _overview(db, users)
-        users_tab = _users_tab(users, user.id)
-        salons_tab = _salons_tab(salons, phone_by_id)
+        # «Живой» салон и «принимающая» карточка — по тем же правилам, что
+        # каталог (решение 0016, п. 4): иначе админка показывала «активный»
+        # салон у человека, удалившего аккаунт.
+        live_salon_ids = set((await db.execute(
+            select(Salon.id).where(salon_has_live_owner())
+        )).scalars().all())
+        self_deleted = set((await db.execute(
+            select(AdminAudit.target_id).where(AdminAudit.action == "delete_own_account")
+        )).scalars().all())
+        # Пометка видна, только пока аккаунт отключён (см. _user_status):
+        # восстановленного админом человека она не преследует.
+        master_by_uid = {m.user_id: m for m in masters}
+        salons_active = sum(
+            1 for s in salons if s.is_active and not s.is_deleted and s.id in live_salon_ids
+        )
+        overview = await _overview(db, users, salons_active)
+        users_tab = _users_tab(users, user.id, master_by_uid, self_deleted)
+        salons_tab = _salons_tab(salons, phone_by_id, live_salon_ids)
         reviews_tab = _reviews_tab(reviews, phone_by_id, master_name_by_id, salon_name_by_id)
         audit_tab = _audit_tab(audits, phone_by_id)
 

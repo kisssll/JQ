@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.live_accounts import live_master, salon_has_live_owner
 from app.models.models import (
     Booking, Master, MasterPhoto, ModelMatch, ModelMatchStatus, ModelModerationStatus, ModelPhoto,
     Salon, SalonModerationStatus, Service, User,
@@ -54,11 +55,12 @@ async def get_feed_cards(db: AsyncSession, model_user_id: int, limit: int = 10) 
             Service.is_model_practice == True,  # noqa: E712
             Service.is_active == True,  # noqa: E712
             Service.model_seeking_open == True,  # noqa: E712
-            Master.is_active == True,  # noqa: E712
+            live_master(),  # noqa: E712
             Salon.is_active == True,  # noqa: E712
             Salon.moderation_status == SalonModerationStatus.APPROVED,
             Salon.published_at.isnot(None),
             Salon.is_hidden == False,  # noqa: E712
+            salon_has_live_owner(),
             Service.id.notin_(already_decided),
         )
         .order_by(Service.id)

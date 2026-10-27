@@ -129,6 +129,17 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None,
     master_user = (await db.execute(
         select(User).where(User.id == master.user_id)
     )).scalar_one_or_none()
+    # Карточка удалена/отключена или аккаунт мастера отключён (решение 0016,
+    # п. 3): публике страницы нет — иначе клиент записался бы к тому, кто
+    # ушёл. Исключение одно: эта же страница служит владельцу салона для
+    # управления фото, и отключённого им сотрудника он видеть должен. Но не
+    # когда отключён сам аккаунт — управлять там уже нечем.
+    account_live = bool(master_user and master_user.is_active)
+    if not (master.is_active and account_live):
+        if not (account_live and user and user.id != master.user_id
+                and await _manages_salon(db, user, master.salon_id)):
+            return _not_found()
+
     master_name = (master_user.full_name if master_user else None) or "Мастер"
     avatar = (master_user.avatar_url if master_user else "") or ""
 
@@ -361,8 +372,21 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None,
 </html>"""
 
 
+class NotFoundPage(str):
+    """Разметка «такой страницы нет»: маршрут отдаёт её с кодом 404, а не 200 —
+    иначе поисковик и проверка «страница мастера закрыта» видят живую страницу."""
+
+
+async def _manages_salon(db, user, salon_id: int) -> bool:
+    try:
+        await check_salon_permission(db, user, salon_id, "manage_masters")
+    except HTTPException:
+        return False
+    return True
+
+
 def _not_found() -> str:
-    return f"""<!DOCTYPE html>
+    return NotFoundPage(f"""<!DOCTYPE html>
 <html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Мастер не найден — руми</title>{get_base_styles()}</head>
@@ -370,4 +394,4 @@ def _not_found() -> str:
 {ui.empty_state("Такой страницы нет",
                 text="Мастер больше не принимает или ссылка устарела.",
                 action_label="Открыть каталог", action_href="/salons")}
-</main></body></html>"""
+</main></body></html>""")

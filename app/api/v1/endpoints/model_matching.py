@@ -161,6 +161,13 @@ async def accept_slot(
     if service is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Услуга недоступна")
 
+    # Мэтч мог случиться до того, как мастер ушёл из сервиса (решение 0016).
+    from app.services.live_accounts import live_master
+    if (await db.execute(
+        select(Master.id).where(Master.id == match.master_id, live_master())
+    )).scalar_one_or_none() is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Мастер больше не принимает записи")
+
     if not await BookingService.is_slot_available(db, match.master_id, payload.slot, service.duration_minutes):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Это время уже занято")
 

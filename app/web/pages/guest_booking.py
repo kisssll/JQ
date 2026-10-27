@@ -15,6 +15,7 @@ from app.web.components.escaping import e, ejson
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 
+from app.services.live_accounts import live_master, salon_is_live
 from app.models.models import (
     Salon, Master, Service, User, Booking,
     SalonModerationStatus, BookingStatus,
@@ -114,11 +115,12 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
         or salon.moderation_status != SalonModerationStatus.APPROVED
         or salon.published_at is None
         or not salon.guest_booking_enabled
+        or not await salon_is_live(db, salon.id)
     ):
         return _notice("Запись недоступна", "Этот салон сейчас не принимает записи без регистрации.")
 
     masters = (await db.execute(
-        select(Master).where(Master.salon_id == salon_id, Master.is_active == True)
+        select(Master).where(Master.salon_id == salon_id, live_master())
     )).scalars().all()
 
     data = []

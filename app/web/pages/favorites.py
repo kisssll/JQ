@@ -20,6 +20,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.live_accounts import live_master
 from app.models.models import Favorite, Master, Salon, User as UserModel
 from app.web.components import ui
 from app.web.components.footer import render_footer
@@ -90,7 +91,7 @@ async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str
     if master_order:
         masters = {
             m.id: m for m in (await db.execute(
-                select(Master).where(Master.id.in_(master_order), Master.is_active == True)  # noqa: E712
+                select(Master).where(Master.id.in_(master_order), live_master())  # noqa: E712
             )).scalars().all()
         }
         user_ids = {m.user_id for m in masters.values() if m.user_id}

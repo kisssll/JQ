@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 
 from app.db.session import get_db
+from app.services.live_accounts import live_master, salon_has_live_owner
 from app.models.models import Salon, Master
 
 router = APIRouter()
@@ -63,12 +64,12 @@ async def generate_sitemap(db: AsyncSession) -> str:
     
     # Получаем салоны из БД
     salons = (await db.execute(
-        select(Salon).where(Salon.is_active == True)
+        select(Salon).where(Salon.is_active == True, salon_has_live_owner())
     )).scalars().all()
     
     # Получаем мастеров из БД (если нужны)
     masters = (await db.execute(
-        select(Master).where(Master.is_active == True)
+        select(Master).where(live_master())
     )).scalars().all()
     
     # Создаем XML

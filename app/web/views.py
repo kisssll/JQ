@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
 from app.core.config import settings
+from app.services.live_accounts import live_master, salon_has_live_owner
 from app.models.models import Salon, User, Master, Service as ServiceModel
 from app.services.subscription import access_clause
 from app.services.price import format_service_price
@@ -98,9 +99,9 @@ async def salon_detail_page(salon_id: int, request: Request, db: AsyncSession = 
 async def master_detail_page(master_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     """Страница конкретного мастера."""
     user = await get_current_user_from_cookie(request, db)
-    from app.web.pages.master_detail import render_master_detail
+    from app.web.pages.master_detail import NotFoundPage, render_master_detail
     html = await render_master_detail(db, master_id, user)
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=html, status_code=404 if isinstance(html, NotFoundPage) else 200)
 
 
 @router.get("/book/{salon_id}", response_class=HTMLResponse)
@@ -220,11 +221,17 @@ async def profile_page(request: Request, db: AsyncSession = Depends(get_db)):
     from app.services.cabinet_badge import load_badges
 
     user = await get_current_user_from_cookie(request, db)
+    departure = None
+    if user:
+        # Что уйдёт вместе с аккаунтом — до кнопки, а не после (решение 0016).
+        from app.services.departure import plan_account_departure
+        departure = await plan_account_departure(db, user)
     return HTMLResponse(content=render_profile_page(
         user,
         success=request.query_params.get("success"),
         error=request.query_params.get("error"),
         badges=await load_badges(db, user),
+        departure=departure,
     ))
 
 
@@ -463,7 +470,7 @@ async def book_service_page(salon_id: int, request: Request, db: AsyncSession = 
     if not salon:
         return HTMLResponse(content="<h1>Салон не найден</h1>", status_code=404)
     
-    masters_result = await db.execute(select(Master).where(Master.salon_id == salon_id, Master.is_active == True))
+    masters_result = await db.execute(select(Master).where(Master.salon_id == salon_id, live_master()))
     masters = masters_result.scalars().all()
     
     masters_options = ""
@@ -862,6 +869,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
         Salon.published_at.isnot(None),
         access_clause(Salon),  # тариф: доступ открыт
         Salon.is_hidden == False,  # noqa: E712
+        salon_has_live_owner(),  # аккаунт владельца не отключён (решение 0016)
     )
     # lastmod берём от published_at: у салона нет updated_at, а дата выхода
     # в публикацию — ближайшее по смыслу «когда страница стала такой».
@@ -877,7 +885,7 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     masters = (await db.execute(
         select(Master.id)
         .join(Salon, Master.salon_id == Salon.id)
-        .where(Master.is_active == True, *public_salon)  # noqa: E712
+        .where(live_master(), *public_salon)  # noqa: E712
     )).scalars().all()
     urls += [(f"{settings.PUBLIC_BASE_URL}/masters/{mid}", "0.6", None)
              for mid in masters]

@@ -26,6 +26,7 @@ _ERROR_MESSAGES = {
     "member_exists": "Этот пользователь уже участник салона.",
     # Приходит с /api/v1/master/create-web, который в соло уводит сюда же.
     "master_exists": "У этого пользователя уже есть профиль мастера.",
+    "card_delete_unconfirmed": "Карточка не удалена: отметьте, что понимаете последствия.",
 }
 
 ROLE_LABELS = {
@@ -112,6 +113,11 @@ async def _render_own_master_card_gate(db, salon, user, solo, w) -> str:
         .where(Master.user_id == user.id)
     )).one_or_none()
 
+    # Своя удалённая карточка в этом же салоне — не «карточка в другом
+    # салоне»: кнопка ниже включит её обратно (см. ensure_owner_master).
+    if elsewhere is not None and elsewhere[0] == salon.id and not elsewhere[1]:
+        elsewhere = None
+
     if elsewhere is not None:
         other_salon_id, card_active, other_name = elsewhere
         owns_other = (await db.execute(
@@ -182,6 +188,47 @@ async def _render_own_master_card_gate(db, salon, user, solo, w) -> str:
             </form>
         </div>
         """
+
+
+async def _render_own_card_delete(db, salon, own_card) -> str:
+    """«Удалить мою карточку мастера» (решение 0016, п. 2).
+
+    Действие не отменить — записи отменяются и клиенты получают
+    уведомление, — поэтому до кнопки человек видит, сколько записей
+    уйдёт (и сколько из них сегодня), и ставит галочку. Галочку проверяет
+    сервер: форма должна быть безопасной и без скриптов.
+    """
+    from app.services.departure import plan_card_removal
+
+    plan = await plan_card_removal(db, own_card)
+    total, today = len(plan.bookings), plan.today
+    if total:
+        bookings_line = (
+            f"Отменятся будущие записи к вам: {total}"
+            + (f", из них сегодня — {today}" if today else "")
+            + ". Клиенты получат уведомление."
+        )
+    else:
+        bookings_line = "Будущих записей к вам нет."
+    return f"""
+        <details class="card" style="padding:1.1rem;margin-top:1.25rem">
+            <summary style="cursor:pointer;font-weight:600">Удалить мою карточку мастера</summary>
+            <p class="text-muted" style="font-size:0.9rem;margin:0.75rem 0">
+                Вы перестанете быть мастером: карточка уйдёт из каталога, записаться
+                к вам будет нельзя. {bookings_line} Аккаунт и панель останутся —
+                карточку можно завести заново, отменённые записи не вернутся.
+            </p>
+            <form method="post" action="/api/v1/business/my-salon/master-card/delete"
+                  onsubmit="return confirm('Удалить карточку мастера? Отменённые записи не вернутся.')">
+                <input type="hidden" name="salon_id" value="{salon.id}">
+                <label style="display:flex;gap:0.5rem;align-items:flex-start;margin-bottom:0.9rem;font-size:0.9rem">
+                    <input type="checkbox" name="confirm" value="1" required>
+                    <span>Понимаю: записи отменятся, вернуть их нельзя</span>
+                </label>
+                <button type="submit" class="btn-danger">{ICON_TRASH} Удалить карточку мастера</button>
+            </form>
+        </details>
+    """
 
 
 def _master_extra_actions(master_id, user_name, can_manage_masters, solo):
@@ -277,6 +324,7 @@ async def render_employees_tab(
         "added": query_params.get("added"),
         "temp_pw": query_params.get("temp_pw"),
         "error": query_params.get("error"),
+        "card_deleted": query_params.get("card_deleted"),
     }
     
     is_creator = membership.is_creator
@@ -311,6 +359,12 @@ async def render_employees_tab(
             f'Сотрудник добавлен. Временный пароль (передайте лично, он больше нигде не отобразится): '
             f'<code class="temp-pw">{safe_pw}</code>'
             '</div>'
+        )
+    elif notice.get("card_deleted"):
+        notice_banner = (
+            '<div class="notice-banner success">Карточка мастера удалена: вас больше '
+            'нет в каталоге и записи, клиентам отменённых записей ушло уведомление. '
+            'Аккаунт и панель остались.</div>'
         )
     elif notice.get("added"):
         notice_banner = '<div class="notice-banner success">Сотрудник добавлен.</div>'
@@ -468,6 +522,11 @@ async def render_employees_tab(
         """
 
     # ----- СЕКЦИЯ МАСТЕРОВ -----
+    # Своя погашенная карточка — это удалённая карточка (решение 0016, п. 2):
+    # в списке её не показываем, а ниже снова предлагаем завести. Строка
+    # «Отключён» с кнопкой «Включить» говорила бы, что человек всё ещё мастер.
+    masters = [m for m in masters if m.is_active or m.user_id != user.id]
+    own_card = next((m for m in masters if m.user_id == user.id), None)
     active_masters = len([m for m in masters if m.is_active])
     total_masters = len(masters)
 
@@ -541,6 +600,10 @@ async def render_employees_tab(
     if can_manage_masters and not own_card_here and (not masters if solo else True):
         master_card_gate = await _render_own_master_card_gate(db, salon, user, solo, w)
 
+    own_card_delete = (
+        await _render_own_card_delete(db, salon, own_card) if own_card is not None else ""
+    )
+
     masters_section = f"""
     <div class="employees-section">
         <div class="section-header">
@@ -579,6 +642,7 @@ async def render_employees_tab(
         <div class="masters-mobile-cards">
             {masters_cards_html}
         </div>
+        {own_card_delete}
     </div>
     """
 

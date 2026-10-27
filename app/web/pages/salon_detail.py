@@ -27,6 +27,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.services.live_accounts import live_master, salon_has_live_owner
 from app.models.models import (
     Master, MasterPhoto, Promotion, Review, ReviewPhoto, ReviewTargetType,
     Salon, SalonChain, SalonModerationStatus, SalonPhoto, Service, User,
@@ -134,7 +135,7 @@ async def _load_masters(db: AsyncSession, salon_id: int):
     это пятнадцать кругов до базы на каждое открытие страницы.
     """
     masters = (await db.execute(
-        select(Master).where(Master.salon_id == salon_id, Master.is_active == True)  # noqa: E712
+        select(Master).where(Master.salon_id == salon_id, live_master())  # noqa: E712
     )).scalars().all()
     if not masters:
         return [], []
@@ -323,6 +324,9 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None,
         Salon.published_at.isnot(None),
         access_clause(Salon),  # тариф: доступ открыт
         Salon.is_hidden == False,  # noqa: E712
+        # Аккаунт владельца не отключён (решение 0016, п. 3): проверка в
+        # выборке, а не в данных, — старые записи тоже перестают светиться.
+        salon_has_live_owner(),
     ))).scalar_one_or_none()
 
     if not salon:
@@ -383,6 +387,7 @@ async def render_salon_detail(db: AsyncSession, salon_id: int, user=None,
             Salon.published_at.isnot(None),
             access_clause(Salon),
             Salon.is_hidden == False,  # noqa: E712
+            salon_has_live_owner(),
         ).order_by(Salon.name))).scalars().all()
         if chain and siblings:
             links = "".join(

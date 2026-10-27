@@ -119,6 +119,9 @@ async def _members_with_permission(
             .where(
                 SalonMember.salon_id == salon_id,
                 SalonMember.is_active == True,  # noqa: E712
+                # Удаливший аккаунт остаётся в членстве (так его проще
+                # восстановить), но писать ему о делах салона уже незачем.
+                User.is_active == True,  # noqa: E712
                 has_channel_clause(Audience.BUSINESS),
             )
         )
@@ -293,6 +296,59 @@ async def notify_booking_cancelled(db: AsyncSession, booking: Booking) -> None:
             )
     except Exception:
         logger.exception("notify_booking_cancelled(%s): уведомления не поставлены", booking.id)
+
+
+async def notify_booking_cancelled_master_left(
+    db: AsyncSession, booking: Booking, *, leaver_id: int, base_url: str,
+) -> None:
+    """Запись отменена, потому что мастер или владелец ушёл из сервиса
+    (удалил аккаунт или свою карточку мастера, решение 0016).
+
+    От обычной отмены отличается двумя вещами. Клиенту объясняем причину и
+    куда идти дальше: «ваша запись отменена» без причины выглядит как ошибка
+    сервиса. И самому ушедшему ничего не шлём — он это и сделал, а писать
+    отключённому аккаунту про каждую из его записей незачем.
+    """
+    await send_guest_booking_email(
+        db, booking, base_url,
+        "Запись отменена",
+        "Мастер больше не принимает записи через Руми, поэтому эта запись "
+        "отменена. Выберите другого мастера или салон на сайте — будем рады помочь.",
+    )
+    if not settings.TG_NOTIFY_ENABLED:
+        return
+    try:
+        ctx = await _booking_context(db, booking)
+        salon = ctx["salon"]
+        when = booking.start_time.strftime("%d.%m в %H:%M")
+        service_name = ctx["service"].name if ctx["service"] else "услуга"
+
+        fanout = _Fanout()
+        fanout._sent.add(leaver_id)
+        await fanout.send(
+            ctx["client"],
+            f"❌ Ваша запись отменена: {service_name} в «{salon.name}», {when}.\n"
+            "Мастер больше не принимает записи через Руми. Подобрать другого "
+            f"мастера: {settings.PUBLIC_BASE_URL}/salons",
+            topic=TOPIC_BOOKINGS,
+            audience=Audience.CLIENT,
+        )
+        await fanout.send(
+            ctx["master_user"],
+            f"❌ Запись к вам отменена: {service_name}, {when} — салон «{salon.name}» "
+            "больше не принимает записи через Руми.",
+            topic=TOPIC_BOOKINGS,
+            audience=Audience.BUSINESS,
+        )
+        for member in await _members_with_permission(db, salon.id, "manage_schedule"):
+            await fanout.send(
+                member, f"❌ Запись отменена в «{salon.name}»: {service_name}, {when} — "
+                        "мастер ушёл из сервиса.",
+                topic=TOPIC_BOOKINGS,
+                audience=Audience.BUSINESS,
+            )
+    except Exception:
+        logger.exception("notify_booking_cancelled_master_left(%s): не поставлено", booking.id)
 
 
 # ── Заявки склада (manage_inventory) ─────────────────────────────────────────

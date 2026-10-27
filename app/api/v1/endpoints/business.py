@@ -48,12 +48,23 @@ async def ensure_owner_master(
     Мастер у пользователя может быть только один (masters.user_id уникален):
     если человек уже работает мастером — в этом салоне или в чужом — не
     трогаем. Вызывающий сам решает, что сказать в этом случае.
+
+    Исключение — собственная погашенная карточка в ЭТОМ же салоне: так
+    выглядит «Удалить карточку мастера» (решение 0016). Вторую строку завести
+    нельзя, поэтому «завести заново» значит включить прежнюю — с её услугами,
+    отзывами и историей записей. Погашенную карточку из ЧУЖОГО салона не
+    переносим: вместе с ней в этот салон уехала бы история записей того.
     """
-    already_master = (await db.execute(
-        select(Master.id).where(Master.user_id == user_id)
+    existing = (await db.execute(
+        select(Master).where(Master.user_id == user_id)
     )).scalar_one_or_none()
-    if already_master is not None:
-        return False
+    if existing is not None:
+        if existing.is_active or existing.salon_id != salon_id:
+            return False
+        existing.is_active = True
+        if specialization.strip():
+            existing.specialization = specialization.strip()[:100]
+        return True
     db.add(Master(
         user_id=user_id, salon_id=salon_id,
         specialization=(specialization.strip() or "Мастер")[:100],
@@ -544,6 +555,45 @@ async def create_own_master_card(
     return RedirectResponse(
         url=f"/business/dashboard?salon_id={salon_id}&tab=employees", status_code=302,
     )
+
+
+@router.post("/my-salon/master-card/delete")
+async def delete_own_master_card(
+    request: Request,
+    salon_id: int = Form(...),
+    confirm: str = Form(""),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """«Удалить мою карточку мастера» (решение 0016, п. 2).
+
+    Человек перестаёт быть мастером, аккаунт остаётся. Будущие записи к
+    карточке отменяются с уведомлением клиентам — по тому же правилу, что при
+    удалении аккаунта. Записи вернуть нельзя, поэтому без явной галочки
+    подтверждения (поле confirm) ничего не делаем: одного JS-диалога мало,
+    форма должна быть безопасна и без скриптов.
+    """
+    from app.services.departure import remove_own_master_card
+
+    back = f"/business/dashboard?salon_id={salon_id}&tab=employees"
+    master = (await db.execute(
+        select(Master).where(
+            Master.user_id == current_user.id,
+            Master.salon_id == salon_id,
+            Master.is_active == True,  # noqa: E712
+        )
+    )).scalar_one_or_none()
+    if master is None:
+        # Уже удалена (повторный клик) или карточка в другом салоне —
+        # возвращаем в раздел, где видно настоящее состояние.
+        return RedirectResponse(url=back, status_code=302)
+    if confirm != "1":
+        return RedirectResponse(url=back + "&error=card_delete_unconfirmed", status_code=302)
+
+    await remove_own_master_card(
+        db, master, actor_id=current_user.id, base_url=str(request.base_url),
+    )
+    return RedirectResponse(url=back + "&card_deleted=1", status_code=302)
 
 
 @router.post("/my-salon/visibility-toggle")

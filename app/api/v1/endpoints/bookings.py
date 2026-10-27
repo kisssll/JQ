@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import List
 
 from app.db.session import get_db
+from app.services.live_accounts import live_master, salon_has_live_owner
 from app.models.models import Booking, Master, Service, User, BookingStatus, Review, Salon, SalonModerationStatus
 
 
@@ -23,7 +24,9 @@ async def _salon_bookable(db, master_id: int) -> bool:
         select(Salon.is_active, Salon.is_deleted, Salon.moderation_status, Salon.is_hidden, Master.is_active,
                Salon.published_at, Salon.access_until)
         .join(Master, Master.salon_id == Salon.id)
-        .where(Master.id == master_id)
+        # Аккаунты мастера и владельца не отключены (решение 0016, п. 3) —
+        # иначе строки нет, и запись закрыта.
+        .where(Master.id == master_id, live_master(), salon_has_live_owner())
     )).first()
     # Салон одобрен, опубликован владельцем (published_at не NULL), активен и не
     # скрыт владельцем И сам мастер активен (мягко удалённый — is_active=False —
@@ -173,7 +176,7 @@ async def get_available_slots(
     """Возвращает доступные слоты с учётом графика салона, услуги и перерыва."""
     
     master = (await db.execute(
-        select(Master).where(Master.id == master_id, Master.is_active == True)
+        select(Master).where(Master.id == master_id, live_master())
     )).scalar_one_or_none()
     if not master:
         return {"slots": [], "message": "Мастер не найден"}

@@ -207,7 +207,7 @@ async def render_dashboard_tab(
         )
 
     if tab_name == "employees":
-        return await render_employees_tab(db, salon, masters, user, membership, perms)
+        return await render_employees_tab(db, salon, masters, user, membership, perms, qp)
 
     if tab_name == "services":
         return await render_services_tab(

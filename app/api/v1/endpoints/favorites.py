@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.db.session import get_db
+from app.services.live_accounts import live_master
 from app.models.models import Favorite, Salon, Master
 
 router = APIRouter()
@@ -72,7 +73,7 @@ async def toggle_favorite_master(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     
-    master = (await db.execute(select(Master).where(Master.id == master_id, Master.is_active == True))).scalar_one_or_none()
+    master = (await db.execute(select(Master).where(Master.id == master_id, live_master()))).scalar_one_or_none()
     if not master:
         return HTMLResponse(content="Мастер не найден", status_code=404)
 

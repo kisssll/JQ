@@ -16,6 +16,7 @@ from typing import List, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.live_accounts import live_master, salon_has_live_owner
 from app.models.models import (
     Salon, SalonEveningDeal, SalonModerationStatus, Master, Service, Booking, BookingStatus,
 )
@@ -126,7 +127,7 @@ async def salon_has_window_today(db: AsyncSession, salon: Salon, deal: SalonEven
     if not deal_active_today(deal, salon):
         return False
     masters = (await db.execute(
-        select(Master).where(Master.salon_id == salon.id, Master.is_active == True)  # noqa: E712
+        select(Master).where(Master.salon_id == salon.id, live_master())  # noqa: E712
     )).scalars().all()
     for m in masters:
         if await free_evening_intervals(db, salon, m.id, deal):
@@ -140,6 +141,7 @@ def _public_salon_filter():
         (Salon.is_active == True)  # noqa: E712
         & (Salon.moderation_status == SalonModerationStatus.APPROVED)
         & (Salon.is_hidden == False)  # noqa: E712
+        & salon_has_live_owner()
     )
 
 
@@ -205,7 +207,7 @@ async def build_feed(db: AsyncSession, city: Optional[str] = None) -> dict:
         if city and salon_city(salon).lower() != city.strip().lower():
             continue
         masters = (await db.execute(
-            select(Master).where(Master.salon_id == salon.id, Master.is_active == True)  # noqa: E712
+            select(Master).where(Master.salon_id == salon.id, live_master())  # noqa: E712
         )).scalars().all()
         master_cards = []
         for m in masters:
