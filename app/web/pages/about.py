@@ -1,4 +1,6 @@
 # app/web/pages/about.py
+from app.web.components import ui
+from app.web.components.escaping import e
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.styles import get_base_styles
@@ -77,20 +79,23 @@ def _render_tbank_news() -> str:
     )
 
     return f"""
-        <section class="section-py news-tbank">
+        <section class="news-tbank">
             <div class="section-container">
                 <div class="card news-tbank-card">
                     <span class="tb-badge"><span class="tb-badge-letter">Т</span> Новость · Партнёрство с Т-Банком</span>
                     <h2>Мы стали партнёрами Т-Банка</h2>
                     <p class="tb-intro">{_TBANK_NEWS_INTRO}</p>
 
-                    <h3 class="news-tbank-subhead">Вот какие продукты можно подключить с нашей помощью</h3>
-                    <ul class="tb-bullets">{products_html}</ul>
+                    <details class="news-tbank-more">
+                        <summary>Какие продукты можно подключить</summary>
+                        <h3 class="news-tbank-subhead">Вот какие продукты можно подключить с нашей помощью</h3>
+                        <ul class="tb-bullets">{products_html}</ul>
 
-                    <h3 class="news-tbank-subhead">Какие ещё инструменты доступны в Т-Банке</h3>
-                    <ul class="news-tbank-dash-list">{tools_html}</ul>
+                        <h3 class="news-tbank-subhead">Какие ещё инструменты доступны в Т-Банке</h3>
+                        <ul class="news-tbank-dash-list">{tools_html}</ul>
 
-                    <p class="tb-note">{_TBANK_NEWS_TRUST}</p>
+                        <p class="tb-note">{_TBANK_NEWS_TRUST}</p>
+                    </details>
 
                     <p class="news-tbank-cta-lead">Чтобы открыть счёт, свяжитесь с нами или перейдите по ссылке.</p>
                     {render_tbank_products_block()}
@@ -104,10 +109,22 @@ def _render_tbank_news() -> str:
         </section>"""
 
 
+#: Шесть «убранных» вещей. Список выведен в константу, чтобы тест видел его
+#: целиком и не зависел от вёрстки.
+REMOVED = [
+    "Звонки в салон",
+    "Голосовая почта",
+    "Ожидание на линии",
+    "Уточнения по СМС",
+    "Десять полей в форме",
+    "Регистрации, которые ни на что не влияют",
+]
+
+
 def render_about_page(user=None) -> str:
     """Страница «Манифест»."""
-
-    html = f"""<!DOCTYPE html>
+    removed = "".join(f"<li>{e(r)}</li>" for r in REMOVED)
+    return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
@@ -115,67 +132,30 @@ def render_about_page(user=None) -> str:
     <title>Манифест | руми.</title>
     <meta name="description" content="Мы убрали из красоты всё лишнее. Остались вы и мастер.">
     {get_base_styles()}
-    <style>
-        .tb-badge {{ display:inline-flex; align-items:center; gap:0.5rem; background:color-mix(in srgb, var(--color-primary) 12%, transparent);
-            color:var(--color-accent-text); font-weight:600; font-size:0.8rem; padding:0.4rem 0.9rem; border-radius:var(--radius-pill); margin-bottom:1rem }}
-        .tb-badge-letter {{ display:inline-flex; align-items:center; justify-content:center; width:1.25rem; height:1.25rem;
-            border-radius:50%; background:var(--color-primary); color:var(--color-on-dark); font-weight:700; font-size:0.75rem }}
-        .tb-intro {{ color:var(--color-muted); font-size:1rem; line-height:1.6; margin:0 0 1.5rem }}
-        .tb-bullets {{ list-style:none; margin:0 0 1.75rem; padding:0; display:flex; flex-direction:column; gap:0.85rem }}
-        .tb-bullet {{ display:flex; align-items:flex-start; gap:0.65rem; line-height:1.55 }}
-        .tb-bullet svg {{ flex-shrink:0; margin-top:0.15rem; color:var(--color-accent-text) }}
-        .tb-note {{ background:var(--color-surface-alt); border-radius:var(--radius-16); padding:1rem 1.25rem; font-size:0.9rem; color:var(--color-muted); margin:0 0 1.5rem }}
-        .tb-cta {{ display:inline-flex; align-items:center; gap:0.5rem; background:linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-            color:var(--color-on-dark) !important; padding:0.85rem 1.75rem; border-radius:var(--radius-pill); text-decoration:none; font-weight:600 }}
-        .tb-cta:hover {{ opacity:0.92 }}
-        .tb-conditions {{ margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--color-border) }}
-        .tb-conditions h3 {{ font-size:0.9rem; color:var(--color-muted); font-weight:600; margin:0 0 0.6rem }}
-        .tb-conditions ul {{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.4rem }}
-        .tb-condition-link {{ font-size:0.85rem; color:var(--color-muted); text-decoration:underline }}
-        .tb-condition-link:hover {{ color:var(--color-accent-text) }}
-
-        .news-tbank-card {{ max-width:820px; margin:0 auto; padding:2rem }}
-        .news-tbank-subhead {{ font-size:1.05rem; margin:0 0 0.85rem }}
-        .news-tbank-dash-list {{ list-style:none; margin:0 0 1.75rem; padding:0; display:flex; flex-direction:column; gap:0.6rem; color:var(--color-muted); line-height:1.55 }}
-        .news-tbank-dash-list li {{ padding-left:1.1rem; position:relative }}
-        .news-tbank-dash-list li::before {{ content:"—"; position:absolute; left:0; color:var(--color-accent-text) }}
-        .news-tbank-cta-lead {{ margin:0 0 1rem; font-weight:500 }}
-    </style>
 </head>
 <body>
     {render_header("manifest", user)}
 
-    <main class="home-main">
+    <main class="about-main">
         <section class="about-hero">
             <div class="section-container">
-                <p class="about-label">Манифест</p>
-                <h1 class="about-title">Мы убрали из красоты всё лишнее. Остались вы и мастер<span class="about-dot">.</span></h1>
-    
-                <div class="about-grid">
-                    <div class="about-text">
-                        <p class="about-text-p">Раньше, чтобы записаться к парикмахеру, нужно было найти мастера и номер, дозвониться, объяснить, кто вы и что хотите, и запомнить время записи.</p>
-                        <p class="about-text-p">Теперь — четыре клика. Салон. Услуга. Время. Готово. Всё остальное мы оставили на своей стороне: расписание, напоминания, оплату, общение с мастером, аналитику для салона.</p>
-                    </div>
-                    <div class="about-list">
-                        <p class="about-list-label">Что мы убрали</p>
-                        <ul class="about-list-items">
-                            <li><span class="about-list-bullet"></span>Звонки в салон</li>
-                            <li><span class="about-list-bullet"></span>Голосовая почта</li>
-                            <li><span class="about-list-bullet"></span>Ожидание на линии</li>
-                            <li><span class="about-list-bullet"></span>Уточнения по СМС</li>
-                            <li><span class="about-list-bullet"></span>Десять полей в форме</li>
-                            <li><span class="about-list-bullet"></span>Регистрации, которые ни на что не влияют</li>
-                        </ul>
-                    </div>
+                <span class="about-kicker">Манифест</span>
+                <h1 class="about-title">Мы убрали из красоты всё лишнее. Остались <em>вы и мастер</em>.</h1>
+            </div>
+        </section>
+
+        <section class="about-body">
+            <div class="section-container">
+                <div class="about-cols">
+                    <p class="about-drop">Раньше, чтобы записаться к парикмахеру, нужно было найти мастера и номер, дозвониться, объяснить, кто вы и что хотите, и запомнить время записи.</p>
+                    <p>Теперь — четыре клика. <b>Салон. Услуга. Время. Готово.</b> Всё остальное мы оставили на своей стороне: расписание, напоминания, оплату, общение с мастером, аналитику для салона.</p>
                 </div>
 
-                <div class="about-footer">
-                    <p class="about-footer-text">Для клиентов — 4 клика до записи. Для салонов — всё для управления в одном окне.</p>
-                    <div class="about-footer-buttons">
-                        <a href="/salons" class="about-btn-primary">Найти салон</a>
-                    </div>
-                </div>
+                <h2 class="about-removed-title">Что мы <em>убрали</em></h2>
+                <ul class="about-removed">{removed}</ul>
 
+                <blockquote class="about-quote">Для клиентов — 4 клика до записи. Для салонов — всё для управления в одном окне.</blockquote>
+                <div class="about-cta">{ui.button("Найти салон", href="/salons")}</div>
             </div>
         </section>
 
@@ -185,4 +165,3 @@ def render_about_page(user=None) -> str:
     </main>
 </body>
 </html>"""
-    return html

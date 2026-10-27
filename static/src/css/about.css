@@ -1,182 +1,340 @@
-/* static/src/css/about.css */
+/* static/src/css/about.css
+   Манифест (/about). Её Manifest: тёмный ягодный первый экран с двумя пятнами,
+   кикер, огромный заголовок с курсивным словом; ниже две колонки (у первой
+   буквица), список «Что мы убрали», цитата, кнопка и новость о Т-Банке.
 
-/* ---------- Hero секция ---------- */
+   Тёмный экран на кремовом сайте — единственное такое место, поэтому цвета
+   берём из тёмной пары токенов (--color-dark / --color-on-dark): она остаётся
+   тёмной в обеих темах, а контраст подписей проверяет test_design_tokens.
+   Иллюстрации у манифеста нет и заглушкой её не заменяем: экран держится на
+   шрифте и воздухе (docs/design.md, «Фотографии и пустота»). */
+
+.about-main {
+    background: var(--color-background);
+}
+
+/* ===== Первый экран ===== */
 .about-hero {
-    padding-top: 8rem;    /* pt-32 */
-    padding-bottom: 6rem; /* pb-24 */
+    /* 60px шапки + воздух; низ скруглён ступенью шкалы, не её 60px */
+    padding: calc(60px + var(--space-64)) 0 var(--space-96);
+    background:
+        radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--color-accent) 85%, transparent), transparent 45%),
+        radial-gradient(circle at 10% 90%, color-mix(in srgb, var(--color-accent) 35%, transparent), transparent 40%),
+        var(--color-dark);
+    color: var(--color-on-dark);
+    border-radius: 0 0 var(--radius-28) var(--radius-28);
 }
 
-/* Лейбл "Манифест" */
-.about-label {
-    font-family: var(--font-body);
-    font-size: 0.75rem;        /* text-xs */
-    font-weight: 600;
-    text-transform: uppercase;
+.about-kicker {
+    display: inline-block;
+    margin: 0 0 var(--space-24);
+    font-size: var(--text-13);
+    font-weight: 700;
     letter-spacing: 0.2em;
-    color: var(--color-accent-text);
-    margin-bottom: 1.5rem;     /* mb-6 */
+    text-transform: uppercase;
+    color: var(--color-rose-strong);
 }
 
-/* Заголовок */
 .about-title {
+    margin: 0;
+    max-width: 62rem;
     font-family: var(--font-heading);
-    font-size: 2.25rem;        /* text-4xl */
+    font-size: clamp(2.25rem, 6.4vw, 4.5rem);
     font-weight: var(--weight-heading);
-    line-height: 1.05;
-    max-width: 56rem;          /* max-w-4xl */
-    margin-bottom: 3rem;       /* mb-12 */
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    color: var(--color-on-dark);
+    text-wrap: balance;
+}
+
+.about-title em {
+    font-style: italic;
+    color: var(--color-rose-strong);
+}
+
+/* ===== Тело ===== */
+.about-body {
+    padding: var(--space-64) 0 var(--space-96);
+}
+
+.about-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-24);
+    max-width: 60rem;
+    font-size: var(--text-18);
+    line-height: 1.6;
+    color: var(--color-body);
+}
+
+.about-cols p {
+    margin: 0;
+}
+
+.about-cols b {
     color: var(--color-heading);
 }
 
-@media (min-width: 640px) {
-    .about-title {
-        font-size: 3rem;       /* sm:text-5xl */
-    }
-}
-
-@media (min-width: 1024px) {
-    .about-title {
-        font-size: 4.5rem;     /* lg:text-7xl */
-    }
-}
-
-.about-dot {
+/* Буквица: крупная антиква, три строки */
+.about-drop::first-letter {
+    float: left;
+    margin: 0.08em var(--space-12) 0 0;
+    font-family: var(--font-heading);
+    font-size: 3.6em;
+    font-weight: var(--weight-heading);
+    line-height: 0.82;
     color: var(--color-accent-text);
-}
-
-/* Сетка: два столбца */
-.about-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 3rem;                 /* gap-12 */
-    max-width: 64rem;          /* max-w-5xl */
 }
 
 @media (min-width: 768px) {
-    .about-grid {
-        grid-template-columns: 1fr 1fr;
+    .about-cols {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-48);
     }
 }
 
-/* Левый столбец — текст */
-.about-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;               /* mb-6 между абзацами */
+.about-removed-title {
+    margin: var(--space-96) 0 var(--space-32);
+    font-family: var(--font-heading);
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: var(--weight-heading);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-align: center;
+    color: var(--color-heading);
 }
 
-.about-text-p {
-    font-family: var(--font-body);
-    font-size: 1.125rem;       /* text-lg */
-    line-height: 1.625;        /* leading-relaxed */
-    color: var(--color-muted);
-    margin: 0;
+.about-removed-title em {
+    font-style: italic;
+    color: var(--color-accent-text);
 }
 
-/* Правый столбец — список */
-.about-list-label {
-    font-family: var(--font-body);
-    font-size: 0.75rem;        /* text-xs */
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: var(--color-muted);
-    margin-bottom: 1.25rem;    /* mb-5 */
-}
-
-.about-list-items {
+.about-removed {
     list-style: none;
+    margin: 0 auto;
     padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;              /* space-y-3 */
-}
-
-.about-list-items li {
-    font-family: var(--font-body);
-    font-size: 1rem;           /* text-base */
-    color: var(--color-muted);
-    text-decoration: line-through;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;              /* gap-3 */
-}
-
-.about-list-bullet {
-    display: inline-block;
-    width: 0.375rem;           /* w-1.5 */
-    height: 0.375rem;          /* h-1.5 */
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: var(--color-primary);
-}
-
-/* Нижняя секция с кнопками */
-.about-footer {
-    margin-top: 5rem;          /* mt-20 */
-    padding-top: 3rem;         /* pt-12 */
-    border-top: 1px solid var(--color-border);
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    max-width: 48rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-12);
 }
 
 @media (min-width: 640px) {
-    .about-footer {
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
+    .about-removed {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
-.about-footer-text {
-    font-family: var(--font-body);
-    font-size: 1rem;           /* text-base */
-    color: var(--color-muted);
-    max-width: 28rem;          /* max-w-md */
-    margin: 0;
-}
-
-.about-footer-buttons {
+.about-removed li {
     display: flex;
-    gap: 0.75rem;              /* gap-3 */
-    flex-wrap: wrap;
+    align-items: center;
+    min-height: var(--control-h);
+    padding: var(--space-12) var(--space-24);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    font-size: var(--text-16);
+    color: var(--color-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--color-accent-text);
 }
 
-.about-btn-primary {
+.about-quote {
+    margin: var(--space-96) auto var(--space-32);
+    max-width: 48rem;
+    padding: 0;
+    text-align: center;
+    font-family: var(--font-heading);
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    font-weight: var(--weight-heading);
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: var(--color-heading);
+    text-wrap: balance;
+}
+
+.about-cta {
+    display: flex;
+    justify-content: center;
+}
+
+/* ===== Новость о Т-Банке ===== */
+.news-tbank {
+    padding: 0 0 var(--space-96);
+}
+
+.news-tbank-card {
+    max-width: 51rem;
+    margin: 0 auto;
+    padding: var(--space-32);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-28);
+}
+
+.news-tbank-card h2 {
+    margin: 0 0 var(--space-12);
+    font-family: var(--font-heading);
+    font-size: 1.75rem;
+    font-weight: var(--weight-heading);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--color-heading);
+}
+
+.tb-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;   /* px-6 py-3 */
+    gap: var(--space-8);
+    margin-bottom: var(--space-16);
+    padding: var(--space-8) var(--space-12);
     border-radius: var(--radius-pill);
-    font-size: 0.875rem;       /* text-sm */
+    background: var(--color-accent-light);
+    color: var(--color-accent-text);
+    font-size: var(--text-13);
     font-weight: 600;
-    color: var(--color-btn-text);
-    background: linear-gradient(135deg, var(--color-primary), var(--color-accent-hover));
-    text-decoration: none;
-    transition: transform 0.2s;
 }
 
-.about-btn-primary:hover {
-    transform: scale(1.05);
-}
-
-.about-btn-secondary {
+.tb-badge-letter {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--radius-pill);
-    font-size: 0.875rem;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--color-accent);
+    color: var(--color-btn-text);
+    font-weight: 700;
+    font-size: var(--text-12);
+}
+
+.tb-intro {
+    margin: 0 0 var(--space-24);
+    font-size: var(--text-16);
+    line-height: 1.6;
+    color: var(--color-muted);
+}
+
+.news-tbank-more {
+    margin: 0 0 var(--space-24);
+    border-top: 1px solid var(--color-border);
+}
+
+.news-tbank-more > summary {
+    display: flex;
+    align-items: center;
+    min-height: var(--control-h);
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--color-accent-text);
+}
+
+.news-tbank-subhead {
+    margin: var(--space-16) 0 var(--space-12);
+    font-size: var(--text-16);
+    color: var(--color-heading);
+}
+
+.tb-bullets {
+    list-style: none;
+    margin: 0 0 var(--space-24);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+.tb-bullet {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-12);
+    line-height: 1.55;
+    color: var(--color-body);
+}
+
+.tb-bullet svg {
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+    color: var(--color-accent-text);
+}
+
+.news-tbank-dash-list {
+    list-style: none;
+    margin: 0 0 var(--space-24);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    color: var(--color-muted);
+    line-height: 1.55;
+}
+
+.news-tbank-dash-list li {
+    padding-left: var(--space-16);
+    position: relative;
+}
+
+.news-tbank-dash-list li::before {
+    content: "—";
+    position: absolute;
+    left: 0;
+    color: var(--color-accent-text);
+}
+
+.tb-note {
+    margin: 0 0 var(--space-24);
+    padding: var(--space-16);
+    border-radius: var(--radius-16);
+    background: var(--color-surface-alt);
+    font-size: var(--text-14);
+    color: var(--color-muted);
+}
+
+.news-tbank-cta-lead {
+    margin: 0 0 var(--space-16);
     font-weight: 600;
     color: var(--color-heading);
-    border: 1px solid var(--color-border);
-    background: transparent;
-    text-decoration: none;
-    transition: background 0.2s;
 }
 
-.about-btn-secondary:hover {
-    background: var(--color-surface-alt);
+.tb-conditions {
+    margin-top: var(--space-32);
+    padding-top: var(--space-24);
+    border-top: 1px solid var(--color-border);
+}
+
+.tb-conditions h3 {
+    margin: 0 0 var(--space-12);
+    font-size: var(--text-14);
+    font-weight: 600;
+    color: var(--color-muted);
+}
+
+.tb-conditions ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.tb-condition-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-h);
+    font-size: var(--text-14);
+    color: var(--color-muted);
+    text-decoration: underline;
+}
+
+.tb-condition-link:hover {
+    color: var(--color-accent-text);
+}
+
+@media (max-width: 640px) {
+    .about-hero {
+        padding-bottom: var(--space-64);
+    }
+    .news-tbank-card {
+        padding: var(--space-24) var(--space-16);
+    }
 }

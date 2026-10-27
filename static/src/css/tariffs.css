@@ -8,20 +8,111 @@
    документов; всё под .tariffs-page, чтобы не задеть лендинг моделей,
    который тоже рисует .plan-card. */
 
+/* ===== Первый экран =====
+   Её h-page: крупная антиква, выделенное слово курсивом. Фон — просто страница,
+   без плашки: заголовок несут шрифт и воздух. */
+.tariffs-hero {
+    padding: calc(60px + var(--space-48)) 0 var(--space-32);
+}
+
+.tariffs-title {
+    margin: 0 0 var(--space-16);
+    font-family: var(--font-heading);
+    font-size: clamp(2.25rem, 5.5vw, 3.75rem);
+    font-weight: var(--weight-heading);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    color: var(--color-heading);
+    text-wrap: balance;
+}
+
+.tariffs-title em {
+    font-style: italic;
+    color: var(--color-accent-text);
+}
+
+.tariffs-lead {
+    margin: 0;
+    max-width: 40rem;
+    font-size: var(--text-18);
+    line-height: 1.55;
+    color: var(--color-muted);
+}
+
+.tariffs-body {
+    padding: 0 0 var(--space-96);
+}
+
+/* ===== Вкладки (её .view-toggle) =====
+   Капсула с тремя ссылками. На 375px строка прокручивается, а не ломается:
+   nowrap + overflow-x, полосу прокрутки прячем — жест и так очевиден. */
 .tariffs-tabs {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
-    border-bottom: 1px solid var(--color-border);
-    padding-bottom: 0.5rem;
+    gap: var(--space-4);
+    margin: 0 0 var(--space-32);
+    padding: var(--space-4);
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+}
+
+.tariffs-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.tariffs-tab {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--control-h);
+    padding: 0 var(--space-24);
+    border-radius: var(--radius-pill);
+    font-size: var(--text-16);
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    color: var(--color-muted);
+    transition: background-color var(--duration-1) var(--ease-out),
+                color var(--duration-1) var(--ease-out);
+}
+
+.tariffs-tab.active {
+    background: var(--color-accent);
+    color: var(--color-btn-text);
+}
+
+@media (hover: hover) {
+    .tariffs-tab:not(.active):hover {
+        color: var(--color-accent-text);
+    }
+}
+
+.tariffs-tab:focus-visible {
+    outline: 2px solid var(--color-accent-text);
+    outline-offset: 2px;
+}
+
+.tariffs-page .tab-content {
+    display: none;
+}
+
+.tariffs-page .tab-content.active {
+    display: block;
 }
 
 .tariffs-group-title {
-    font-size: 1.3rem;
-    font-weight: 700;
+    margin: var(--space-48) 0 var(--space-8);
+    font-family: var(--font-heading);
+    font-size: 1.75rem;
+    font-weight: var(--weight-heading);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
     color: var(--color-heading);
-    margin: 2.5rem 0 0.35rem;
 }
 
 .tariffs-group-title:first-child {
@@ -69,23 +160,49 @@
     flex-direction: column;
     padding: 1.5rem;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-16);
+    border-radius: var(--radius-28);
     background: var(--color-surface);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
 }
 
-.tariffs-page .plan-card:hover {
-    border-color: var(--color-accent-light);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.07);
-    transform: translateY(-2px);
+@media (hover: hover) {
+    .tariffs-page .plan-card:hover {
+        border-color: transparent;
+        box-shadow: var(--shadow-2);
+        transform: translateY(-2px);
+    }
 }
 
-/* Выделение популярного — рамка и бейдж, без сплошной заливки: залитая
-   розовым карточка забивала соседние и ломала читаемость списка. */
+/* Выделенный план — ягодная заливка (её .plan.hot). Подписи на ней белые:
+   4,57:1 на заливке, это и есть контраст кнопки. Приглушённое — 0.8 белого. */
 .tariffs-page .plan-card.is-popular {
+    background: var(--color-accent);
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 1px var(--color-accent);
+    color: var(--color-on-dark);
+}
+
+.tariffs-page .plan-card.is-popular .plan-name,
+.tariffs-page .plan-card.is-popular .plan-price .amount,
+.tariffs-page .plan-card.is-popular .plan-features,
+.tariffs-page .plan-card.is-popular .plan-features li svg,
+.tariffs-page .plan-card.is-popular .plan-features li span,
+.tariffs-page .plan-card.is-popular .plan-desc,
+.tariffs-page .plan-card.is-popular .plan-price .period {
+    color: var(--color-on-dark);
+}
+
+.tariffs-page .plan-card.is-popular .plan-features {
+    border-top-color: var(--color-on-dark-muted);
+}
+
+.tariffs-page .plan-card.is-popular .plan-badge {
+    background: var(--color-dark);
+    color: var(--color-on-dark);
+}
+
+.tariffs-page .plan-card.is-popular .plan-btn {
+    background: var(--color-dark);
+    color: var(--color-on-dark);
 }
 
 .tariffs-page .plan-name-row {
@@ -109,7 +226,7 @@
     border-radius: var(--radius-pill);
     background: var(--color-accent-light);
     color: var(--color-accent-text);
-    font-size: 0.62rem;
+    font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -118,7 +235,7 @@
 
 .tariffs-page .plan-desc {
     margin: 0.3rem 0 0;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     line-height: 1.45;
     color: var(--color-muted);
 }
@@ -140,7 +257,7 @@
 }
 
 .tariffs-page .plan-price .period {
-    font-size: 0.78rem;
+    font-size: 0.875rem;
     color: var(--color-muted);
 }
 
@@ -152,7 +269,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    font-size: 0.82rem;
+    font-size: 0.875rem;
     line-height: 1.4;
     color: var(--color-body);
 }
@@ -182,13 +299,14 @@
     justify-content: center;
     gap: 0.4rem;
     margin-top: auto;
-    padding: 0.7rem 1.25rem;
+    min-height: var(--control-h);
+    padding: 0 1.25rem;
     border-radius: var(--radius-pill);
     /* background задаём явно: у .plan-btn в model-landing.css градиентная
        заливка, и без сброса розовый текст лёг бы на розовый фон. */
     background: var(--color-accent);
     color: var(--color-btn-text);
-    font-size: 0.85rem;
+    font-size: 1rem;
     font-weight: 600;
     text-decoration: none;
     box-shadow: none;
@@ -196,18 +314,16 @@
 }
 
 .tariffs-page .plan-btn:hover {
-    background: var(--color-accent-hover);
     transform: none;
 }
 
 .tariffs-page .plan-card:not(.is-popular) .plan-btn {
-    background: var(--color-surface-alt);
-    color: var(--color-heading);
+    background: var(--color-accent);
+    color: var(--color-btn-text);
 }
 
 .tariffs-page .plan-card:not(.is-popular) .plan-btn:hover {
-    background: var(--color-accent-light);
-    color: var(--color-accent-text);
+    background: var(--color-accent-hover);
 }
 
 .tariffs-page .plan-btn svg {
@@ -274,8 +390,14 @@
     color: var(--color-heading);
 }
 
+.doc-card-date {
+    margin-top: var(--space-4);
+    font-size: var(--text-12);
+    color: var(--color-muted);
+}
+
 .doc-card-desc {
-    font-size: 0.82rem;
+    font-size: 0.875rem;
     line-height: 1.45;
     color: var(--color-muted);
 }
@@ -299,12 +421,6 @@
 .doc-card:hover .doc-card-arrow {
     color: var(--color-accent-text);
     transform: translateX(3px);
-}
-
-@media (max-width: 640px) {
-    .tariffs-tabs {
-        gap: 0.4rem;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -38,7 +38,7 @@ _SITE_INSTRUCTIONS = [
         'В боковом меню нажмите «<a class="text-link" href="/business">Для бизнеса</a>» → «Добавить салон» и заполните '
         'название, адрес и контакты. Сразу после отправки откроется бизнес-панель — можно сразу '
         'начать заполнять информацию о салоне (подробности по каждому разделу — во вкладке '
-        '«Инструкция» бизнес-панели). Заявку проверит модератор, обычно 1–2 рабочих дня. После '
+        '«Инструкция» бизнес-панели). Заявку проверит модератор платформы. После '
         'одобрения выберите тариф (первые 14 дней бесплатно) и опубликуйте салон.',
     ),
     (
@@ -64,10 +64,9 @@ _SITE_INSTRUCTIONS = [
 
 
 def _plan_card_html(plan: dict, cta_href: str, cta_label: str) -> str:
-    """Единая карточка тарифа. Раньше блоки салонов и моделей рисовались одним
-    шаблоном, но выглядели по-разному: у моделей средний план заливался
-    сплошным розовым, у салонов выделенного не было вовсе. Теперь выделение
-    одно на всю страницу — рамка и бейдж, без заливки."""
+    """Единая карточка тарифа. Выделенная (её .plan.hot) залита ягодным — как у
+    дизайнера; выделение одно на блок, и ставит его только код тарифов
+    (``popular`` в tariff_presentation), не вёрстка."""
     features_html = "".join(
         f'<li>{ICON_CIRCLE_CHECK}<span>{f}</span></li>' for f in plan["features"]
     )
@@ -101,11 +100,12 @@ def _documents_html() -> str:
             <span class="doc-card-text">
                 <span class="doc-card-title">{e(d['title'])}</span>
                 <span class="doc-card-desc">{e(d['description'])}</span>
+                <span class="doc-card-date">Редакция от {e(d.get('version_human', LEGAL_VERSION_HUMAN))}</span>
             </span>
             <span class="doc-card-arrow">{ICON_ARROW_RIGHT}</span>
         </a>""" for d in DOCUMENTS.values())
     return f"""
-        <p class="tariffs-group-hint">Действующая редакция от {LEGAL_VERSION_HUMAN}.</p>
+        <p class="tariffs-group-hint">Шесть документов сервиса: у каждого указана действующая редакция.</p>
         <div class="doc-list">{cards}</div>"""
 
 
@@ -120,7 +120,12 @@ def _accordion_html(items: list[tuple[str, str]]) -> str:
         </div>""" for title, text in items)
 
 
-def render_tariffs_page(user=None) -> str:
+#: Вкладки страницы: ключ в адресе (?tab=) и подпись. Без JS вкладка выбирается
+#: ссылкой и рисуется сервером, поэтому раздел можно открыть и отправить по адресу.
+TABS = {"plans": "Тарифы", "documents": "Документы", "guides": "Инструкции"}
+
+
+def render_tariffs_page(user=None, tab: str = "plans") -> str:
     business_cards = "".join(
         _plan_card_html(
             t, "/business/register-salon",
@@ -132,6 +137,33 @@ def render_tariffs_page(user=None) -> str:
         _plan_card_html(t, "/model/join", "Оформить подписку")
         for t in all_model_plans()
     )
+
+    active = tab if tab in TABS else "plans"
+
+    def tab_link(key: str) -> str:
+        on = key == active
+        href = "/tariffs" if key == "plans" else f"/tariffs?tab={key}"
+        return (f'<a class="tariffs-tab{" active" if on else ""}" role="tab" '
+                f'id="tabbtn-{key}" aria-controls="tab-{key}" '
+                f'aria-selected="{"true" if on else "false"}" '
+                f'data-tab="{key}" href="{href}">{TABS[key]}</a>')
+
+    def pane(key: str, body: str) -> str:
+        return (f'<div id="tab-{key}" class="tab-content{" active" if key == active else ""}" '
+                f'role="tabpanel" aria-labelledby="tabbtn-{key}">{body}</div>')
+
+    plans_body = f"""
+                    <h2 class="tariffs-group-title">Для владельцев салонов</h2>
+                    <p class="tariffs-group-hint">Тариф подстраивается под число мастеров при каждой следующей оплате. Первые 14 дней — бесплатно.</p>
+                    <div class="plans-grid cols-4">{business_cards}</div>
+
+                    <h2 class="tariffs-group-title">Для моделей</h2>
+                    <p class="tariffs-group-hint">Подписка модели даёт доступ к записям на отработку техник со скидкой.</p>
+                    <div class="plans-grid cols-3">{model_cards}</div>"""
+    guides_body = f"""
+                    {BOOKING_FLOW}
+                    {SALON_FLOW}
+                    <div class="settings-accordion">{_accordion_html(_SITE_INSTRUCTIONS)}</div>"""
 
     return f"""<!DOCTYPE html>
 <html lang="ru">
@@ -146,40 +178,22 @@ def render_tariffs_page(user=None) -> str:
     {render_header("tariffs", user)}
 
     <main class="main-content">
-        <section class="section-py bg-surface-alt">
+        <section class="tariffs-hero">
             <div class="section-container">
-                <h1 class="text-display">Тарифы и информация</h1>
-                <p class="text-body-lg">Все тарифы платформы, документы и подсказки по работе с сайтом — в одном месте.</p>
+                <h1 class="tariffs-title">Тарифы <em>и информация</em></h1>
+                <p class="tariffs-lead">Все тарифы платформы, документы и подсказки по работе с сайтом — в одном месте.</p>
             </div>
         </section>
 
-        <section class="section-py">
+        <section class="tariffs-body">
             <div class="section-container">
-                <div class="tariffs-tabs" id="tariffsTabs">
-                    <button class="tab-btn active" data-tab="plans">Тарифы</button>
-                    <button class="tab-btn" data-tab="documents">Документы</button>
-                    <button class="tab-btn" data-tab="guides">Инструкции</button>
+                <div class="tariffs-tabs" id="tariffsTabs" role="tablist" aria-label="Разделы страницы">
+                    {tab_link("plans")}{tab_link("documents")}{tab_link("guides")}
                 </div>
 
-                <div id="tab-plans" class="tab-content active">
-                    <h2 class="tariffs-group-title">Для владельцев салонов</h2>
-                    <p class="tariffs-group-hint">Тариф подстраивается под число мастеров при каждой следующей оплате. Первые 14 дней — бесплатно.</p>
-                    <div class="plans-grid cols-4">{business_cards}</div>
-
-                    <h2 class="tariffs-group-title">Для моделей</h2>
-                    <p class="tariffs-group-hint">Подписка модели даёт доступ к записям на отработку техник со скидкой.</p>
-                    <div class="plans-grid cols-3">{model_cards}</div>
-                </div>
-
-                <div id="tab-documents" class="tab-content">
-                    {_documents_html()}
-                </div>
-
-                <div id="tab-guides" class="tab-content">
-                    {BOOKING_FLOW}
-                    {SALON_FLOW}
-                    <div class="settings-accordion">{_accordion_html(_SITE_INSTRUCTIONS)}</div>
-                </div>
+                {pane("plans", plans_body)}
+                {pane("documents", _documents_html())}
+                {pane("guides", guides_body)}
 
                 {render_tbank_partner_strip()}
             </div>

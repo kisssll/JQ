@@ -680,11 +680,11 @@ async def cookies_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/tariffs", response_class=HTMLResponse)
-async def tariffs_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def tariffs_page(request: Request, tab: str = "plans", db: AsyncSession = Depends(get_db)):
     """«Тарифы и информация» — тарифы платформы, документы, инструкции по сайту."""
     user = await get_current_user_from_cookie(request, db)
     from app.web.pages.tariffs import render_tariffs_page
-    return HTMLResponse(content=render_tariffs_page(user))
+    return HTMLResponse(content=render_tariffs_page(user, tab))
 
 
 @router.get("/model", response_class=HTMLResponse)
