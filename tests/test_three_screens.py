@@ -67,22 +67,39 @@ async def test_home_hero_uses_the_arch_and_keeps_search_first(client):
     assert "gradient" not in hero
 
 
-def test_home_hero_photo_exists_and_loads_only_on_wide_screens():
-    """Снимок в арке живёт в CSS и ТОЛЬКО внутри медиазапроса.
+def test_home_hero_photos_exist_and_load_only_on_wide_screens():
+    """Оба снимка арки живут в CSS и ТОЛЬКО внутри медиазапроса.
 
     На телефоне арка скрыта (`display: none`), но это не отменяет загрузку:
     объявленный вне медиазапроса фон браузер всё равно скачает, и телефон
-    заплатит 160 КБ за картинку, которой на экране нет.
+    заплатит полторы сотни килобайт за картинку, которой на экране нет.
     """
-    photo = ROOT / "static" / "images" / "home-hero-manicure.webp"
-    assert photo.exists(), "снимка для арки нет в репозитории"
     css = (ROOT / "static" / "src" / "css" / "home.css").read_text()
-    at = css.find("home-hero-manicure.webp")
-    assert at > 0, "снимок не подключён в home.css"
-    # Правило внутри медиазапроса лежит на втором уровне скобок: @media { .x { … } }.
-    before = css[:at]
-    assert before.count("{") - before.count("}") >= 2, (
-        "снимок объявлен вне медиазапроса — телефон скачает его зря")
+    for name in ("home-hero-light.webp", "home-hero-dark.webp"):
+        assert (ROOT / "static" / "images" / name).exists(), f"нет файла {name}"
+        at = css.find(name)
+        assert at > 0, f"{name} не подключён в home.css"
+        # Правило внутри медиазапроса лежит на втором уровне скобок: @media { .x { … } }.
+        before = css[:at]
+        assert before.count("{") - before.count("}") >= 2, (
+            f"{name} объявлен вне медиазапроса — телефон скачает его зря")
+
+
+def test_dark_theme_gets_its_own_hero_photo():
+    """Тёмный снимок включает :root[data-theme="dark"].
+
+    Голый [data-theme="dark"] брать нельзя: тот же атрибут стоит на кнопке
+    выбора темы в профиле (объяснение в design-tokens.css). И не
+    prefers-color-scheme: системную схему наши стили не слушают, тема живёт
+    атрибутом, иначе снимок разойдётся с палитрой страницы.
+    """
+    css = (ROOT / "static" / "src" / "css" / "home.css").read_text()
+    at = css.find("home-hero-dark.webp")
+    rule = css.rfind("{", 0, at)
+    head = css[css.rfind("}", 0, rule) + 1:rule]
+    selector = re.sub(r"/\*.*?\*/", "", head, flags=re.S).strip()
+    assert selector.startswith(':root[data-theme="dark"]'), selector
+    assert ".home-hero__art" in selector, selector
 
 
 async def test_home_partner_block_is_untouched(client):
