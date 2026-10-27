@@ -29,9 +29,9 @@ def _block(css: str, selector: str) -> str:
 
 async def test_home_has_the_brand_line_and_the_merged_copy(client):
     html = (await client.get("/")).text
-    # Строка бренда — одна, как у дизайнера и Дианы: «руми. Твой доступ к красоте».
-    assert "руми. Твой доступ <em>к красоте</em>" in html
-    assert "РУМИ. Твой доступ" not in html
+    # Строка бренда — одна: «РУМИ. Твой доступ к красоте».
+    assert "РУМИ. Твой доступ <em>к красоте</em>" in html
+    assert "руми. Твой доступ" not in html
     assert "Мастера и салоны в одном приложении" in html
     assert "Подберём салон и услуги для вас" in html
     assert "Управлять салоном с нами <em>проще</em>" in html

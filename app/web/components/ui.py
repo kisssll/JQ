@@ -486,8 +486,8 @@ def salon_card(
             f'<a class="r-salon__all" href="{e(href)}">{e(all_label)}</a>'
         )
         return (
-            f'<article class="r-salon salon-card" data-layout="horizontal" '
-            f'data-salon-id="{salon_id}">'
+            f'<article class="r-salon salon-card" data-salon-id="{salon_id}" '
+            f'data-layout="horizontal">'
             f'<div class="r-salon__layout">{image_link}'
             f'<div class="r-salon__body">{content}</div></div></article>'
         )
