@@ -137,10 +137,7 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                     </form>
                     <p class="home-hero__micro">Четыре шага · без звонков</p>
                 </div>
-                <div class="home-hero__art r-arch" aria-hidden="true">
-                    <img src="/static/images/rumi-logo.webp" alt="" width="320" height="320"
-                         decoding="async">
-                </div>
+                <div class="home-hero__art r-arch" aria-hidden="true"></div>
             </div>
         </section>
 

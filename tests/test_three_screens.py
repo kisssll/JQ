@@ -63,9 +63,26 @@ async def test_home_hero_uses_the_arch_and_keeps_search_first(client):
     assert 'home-hero__art r-arch' in hero
     # Поиск стоит в тексте до арки: на телефоне арки нет, поиск первый.
     assert hero.index('role="search"') < hero.index("home-hero__art")
-    # Арка занята знаком Руми, а не градиентной заглушкой вместо снимка.
-    assert "rumi-logo" in hero
+    # Градиентной заглушки вместо снимка в арке нет (docs/design.md).
     assert "gradient" not in hero
+
+
+def test_home_hero_photo_exists_and_loads_only_on_wide_screens():
+    """Снимок в арке живёт в CSS и ТОЛЬКО внутри медиазапроса.
+
+    На телефоне арка скрыта (`display: none`), но это не отменяет загрузку:
+    объявленный вне медиазапроса фон браузер всё равно скачает, и телефон
+    заплатит 160 КБ за картинку, которой на экране нет.
+    """
+    photo = ROOT / "static" / "images" / "home-hero-manicure.webp"
+    assert photo.exists(), "снимка для арки нет в репозитории"
+    css = (ROOT / "static" / "src" / "css" / "home.css").read_text()
+    at = css.find("home-hero-manicure.webp")
+    assert at > 0, "снимок не подключён в home.css"
+    # Правило внутри медиазапроса лежит на втором уровне скобок: @media { .x { … } }.
+    before = css[:at]
+    assert before.count("{") - before.count("}") >= 2, (
+        "снимок объявлен вне медиазапроса — телефон скачает его зря")
 
 
 async def test_home_partner_block_is_untouched(client):

@@ -80,9 +80,12 @@
     letter-spacing: 0.04em;
 }
 
-/* Арка (.r-arch из ui.css). Занята знаком Руми, а не снимком: фотографий у
-   нас почти нет, а заглушка вместо снимка — запрещённая декорация. На
-   телефоне скрыта: первым там должен быть поиск, а не картинка. */
+/* Арка (.r-arch из ui.css). Занята снимком работы мастера — он ровно 4:5, как
+   сама арка. На телефоне арка скрыта: первым там должен быть поиск, а не
+   картинка, поэтому снимок объявлен ВНУТРИ медиазапроса — иначе браузер
+   тянул бы 160 КБ ради картинки, которой на экране нет (display:none
+   загрузку не отменяет). Подложка остаётся на случай, если снимок не придёт:
+   пустая арка цвета secondary, а не «сломанный» блок. */
 .home-hero__art {
     display: none;
     place-items: center;
@@ -92,13 +95,14 @@
     border: 1px solid var(--color-border);
 }
 
-.home-hero__art img {
-    width: 62%;
-    height: auto;
-}
-
 @media (min-width: 900px) {
-    .home-hero__art { display: grid; }
+    .home-hero__art {
+        display: grid;
+        background-image: url("/static/images/home-hero-manicure.webp");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
 }
 
 /* ---------- Поиск ----------
