@@ -81,8 +81,7 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
     if cards:
         catalog_block = f"""
                 {ui.section_head(
-                    "Кто принимает сейчас",
-                    text="Цены и ближайшие свободные окна — сразу в карточке.",
+                    "Лучшие салоны нашей платформы",
                     link_label="Смотреть все салоны", link_href="/salons")}
                 <div class="salons-grid">{cards}</div>"""
     else:
@@ -161,8 +160,8 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                     <div>
                         <p class="home-kicker home-kicker--light">Для прекрасных и смелых, как ты!</p>
                         <h2 class="r-title">Стань моделью не через агентство, а <em>по подписке</em>.</h2>
-                        <p class="home-feature__text">Помоги мастеру собрать портфолио и получи
-                            услугу намного дешевле.</p>
+                        <p class="home-feature__text">Найдите предложение от мастеров, которое
+                            придется по душе.</p>
                         {ui.button("Оформить подписку", href="/model", icon=ICON_ARROW_RIGHT)}
                     </div>
                     <ul class="home-model__list">{model_points}</ul>
@@ -170,6 +169,7 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
             </div>
         </section>
 
+        <p class="home-tbank-note">А также мы являемся официальными партнёрами Т‑Банка.</p>
         {render_tbank_partner_banner()}
 
         <section class="home-business" id="for-business">
