@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.models import Favorite, Master, Salon, User as UserModel
 from app.web.components import ui
 from app.web.components.footer import render_footer
-from app.web.components.cabinet import render_cabinet
+from app.web.components.cabinet import plural, render_cabinet
 from app.web.components.header import render_header
 from app.web.components.icons import ICON_HEART, ICON_HEART_FILLED
 from app.web.components.styles import get_base_styles
@@ -161,7 +161,8 @@ async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str
 
     from app.services.cabinet_badge import load_badges
     badges = await load_badges(db, user)
-    stats = ([(str(n_salons), "салонов"), (str(n_masters), "мастеров")]
+    stats = ([(str(n_salons), plural(n_salons, "салон", "салона", "салонов")),
+              (str(n_masters), plural(n_masters, "мастер", "мастера", "мастеров"))]
              if (n_salons or n_masters) else None)
 
     return f"""<!DOCTYPE html>

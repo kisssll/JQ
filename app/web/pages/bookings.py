@@ -35,7 +35,7 @@ from app.services.public_words import dative, first_name, solo_from_facts
 from app.web.components import ui
 from app.web.components.escaping import e
 from app.web.components.footer import render_footer
-from app.web.components.cabinet import render_cabinet
+from app.web.components.cabinet import plural, render_cabinet
 from app.web.components.header import render_header
 from app.web.components.icons import (
     ICON_EDIT_PENCIL,
@@ -326,7 +326,9 @@ async def render_bookings_page(db: AsyncSession, user, notice: str = "") -> str:
     from app.services.cabinet_badge import load_badges
     badges = await load_badges(db, user)
     # Числа — только настоящие: у человека без записей их нет.
-    stats = ([("%d" % len(upcoming), "предстоящих"), ("%d" % len(past), "в истории")]
+    stats = ([("%d" % len(upcoming),
+               plural(len(upcoming), "предстоящая", "предстоящие", "предстоящих")),
+              ("%d" % len(past), "в истории")]
              if bookings else None)
 
     return f"""<!DOCTYPE html>

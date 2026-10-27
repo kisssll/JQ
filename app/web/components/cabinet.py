@@ -17,6 +17,23 @@ CABINET_SECTIONS = (
 )
 
 
+def plural(n: int, one: str, few: str, many: str) -> str:
+    """Русское склонение подписи под числом: «1 салон», «2 салона», «5 салонов».
+
+    Подписи в макете статичны («салонов», «предстоящих»), и на единице это
+    читалось как «1 салонов» — у клиента с одной записью ровно так и выходило.
+    """
+    n = abs(int(n)) % 100
+    if 11 <= n <= 14:
+        return many
+    last = n % 10
+    if last == 1:
+        return one
+    if 2 <= last <= 4:
+        return few
+    return many
+
+
 def _nav_link(href: str, label: str, on: bool) -> str:
     cur = ' aria-current="page"' if on else ""
     return f'<a href="{href}" class="acc-link{" on" if on else ""}"{cur}>{label}</a>'

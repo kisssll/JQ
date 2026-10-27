@@ -30,27 +30,44 @@ def badge_text(who: str, status, plan_name: str, access_until: Optional[datetime
     """Подпись бейджа для одного тарифа; пусто — тарифа нет вовсе.
 
     ``who`` — чей тариф («Салон», «Модель»): у владельца-модели их два, и без
-    этого не понять, какой из них кончился."""
+    этого не понять, какой из них кончился. Пустой ``who`` — для шапки самой
+    панели, где и так понятно, чей это тариф, а слово «салон» в режиме
+    «работаю один» запрещено (решение 0007, тест test_panel_master_card)."""
     now = now or _now()
+    pre = f"{who} · " if who else ""
     until = _aware(access_until)
     if status == SalonSubscriptionStatus.NONE and until is None:
         return ""
     if until is None or until <= now:
-        return f"{who} · тариф закончился"
+        return f"{pre}тариф закончился"
     if until - now > _OPEN_ENDED:
         # Бессрочный доступ без оплаты (старые салоны, ручная выдача админом):
         # дата «до 2099 года» выглядела бы опечаткой, а название тарифа —
         # обещанием, что за него платят.
-        return f"{who} · доступ открыт"
+        return f"{pre}доступ открыт"
     date = until.strftime("%d.%m.%Y")
     if status == SalonSubscriptionStatus.TRIALING:
-        return f"{who} · пробный до {date}"
+        return f"{pre}пробный до {date}"
     if status == SalonSubscriptionStatus.PAST_DUE:
         # Доступ ещё открыт (грейс), но платёж не прошёл — об этом и речь,
         # а не о названии тарифа. Дата в узкой карточке уже не помещается.
-        return f"{who} · платёж не прошёл"
+        return f"{pre}платёж не прошёл"
     name = plan_name or "тариф"
-    return f"{who} · {name} до {date}"
+    return f"{pre}{name} до {date}"
+
+
+def salon_badge(salon, who: str = "") -> str:
+    """Подпись тарифа одного салона — для шапки его панели.
+
+    Там годами висело «Бизнес PRO» независимо от тарифа: у салона с
+    кончившейся подпиской это стояло прямо над красной полосой «подписка не
+    оплачена». Текст теперь тот же, что в кабинете.
+    """
+    if salon is None:
+        return ""
+    tariff = TARIFF_CATALOG.get(salon.business_tier or "")
+    return badge_text(who, salon.subscription_status,
+                      tariff.name if tariff else "", salon.access_until)
 
 
 async def load_badges(db: AsyncSession, user) -> list[str]:

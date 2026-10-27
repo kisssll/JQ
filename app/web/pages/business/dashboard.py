@@ -798,6 +798,14 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         else f'Салон «{e(salon.name)}» • {where}'
     )
 
+    # Бейдж тарифа — настоящий, а не вечное «Бизнес PRO» (решение 0015, п. 5).
+    from app.services.cabinet_badge import salon_badge
+
+    _badge = salon_badge(salon)
+    tariff_badge_html = (
+        f'<span class="dashboard-badge">{ICON_SPARKLES} {e(_badge)}</span>' if _badge else ""
+    )
+
     header_html = f"""
     <div class="dashboard-header">
         <div class="dashboard-header-inner">
@@ -809,9 +817,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
                 {switcher_html}
                 {add_salon_html}
                 {master_panel_html}
-                <span class="dashboard-badge">
-                    {ICON_SPARKLES} Бизнес PRO
-                </span>
+                {tariff_badge_html}
             </div>
         </div>
     </div>

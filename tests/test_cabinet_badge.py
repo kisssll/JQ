@@ -113,3 +113,44 @@ async def test_model_with_a_live_tariff_sees_its_name(client, db_session):
     await _login(client, "+79997770005")
     r = await client.get("/favorites")
     assert "Модель · Про до" in r.text
+
+
+async def test_panel_header_shows_the_real_tariff(client, db_session):
+    """В шапке панели годами висело «Бизнес PRO» при любом тарифе — у салона
+    с кончившейся подпиской прямо над полосой «подписка не оплачена»."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.models.models import (
+        OWNER_DEFAULT_PERMISSIONS, Salon, SalonMember, SalonModerationStatus,
+        SalonRole, SalonSubscriptionStatus, User, UserRole,
+    )
+    from app.core.security import get_password_hash
+
+    async with db_session() as db:
+        owner = User(phone="+79993330077", full_name="Хозяин Просрочки",
+                     hashed_password=get_password_hash("Testpass1"),
+                     role=UserRole.BUSINESS, is_active=True)
+        db.add(owner)
+        await db.commit()
+        await db.refresh(owner)
+        salon = Salon(name="Просроченный", description="", address="Томск, ул. 2",
+                      latitude=56.5, longitude=84.9, phone="+79990002222", city="Томск",
+                      is_active=True, creator_id=owner.id,
+                      moderation_status=SalonModerationStatus.APPROVED,
+                      subscription_status=SalonSubscriptionStatus.TRIALING,
+                      access_until=datetime.now(timezone.utc) - timedelta(days=5))
+        db.add(salon)
+        await db.commit()
+        await db.refresh(salon)
+        db.add(SalonMember(salon_id=salon.id, user_id=owner.id, role=SalonRole.OWNER,
+                           is_creator=True, permissions=dict(OWNER_DEFAULT_PERMISSIONS),
+                           is_active=True))
+        await db.commit()
+
+    r = await client.post("/api/v1/auth/login-web",
+                          data={"phone": "+79993330077", "password": "Testpass1"})
+    assert r.status_code == 302
+    r = await client.get("/business/dashboard")
+    assert r.status_code == 200
+    assert "Бизнес PRO" not in r.text
+    assert "тариф закончился" in r.text

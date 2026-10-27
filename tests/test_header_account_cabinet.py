@@ -154,3 +154,14 @@ async def test_cabinet_shows_no_invented_numbers(client):
         r = await client.get(path)
         assert 'class="acc-stats"' not in r.text, path
     assert "acc-badge" not in (await client.get("/profile")).text
+
+
+def test_cabinet_numbers_are_in_russian():
+    """«1 салонов» и «1 предстоящих» — ровно то, что видел клиент с одной
+    записью: подписи в макете статичны, а число под ними меняется."""
+    from app.web.components.cabinet import plural
+
+    salon = lambda n: plural(n, "салон", "салона", "салонов")
+    assert [salon(n) for n in (1, 2, 5, 11, 21, 104)] == [
+        "салон", "салона", "салонов", "салонов", "салон", "салона"
+    ]
