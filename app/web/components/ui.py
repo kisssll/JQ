@@ -368,6 +368,7 @@ def salon_card(
     promos: tuple = (),
     favorite_icons: tuple = (),
     favorite_on: bool = False,
+    horizontal: bool = False,
     all_label: str = "Все услуги и запись",
 ) -> str:
     """Карточка салона или мастера для каталога и главной.
@@ -465,6 +466,30 @@ def salon_card(
             f'<p class="r-salon__slots-label">{e(label)}</p>'
             f'<div class="r-slots">{"".join(slots)}</div>'
             "</div>"
+        )
+
+    if horizontal:
+        image_link = (
+            f'<a class="r-salon__image" href="{e(href)}" '
+            f'data-salon-link="{salon_id}" aria-label="Открыть салон {e(name)}">'
+            f'{mark(name, image=logo_url, alt=name, size="lg")}</a>'
+        )
+        identity = (
+            f'<a class="r-salon__face" href="{e(href)}" data-salon-link="{salon_id}">'
+            f'<span class="r-salon__id"><span class="r-salon__name">{e(name)}</span>'
+            f"{where_html}</span></a>"
+        )
+        content = (
+            f"{tags_html}<div class=\"r-salon__top\">{identity}"
+            f'<div class="r-salon__aside">{fav}</div></div>'
+            f"{promos_html}{svc_html}{slots_html}"
+            f'<a class="r-salon__all" href="{e(href)}">{e(all_label)}</a>'
+        )
+        return (
+            f'<article class="r-salon salon-card" data-layout="horizontal" '
+            f'data-salon-id="{salon_id}">'
+            f'<div class="r-salon__layout">{image_link}'
+            f'<div class="r-salon__body">{content}</div></div></article>'
         )
 
     return (

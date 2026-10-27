@@ -351,13 +351,15 @@ async def test_home_shows_a_limited_number_of_cards_and_a_link_to_all(client, db
 
 
 async def test_home_uses_the_same_card_as_the_catalog(client, db_session):
-    """Не «такая же», а та же: один компонент на две страницы."""
+    """Данные карточек общие, каталог показывает их горизонтально."""
     salon_id, _ = await _stand(db_session, "ОдинКомпонентZZ")
     home = _card((await client.get("/")).text, salon_id)
     catalog = _card((await client.get("/salons")).text, salon_id)
-    # Окна считаются на «сейчас», поэтому сравниваем всё до блока окон.
-    cut = 'class="r-salon__slots"'
-    assert home.split(cut)[0] == catalog.split(cut)[0]
+    assert "ОдинКомпонентZZ" in home and "ОдинКомпонентZZ" in catalog
+    assert "Маникюр" in home and "Маникюр" in catalog
+    assert 'data-layout="horizontal"' not in home
+    assert 'data-layout="horizontal"' in catalog
+    assert 'class="r-salon__image"' in catalog
 
 
 async def test_home_with_no_salons_invites_instead_of_apologising(client, db_session):
