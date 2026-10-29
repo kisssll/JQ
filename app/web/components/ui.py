@@ -298,13 +298,28 @@ def mark(letter: str, *, image: str = "", alt: str = "", size: str = "md") -> st
     заглушек не рисуем — декорация на месте содержания видна сразу.
     """
     cls = f"r-mark r-mark--{size}"
+    first = (letter or "").strip()[:1].upper()
+    if image and first:
+        # Буква лежит ПОД снимком, а сам снимок декоративен (alt=""): имя стоит
+        # рядом в разметке, читать его дважды скринридеру незачем. Выгода в
+        # другом: если файл не отдался (битая ссылка в logo_url), пустой alt
+        # ничего не рисует и в полосе остаётся монограмма, а не название
+        # салона ломаной строкой во всю карточку.
+        return (
+            f'<span class="{cls} r-mark--photo">'
+            f'<span class="r-mark__letter" aria-hidden="true">{e(first)}</span>'
+            f'<img src="{e(image)}" alt="" loading="lazy" decoding="async">'
+            "</span>"
+        )
     if image:
+        # Буквы нет (снимок анкеты модели) — снимок и есть содержание, подпись
+        # ему нужна.
         return (
             f'<span class="{cls}">'
             f'<img src="{e(image)}" alt="{e(alt)}" loading="lazy" decoding="async">'
             f"</span>"
         )
-    return f'<span class="{cls}" aria-hidden="true">{e((letter or "?")[0].upper())}</span>'
+    return f'<span class="{cls}" aria-hidden="true">{e(first or "?")}</span>'
 
 
 def service_line(name: str, *, price: str, duration: str = "", old_price: str = "") -> str:
@@ -492,12 +507,20 @@ def salon_card(
             f'<div class="r-salon__body">{content}</div></div></article>'
         )
 
+    # Снимок (или монограмма) — полосой НАД именем, а не кружком слева от него.
+    # Слева он отбирал у имени треть колонки: «Долговременный прикорневой
+    # объём•Пампинг» уходило в три строки с одинокой буквой на последней. Теперь
+    # имя занимает всю ширину карточки, а картинка стала видна — ровно то же
+    # устройство, что у горизонтальной карточки каталога, только столбец
+    # развёрнут в полосу.
     return (
         f'<article class="r-salon salon-card" data-salon-id="{salon_id}">'
         f"{tags_html}"
+        f'<a class="r-salon__image" href="{e(href)}" data-salon-link="{salon_id}" '
+        f'aria-label="Открыть {e(name)}">'
+        f"{mark(name, image=logo_url, alt=name, size='lg')}</a>"
         f'<div class="r-salon__top">'
         f'<a class="r-salon__face" href="{e(href)}" data-salon-link="{salon_id}">'
-        f"{mark(name, image=logo_url, alt=name, size='lg')}"
         f'<span class="r-salon__id">'
         f'<span class="r-salon__name">{e(name)}</span>'
         + where_html

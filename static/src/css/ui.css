@@ -475,6 +475,19 @@
     object-fit: cover;
 }
 
+/* Снимок поверх монограммы: буква видна, только если файл не пришёл. */
+.r-mark--photo { position: relative; }
+
+.r-mark--photo .r-mark__letter {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.r-mark--photo img { position: relative; }
+
 .r-mark--sm { width: 36px; height: 36px; font-size: var(--text-16); border-radius: var(--radius-8); }
 .r-mark--md { width: 44px; height: 44px; font-size: var(--text-18); }
 .r-mark--lg { width: 56px; height: 56px; font-size: var(--text-28); }
@@ -655,6 +668,32 @@
     }
 }
 
+/* Вертикальная карточка (главная, избранное): снимок полосой сверху.
+   Раньше монограмма 56px стояла слева от имени и съедала треть и без того
+   узкой колонки сетки (minmax(300px, 1fr)) — длинное название разваливалось
+   на три строки с одинокой буквой в конце. Полоса отдаёт имени всю ширину
+   карточки и заодно показывает снимок тем, у кого он есть. */
+.r-salon__image {
+    /* Полоса — ссылка, и буква монограммы внутри неё получала подчёркивание. */
+    text-decoration: none;
+}
+
+.r-salon:not([data-layout="horizontal"]) .r-salon__image {
+    display: block;
+    margin-bottom: var(--space-12);
+    border-radius: var(--radius-16);
+    overflow: hidden;
+    background: var(--color-surface-alt);
+}
+
+.r-salon:not([data-layout="horizontal"]) .r-salon__image .r-mark--lg {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    border-radius: 0;
+    font-size: var(--text-64);
+}
+
 .r-salon__top {
     display: flex;
     align-items: flex-start;
@@ -689,6 +728,10 @@
        словом и только при полной безвыходности рваться — anywhere рвал
        «Радугу» по слогам на обычной ширине колонки. */
     overflow-wrap: break-word;
+    /* Строки делятся поровну: без этого остаток длинного названия падал в
+       последнюю строку одним слогом. Браузер без поддержки просто переносит
+       как раньше. */
+    text-wrap: balance;
 }
 
 .r-salon__where {

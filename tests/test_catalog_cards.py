@@ -405,3 +405,39 @@ async def test_the_salon_page_shows_promotions_as_lines_too(client, db_session):
     assert 'class="salon-promos"' in page
     pills = re.findall(r'<span class="r-status[^"]*">(.*?)</span>', page)
     assert not any("Скидка первым" in p for p in pills), pills
+
+
+async def test_home_card_puts_the_photo_above_the_name(client, db_session):
+    """На главной снимок стоит полосой НАД именем, а не кружком слева.
+
+    Слева монограмма отбирала треть и без того узкой колонки сетки, и длинное
+    название разваливалось на три строки с одинокой буквой в конце.
+    """
+    salon_id, _ = await _stand(db_session, "ДлинноеИмяZZ Прикорневой Объём Пампинг")
+    card = _card((await client.get("/")).text, salon_id)
+
+    assert 'class="r-salon__image"' in card, "полосы со снимком в карточке нет"
+    assert card.index('r-salon__image') < card.index('r-salon__name'), (
+        "снимок должен идти до имени")
+    face = card[card.index('class="r-salon__face"'):card.index('r-salon__aside')]
+    assert "r-mark" not in face, "монограмма осталась внутри строки с именем"
+
+
+def test_a_photo_that_did_not_load_leaves_the_monogram():
+    """Снимок декоративен и лежит ПОВЕРХ буквы.
+
+    Битая ссылка в logo_url с alt=name рисовала в полосе название салона
+    ломаной строкой во всю карточку — браузер показывает alt. Пустой alt не
+    рисует ничего, и под ним остаётся монограмма.
+    """
+    from app.web.components import ui
+
+    html = ui.mark("Радуга", image="/static/uploads/нет-такого.jpg", alt="Радуга", size="lg")
+    assert 'alt=""' in html, "снимок в карточке обязан быть декоративным"
+    assert "Радуга" not in html, "название не должно попадать в разметку снимка"
+    assert ">Р<" in html, "буквы под снимком нет"
+
+    # У снимка без буквы (анкета модели) подпись остаётся: там снимок и есть
+    # содержание.
+    only_photo = ui.mark("", image="/static/uploads/anketa.jpg", alt="Фото анкеты")
+    assert 'alt="Фото анкеты"' in only_photo
