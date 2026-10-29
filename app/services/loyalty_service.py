@@ -209,6 +209,19 @@ class LoyaltyService:
             client_loyalty.regular_client_source = LoyaltyStatusSource.AUTO
 
     @staticmethod
+    async def _require_salon_client(db: AsyncSession, salon_id: int, client_id: int) -> None:
+        """Ручная лояльность — только клиенту этого салона (решение 0017, п. 2).
+
+        Без проверки _get_or_create_client_loyalty заводил строку на любого
+        пользователя сервиса. 404, а не 403: существование чужого id
+        раскрывать незачем. Автоматический путь (complete_with_discount)
+        проверку не проходит намеренно: он работает от записи этого салона.
+        """
+        from app.services.salon_clients import is_salon_client
+        if not await is_salon_client(db, salon_id, client_id):
+            raise LoyaltyError("Клиент не найден", status=404)
+
+    @staticmethod
     async def manual_adjust_points(
         db: AsyncSession, *, salon_id: int, client_id: int, amount: int, comment: str, actor,
     ) -> ClientLoyalty:
@@ -217,6 +230,7 @@ class LoyaltyService:
         if amount == 0:
             raise LoyaltyError("Сумма корректировки не может быть нулевой")
 
+        await LoyaltyService._require_salon_client(db, salon_id, client_id)
         client_loyalty = await LoyaltyService._get_or_create_client_loyalty(db, salon_id, client_id)
         if amount < 0 and abs(amount) > client_loyalty.bonus_points:
             raise LoyaltyError(f"У клиента только {client_loyalty.bonus_points} баллов")
@@ -238,6 +252,7 @@ class LoyaltyService:
         db: AsyncSession, *, salon_id: int, client_id: int, is_regular: bool, actor,
     ) -> ClientLoyalty:
         """Ручное присвоение/снятие статуса «постоянный клиент» админом."""
+        await LoyaltyService._require_salon_client(db, salon_id, client_id)
         client_loyalty = await LoyaltyService._get_or_create_client_loyalty(db, salon_id, client_id)
         client_loyalty.is_regular_client = is_regular
         client_loyalty.regular_client_source = LoyaltyStatusSource.MANUAL if is_regular else None
@@ -252,6 +267,7 @@ class LoyaltyService:
         """Назначает/снимает персональную скидку конкретному клиенту (None — снять)."""
         if discount_percent is not None and not (0 < discount_percent < 100):
             raise LoyaltyError("Персональная скидка должна быть от 1 до 99%")
+        await LoyaltyService._require_salon_client(db, salon_id, client_id)
         client_loyalty = await LoyaltyService._get_or_create_client_loyalty(db, salon_id, client_id)
         client_loyalty.personal_discount_percent = discount_percent
         await db.commit()

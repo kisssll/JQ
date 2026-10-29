@@ -165,7 +165,23 @@ async def test_client_card_renders_for_owner(client, db_session):
         "offer_accepted": "1", "pd_consent": "1", "plan": "lite", "for_master": "1",
     })
     salon_id = r.json()["salon_id"]
-    r = await client.get(f"/business/clients/{data['user']['id'] if 'user' in data else 1}?salon_id={salon_id}")
+    # Карточка открывается только на клиента салона (решение 0017, п. 2) —
+    # заводим ему состоявшийся визит к мастеру этого салона.
+    from datetime import datetime, timedelta
+    from app.models.models import Booking, BookingStatus, Service, User
+    async with db_session() as db:
+        me = (await db.execute(select(User).where(User.phone == "+79997771005"))).scalar_one()
+        master = (await db.execute(select(Master).where(Master.salon_id == salon_id))).scalar_one()
+        sv = Service(master_id=master.id, name="У", price=1000, duration_minutes=60, is_active=True)
+        db.add(sv)
+        await db.flush()
+        past = datetime.now().replace(microsecond=0) - timedelta(days=2)
+        db.add(Booking(client_id=me.id, master_id=master.id, service_id=sv.id, start_time=past,
+                       end_time=past + timedelta(hours=1), status=BookingStatus.COMPLETED,
+                       final_price=1000))
+        await db.commit()
+        client_id = me.id
+    r = await client.get(f"/business/clients/{client_id}?salon_id={salon_id}")
     assert r.status_code == 200
 
 

@@ -109,7 +109,13 @@ async def free_evening_intervals(
             Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
         )
     )).scalars().all()
-    busy = [(b.start_time, b.end_time) for b in booked]
+    # Чужая запись держит мастера ещё на перерыв после себя — как при записи
+    # (BookingService.is_slot_available, решение 0017, п. 1). Без этого лента
+    # и рассылка обещали «свободно с 18:00» сразу после брони до 18:00, а
+    # записаться на 18:00 было нельзя.
+    from app.services.booking_service import BookingService
+    gap = timedelta(minutes=await BookingService._break_minutes(db, master_id))
+    busy = [(b.start_time, b.end_time + gap) for b in booked]
 
     free: List[Interval] = []
     for ws, we in intervals:

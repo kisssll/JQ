@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
 from app.models.models import Booking, BookingStatus, Service
+from app.services.salon_clients import client_bookings_filter
 
 
 async def render_crm_tab(db: AsyncSession, salon, masters, master_ids) -> str:
@@ -12,8 +13,7 @@ async def render_crm_tab(db: AsyncSession, salon, masters, master_ids) -> str:
     if master_ids:
         bookings_result = await db.execute(
             select(Booking).where(
-                Booking.master_id.in_(master_ids),
-                Booking.status == BookingStatus.COMPLETED
+                *client_bookings_filter(salon.id)
             ).order_by(Booking.start_time.desc())
         )
         bookings = bookings_result.scalars().all()

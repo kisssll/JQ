@@ -47,7 +47,9 @@ from app.services.booking_service import (
     BookingService, SlotTakenError, can_mark_completed_now, can_mark_no_show_now, commit_booking,
 )
 from app.services.loyalty_service import LoyaltyService, LoyaltyError
-from app.services.schedule_utils import get_effective_work_intervals, is_within_booking_window, MAX_BOOKING_DAYS_AHEAD
+from app.services.schedule_utils import (
+    get_effective_work_intervals, is_within_booking_window, MAX_BOOKING_DAYS_AHEAD, window_is_busy,
+)
 from app.utils.timezone import get_salon_time
 
 router = APIRouter()
@@ -203,7 +205,10 @@ async def get_available_slots(
     if not intervals:
         return {"slots": [], "message": "Мастер не работает в этот день, день закрыт или график задан с ошибкой"}
 
-    slot_duration = service.duration_minutes + master.break_minutes
+    # Перерыв той же дорогой, что у проверки записи: показ и проверка обязаны
+    # считать одно и то же, иначе человек видит окно и получает отказ.
+    gap = await BookingService._break_minutes(db, master_id)
+    slot_duration = service.duration_minutes + gap
 
     # Занятые интервалы берём за весь день — они могут попадать в любой из
     # рабочих окон мастера (при сплит-сменах их несколько).
@@ -217,7 +222,10 @@ async def get_available_slots(
             Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
         ).order_by(Booking.start_time)
     )
-    booked_slots = booked.scalars().all()
+    busy = [
+        (b.start_time.replace(tzinfo=None), b.end_time.replace(tzinfo=None))
+        for b in booked.scalars().all()
+    ]
 
     now = get_salon_time(salon.timezone)
     now = now.replace(tzinfo=None)
@@ -232,15 +240,11 @@ async def get_available_slots(
                 current += timedelta(minutes=slot_duration)
                 continue
 
-            is_free = True
-            for b in booked_slots:
-                b_start = b.start_time.replace(tzinfo=None) if b.start_time.tzinfo else b.start_time
-                b_end = b.end_time.replace(tzinfo=None) if b.end_time.tzinfo else b.end_time
-                if current < b_end and slot_end > b_start:
-                    is_free = False
-                    break
-
-            if is_free:
+            # Раньше перерыв после чужой записи здесь не вычитался: окно сразу
+            # после записи «не по сетке» показывалось, а проверка его отбивала
+            # (решение 0017, п. 1). Конец окна — с собственным перерывом: так
+            # сетка считалась и раньше, менять это — отдельное решение.
+            if not window_is_busy(current, slot_end, busy, gap):
                 slots.append(current.strftime("%Y-%m-%dT%H:%M"))
 
             current += timedelta(minutes=slot_duration)
@@ -249,7 +253,7 @@ async def get_available_slots(
         "date": date,
         "slots": slots,
         "service_duration": service.duration_minutes,
-        "break": master.break_minutes,
+        "break": gap,
         "total_slot": slot_duration
     }
 

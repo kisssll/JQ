@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
 
 from app.models.models import Booking, Master, Service, Salon, BookingStatus
-from app.services.schedule_utils import get_effective_work_intervals
+from app.services.schedule_utils import (
+    DEFAULT_BREAK_MINUTES, break_or_default, get_effective_work_intervals,
+)
 from app.utils.timezone import get_salon_time
 
 # «Пришёл» (COMPLETED) нельзя отметить раньше, чем за час до начала записи —
@@ -59,17 +61,18 @@ async def commit_booking(db, booking) -> None:
 
 class BookingService:
     
-    # Перерыв между записями по умолчанию — на случай, если мастера уже нет
-    # (его удалили, пока бронь висела). Обычный путь — masters.break_minutes.
-    DEFAULT_BREAK_MINUTES = 15
+    # Значение живёт в schedule_utils (его берёт и каталог); здесь — прежнее имя.
+    DEFAULT_BREAK_MINUTES = DEFAULT_BREAK_MINUTES
 
     @staticmethod
     async def _break_minutes(db: AsyncSession, master_id: int) -> int:
-        """Перерыв мастера после записи. Одно место на обе проверки ниже."""
+        """Перерыв мастера после записи. Одно место на проверку записи и на
+        генераторы окон (/available, вечерние окна); каталог берёт ту же
+        колонку из своего общего запроса через break_or_default."""
         value = await db.scalar(
             select(Master.break_minutes).where(Master.id == master_id)
         )
-        return BookingService.DEFAULT_BREAK_MINUTES if value is None else int(value)
+        return break_or_default(value)
     
     @staticmethod
     async def get_booked_slots(

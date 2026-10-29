@@ -8,7 +8,6 @@ import json
 from datetime import datetime, time, timedelta
 
 import httpx
-import pytest
 from hypothesis import given, seed, strategies as st
 
 from app.core.security import get_password_hash
@@ -62,8 +61,10 @@ def test_card_slots_fit_hours_duration_break_and_busy(wh, tz, duration, brk, bus
     for sl in slots:
         start, end = sl.start, sl.start + timedelta(minutes=step)
         assert start >= now0 - timedelta(minutes=1), "слот в прошлом"
-        assert not any(start < datetime.strptime(b["e"], "%Y-%m-%d %H:%M")
-                       and end > datetime.strptime(b["s"], "%Y-%m-%d %H:%M") for b in bk), "слот поверх занятого"
+        # Чужая запись держит мастера до конца + перерыв (решение 0017, п. 1).
+        assert not any(start < datetime.strptime(b["e"], "%Y-%m-%d %H:%M") + timedelta(minutes=brk)
+                       and end > datetime.strptime(b["s"], "%Y-%m-%d %H:%M") for b in bk), \
+            "слот поверх занятого или внутри перерыва после него"
         assert start.date() == end.date() or (end.hour, end.minute) == (0, 0), "слот перешёл через полночь"
     starts = [s.start for s in slots]
     assert starts == sorted(starts)
@@ -150,10 +151,6 @@ def test_every_offered_slot_is_accepted(run, db_session, wh, tz, brk, split, dur
     assert not rejected, f"показаны, но не принимаются: {rejected} из {offered}"
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "docs/fuzz-findings.md#F2: при чужой записи не по сетке выдача и проверка расходятся — "
-    "окно сразу после неё показывается, а is_slot_available его отбивает (перерыв мастера). "
-    "Запись — правка отдельным заходом."))
 @seed(SEED)
 @props(examples=60)
 @given(duration=st.sampled_from([15, 30, 45, 60]), other_dur=st.sampled_from([15, 30, 45, 60]),

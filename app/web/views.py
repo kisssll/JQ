@@ -413,7 +413,11 @@ async def client_card_page(
     if not salon or not membership:
         return RedirectResponse(url="/business/register-salon", status_code=302)
 
-    return HTMLResponse(content=await render_client_card(db, salon, user, client_id))
+    # Чужой человек и несуществующий id неразличимы: обоим одна и та же 404.
+    from app.services.salon_clients import is_salon_client
+    known = await is_salon_client(db, salon.id, client_id)
+    return HTMLResponse(content=await render_client_card(db, salon, user, client_id),
+                        status_code=200 if known else 404)
 
 
 @router.get("/master/dashboard", response_class=HTMLResponse)

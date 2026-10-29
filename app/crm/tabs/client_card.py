@@ -16,7 +16,13 @@ from app.services.loyalty_service import LoyaltyService
 async def render_client_card(db: AsyncSession, salon, user, client_id: int) -> str:
     """Детальная карточка клиента: история визитов, отзывы, заметки салона."""
 
-    client = (await db.execute(select(UserModel).where(UserModel.id == client_id))).scalar_one_or_none()
+    # Карточку показываем только клиенту этого салона — по тому же правилу,
+    # что и список во вкладке (решение 0017, п. 2). Без него любой сотрудник
+    # любого салона, подставляя id, читал имя и телефон любого пользователя.
+    from app.services.salon_clients import is_salon_client
+    client = None
+    if await is_salon_client(db, salon.id, client_id):
+        client = (await db.execute(select(UserModel).where(UserModel.id == client_id))).scalar_one_or_none()
     if not client:
         return f"""<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">{get_base_styles()}</head>
         <body>{render_header("business", user, panel=True)}

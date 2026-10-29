@@ -69,7 +69,12 @@ async def apply_refund(db, payment, target, kind: str, share: float = 1.0,
         target.recurring_token = None
 
     returned = int(round(float(payment.amount or 0) * share))
-    text = f"возврат платежа на {returned} ₽ — доступ по тарифу теперь до {until:%d.%m.%Y}."
+    # Срок после отката может быть в прошлом — «доступ до <прошлая дата>»
+    # читается как ошибка, поэтому про закрытый доступ говорим прямо.
+    if has_access(target):
+        text = f"возврат платежа на {returned} ₽ — доступ по тарифу теперь до {until:%d.%m.%Y}."
+    else:
+        text = f"возврат платежа на {returned} ₽ — доступ по тарифу закрыт."
     try:
         from app.services.notifications import (
             notify_model_subscription, notify_subscription,

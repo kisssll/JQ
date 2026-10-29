@@ -1153,8 +1153,11 @@ async def create_client_note(
     text = note_data.text.strip()
     if not text:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Текст заметки не может быть пустым")
-    # Без этой проверки несуществующий client_id упирался в внешний ключ и отдавал 500.
-    if await db.scalar(select(User.id).where(User.id == client_id)) is None:
+    # Заметка — только на клиента этого салона (решение 0017, п. 2). Одна и та
+    # же 404 и для несуществующего id, и для чужого человека: различать их
+    # значило бы подсказывать, какие id в сервисе заняты.
+    from app.services.salon_clients import is_salon_client
+    if not await is_salon_client(db, salon.id, client_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Клиент не найден")
 
     note = ClientNote(

@@ -344,6 +344,12 @@ def revoke_paid_period(target, months: int, share: float = 1.0,
     Если после отката срок уже в прошлом, доступ закрывается сразу: салон
     уходит из каталога и перестаёт принимать новую запись (созданные брони
     остаются, как и при обычном истечении).
+
+    Дата может уйти в прошлое — так и задумано. Раньше её поднимали до «сейчас»,
+    и при уже истёкшей подписке возврат сдвигал конец оплаченного периода
+    ВПЕРЁД: в базе, во вкладке «Тариф» и в уведомлении («доступ до <сегодня>»)
+    появлялся срок, которого никто не оплачивал (решение 0017, п. 3). Доступ
+    закрывается одинаково: has_access смотрит access_until > now.
     """
     now = _aware(at) or _now()
     share = min(max(float(share), 0.0), 1.0)
@@ -356,8 +362,6 @@ def revoke_paid_period(target, months: int, share: float = 1.0,
         return _aware(getattr(target, "access_until", None)) or now
 
     new_expires = current - timedelta(days=days)
-    if new_expires < now:
-        new_expires = now
 
     target.subscription_expires_at = new_expires
     target.access_until = new_expires

@@ -30,9 +30,11 @@ from app.models.models import BookingStatus
 from app.services.live_accounts import live_master_sql
 from app.services.schedule_utils import (
     MAX_BOOKING_DAYS_AHEAD,
+    break_or_default,
     compute_effective_intervals,
     get_salon_work_hours,
     merge_intervals,
+    window_is_busy,
 )
 from app.utils.timezone import get_salon_time
 
@@ -209,9 +211,14 @@ def nearest_slots(
     Правила доступности берутся из ``schedule_utils`` — те же, что в
     ``/api/v1/bookings/available``: часы салона, индивидуальный график мастера
     (а его отсутствие означает «работает по часам салона»), закрытые дни на
-    салон или на мастера, занятые интервалы и шаг «длительность + перерыв».
+    салон или на мастера, занятые интервалы с перерывом после них и шаг
+    «длительность + перерыв».
     """
-    step = service.duration + int(master.get("brk") or 0)
+    # Перерыв — та же колонка и тот же запасной вариант, что у проверки записи
+    # (BookingService._break_minutes): «or 0» здесь давал бы другой перерыв,
+    # чем при записи, если значение вдруг не пришло.
+    gap = break_or_default(master.get("brk"))
+    step = service.duration + gap
     if step <= 0:
         return []
 
@@ -237,7 +244,10 @@ def nearest_slots(
             cursor = work_start
             while cursor + timedelta(minutes=step) <= work_end:
                 slot_end = cursor + timedelta(minutes=step)
-                if cursor >= now and not any(cursor < be and slot_end > bs for bs, be in busy):
+                # Перерыв после чужой записи — как в /available и при записи
+                # (решение 0017, п. 1): без него карточка обещала окно, на
+                # которое запись не проходит.
+                if cursor >= now and not window_is_busy(cursor, slot_end, busy, gap):
                     out.append(CardSlot(cursor, _label(cursor, today)))
                     if len(out) >= limit:
                         return out

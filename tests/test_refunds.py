@@ -58,12 +58,15 @@ def test_partial_refund_takes_back_proportional_share():
     assert 14 <= left <= 15
 
 
-def test_revocation_never_goes_below_now():
-    """Возврат старого платежа, срок которого и так почти истёк, не должен
-    загонять дату в прошлое — иначе «доступ до» показывал бы прошлый год."""
+def test_revocation_may_go_below_now_and_closes_access():
+    """Возврат старого платежа, срок которого и так почти истёк: дата уходит в
+    прошлое, доступ закрыт. Раньше её поднимали до «сейчас», и при истёкшей
+    подписке возврат сдвигал конец периода вперёд (решение 0017, п. 3); текст
+    уведомления про прошлую дату больше не говорит — см. apply_refund."""
     target = _target(days_left=1)
     until = revoke_paid_period(target, months=12)
-    assert until >= datetime.now(timezone.utc) - timedelta(seconds=1)
+    assert until < datetime.now(timezone.utc)
+    assert not has_access(target)
 
 
 # ── Вебхук ───────────────────────────────────────────────────────────────────

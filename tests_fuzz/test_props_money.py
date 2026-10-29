@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
-import pytest
 from hypothesis import assume, given, seed, strategies as st
 
 from app.models.models import SalonSubscriptionStatus as S
@@ -69,9 +68,6 @@ def test_plan_round_trip_never_extends_paid_period(start, other, bm, at, gap):
     assert salon.pending_proration >= 0
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "docs/fuzz-findings.md#F1: возврат по уже истёкшей подписке двигает "
-    "subscription_expires_at ВПЕРЁД, к «сейчас». Деньги — правка отдельным заходом."))
 @seed(SEED)
 @props()
 @given(now=moments, current_off=st.timedeltas(min_value=timedelta(days=-400), max_value=timedelta(days=400)),

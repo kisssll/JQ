@@ -97,6 +97,31 @@ def is_within_booking_window(target_date: datetime) -> bool:
 # Вынесены отдельно, чтобы покрыть логику доступности юнит-тестами.
 # ---------------------------------------------------------------------------
 
+#: Перерыв, если мастера уже нет (удалили, пока бронь висела). Обычный путь —
+#: masters.break_minutes, колонка NOT NULL.
+DEFAULT_BREAK_MINUTES = 15
+
+
+def break_or_default(value) -> int:
+    """Перерыв мастера из сырого значения колонки. Одно место для проверки
+    записи и для показа окон: показ, взявший перерыв иначе, чем проверка,
+    выдаёт окна, на которые нельзя записаться."""
+    return DEFAULT_BREAK_MINUTES if value is None else int(value)
+
+
+def window_is_busy(start: datetime, end: datetime, busy: List[Interval], break_minutes: int) -> bool:
+    """Занято ли окно [start, end) чужими записями с учётом перерыва ПОСЛЕ них.
+
+    Правило то же, что в BookingService.is_slot_available: чужая запись держит
+    мастера до своего конца плюс перерыв. Перерыв односторонний — до чужой
+    записи он не требуется (решение 0017, п. 1). Что передавать в end,
+    решает вызывающий: генераторы окон передают конец вместе с собственным
+    перерывом окна, проверка — только конец услуги.
+    """
+    gap = timedelta(minutes=break_minutes)
+    return any(start < b_end + gap and end > b_start for b_start, b_end in busy)
+
+
 def merge_intervals(intervals: List[Interval]) -> List[Interval]:
     """Сортирует и склеивает пересекающиеся/смежные интервалы одного дня."""
     valid = sorted((s, e) for s, e in intervals if e > s)
