@@ -453,6 +453,17 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
                             </label>
                             <button class="btn-mini">Выдать доступ</button>
                         </form>
+                        <!-- Отдельной формой, а не второй кнопкой в соседней: подтверждение
+                             в проекте висит на форме (ui-feedback.js), и на одной форме
+                             спрашивало бы и про обычную выдачу; к тому же requestSubmit
+                             после диалога теряет значение кнопки-сабмиттера. -->
+                        <form method="post" action="/api/v1/admin/salons/{s.id}/grant-access"
+                              class="adm-inline-form"
+                              data-confirm="Открыть «{_esc(s.name)}» доступ БЕССРОЧНО? Платить салон больше не будет."
+                              data-confirm-label="Открыть бессрочно">
+                            <input type="hidden" name="forever" value="1">
+                            <button class="btn-mini">Бессрочно</button>
+                        </form>
                         <form method="post" action="/api/v1/admin/salons/{s.id}/set-plan" class="adm-inline-form">
                             <label class="adm-field">
                                 <span class="adm-field-label">Тариф</span>

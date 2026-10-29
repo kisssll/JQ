@@ -214,3 +214,47 @@ async def test_admin_sets_plan(client, db_session):
     assert r.status_code == 302, r.text
     async with db_session() as db:
         assert (await db.get(Salon, sid)).business_tier == "business"
+
+
+async def test_admin_grants_open_ended_access(client, db_session):
+    """«Бессрочно» — доступ без срока по договорённости.
+
+    Месяцами его не выдать: форма ограничена 120 (десять лет). Дата 2099 года
+    — та же, что носят салоны, оставленные бесплатными при переходе на тарифы,
+    и кабинет показывает такой срок словами «доступ открыт», а не датой.
+    """
+    from app.services.cabinet_badge import salon_badge
+
+    await _mk_senior_admin(db_session, "+79994440040")
+    owner = await _mk_user(db_session, "+79994440041")
+    sid = await _mk_salon(db_session, owner, "БессрочныйZZ",
+                          subscription_status=SalonSubscriptionStatus.NONE)
+    await _login(client, "+79994440040", pw="Adminpass1")
+
+    r = await client.post(f"/api/v1/admin/salons/{sid}/grant-access",
+                          data={"months": "1", "forever": "1"}, follow_redirects=False)
+    assert r.status_code == 302, r.text
+    async with db_session() as db:
+        s = await db.get(Salon, sid)
+        assert s.subscription_status == SalonSubscriptionStatus.ACTIVE
+        assert s.access_until.year == 2099, s.access_until
+        assert s.subscription_expires_at.year == 2099, s.subscription_expires_at
+        # Срок дальше трёх лет кабинет называет словами, а не датой.
+        assert salon_badge(s) == "доступ открыт", salon_badge(s)
+
+
+async def test_without_the_flag_months_still_rule(client, db_session):
+    """Обычная выдача не стала бессрочной: 120 месяцев — это потолок формы."""
+    await _mk_senior_admin(db_session, "+79994440042")
+    owner = await _mk_user(db_session, "+79994440043")
+    sid = await _mk_salon(db_session, owner, "ОбычнаяВыдачаZZ",
+                          subscription_status=SalonSubscriptionStatus.NONE)
+    await _login(client, "+79994440042", pw="Adminpass1")
+
+    r = await client.post(f"/api/v1/admin/salons/{sid}/grant-access",
+                          data={"months": "999"}, follow_redirects=False)
+    assert r.status_code == 302, r.text
+    async with db_session() as db:
+        s = await db.get(Salon, sid)
+        assert s.access_until.year < 2099, s.access_until
+        assert s.access_until < datetime.now(timezone.utc) + timedelta(days=30 * 121)

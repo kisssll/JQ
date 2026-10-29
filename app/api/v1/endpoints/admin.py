@@ -191,13 +191,21 @@ async def grant_user_trial(uid: int, request: Request, days: int = Form(30),
 
 @router.post("/salons/{sid}/grant-access")
 async def grant_access(sid: int, request: Request, months: int = Form(1),
+                       forever: str = Form(""),
                        db: AsyncSession = Depends(get_db)):
     """Выдать/продлить ПЛАТНЫЙ доступ руками — для оплат мимо кассы (счёт,
     наличные, договор). Продлеваем от текущего срока, если он ещё не истёк,
-    иначе от сегодня."""
+    иначе от сегодня.
+
+    ``forever`` — доступ по договорённости без срока (кнопка «Бессрочно»).
+    Месяцами его не выдать: форма ограничена 120, а такие салоны у нас носят
+    дату 2099 года — та же, что у салонов, оставленных бесплатными при
+    переходе на тарифы. Отдельной кнопкой, а не огромным числом в поле, чтобы
+    в журнале было видно решение, а не описку.
+    """
     from datetime import datetime, timedelta, timezone
     from app.models.models import Salon, SalonSubscriptionStatus
-    from app.services.subscription import apply_successful_payment
+    from app.services.subscription import OPEN_ENDED_UNTIL, apply_successful_payment
     from app.services.tariffs import resolve_plan_for_employee_count
 
     admin = await _get_senior_admin(request, db)
@@ -214,6 +222,7 @@ async def grant_access(sid: int, request: Request, months: int = Form(1),
     if current is not None and current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
     base = current if current and current > now else now
+    until = OPEN_ENDED_UNTIL if forever else base + timedelta(days=30 * months)
 
     active_masters = (await db.execute(
         select(func.count(Master.id)).where(
@@ -224,14 +233,16 @@ async def grant_access(sid: int, request: Request, months: int = Form(1),
         plan = resolve_plan_for_employee_count(active_masters)
         salon.business_tier = plan if plan != "custom" else "corporate"
 
-    apply_successful_payment(salon, base + timedelta(days=30 * months),
-                             active_masters=active_masters)
+    apply_successful_payment(salon, until, active_masters=active_masters)
     salon.subscription_status = SalonSubscriptionStatus.ACTIVE
+    how = "бессрочно (по договорённости)" if forever else f"на {months} мес."
     _audit(db, admin.id, "grant_access", "salon", salon.id,
-           f"«{salon.name}»: доступ выдан вручную на {months} мес., "
+           f"«{salon.name}»: доступ выдан вручную {how}, "
            f"до {salon.access_until:%d.%m.%Y}", salon_id=salon.id)
     await db.commit()
-    return _back("salons", ok=f"«{salon.name}»: доступ до {salon.access_until:%d.%m.%Y}")
+    ok = (f"«{salon.name}»: доступ открыт бессрочно" if forever
+          else f"«{salon.name}»: доступ до {salon.access_until:%d.%m.%Y}")
+    return _back("salons", ok=ok)
 
 
 @router.post("/salons/{sid}/set-plan")
