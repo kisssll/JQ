@@ -606,6 +606,55 @@
     .r-salon:hover { border-color: var(--color-border-strong); }
 }
 
+.r-salon[data-layout="horizontal"] {
+    overflow: hidden;
+    padding: 0;
+}
+
+.r-salon[data-layout="horizontal"] .r-salon__layout {
+    display: grid;
+    grid-template-columns: minmax(180px, 22%) minmax(0, 1fr);
+    min-width: 0;
+}
+
+.r-salon[data-layout="horizontal"] .r-salon__image {
+    display: block;
+    min-height: 220px;
+    background: var(--color-surface-alt);
+}
+
+.r-salon[data-layout="horizontal"] .r-mark--lg {
+    width: 100%;
+    height: 100%;
+    min-height: 220px;
+    border-radius: 0;
+    font-size: var(--text-64);
+}
+
+.r-salon[data-layout="horizontal"] .r-salon__body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: var(--space-24);
+}
+
+.r-salon[data-layout="horizontal"] .r-salon__tags {
+    margin-bottom: var(--space-8);
+}
+
+@media (max-width: 640px) {
+    .r-salon[data-layout="horizontal"] .r-salon__layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .r-salon[data-layout="horizontal"] .r-salon__image,
+    .r-salon[data-layout="horizontal"] .r-mark--lg {
+        min-height: 0;
+        height: auto;
+        aspect-ratio: 16 / 9;
+    }
+}
+
 .r-salon__top {
     display: flex;
     align-items: flex-start;

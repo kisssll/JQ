@@ -295,7 +295,13 @@ async def _categories_by_city(db: AsyncSession) -> dict[str, list[str]]:
     return result
 
 
-def render_card(s, extras: CardExtras, *, favorite_on: bool = False) -> str:
+def render_card(
+    s,
+    extras: CardExtras,
+    *,
+    favorite_on: bool = False,
+    horizontal: bool = False,
+) -> str:
     """Карточка каталога в новой форме.
 
     Её несут имя, город, услуги с ценой и временем и ближайшие свободные окна.
@@ -368,6 +374,7 @@ def render_card(s, extras: CardExtras, *, favorite_on: bool = False) -> str:
         promos=tuple(extras.promos),
         favorite_icons=(ICON_HEART, ICON_HEART_FILLED),
         favorite_on=favorite_on,
+        horizontal=horizontal,
     )
 
 
@@ -521,7 +528,13 @@ def _render_filter_bar(p: SalonQuery, cities: list[str]) -> str:
     """
 
 
-async def render_cards(db: AsyncSession, p: SalonQuery, *, with_slots: bool = True):
+async def render_cards(
+    db: AsyncSession,
+    p: SalonQuery,
+    *,
+    with_slots: bool = True,
+    horizontal: bool = False,
+):
     """Карточки по тем же правилам, что каталог, и признак «есть ещё».
 
     Отдельная функция, потому что главная показывает ТОТ ЖЕ компонент и тот же
@@ -534,13 +547,16 @@ async def render_cards(db: AsyncSession, p: SalonQuery, *, with_slots: bool = Tr
     rows, has_more = await _load_page(db, p)
     extras = await load_card_extras(db, [r["id"] for r in rows], with_slots=with_slots)
     empty = CardExtras()
-    return "".join(render_card(r, extras.get(r["id"], empty)) for r in rows), has_more
+    return "".join(
+        render_card(r, extras.get(r["id"], empty), horizontal=horizontal)
+        for r in rows
+    ), has_more
 
 
 async def render_salons_grid(db: AsyncSession, p: SalonQuery) -> str:
     """Сетка карточек + маркер «Показать ещё». Используется и в полной странице,
     и во фрагменте (?partial=1) — единый источник разметки карточек."""
-    cards, has_more = await render_cards(db, p)
+    cards, has_more = await render_cards(db, p, horizontal=True)
     if not cards and p.offset == 0:
         return render_empty_state(
             title="Ничего не найдено",

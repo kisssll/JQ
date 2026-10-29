@@ -615,7 +615,10 @@ async def test_favorites_show_the_same_card_as_the_catalog(client, db_session):
     fav = await client.get("/favorites")
 
     for page in (catalog, fav):
-        assert f'<article class="r-salon salon-card" data-salon-id="{stand["salon_id"]}">' in page.text
+        assert (
+            f'<article class="r-salon salon-card" '
+            f'data-salon-id="{stand["salon_id"]}"'
+        ) in page.text
         assert 'class="r-svc__name">Маникюр<' in page.text
         assert format_service_price(1200, None) in page.text
         assert "60 мин" in page.text
