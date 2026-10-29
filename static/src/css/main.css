@@ -46,6 +46,9 @@
 @import './evening-deals.css';
 @import './contest.css';
 
+/* Панель модератора (/admin). После .r-* из ui.css: опирается на эти компоненты. */
+@import './admin.css';
+
 /* Стили панели бизнеса */
 @import './business/dashboard.css';
 @import './business/panel-tour.css';

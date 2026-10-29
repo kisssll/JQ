@@ -48,16 +48,30 @@ def _esc(v) -> str:
     return html.escape(str(v if v is not None else ""), quote=True)
 
 
-def _badge(text, color):
-    return f'<span style="display:inline-block;border-radius:var(--radius-28);padding:0.1rem 0.6rem;font-size:0.7rem;font-weight:700;color:var(--color-on-dark);background:{color}">{text}</span>'
+def _badge(text, tone):
+    """Плашка состояния — общий компонент .r-status, тон: success/danger/warning/accent/neutral."""
+    return f'<span class="r-status r-status--{tone}">{text}</span>'
+
+
+def _btn(label, kind="secondary", disabled=False):
+    """Кнопка действия в форме: .r-btn, а не вторая своя «мини-кнопка».
+
+    kind: primary — главное действие, secondary — обычное, danger — разрушающее
+    (контур, а не заливка: красной заливки в палитре нет)."""
+    return f'<button class="r-btn r-btn--sm r-btn--{kind}"{" disabled" if disabled else ""}>{label}</button>'
+
+
+def _count(n, tone):
+    """Счётчик на вкладке: сколько ждёт решения."""
+    return f' <span class="adm-count adm-count--{tone}">{n}</span>' if n else ""
 
 
 def _active_badge(is_active):
-    return _badge("активен", "var(--color-success)") if is_active else _badge("заблокирован", "var(--color-danger)")
+    return _badge("активен", "success") if is_active else _badge("заблокирован", "danger")
 
 
 def _deleted_badge():
-    return _badge("удален", "var(--color-muted)")
+    return _badge("удален", "neutral")
 
 
 def _user_status(u, master, self_deleted: set) -> str:
@@ -71,26 +85,44 @@ def _user_status(u, master, self_deleted: set) -> str:
     if u.is_active:
         badge = _active_badge(True)
     elif u.id in self_deleted:
-        badge = _badge("удалил аккаунт", "var(--color-danger)")
+        badge = _badge("удалил аккаунт", "danger")
     else:
         badge = _active_badge(False)
     if master is None:
-        return badge
+        return f'<div class="adm-badges">{badge}</div>'
     if u.is_active and master.is_active:
-        card = _badge("карточка: принимает", "var(--color-success)")
+        card = _badge("карточка: принимает", "success")
     else:
-        card = _badge("карточка: не принимает", "var(--color-muted)")
-    return f"{badge} {card}"
+        card = _badge("карточка: не принимает", "neutral")
+    return f'<div class="adm-badges">{badge}{card}</div>'
 
 
 def _moderation_badge(status):
     m = {
-        SalonModerationStatus.PENDING: ("на модерации", "var(--color-warning)"),
-        SalonModerationStatus.APPROVED: ("одобрен", "var(--color-success)"),
-        SalonModerationStatus.REJECTED: ("отклонён", "var(--color-danger)"),
+        SalonModerationStatus.PENDING: ("на модерации", "warning"),
+        SalonModerationStatus.APPROVED: ("одобрен", "success"),
+        SalonModerationStatus.REJECTED: ("отклонён", "danger"),
     }
-    text, color = m.get(status, (str(status), "var(--color-muted)"))
+    text, color = m.get(status, (str(status), "neutral"))
     return _badge(text, color)
+
+
+def _thumb(url, size, icon=""):
+    """Квадратик с фото или заглушкой-иконкой. Размер — классом, не style=."""
+    if url:
+        return f'<img class="adm-thumb adm-thumb--{size}" src="{_esc(url)}" loading="lazy" alt="">'
+    return f'<div class="adm-thumb adm-thumb--{size} adm-thumb--empty">{icon}</div>'
+
+
+def _reject_form(action, confirm, label=f"{ICON_X} Отклонить"):
+    """Отклонение с причиной. Разрушающее, поэтому в группе .adm-danger и с подтверждением."""
+    return (
+        f'<div class="adm-danger adm-danger--inline">'
+        f'<form method="post" action="{action}" class="adm-form" '
+        f'data-confirm="{confirm}" data-confirm-label="Подтвердить">'
+        f'<input name="reason" placeholder="причина" aria-label="Причина отказа" class="r-input adm-input adm-input--reason">'
+        f'{_btn(label, "danger")}</form></div>'
+    )
 
 
 # ── ВКЛАДКА: ЗАЯВКИ (модерация регистрации бизнеса) ──────────────────────────
@@ -102,12 +134,7 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
         submitted = s.created_at.strftime("%d.%m.%Y") if s.created_at else "—"
         extra = extra_by_id.get(s.id, {"photo": None, "services": []})
 
-        photo_html = (
-            f'<img src="{_esc(extra["photo"])}" loading="lazy" style="width:88px;height:88px;object-fit:cover;border-radius:var(--radius-16);flex-shrink:0">'
-            if extra["photo"] else
-            '<div style="width:88px;height:88px;border-radius:var(--radius-16);background:var(--color-border);'
-            f'display:flex;align-items:center;justify-content:center;flex-shrink:0">{ICON_BUILDING2}</div>'
-        )
+        photo_html = _thumb(extra["photo"], "lg", ICON_BUILDING2)
         services = extra["services"]
         services_preview = ", ".join(f"{_esc(name)} ({price}₽)" for name, price in services[:3])
         if len(services) > 3:
@@ -115,46 +142,42 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
         services_line = services_preview or '<span class="text-muted">Услуги ещё не добавлены</span>'
 
         approve = (
-            f'<form method="post" action="/api/v1/admin/salons/{s.id}/approve" style="display:inline">'
-            f'<button class="btn-mini" style="border-color:var(--color-success);color:var(--color-success)">{ICON_CHECK} Одобрить</button></form>'
+            f'<form method="post" action="/api/v1/admin/salons/{s.id}/approve" class="adm-form">'
+            f'{_btn(f"{ICON_CHECK} Одобрить", "primary")}</form>'
         )
-        reject = (
-            f'<form method="post" action="/api/v1/admin/salons/{s.id}/reject" style="display:inline-flex;gap:0.25rem" '
-            f'data-confirm="Отклонить заявку «{_esc(s.name)}»?" data-confirm-label="Подтвердить">'
-            f'<input name="reason" placeholder="причина" '
-            f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:var(--radius-8);width:140px">'
-            f'<button class="btn-mini btn-danger">{ICON_X} Отклонить</button></form>'
+        reject = _reject_form(
+            f"/api/v1/admin/salons/{s.id}/reject", f"Отклонить заявку «{_esc(s.name)}»?"
         )
 
         cards += f"""
-        <div class="card" style="display:flex;gap:1rem;padding:1rem;margin-bottom:0.75rem">
+        <article class="r-card adm-app">
             {photo_html}
-            <div style="flex:1;min-width:0">
-                <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+            <div class="adm-app__body">
+                <div class="adm-app__head">
                     <strong>{_esc(s.name)}</strong>
-                    <span class="text-muted" style="font-size:0.8rem">подана {submitted}</span>
+                    <span class="adm-small text-muted">подана {submitted}</span>
                 </div>
-                <p class="text-muted" style="font-size:0.85rem;margin:0.25rem 0">
+                <p class="adm-meta text-muted">
                     {ICON_MAP_PIN} {_esc(s.address)} · {ICON_PHONE} {_esc(s.phone)} · владелец {_esc(owner)}
                 </p>
-                <p style="font-size:0.85rem;margin:0.25rem 0">{services_line}</p>
-                <details style="margin:0.5rem 0">
-                    <summary style="cursor:pointer;color:var(--color-accent-text);font-size:0.85rem">{ICON_EYE} Посмотреть подробнее</summary>
-                    <div style="margin-top:0.5rem;font-size:0.85rem">
+                <p class="adm-text">{services_line}</p>
+                <details class="adm-details">
+                    <summary>{ICON_EYE} Посмотреть подробнее</summary>
+                    <div class="adm-details__body">
                         <p>{_esc(s.description) or '<span class="text-muted">Без описания</span>'}</p>
-                        <p style="margin-top:0.4rem"><strong>Все услуги:</strong> {", ".join(f"{_esc(n)} ({p}₽)" for n, p in services) or "—"}</p>
+                        <p><strong>Все услуги:</strong> {", ".join(f"{_esc(n)} ({p}₽)" for n, p in services) or "—"}</p>
                     </div>
                 </details>
-                <div style="margin-top:0.5rem">{approve} {reject}</div>
+                <div class="adm-actions">{approve}{reject}</div>
             </div>
-        </div>"""
+        </article>"""
     if not cards:
-        cards = '<p class="text-muted" style="padding:1.5rem;text-align:center">Новых заявок нет</p>'
+        cards = '<p class="adm-empty">Новых заявок нет</p>'
     return f"""
     <div class="tab-content" id="tab-applications">
-        <h2 style="margin-bottom:1rem">Заявки на регистрацию ({len(pending)})</h2>
-        <p class="text-muted" style="margin-bottom:1rem;font-size:0.85rem">Салон работает только после одобрения: до этого он не виден в каталоге и запись закрыта.</p>
-        {cards}
+        <h2 class="adm-tab-title">Заявки на регистрацию ({len(pending)})</h2>
+        <p class="adm-lead">Салон работает только после одобрения: до этого он не виден в каталоге и запись закрыта.</p>
+        <div class="adm-list">{cards}</div>
     </div>
     """
 
@@ -165,44 +188,38 @@ def _model_applications_tab(pending_models):
     cards = ""
     for u in pending_models:
         submitted = u.updated_at.strftime("%d.%m.%Y") if u.updated_at else "—"
-        photo_html = (
-            f'<img src="{_esc(u.model_photo_url)}" loading="lazy" style="width:88px;height:88px;object-fit:cover;border-radius:var(--radius-16);flex-shrink:0">'
-            if u.model_photo_url else
-            '<div style="width:88px;height:88px;border-radius:var(--radius-16);background:var(--color-border);'
-            f'display:flex;align-items:center;justify-content:center;flex-shrink:0">{ICON_MODEL}</div>'
-        )
+        photo_html = _thumb(u.model_photo_url, "lg", ICON_MODEL)
         approve = (
-            f'<form method="post" action="/api/v1/admin/models/{u.id}/approve" style="display:inline">'
-            f'<button class="btn-mini" style="border-color:var(--color-success);color:var(--color-success)">{ICON_CHECK} Одобрить</button></form>'
+            f'<form method="post" action="/api/v1/admin/models/{u.id}/approve" class="adm-form">'
+            f'{_btn(f"{ICON_CHECK} Одобрить", "primary")}</form>'
         )
-        reject = (
-            f'<form method="post" action="/api/v1/admin/models/{u.id}/reject" style="display:inline-flex;gap:0.25rem" '
-            f'data-confirm="Отклонить анкету «{_esc(u.full_name or u.phone)}»?" data-confirm-label="Подтвердить">'
-            f'<input name="reason" placeholder="причина" '
-            f'style="padding:0.3rem 0.5rem;border:1px solid var(--color-border);border-radius:var(--radius-8);width:140px">'
-            f'<button class="btn-mini btn-danger">{ICON_X} Отклонить</button></form>'
+        reject = _reject_form(
+            f"/api/v1/admin/models/{u.id}/reject",
+            f"Отклонить анкету «{_esc(u.full_name or u.phone)}»?",
         )
+        looking = (f'<p class="adm-small text-muted">Ищет: {_esc(u.model_looking_for)}</p>'
+                   if u.model_looking_for else '')
         cards += f"""
-        <div class="card" style="display:flex;gap:1rem;padding:1rem;margin-bottom:0.75rem">
+        <article class="r-card adm-app">
             {photo_html}
-            <div style="flex:1;min-width:0">
-                <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+            <div class="adm-app__body">
+                <div class="adm-app__head">
                     <strong>{_esc(u.full_name) or _esc(u.phone)}</strong>
-                    <span class="text-muted" style="font-size:0.8rem">подана {submitted}</span>
+                    <span class="adm-small text-muted">подана {submitted}</span>
                 </div>
-                <p class="text-muted" style="font-size:0.85rem;margin:0.25rem 0">{ICON_PHONE} {_esc(u.phone)}</p>
-                <p style="font-size:0.85rem;margin:0.25rem 0">{_esc(u.model_bio) or '<span class="text-muted">Без описания</span>'}</p>
-                {f'<p style="font-size:0.8rem;margin:0.25rem 0" class="text-muted">Ищет: {_esc(u.model_looking_for)}</p>' if u.model_looking_for else ''}
-                <div style="margin-top:0.5rem">{approve} {reject}</div>
+                <p class="adm-meta text-muted">{ICON_PHONE} {_esc(u.phone)}</p>
+                <p class="adm-text">{_esc(u.model_bio) or '<span class="text-muted">Без описания</span>'}</p>
+                {looking}
+                <div class="adm-actions">{approve}{reject}</div>
             </div>
-        </div>"""
+        </article>"""
     if not cards:
-        cards = '<p class="text-muted" style="padding:1.5rem;text-align:center">Новых анкет нет</p>'
+        cards = '<p class="adm-empty">Новых анкет нет</p>'
     return f"""
     <div class="tab-content" id="tab-models">
-        <h2 style="margin-bottom:1rem">Анкеты моделей на модерации ({len(pending_models)})</h2>
-        <p class="text-muted" style="margin-bottom:1rem;font-size:0.85rem">Пока анкета не одобрена, салоны её не видят в кандидатах — как и с заявками салонов.</p>
-        {cards}
+        <h2 class="adm-tab-title">Анкеты моделей на модерации ({len(pending_models)})</h2>
+        <p class="adm-lead">Пока анкета не одобрена, салоны её не видят в кандидатах — как и с заявками салонов.</p>
+        <div class="adm-list">{cards}</div>
     </div>
     """
 
@@ -232,15 +249,15 @@ async def _overview(db, users, salons_active=None):
     )).scalar() or 0
 
     def card(value, label):
-        return f'<div class="stat-card"><div class="stat-value">{value}</div><div class="stat-label">{label}</div></div>'
+        return f'<div class="adm-stat"><div class="adm-stat__value">{value}</div><div class="adm-stat__label">{label}</div></div>'
 
     roles_cards = "".join(
         card(by_role.get(r, 0), ROLE_RU[r]) for r in ["client", "model", "master", "business", "admin"]
     )
     return f"""
     <div class="tab-content active" id="tab-overview">
-        <h2 style="margin-bottom:1rem">Платформа</h2>
-        <div class="stat-grid">
+        <h2 class="adm-tab-title">Платформа</h2>
+        <div class="adm-stats">
             {card(len(users), "Пользователей")}
             {card(blocked, "Заблокировано")}
             {card(f"{salons_active}/{salons_total}", "Салонов (актив/всего)")}
@@ -250,8 +267,8 @@ async def _overview(db, users, salons_active=None):
             {card(f"{revenue:,}".replace(",", " ") + " ₽", "Выручка по завершённым")}
             {card(reviews_total, "Отзывов")}
         </div>
-        <h3 style="margin:1.5rem 0 0.75rem">Пользователи по ролям</h3>
-        <div class="stat-grid">{roles_cards}</div>
+        <h3 class="adm-section-title">Пользователи по ролям</h3>
+        <div class="adm-stats">{roles_cards}</div>
     </div>
     """
 
@@ -268,56 +285,71 @@ def _users_tab(users, me_id, master_by_uid=None, self_deleted=None):
         )
         is_self = u.id == me_id
         role_form = (
-            f'<form method="post" action="/api/v1/admin/users/{u.id}/role" style="display:inline-flex;gap:0.25rem">'
-            f'<select name="role" class="custom-select" {"disabled" if is_self else ""}>{opts}</select>'
-            f'<button class="btn-mini" {"disabled" if is_self else ""}>OK</button></form>'
+            f'<form method="post" action="/api/v1/admin/users/{u.id}/role" class="adm-form adm-form--role">'
+            f'<select name="role" class="r-input adm-input adm-select" aria-label="Роль" {"disabled" if is_self else ""}>{opts}</select>'
+            f'{_btn("OK", disabled=is_self)}</form>'
             if u.role.value != "master" else '<span class="text-muted">мастер</span>'
         )
+        # Блокировка разрушающая, а разблокировка — нет: подтверждение только на первую.
+        block_confirm = (
+            f' data-confirm="Заблокировать {_esc(u.phone)}? Войти он больше не сможет." '
+            f'data-confirm-label="Заблокировать"' if u.is_active else ""
+        )
         toggle = (
-            f'<form method="post" action="/api/v1/admin/users/{u.id}/toggle-active" style="display:inline">'
-            f'<button class="btn-mini" {"disabled" if is_self else ""}>{"Разблок." if not u.is_active else "Блок."}</button></form>'
+            f'<form method="post" action="/api/v1/admin/users/{u.id}/toggle-active" class="adm-form"{block_confirm}>'
+            f'{_btn("Блок." if u.is_active else "Разблок.", "danger" if u.is_active else "secondary", is_self)}</form>'
         )
         trial_form = ""
         if u.is_model:
             trial_form = (
-                f'<form method="post" action="/api/v1/admin/users/{u.id}/grant-trial" style="display:inline-flex;gap:0.25rem;align-items:flex-end">'
-                f'<label class="adm-field" style="margin:0"><span class="adm-field-label">Дней</span>'
-                f'<input name="days" type="number" min="1" max="365" value="30" class="adm-input is-num" style="width:4.5rem"></label>'
-                f'<button class="btn-mini">+trial</button></form>'
+                f'<form method="post" action="/api/v1/admin/users/{u.id}/grant-trial" class="adm-form">'
+                f'<label class="adm-field"><span class="adm-field-label">Дней</span>'
+                f'<input name="days" type="number" min="1" max="365" value="30" class="r-input adm-input is-num"></label>'
+                f'{_btn("+trial")}</form>'
             )
         reset = (
-            f'<form method="post" action="/api/v1/admin/users/{u.id}/reset-password" style="display:inline">'
-            f'<button class="btn-mini">Сброс пароля</button></form>'
+            f'<form method="post" action="/api/v1/admin/users/{u.id}/reset-password" class="adm-form" '
+            f'data-confirm="Сбросить пароль у {_esc(u.phone)}? Старый пароль перестанет работать." '
+            f'data-confirm-label="Сбросить">'
+            f'{_btn("Сброс пароля", "danger")}</form>'
         )
         delete = (
-            f'<form method="post" action="/api/v1/admin/users/{u.id}/delete" style="display:inline" '
+            f'<form method="post" action="/api/v1/admin/users/{u.id}/delete" class="adm-form" '
             f'data-confirm="Удалить {_esc(u.phone)}?" data-confirm-label="Подтвердить">'
-            f'<button class="btn-mini btn-danger" {"disabled" if is_self else ""}>Удалить</button></form>'
+            f'{_btn("Удалить", "danger", is_self)}</form>'
         )
         senior_toggle = ""
         if u.role.value == "admin":
             senior_toggle = (
-                f'<form method="post" action="/api/v1/admin/users/{u.id}/toggle-senior" style="display:inline">'
-                f'<button class="btn-mini" {"disabled" if is_self else ""}>'
-                f'{"Снять старшинство" if u.is_senior_admin else "Сделать старшим"}</button></form>'
+                f'<form method="post" action="/api/v1/admin/users/{u.id}/toggle-senior" class="adm-form">'
+                f'{_btn("Снять старшинство" if u.is_senior_admin else "Сделать старшим", disabled=is_self)}</form>'
             )
-        senior_badge = ' ' + _badge("старший", "var(--color-accent)") if u.role.value == "admin" and u.is_senior_admin else ""
+        senior_badge = _badge("старший", "accent") if u.role.value == "admin" and u.is_senior_admin else ""
         me_mark = ' <span class="text-muted">(вы)</span>' if is_self else ""
+        main_actions = (f'<div class="adm-actions">{trial_form}{senior_toggle}</div>'
+                        if trial_form or senior_toggle else "")
         rows += f"""<tr>
-            <td>{u.id}</td>
-            <td>{_esc(u.phone)}{me_mark}</td>
+            <td class="adm-num">{u.id}</td>
+            <td class="adm-nowrap">{_esc(u.phone)}{me_mark}</td>
             <td>{_esc(u.full_name) or "—"}</td>
-            <td>{role_form}{senior_badge}</td>
+            <td><div class="adm-stack">{role_form}{senior_badge}</div></td>
             <td>{_user_status(u, master_by_uid.get(u.id), self_deleted)}</td>
-            <td style="white-space:nowrap">{trial_form} {toggle} {senior_toggle} {reset} {delete}</td>
+            <td>
+                <div class="adm-stack">
+                    {main_actions}
+                    <div class="adm-danger adm-danger--inline">{toggle}{reset}{delete}</div>
+                </div>
+            </td>
         </tr>"""
     return f"""
     <div class="tab-content" id="tab-users">
-        <h2 style="margin-bottom:1rem">Пользователи ({len(users)})</h2>
-        <input id="userFilter" onkeyup="filterTable('userFilter','usersTable')" placeholder="Поиск по телефону/имени…"
-               style="width:100%;max-width:360px;padding:0.5rem 0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-8);margin-bottom:1rem">
-        <div style="overflow-x:auto"><table id="usersTable">
-            <thead><tr><th>ID</th><th>Телефон</th><th>Имя</th><th>Роль</th><th>Статус</th><th>Действия</th></tr></thead>
+        <h2 class="adm-tab-title">Пользователи ({len(users)})</h2>
+        <div class="adm-toolbar">
+            <input id="userFilter" type="search" class="r-input adm-search" oninput="filterTable('userFilter','usersTable')"
+                   placeholder="Поиск по телефону или имени…" aria-label="Поиск пользователя">
+        </div>
+        <div class="adm-table-wrap"><table id="usersTable" class="adm-table adm-table--users">
+            <thead><tr><th class="adm-col-id">ID</th><th class="adm-col-phone">Телефон</th><th class="adm-col-name">Имя</th><th class="adm-col-role">Роль</th><th class="adm-col-status">Статус</th><th>Действия</th></tr></thead>
             <tbody>{rows}</tbody>
         </table></div>
     </div>
@@ -337,9 +369,9 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
     В строке жили десять контролов в одной ячейке на 620px, разделённые голым
     <br>: два поля без подписей, системный <select> и кнопки-обрубки
     «Деактив.», «Активир.», «Тариф» — понять, что делает каждая, было нельзя,
-    а таблица уезжала вбок. Карточка даёт место на подписи и разводит действия
-    по двум группам: что делаем с салоном и что с его подпиской.
-    Вкладка «Заявки» в этой же панели уже построена на карточках.
+    а таблица уезжала вбок. Карточка даёт место на подписи и раскладывает
+    действия по сетке: владелец и состояние сверху, подписка во всю ширину,
+    разрушающее — отдельной группой внизу (решение 0018, п. 3).
     """
     from app.services.tariffs import TARIFF_CATALOG
 
@@ -360,18 +392,20 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
             # Приз конечный: метка и подъём живут до contest_winner_until.
             if is_winner:
                 winner_action = (
-                    f'<form method="post" action="/api/v1/admin/salons/{s.id}/contest-winner">'
+                    f'<form method="post" action="/api/v1/admin/salons/{s.id}/contest-winner" class="adm-form" '
+                    f'data-confirm="Снять с «{_esc(s.name)}» отметку победителя конкурса?" '
+                    f'data-confirm-label="Снять">'
                     f'<input type="hidden" name="months" value="0">'
-                    f'<button class="btn-mini">Снять победителя (до {winner_until:%d.%m.%Y})</button>'
+                    f'{_btn(f"Снять победителя (до {winner_until:%d.%m.%Y})")}'
                     f'</form>'
                 )
             else:
                 winner_action = (
-                    f'<form method="post" action="/api/v1/admin/salons/{s.id}/contest-winner" '
+                    f'<form method="post" action="/api/v1/admin/salons/{s.id}/contest-winner" class="adm-form" '
                     f'data-confirm="Отметить «{_esc(s.name)}» победителем конкурса на 3 месяца?" '
                     f'data-confirm-label="Отметить">'
                     f'<input type="hidden" name="months" value="3">'
-                    f'<button class="btn-mini">Победитель конкурса</button>'
+                    f'{_btn("Победитель конкурса")}'
                     f'</form>'
                 )
             if s.is_deleted:
@@ -379,34 +413,38 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
             elif s.is_active and s.id not in live_ids:
                 # Флаг салона «активен», но владелец отключён — в каталоге
                 # и записи салона нет, и админка не должна говорить обратное.
-                status_badges = _badge("владелец отключён", "var(--color-danger)")
+                status_badges = _badge("владелец отключён", "danger")
             else:
                 status_badges = _active_badge(s.is_active)
             salon_action = (
-                f'''<form method="post" action="/api/v1/admin/salons/{s.id}/restore"
+                f'''<form method="post" action="/api/v1/admin/salons/{s.id}/restore" class="adm-form"
                     data-confirm="Восстановить салон «{_esc(s.name)}»?" data-confirm-label="Восстановить">
-                    <button class="btn-mini">Восстановить</button>
+                    {_btn("Восстановить")}
                 </form>'''
                 if s.is_deleted else
-                f'''<form method="post" action="/api/v1/admin/salons/{s.id}/toggle-active"
+                f'''<form method="post" action="/api/v1/admin/salons/{s.id}/toggle-active" class="adm-form"
                     data-confirm="{toggle_label} салон «{_esc(s.name)}»?" data-confirm-label="{toggle_label}">
-                    <button class="btn-mini">{toggle_label}</button>
-                </form>
-                <form method="post" action="/api/v1/admin/salons/{s.id}/delete"
+                    {_btn(toggle_label)}
+                </form>'''
+            )
+            # Удалённый салон уже удалён: второй раз «Удалить» ему не предлагаем,
+            # а «Снять доступ» остаётся (как и было).
+            delete_form = "" if s.is_deleted else (
+                f'''<form method="post" action="/api/v1/admin/salons/{s.id}/delete" class="adm-form"
                     data-confirm="Удалить салон «{_esc(s.name)}»?" data-confirm-label="Удалить">
-                    <button class="btn-mini btn-danger">Удалить салон</button>
+                    {_btn("Удалить салон", "danger")}
                 </form>'''
             )
 
             cards += f"""
-        <article class="adm-salon">
+        <article class="r-card adm-salon">
             <header class="adm-salon-head">
                 <div class="adm-salon-title">
                     <strong>{_esc(s.name)}</strong>
                     <span class="adm-salon-id">#{s.id}</span>
                 </div>
                 <div class="adm-salon-badges">
-                    {status_badges} {_moderation_badge(s.moderation_status)}
+                    {status_badges}{_moderation_badge(s.moderation_status)}
                 </div>
             </header>
 
@@ -416,71 +454,84 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
                 {_subscription_cell(s)}
             </div>
 
-            <div class="adm-salon-groups">
+            <div class="adm-salon-grid">
                 <section class="adm-group">
-                    <h4 class="adm-group-title">Салон</h4>
-                    <form method="post" action="/api/v1/admin/salons/{s.id}/owner" class="adm-inline-form">
+                    <h4 class="adm-group-title">Владелец</h4>
+                    <form method="post" action="/api/v1/admin/salons/{s.id}/owner" class="adm-form">
                         <label class="adm-field">
                             <span class="adm-field-label">Новый владелец</span>
                             <input name="owner_phone" placeholder="+7 999 123-45-67" value=""
-                                   class="adm-input" aria-label="Телефон нового владельца">
+                                   class="r-input adm-input" aria-label="Телефон нового владельца">
                         </label>
-                        <button class="btn-mini">Назначить</button>
-                        <span class="adm-hint">Пустое поле снимает владельца</span>
+                        {_btn("Назначить")}
                     </form>
-                    <div class="adm-group-actions">
+                    <p class="adm-hint">Пустое поле снимает владельца</p>
+                </section>
+
+                <section class="adm-group">
+                    <h4 class="adm-group-title">Состояние и конкурс</h4>
+                    <div class="adm-actions">
                         {salon_action}
                         {winner_action}
                     </div>
                 </section>
 
-                <section class="adm-group">
+                <section class="adm-group adm-group--wide">
                     <h4 class="adm-group-title">Подписка</h4>
-                    <div class="adm-group-actions">
-                        <form method="post" action="/api/v1/admin/salons/{s.id}/grant-trial" class="adm-inline-form">
+                    <div class="adm-forms">
+                        <form method="post" action="/api/v1/admin/salons/{s.id}/grant-trial" class="adm-form">
                             <label class="adm-field">
                                 <span class="adm-field-label">Дней</span>
                                 <input name="days" type="number" min="1" max="365" value="30"
-                                       class="adm-input is-num" aria-label="Сколько дней бесплатного периода выдать">
+                                       class="r-input adm-input is-num" aria-label="Сколько дней бесплатного периода выдать">
                             </label>
-                            <button class="btn-mini">Дать бесплатно</button>
+                            {_btn("Дать бесплатно")}
                         </form>
-                        <form method="post" action="/api/v1/admin/salons/{s.id}/grant-access" class="adm-inline-form">
-                            <label class="adm-field">
-                                <span class="adm-field-label">Месяцев</span>
-                                <input name="months" type="number" min="1" max="120" value="1"
-                                       class="adm-input is-num" aria-label="Сколько месяцев доступа выдать">
-                            </label>
-                            <button class="btn-mini">Выдать доступ</button>
-                        </form>
-                        <!-- Отдельной формой, а не второй кнопкой в соседней: подтверждение
-                             в проекте висит на форме (ui-feedback.js), и на одной форме
-                             спрашивало бы и про обычную выдачу; к тому же requestSubmit
-                             после диалога теряет значение кнопки-сабмиттера. -->
-                        <form method="post" action="/api/v1/admin/salons/{s.id}/grant-access"
-                              class="adm-inline-form"
-                              data-confirm="Открыть «{_esc(s.name)}» доступ БЕССРОЧНО? Платить салон больше не будет."
-                              data-confirm-label="Открыть бессрочно">
-                            <input type="hidden" name="forever" value="1">
-                            <button class="btn-mini">Бессрочно</button>
-                        </form>
-                        <form method="post" action="/api/v1/admin/salons/{s.id}/set-plan" class="adm-inline-form">
+                        <div class="adm-form-pair">
+                            <form method="post" action="/api/v1/admin/salons/{s.id}/grant-access" class="adm-form">
+                                <label class="adm-field">
+                                    <span class="adm-field-label">Месяцев</span>
+                                    <input name="months" type="number" min="1" max="120" value="1"
+                                           class="r-input adm-input is-num" aria-label="Сколько месяцев доступа выдать">
+                                </label>
+                                {_btn("Выдать доступ")}
+                            </form>
+                            <!-- Отдельной формой, а не второй кнопкой в соседней: подтверждение
+                                 в проекте висит на форме (ui-feedback.js), и на одной форме
+                                 спрашивало бы и про обычную выдачу; к тому же requestSubmit
+                                 после диалога теряет значение кнопки-сабмиттера. -->
+                            <form method="post" action="/api/v1/admin/salons/{s.id}/grant-access"
+                                  class="adm-form"
+                                  data-confirm="Открыть «{_esc(s.name)}» доступ БЕССРОЧНО? Платить салон больше не будет."
+                                  data-confirm-label="Открыть бессрочно">
+                                <input type="hidden" name="forever" value="1">
+                                {_btn("Бессрочно")}
+                            </form>
+                        </div>
+                        <form method="post" action="/api/v1/admin/salons/{s.id}/set-plan" class="adm-form">
                             <label class="adm-field">
                                 <span class="adm-field-label">Тариф</span>
-                                <select name="plan" class="adm-input custom-select"
+                                <select name="plan" class="r-input adm-input adm-select"
                                         aria-label="Тариф салона">{plan_options}</select>
                             </label>
-                            <button class="btn-mini">Сменить тариф</button>
-                        </form>
-                        <form method="post" action="/api/v1/admin/salons/{s.id}/revoke-access"
-                              data-confirm="Снять доступ у «{_esc(s.name)}»? Салон уйдёт из каталога."
-                              data-confirm-label="Снять">
-                            <button class="btn-mini btn-danger">Снять доступ</button>
+                            {_btn("Сменить тариф")}
                         </form>
                     </div>
                 </section>
             </div>
-            </article>"""
+
+            <section class="adm-danger">
+                <h4 class="adm-danger__title">Опасные действия</h4>
+                <div class="adm-actions">
+                    <form method="post" action="/api/v1/admin/salons/{s.id}/revoke-access" class="adm-form"
+                          data-confirm="Снять доступ у «{_esc(s.name)}»? Салон уйдёт из каталога."
+                          data-confirm-label="Снять">
+                        {_btn("Снять доступ", "danger")}
+                    </form>
+                    {delete_form}
+                </div>
+            </section>
+        </article>"""
         return cards or '<p class="adm-empty">Салонов нет</p>'
 
     active = [s for s in salons if not s.is_deleted and s.is_active and s.id in live_ids]
@@ -492,7 +543,8 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
         ("Удаленные", deleted),
     )
     groups_html = "".join(
-        f'<section class="adm-salon-section"><h3>{title} ({len(group)})</h3>{render_cards(group)}</section>'
+        f'<section class="adm-salon-section"><h3 class="adm-section-title">{title} ({len(group)})</h3>'
+        f'<div class="adm-list">{render_cards(group)}</div></section>'
         for title, group in sections
     )
 
@@ -508,31 +560,32 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
 def _reports_tab(reports):
     rows = ""
     for r in reports:
-        thumb = (f'<a href="{_esc(r["url"])}" target="_blank"><img src="{_esc(r["url"])}" loading="lazy" '
-                 f'style="width:64px;height:64px;object-fit:cover;border-radius:var(--radius-8)"></a>') if r["url"] else "—"
+        thumb = (f'<a href="{_esc(r["url"])}" target="_blank" rel="noopener">'
+                 f'{_thumb(r["url"], "md")}</a>') if r["url"] else "—"
         resolve = (
-            f'<form method="post" action="/api/v1/admin/reports/{r["id"]}/resolve" style="display:inline" '
+            f'<div class="adm-danger adm-danger--inline">'
+            f'<form method="post" action="/api/v1/admin/reports/{r["id"]}/resolve" class="adm-form" '
             f'data-confirm="Удалить фото и закрыть жалобу?" data-confirm-label="Подтвердить">'
-            f'<button class="btn-mini btn-danger">{ICON_TRASH} Удалить фото</button></form>'
+            f'{_btn(f"{ICON_TRASH} Удалить фото", "danger")}</form></div>'
         )
         dismiss = (
-            f'<form method="post" action="/api/v1/admin/reports/{r["id"]}/dismiss" style="display:inline">'
-            f'<button class="btn-mini">Оставить</button></form>'
+            f'<form method="post" action="/api/v1/admin/reports/{r["id"]}/dismiss" class="adm-form">'
+            f'{_btn("Оставить")}</form>'
         )
         rows += f"""<tr>
             <td>{thumb}</td>
             <td>{_esc(r["salon"])}</td>
             <td>{_esc(r["reporter"])}</td>
             <td>{_esc(r["reason"]) or '<span class="text-muted">—</span>'}</td>
-            <td style="white-space:nowrap">{resolve} {dismiss}</td>
+            <td><div class="adm-actions">{dismiss}{resolve}</div></td>
         </tr>"""
     if not rows:
-        rows = '<tr><td colspan="5" class="text-muted" style="padding:1.5rem;text-align:center">Открытых жалоб нет</td></tr>'
+        rows = '<tr><td colspan="5" class="adm-empty">Открытых жалоб нет</td></tr>'
     return f"""
     <div class="tab-content" id="tab-reports">
-        <h2 style="margin-bottom:1rem">Жалобы на фото ({len(reports)})</h2>
-        <p class="text-muted" style="margin-bottom:1rem;font-size:0.85rem">«Удалить фото» — жалоба обоснована, фото убирается. «Оставить» — жалоба отклонена.</p>
-        <div style="overflow-x:auto"><table>
+        <h2 class="adm-tab-title">Жалобы на фото ({len(reports)})</h2>
+        <p class="adm-lead">«Удалить фото» — жалоба обоснована, фото убирается. «Оставить» — жалоба отклонена.</p>
+        <div class="adm-table-wrap"><table class="adm-table">
             <thead><tr><th>Фото</th><th>Салон</th><th>Пожаловался</th><th>Причина</th><th>Действия</th></tr></thead>
             <tbody>{rows}</tbody>
         </table></div>
@@ -552,24 +605,23 @@ def _contest_tab(entries, phone_by_id):
         who_html = _esc(who) if who else '<span class="text-muted">нет аккаунта</span>'
         rows += f"""
         <tr>
-            <td class="text-muted" style="white-space:nowrap">{entry.created_at:%d.%m %H:%M}</td>
+            <td class="text-muted adm-nowrap">{entry.created_at:%d.%m %H:%M}</td>
             <td>{_esc(entry.name)}</td>
             <td>{_esc(entry.city)}</td>
             <td><a href="{_esc(entry.work_url)}" target="_blank" rel="noopener">работа</a></td>
             <td>{_esc(entry.contact)}</td>
-            <td>{who_html}<br><span class="text-muted" style="font-size:0.8rem">{entry.channel.value}</span></td>
+            <td>{who_html}<br><span class="adm-small text-muted">{entry.channel.value}</span></td>
         </tr>"""
     if not rows:
-        rows = ('<tr><td colspan="6" class="text-muted" style="padding:1.5rem;text-align:center">'
-                'Заявок пока нет</td></tr>')
+        rows = '<tr><td colspan="6" class="adm-empty">Заявок пока нет</td></tr>'
     return f"""
     <div class="tab-content" id="tab-contest">
-        <h2 style="margin-bottom:1rem">Конкурс ({len(entries)})</h2>
-        <p class="text-muted" style="margin-bottom:1rem;font-size:0.85rem">
+        <h2 class="adm-tab-title">Конкурс ({len(entries)})</h2>
+        <p class="adm-lead">
             {_esc(contest.TITLE)}. Приём заявок {_esc(contest.ru_date(contest.ENTRY_START))} —
             {_esc(contest.ru_date(contest.ENTRY_END))}, правила: <a href="/contest">/contest</a>.
             Заявки приходят из ботов, данные — со слов участника.</p>
-        <div style="overflow-x:auto"><table>
+        <div class="adm-table-wrap"><table class="adm-table">
             <thead><tr><th>Когда</th><th>Имя</th><th>Город</th><th>Работа</th><th>Связь</th><th>Аккаунт</th></tr></thead>
             <tbody>{rows}</tbody>
         </table></div>
@@ -587,45 +639,41 @@ def _support_tab(requests, phone_by_id):
         photos = ""
         for url in (r.photos or []):
             photos += (f'<a href="{_esc(url)}" target="_blank" rel="noopener">'
-                       f'<img src="{_esc(url)}" loading="lazy" style="width:48px;height:48px;'
-                       f'object-fit:cover;border-radius:var(--radius-8);margin-right:0.25rem"></a>')
+                       f'{_thumb(url, "sm")}</a>')
         rating = f' · оценка {r.rating}/5' if r.rating else ""
 
         if r.answer:
-            action = (f'<div class="text-muted" style="font-size:0.8rem">Ответ: '
+            action = (f'<div class="adm-small text-muted">Ответ: '
                       f'{_esc(r.answer[:160])}</div>')
         else:
             action = (
                 f'<form method="post" action="/api/v1/admin/support/{r.id}/answer" '
-                f'style="display:flex;gap:0.4rem;align-items:flex-start">'
+                f'class="adm-answer">'
                 f'<textarea name="answer" rows="2" required minlength="2" '
-                f'placeholder="Ответ человеку…" '
-                f'style="flex:1;min-width:220px;padding:0.4rem;border:1px solid var(--color-border);'
-                f'border-radius:var(--radius-8);font-family:inherit;font-size:0.85rem"></textarea>'
-                f'<button class="btn-mini">Отправить</button></form>'
+                f'placeholder="Ответ человеку…" aria-label="Ответ человеку" class="r-input adm-textarea"></textarea>'
+                f'{_btn("Отправить")}</form>'
             )
 
         rows += f"""<tr>
-            <td style="white-space:nowrap">№{r.id}<br>
-                <span class="text-muted" style="font-size:0.75rem">{r.created_at:%d.%m %H:%M}</span></td>
-            <td style="white-space:nowrap">{_esc(TOPIC_LABELS[r.topic])}{rating}<br>
-                <span class="text-muted" style="font-size:0.75rem">{_esc(source_label(r))} · {_esc(STATUS_LABELS[r.status])}</span></td>
+            <td class="adm-nowrap">№{r.id}<br>
+                <span class="adm-small text-muted">{r.created_at:%d.%m %H:%M}</span></td>
+            <td class="adm-nowrap">{_esc(TOPIC_LABELS[r.topic])}{rating}<br>
+                <span class="adm-small text-muted">{_esc(source_label(r))} · {_esc(STATUS_LABELS[r.status])}</span></td>
             <td>{who_html}</td>
-            <td style="max-width:340px">{_esc(r.text)}<div style="margin-top:0.3rem">{photos}</div></td>
+            <td class="adm-col-text">{_esc(r.text)}<div class="adm-thumbs">{photos}</div></td>
             <td>{action}</td>
         </tr>"""
 
     if not rows:
-        rows = ('<tr><td colspan="5" class="text-muted" style="padding:1.5rem;text-align:center">'
-                'Обращений нет</td></tr>')
+        rows = '<tr><td colspan="5" class="adm-empty">Обращений нет</td></tr>'
     return f"""
     <div class="tab-content" id="tab-support">
-        <h2 style="margin-bottom:1rem">Обращения ({len(requests)})</h2>
-        <p class="text-muted" style="margin-bottom:1rem;font-size:0.85rem">
+        <h2 class="adm-tab-title">Обращения ({len(requests)})</h2>
+        <p class="adm-lead">
             Пришли из ботов Telegram, MAX и ВКонтакте. Во ВКонтакте два сообщества: «клиенты» и
             «бизнес» — пометка рядом со статусом. Ответ уходит человеку тем же каналом
             (и в то же сообщество), которым он написал, и закрывает обращение.</p>
-        <div style="overflow-x:auto"><table>
+        <div class="adm-table-wrap"><table class="adm-table adm-table--support">
             <thead><tr><th>Когда</th><th>Тема</th><th>От кого</th><th>Текст</th><th>Ответ</th></tr></thead>
             <tbody>{rows}</tbody>
         </table></div>
@@ -677,23 +725,24 @@ def _reviews_tab(reviews, client_by_id, master_name_by_id, salon_name_by_id):
     for r in reviews:
         stars = ICON_STAR_FILLED * int(r.rating or 0)
         delete = (
-            f'<form method="post" action="/api/v1/admin/reviews/{r.id}/delete" style="display:inline" '
+            f'<div class="adm-danger adm-danger--inline">'
+            f'<form method="post" action="/api/v1/admin/reviews/{r.id}/delete" class="adm-form" '
             f'data-confirm="Удалить отзыв #{r.id}?" data-confirm-label="Подтвердить">'
-            f'<button class="btn-mini btn-danger">Удалить</button></form>'
+            f'{_btn("Удалить", "danger")}</form></div>'
         )
         rows += f"""<tr>
             <td>{r.id}</td>
             <td>{_esc(client_by_id.get(r.client_id, "—"))}</td>
             <td>{_esc(master_name_by_id.get(r.master_id, "—"))}</td>
             <td>{_esc(salon_name_by_id.get(r.salon_id, "—"))}</td>
-            <td>{stars}</td>
+            <td class="adm-nowrap">{stars}</td>
             <td>{_esc(r.comment) or "—"}</td>
             <td>{delete}</td>
         </tr>"""
     return f"""
     <div class="tab-content" id="tab-reviews">
-        <h2 style="margin-bottom:1rem">Отзывы ({len(reviews)})</h2>
-        <div style="overflow-x:auto"><table>
+        <h2 class="adm-tab-title">Отзывы ({len(reviews)})</h2>
+        <div class="adm-table-wrap"><table class="adm-table">
             <thead><tr><th>ID</th><th>Клиент</th><th>Мастер</th><th>Салон</th><th>Оценка</th><th>Комментарий</th><th></th></tr></thead>
             <tbody>{rows}</tbody>
         </table></div>
@@ -707,17 +756,17 @@ def _audit_tab(audits, actor_by_id):
     for a in audits:
         when = a.created_at.strftime("%d.%m.%Y %H:%M") if a.created_at else ""
         rows += f"""<tr>
-            <td style="white-space:nowrap">{when}</td>
+            <td class="adm-nowrap">{when}</td>
             <td>{_esc(actor_by_id.get(a.actor_id, "#"+str(a.actor_id)))}</td>
             <td>{_esc(a.action)}</td>
             <td>{_esc(a.target_type)} #{a.target_id if a.target_id is not None else "—"}</td>
             <td>{_esc(a.detail)}</td>
         </tr>"""
-    body = rows or '<tr><td colspan="5" class="text-muted">Пока нет записей</td></tr>'
+    body = rows or '<tr><td colspan="5" class="adm-empty">Пока нет записей</td></tr>'
     return f"""
     <div class="tab-content" id="tab-audit">
-        <h2 style="margin-bottom:1rem">Аудит действий ({len(audits)})</h2>
-        <div style="overflow-x:auto"><table>
+        <h2 class="adm-tab-title">Аудит действий ({len(audits)})</h2>
+        <div class="adm-table-wrap"><table class="adm-table">
             <thead><tr><th>Когда</th><th>Админ</th><th>Действие</th><th>Объект</th><th>Детали</th></tr></thead>
             <tbody>{body}</tbody>
         </table></div>
@@ -730,12 +779,12 @@ def _banner(q):
     temp_pw = q.get("temp_pw"); temp_for = q.get("temp_for")
     out = ""
     if err:
-        out += f'<div class="alert alert-err">{ICON_ALERT_TRIANGLE} {_esc(err)}</div>'
+        out += f'<div class="adm-alert adm-alert--err">{ICON_ALERT_TRIANGLE} {_esc(err)}</div>'
     if ok:
-        out += f'<div class="alert alert-ok">{ICON_CIRCLE_CHECK} {_esc(ok)}</div>'
+        out += f'<div class="adm-alert adm-alert--ok">{ICON_CIRCLE_CHECK} {_esc(ok)}</div>'
     if temp_pw:
-        out += (f'<div class="alert alert-ok">{ICON_LOCK} Временный пароль для {_esc(temp_for)}: '
-                f'<code style="font-weight:700">{_esc(temp_pw)}</code> — передайте пользователю, он виден один раз.</div>')
+        out += (f'<div class="adm-alert adm-alert--ok">{ICON_LOCK} Временный пароль для {_esc(temp_for)}: '
+                f'<code class="adm-code">{_esc(temp_pw)}</code> — передайте пользователю, он виден один раз.</div>')
     return out
 
 
@@ -852,11 +901,11 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     default_tab = "overview" if is_senior else "applications"
     _tab = q.get("tab", default_tab)
     active_tab = _tab if _tab in allowed_tabs else default_tab
-    pending_badge = f' <span style="background:var(--color-warning);color:var(--color-on-status);border-radius:var(--radius-16);padding:0 0.4rem;font-size:0.7rem">{len(pending)}</span>' if pending else ""
-    models_badge = f' <span style="background:var(--color-warning);color:var(--color-on-status);border-radius:var(--radius-16);padding:0 0.4rem;font-size:0.7rem">{len(pending_models)}</span>' if pending_models else ""
-    reports_badge = f' <span style="background:var(--color-danger);color:var(--color-on-status);border-radius:var(--radius-16);padding:0 0.4rem;font-size:0.7rem">{len(reports_data)}</span>' if reports_data else ""
-    contest_badge = f' <span style="background:var(--color-accent);color:var(--color-on-dark);border-radius:var(--radius-16);padding:0 0.4rem;font-size:0.7rem">{len(contest_entries)}</span>' if contest_entries else ""
-    support_badge = f' <span style="background:var(--color-info);color:var(--color-on-status);border-radius:var(--radius-16);padding:0 0.4rem;font-size:0.7rem">{len(support_new)}</span>' if support_new else ""
+    pending_badge = _count(len(pending), "warning")
+    models_badge = _count(len(pending_models), "warning")
+    reports_badge = _count(len(reports_data), "danger")
+    contest_badge = _count(len(contest_entries), "accent")
+    support_badge = _count(len(support_new), "info")
 
     tab_nav = ""
     if is_senior:
@@ -880,90 +929,14 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Панель модератора — руми</title>
     {get_base_styles()}
-    <style>
-        /* Шапка position:fixed и занимает 60px — при padding-top:2rem заголовок
-           страницы уезжал под плашку логотипа. */
-        .admin-main {{ max-width:1280px; margin:0 auto; padding:5.5rem 1.5rem 2rem }}
-        .tab-nav {{ display:flex; gap:0.25rem; border-bottom:1px solid var(--color-border); margin:1rem 0 1.5rem; flex-wrap:wrap }}
-        /* Свои правила для .tab-btn убраны: общий вид вкладок задаёт бандл
-           (.tab-btn/.tab-btn.active — пилюля с градиентом и белой подписью).
-           Инлайновый <style> идёт после ссылки на бандл и при равной
-           специфичности перебивал только color — активная вкладка получалась
-           розовым текстом на розовом градиенте, контраст ~1,1:1. */
-        .tab-btn svg {{ width:1.05rem; height:1.05rem; flex-shrink:0 }}
-        .tab-btn {{ display:inline-flex; align-items:center; gap:0.4rem }}
-        .tab-content {{ display:none }}
-        .tab-content.active {{ display:block }}
-        /* Флекс, а не grid c auto-fit: при восьми плитках и семи колонках
-           последняя висела одна узкой сиротой во втором ряду. Здесь остаток
-           растягивается по ширине и ряд выглядит законченным. */
-        .stat-grid {{ display:flex; flex-wrap:wrap; gap:1rem }}
-        .stat-grid > * {{ flex:1 1 calc(25% - 0.75rem); min-width:150px }}
-
-        /* ===== Вкладка «Салоны»: карточка вместо строки таблицы =====
-           В строке было десять контролов в одной ячейке на 620px, разделённых
-           голым <br>, и таблица уезжала вбок. */
-        .adm-tab-title {{ margin-bottom:1rem }}
-        .adm-salon-section {{ margin-bottom:1.75rem }}
-        .adm-salon-section h3 {{ margin:0 0 0.75rem; font-size:1rem }}
-        .adm-salon-list {{ display:flex; flex-direction:column; gap:1rem }}
-        .adm-salon {{ background:var(--color-surface); border:1px solid var(--color-border);
-                      border-radius:var(--radius-16); padding:1.25rem }}
-        .adm-salon-head {{ display:flex; align-items:center; justify-content:space-between;
-                           gap:1rem; flex-wrap:wrap; margin-bottom:0.6rem }}
-        .adm-salon-title {{ display:flex; align-items:baseline; gap:0.5rem; font-size:1.05rem }}
-        .adm-salon-id {{ color:var(--color-muted); font-size:0.8rem; font-variant-numeric:tabular-nums }}
-        .adm-salon-badges {{ display:flex; gap:0.4rem; flex-wrap:wrap }}
-        .adm-salon-facts {{ display:flex; flex-wrap:wrap; gap:0.4rem 1.25rem;
-                            padding-bottom:1rem; margin-bottom:1rem;
-                            border-bottom:1px solid var(--color-border); font-size:0.85rem }}
-        .adm-sub {{ font-weight:600 }}
-        .adm-sub.is-active {{ color:var(--color-success) }}
-        .adm-sub.is-trial {{ color:var(--color-warning) }}
-        .adm-sub.is-failed {{ color:var(--color-danger) }}
-        .adm-sub.is-none {{ color:var(--color-muted) }}
-
-        /* Два столбца: что делаем с салоном и что с его подпиской. */
-        .adm-salon-groups {{ display:grid; grid-template-columns:minmax(0,1fr); gap:1.25rem }}
-        @media (min-width:900px) {{
-            .adm-salon-groups {{ grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) }}
-        }}
-        .adm-group-title {{ margin:0 0 0.6rem; font-size:0.72rem; font-weight:700;
-                            text-transform:uppercase; letter-spacing:0.06em; color:var(--color-muted) }}
-        .adm-group-actions {{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:0.5rem }}
-        .adm-inline-form {{ display:flex; align-items:flex-end; gap:0.5rem; flex-wrap:wrap;
-                            margin-bottom:0.6rem }}
-        .adm-field {{ display:flex; flex-direction:column; gap:0.2rem }}
-        .adm-field-label {{ font-size:0.7rem; color:var(--color-muted) }}
-        .adm-input {{ padding:0.35rem 0.55rem; border:1px solid var(--color-border);
-                      border-radius:var(--radius-8); font-size:0.85rem; font-family:var(--font-body);
-                      background:var(--color-surface); color:var(--color-heading); width:11rem }}
-        .adm-input.is-num {{ width:5rem; font-variant-numeric:tabular-nums }}
-        .adm-hint {{ font-size:0.72rem; color:var(--color-muted); align-self:center }}
-        .adm-empty {{ padding:2rem; text-align:center; color:var(--color-muted) }}
-        .stat-card {{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-16); padding:1.25rem; text-align:center }}
-        .stat-value {{ font-size:1.6rem; font-weight:700; color:var(--color-accent-text) }}
-        .stat-label {{ font-size:0.8rem; color:var(--color-muted); margin-top:0.25rem }}
-        table {{ width:100%; border-collapse:collapse; font-size:0.875rem }}
-        th {{ text-align:left; padding:0.6rem; border-bottom:2px solid var(--color-border); font-weight:600; color:var(--color-heading); white-space:nowrap }}
-        td {{ padding:0.6rem; border-bottom:1px solid var(--color-border); vertical-align:middle }}
-        /* .btn-mini переехал в дизайн-систему (components.css): тот же класс
-           использует профиль, а этот блок там не подключается — кнопки
-           «Отвязать» и «Подключить» рисовались голыми системными. */
-        select {{ font-size:0.8rem; padding:0.3rem 0.55rem; border:1px solid var(--color-border); border-radius:var(--radius-8); background:var(--color-surface); color:var(--color-heading); cursor:pointer }}
-        .alert {{ padding:0.75rem 1rem; border-radius:var(--radius-8); margin-bottom:0.75rem; font-size:0.875rem }}
-        .alert-ok {{ background:var(--color-success-light); color:var(--color-success); border:1px solid var(--color-success-border) }}
-        .alert-err {{ background:var(--color-danger-light); color:var(--color-danger); border:1px solid var(--color-danger-border) }}
-        .text-muted {{ color:var(--color-muted) }}
-    </style>
 </head>
 <body>
     {render_header("admin", user)}
     <main class="admin-main">
-        <h1 class="text-display" style="font-size:1.75rem">{ICON_SHIELD_CHECK} Панель модератора</h1>
-        <p class="text-muted">{_esc(user.full_name or user.phone)} · {role_label}</p>
+        <h1 class="text-display adm-title">{ICON_SHIELD_CHECK} Панель модератора</h1>
+        <p class="text-muted adm-who">{_esc(user.full_name or user.phone)} · {role_label}</p>
         {_banner(q)}
-        <div class="tab-nav">
+        <div class="tab-nav" role="tablist">
             {tab_nav}
         </div>
         {overview}
@@ -987,7 +960,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         function filterTable(inputId, tableId) {{
             var q = document.getElementById(inputId).value.toLowerCase();
             document.querySelectorAll('#' + tableId + ' tbody tr').forEach(function(tr) {{
-                tr.style.display = tr.textContent.toLowerCase().indexOf(q) > -1 ? '' : 'none';
+                tr.hidden = tr.textContent.toLowerCase().indexOf(q) === -1;
             }});
         }}
         switchTab({active_tab!r});

@@ -1,0 +1,344 @@
+/* static/src/css/admin.css — панель модератора (/admin).
+   Решение 0018. Раньше у панели не было своего файла: ~75 строк жили в <style>
+   прямо в admin_panel.py, ещё 93 стиля — в атрибутах style= разметки, а часть
+   классов adm-* не была описана нигде и не значила ничего.
+
+   Своих цветов, радиусов и кнопок здесь нет: кнопка — .r-btn, плашка состояния
+   — .r-status, карточка — .r-card, поле — .r-input. Ниже только раскладка и
+   то, чего нет ни у кого больше. Всё лежит под .admin-main, чтобы голые
+   правила для table/th/td не просочились на другие страницы бандла.
+   Красиво от 1280; на телефоне — читаемость и отсутствие наложений, таблицы
+   прокручиваются, в карточки не переписываются. */
+
+/* Шапка position:fixed и занимает 60px — меньшего отступа сверху нельзя:
+   заголовок страницы уедет под плашку логотипа. */
+.admin-main {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 5.5rem var(--space-24) var(--space-32);
+}
+
+.admin-main .text-muted { color: var(--color-muted); }
+
+.adm-title {
+    margin: 0;
+    font-size: var(--text-28);
+    display: flex;
+    align-items: center;
+    gap: var(--space-12);
+}
+
+.adm-title svg { width: 1.5rem; height: 1.5rem; flex-shrink: 0; }
+
+.adm-who { margin: var(--space-4) 0 0; font-size: var(--text-14); }
+
+.admin-main [hidden] { display: none !important; }
+
+/* ===== Полоса вкладок =====
+   Раньше общий вид .tab-btn брали «из бандла», но после переделки кабинета
+   его там не осталось: вкладки рисовались голыми системными кнопками. */
+.admin-main .tab-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    margin: var(--space-24) 0 var(--space-24);
+    padding-bottom: var(--space-12);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.admin-main .tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-8);
+    min-height: var(--control-h-sm);
+    padding: 0 var(--space-16);
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-body);
+    font-family: var(--font-body);
+    font-size: var(--text-14);
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+        background-color var(--duration-1) var(--ease-out),
+        color var(--duration-1) var(--ease-out);
+}
+
+.admin-main .tab-btn svg { width: 1.05rem; height: 1.05rem; flex-shrink: 0; }
+
+@media (hover: hover) {
+    .admin-main .tab-btn:hover { background: var(--color-surface-alt); }
+}
+
+.admin-main .tab-btn.active {
+    background: var(--color-secondary);
+    color: var(--color-accent-text);
+}
+
+.admin-main .tab-content { display: none; }
+.admin-main .tab-content.active { display: block; }
+
+/* Счётчик ожидающих на вкладке: сплошная статусная заливка и подпись
+   --color-on-status (пары проверяет test_design_tokens). */
+.adm-count {
+    min-width: 1.4em;
+    padding: 0 var(--space-8);
+    border-radius: var(--radius-pill);
+    font-size: var(--text-12);
+    font-weight: 700;
+    line-height: 1.6;
+    text-align: center;
+    color: var(--color-on-status);
+}
+
+.adm-count--warning { background: var(--color-warning); }
+.adm-count--danger { background: var(--color-danger); }
+.adm-count--info { background: var(--color-info); }
+.adm-count--accent { background: var(--color-accent); color: var(--color-on-dark); }
+
+/* ===== Заголовки и текст ===== */
+.adm-tab-title { margin: 0 0 var(--space-16); font-size: var(--text-22); }
+.adm-section-title { margin: var(--space-24) 0 var(--space-12); font-size: var(--text-16); font-weight: 700; }
+.adm-lead { margin: 0 0 var(--space-16); max-width: 70ch; color: var(--color-muted); font-size: var(--text-14); line-height: 1.5; }
+.adm-small { font-size: var(--text-13); }
+.adm-text { margin: var(--space-4) 0; font-size: var(--text-14); }
+.adm-meta { margin: var(--space-4) 0; font-size: var(--text-14); }
+.adm-meta svg, .adm-salon-facts svg { width: 1em; height: 1em; vertical-align: -0.12em; }
+.adm-nowrap { white-space: nowrap; }
+.adm-num { color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.adm-code { font-weight: 700; }
+.adm-empty { padding: var(--space-32) var(--space-16); text-align: center; color: var(--color-muted); }
+
+.adm-alert {
+    margin-bottom: var(--space-12);
+    padding: var(--space-12) var(--space-16);
+    border: 1px solid transparent;
+    border-radius: var(--radius-8);
+    font-size: var(--text-14);
+}
+
+.adm-alert svg { width: 1em; height: 1em; vertical-align: -0.12em; }
+.adm-alert--ok { background: var(--color-success-light); color: var(--color-success); border-color: var(--color-success-border); }
+.adm-alert--err { background: var(--color-danger-light); color: var(--color-danger); border-color: var(--color-danger-border); }
+
+/* ===== Обзор ===== */
+/* Флекс, а не grid c auto-fit: при восьми плитках и семи колонках последняя
+   висела одна узкой сиротой во втором ряду. Здесь остаток растягивается по
+   ширине и ряд выглядит законченным. */
+.adm-stats { display: flex; flex-wrap: wrap; gap: var(--space-16); }
+.adm-stats > * { flex: 1 1 calc(25% - var(--space-16)); min-width: 150px; }
+
+.adm-stat {
+    padding: var(--space-24) var(--space-16);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-16);
+    background: var(--color-surface);
+    text-align: center;
+}
+
+.adm-stat__value { font-size: var(--text-28); font-weight: 700; color: var(--color-accent-text); font-variant-numeric: tabular-nums; }
+.adm-stat__label { margin-top: var(--space-4); font-size: var(--text-13); color: var(--color-muted); }
+
+/* ===== Общие блоки: список карточек, действия, форма в строку ===== */
+.adm-list { display: flex; flex-direction: column; gap: var(--space-16); }
+
+/* Группа действий: кнопки и формы одного ряда стоят на одной линии,
+   а при нехватке места переносятся целиком, а не по одной кнопке. */
+.adm-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-8) var(--space-12); }
+
+/* Инлайн-форма: [подпись над полем] [поле] [кнопка]. align-items:flex-end —
+   нижние края поля и кнопки (обе по 36px) лежат на одной линии независимо от
+   того, есть ли над полем подпись. */
+.adm-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-8); margin: 0; }
+
+.adm-field { display: flex; flex-direction: column; gap: var(--space-4); margin: 0; }
+.adm-field-label { font-size: var(--text-13); color: var(--color-muted); line-height: 1.2; }
+
+/* Поле админки — тот же .r-input, но в плотную высоту кнопки .r-btn--sm,
+   чтобы поле и кнопка в одной форме были одной высоты. Кегль остаётся 16px
+   из .r-input: меньше — и iOS зумит страницу при фокусе. */
+.adm-input {
+    width: 11rem;
+    min-height: var(--control-h-sm);
+    padding: var(--space-4) var(--space-12);
+}
+
+.adm-input.is-num { width: 5rem; font-variant-numeric: tabular-nums; }
+.adm-input--reason { width: 9rem; }
+.adm-select { width: auto; min-width: 7.5rem; padding-right: var(--space-8); -webkit-appearance: menulist; appearance: menulist; }
+
+/* Роль: выбор и «OK» всегда в одной строке — перенос кнопки под список в узкой
+   колонке «Роль» ломал базовую линию ряда. */
+.adm-form--role { flex-wrap: nowrap; }
+.adm-form--role .r-btn { flex-shrink: 0; }
+.adm-form--role .adm-select { flex: 1 1 auto; min-width: 0; width: 7.5rem; }
+
+.adm-hint { margin: var(--space-8) 0 0; font-size: var(--text-13); color: var(--color-muted); }
+
+.adm-badges { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+
+/* Опасные действия — отдельной группой со своим видом: приглушённый контур
+   цвета danger, без заливки (красной заливки в палитре нет). Рядом с «Назначить»
+   и «Выдать доступ» разрушающее выглядело так же, как они. */
+.adm-danger {
+    padding: var(--space-12) var(--space-16);
+    border: 1px solid var(--color-danger-border);
+    border-radius: var(--radius-16);
+}
+
+.adm-danger__title {
+    margin: 0 0 var(--space-8);
+    font-size: var(--text-12);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-danger);
+}
+
+/* В строке таблицы и рядом с «Одобрить» рамка вокруг одной-двух кнопок была бы
+   тяжёлой — остаётся только группировка. */
+.adm-danger--inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8);
+    padding: 0;
+    border: 0;
+}
+
+/* ===== Миниатюры ===== */
+.adm-thumb { display: block; flex-shrink: 0; object-fit: cover; border-radius: var(--radius-16); }
+.adm-thumb--lg { width: 88px; height: 88px; }
+.adm-thumb--md { width: 64px; height: 64px; border-radius: var(--radius-8); }
+.adm-thumb--sm { width: 48px; height: 48px; border-radius: var(--radius-8); }
+.adm-thumb--empty { display: flex; align-items: center; justify-content: center; background: var(--color-surface-2); color: var(--color-muted); }
+.adm-thumbs { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-8); }
+
+/* ===== Заявки салонов и анкеты моделей ===== */
+.adm-app { display: flex; gap: var(--space-16); }
+.adm-app__body { flex: 1; min-width: 0; }
+.adm-app__head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-4) var(--space-16); }
+.adm-app .adm-actions { margin-top: var(--space-12); align-items: center; }
+.adm-details { margin: var(--space-8) 0 0; font-size: var(--text-14); }
+.adm-details summary { cursor: pointer; color: var(--color-accent-text); font-weight: 600; }
+.adm-details summary svg { width: 1em; height: 1em; vertical-align: -0.12em; }
+.adm-details__body { margin-top: var(--space-8); }
+.adm-details__body p { margin: var(--space-4) 0; }
+
+/* ===== Таблицы ===== */
+.adm-toolbar { margin-bottom: var(--space-16); }
+.adm-search { width: 100%; max-width: 22rem; min-height: var(--control-h-sm); padding: var(--space-4) var(--space-12); }
+
+.adm-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-16);
+    background: var(--color-surface);
+}
+
+.adm-table { width: 100%; border-collapse: collapse; font-size: var(--text-14); }
+
+.adm-table th {
+    padding: var(--space-12);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface-alt);
+    color: var(--color-muted);
+    font-size: var(--text-13);
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.adm-table td {
+    padding: var(--space-12);
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+}
+
+.adm-table tbody tr:last-child td { border-bottom: 0; }
+.adm-table td.adm-empty { text-align: center; }
+
+/* Пользователи: колонки держат ширину (table-layout:fixed), поэтому бейджи
+   статуса не вылезают в соседнюю колонку, а ряд действий не перестраивается от
+   того, что в соседней строке имя длиннее. Под min-width таблица уходит в
+   горизонтальную прокрутку обёртки, а не сжимается в кашу. */
+.adm-table--users { table-layout: fixed; min-width: 66rem; }
+.adm-col-id { width: 3.5rem; }
+.adm-col-phone { width: 10rem; }
+.adm-col-name { width: 9rem; }
+.adm-col-role { width: 12.5rem; }
+.adm-col-status { width: 12rem; }
+.adm-table--users td { overflow-wrap: anywhere; }
+
+/* Что в ячейке «Роль» и «Действия» идёт столбиком: сверху обычное, снизу —
+   разрушающее, и положение не прыгает от строки к строке. */
+.adm-stack { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); }
+
+.adm-table--support .adm-col-text { max-width: 22rem; overflow-wrap: anywhere; }
+.adm-answer { display: flex; align-items: flex-start; gap: var(--space-8); min-width: 20rem; }
+.adm-textarea { flex: 1; min-width: 0; min-height: calc(var(--control-h-sm) * 2); padding: var(--space-8) var(--space-12); resize: vertical; }
+
+/* ===== Салоны ===== */
+.adm-salon-section { margin-bottom: var(--space-32); }
+.adm-salon-section .adm-section-title { margin-top: 0; }
+
+.adm-salon { padding: var(--space-24); }
+
+.adm-salon-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8) var(--space-16);
+    margin-bottom: var(--space-12);
+}
+
+.adm-salon-title { display: flex; align-items: baseline; gap: var(--space-8); font-size: var(--text-18); }
+.adm-salon-id { color: var(--color-muted); font-size: var(--text-13); font-variant-numeric: tabular-nums; }
+.adm-salon-badges { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+
+.adm-salon-facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-8) var(--space-24);
+    margin-bottom: var(--space-24);
+    padding-bottom: var(--space-16);
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--text-14);
+}
+
+.adm-sub { font-weight: 600; }
+.adm-sub.is-active { color: var(--color-success); }
+.adm-sub.is-trial { color: var(--color-warning); }
+.adm-sub.is-failed { color: var(--color-danger); }
+.adm-sub.is-none { color: var(--color-muted); }
+
+/* Форм в карточке девять, поэтому сетка, а не поток: владелец и состояние
+   в два столбца, подписка — на всю ширину своим рядом, разрушающее — внизу.
+   Раньше всё лилось одним потоком, и подсказка «Пустое поле снимает владельца»
+   наползала на ряд кнопок. */
+.adm-salon-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-24); margin-bottom: var(--space-24); }
+.adm-group { min-width: 0; }
+
+@media (min-width: 900px) {
+    .adm-salon-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .adm-group--wide { grid-column: 1 / -1; }
+}
+
+.adm-group-title {
+    margin: 0 0 var(--space-12);
+    font-size: var(--text-12);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+/* Подписка: три ячейки (пробный период / доступ / тариф), формы по низу ряда. */
+.adm-forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items: end; gap: var(--space-16) var(--space-24); }
+.adm-form-pair { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-8) var(--space-12); }
+
+.adm-salon .adm-danger .adm-actions { align-items: center; }
