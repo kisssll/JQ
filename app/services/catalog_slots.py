@@ -218,8 +218,14 @@ def nearest_slots(
     # (BookingService._break_minutes): «or 0» здесь давал бы другой перерыв,
     # чем при записи, если значение вдруг не пришло.
     gap = break_or_default(master.get("brk"))
+    #: Те же три числа, что в /available (endpoints/bookings.py): шаг сетки с
+    #: перерывом, окно держит мастера на услугу + перерыв (чтобы не показать
+    #: встык к следующему клиенту), а до конца смены должна влезть только
+    #: услуга — перерыв после последнего за день не нужен.
     step = service.duration + gap
-    if step <= 0:
+    busy_span = service.duration + gap
+    fit_span = service.duration
+    if step <= 0 or fit_span <= 0:
         return []
 
     now = get_salon_time(tz).replace(tzinfo=None)
@@ -242,8 +248,8 @@ def nearest_slots(
         )
         for work_start, work_end in intervals:
             cursor = work_start
-            while cursor + timedelta(minutes=step) <= work_end:
-                slot_end = cursor + timedelta(minutes=step)
+            while cursor + timedelta(minutes=fit_span) <= work_end:
+                slot_end = cursor + timedelta(minutes=busy_span)
                 # Перерыв после чужой записи — как в /available и при записи
                 # (решение 0017, п. 1): без него карточка обещала окно, на
                 # которое запись не проходит.
@@ -251,7 +257,7 @@ def nearest_slots(
                     out.append(CardSlot(cursor, _label(cursor, today)))
                     if len(out) >= limit:
                         return out
-                cursor = slot_end
+                cursor += timedelta(minutes=step)
     return out
 
 

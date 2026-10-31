@@ -208,7 +208,19 @@ async def get_available_slots(
     # Перерыв той же дорогой, что у проверки записи: показ и проверка обязаны
     # считать одно и то же, иначе человек видит окно и получает отказ.
     gap = await BookingService._break_minutes(db, master_id)
-    slot_duration = service.duration_minutes + gap
+    #: Перерыв нужен МЕЖДУ клиентами, а не после последнего за день (решение
+    #: владельца 31.10.2026). Отсюда три разных числа, и путать их нельзя:
+    #:   step — шаг сетки, с перерывом: соседние показанные окна не налезают
+    #:          на отдых между ними;
+    #:   busy_span — сколько окно держит мастера при сравнении с ЧУЖИМИ
+    #:          записями: услуга плюс перерыв, иначе покажем окно встык к
+    #:          следующему клиенту и мастер останется без передышки;
+    #:   fit_span — сколько нужно до конца смены: только услуга. Раньше здесь
+    #:          требовался и перерыв, и запись в конец смены пряталась, хотя
+    #:          проверка (BookingService.is_slot_available) её принимает.
+    step = service.duration_minutes + gap
+    busy_span = service.duration_minutes + gap
+    fit_span = service.duration_minutes
 
     # Занятые интервалы берём за весь день — они могут попадать в любой из
     # рабочих окон мастера (при сплит-сменах их несколько).
@@ -233,11 +245,11 @@ async def get_available_slots(
     slots = []
     for work_start, work_end in intervals:
         current = work_start
-        while current + timedelta(minutes=slot_duration) <= work_end:
-            slot_end = current + timedelta(minutes=slot_duration)
+        while current + timedelta(minutes=fit_span) <= work_end:
+            slot_end = current + timedelta(minutes=busy_span)
 
             if current < now:
-                current += timedelta(minutes=slot_duration)
+                current += timedelta(minutes=step)
                 continue
 
             # Раньше перерыв после чужой записи здесь не вычитался: окно сразу
@@ -247,14 +259,14 @@ async def get_available_slots(
             if not window_is_busy(current, slot_end, busy, gap):
                 slots.append(current.strftime("%Y-%m-%dT%H:%M"))
 
-            current += timedelta(minutes=slot_duration)
+            current += timedelta(minutes=step)
 
     return {
         "date": date,
         "slots": slots,
         "service_duration": service.duration_minutes,
         "break": gap,
-        "total_slot": slot_duration
+        "total_slot": step
     }
 
 @router.get("/master-schedule", response_model=List[BookingResponse])

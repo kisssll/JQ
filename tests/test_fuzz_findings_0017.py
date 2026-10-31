@@ -317,3 +317,48 @@ async def test_refund_message_says_closed_instead_of_a_past_date(monkeypatch):
     assert target.subscription_expires_at <= now - timedelta(days=5)
     assert "доступ по тарифу закрыт" in text and "теперь до" not in text
     assert sent == [text]
+
+
+async def test_the_last_window_of_the_shift_is_offered(client, db_session):
+    """Окно, после которого перерыв уже не влезает в смену, показывается.
+
+    Решение владельца 31.10.2026: перерыв нужен МЕЖДУ клиентами, а не после
+    последнего за день. Смена 08:00–08:45, услуга 15 минут, перерыв 15. Сетка
+    идёт шагом 30 минут (услуга плюс перерыв), и второе окно — 08:30: оно
+    кончается ровно в 08:45, запись на него проходит. Раньше показ требовал,
+    чтобы до конца смены влез ещё и перерыв (до 09:00), и это окно пропадало
+    вместе с выручкой за него.
+    """
+    day = _tomorrow()
+    wh = {d: "выходной" for d in _DAYS}
+    wh[_DAYS[day.weekday()]] = "08:00-08:45"
+    salon_id, mid, sid = await _slot_world(db_session, phone="+79990170031", wh=wh)
+
+    r = await client.get(f"/api/v1/bookings/available/{mid}"
+                         f"?service_id={sid}&date={day:%Y-%m-%d}")
+    assert r.status_code == 200, r.text
+    offered = r.json()["slots"]
+    last = f"{day:%Y-%m-%d}T08:30"
+    assert last in offered, offered
+
+    async with db_session() as db:
+        assert await BookingService.is_slot_available(db, mid, day.replace(hour=8, minute=30), 15)
+
+
+async def test_a_window_back_to_back_with_the_next_client_is_still_hidden(client, db_session):
+    """А вот встык к следующему клиенту окно по-прежнему не показываем.
+
+    Это вторая половина того же решения: перерыв между клиентами остаётся.
+    Чужая запись 08:15–08:30; окно 08:00 кончилось бы ровно к её началу, и
+    мастер пошёл бы ко второму клиенту без передышки.
+    """
+    day = _tomorrow()
+    wh = {d: "выходной" for d in _DAYS}
+    wh[_DAYS[day.weekday()]] = "08:00-22:00"
+    salon_id, mid, sid = await _slot_world(
+        db_session, phone="+79990170032", wh=wh, booking_at=day.replace(hour=8, minute=15))
+
+    r = await client.get(f"/api/v1/bookings/available/{mid}"
+                         f"?service_id={sid}&date={day:%Y-%m-%d}")
+    offered = r.json()["slots"]
+    assert f"{day:%Y-%m-%d}T08:00" not in offered, offered
