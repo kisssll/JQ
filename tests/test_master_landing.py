@@ -208,3 +208,28 @@ async def test_guest_booking_speaks_of_master_for_solo(client, db_session):
     r = await client.get(f"/book/{salon_id}")
     assert "мастер подтвердит запись" in r.text, r.text[:500]
     assert "салон подтвердит" not in r.text
+
+
+async def test_landing_promises_exactly_what_the_code_grants(client):
+    """Срок на лендинге и срок в коде — одно и то же (решение 0019, п. 5).
+
+    Лендинг обещает мастеру год, и выдаёт его `SOLO_TRIAL_DAYS`. Если кто-то
+    поменяет одно, не тронув другое, сервис начнёт обещать то, чего не делает,
+    — а это и ч. 7 ст. 5 закона «О рекламе», и обманутый первый мастер.
+    """
+    from app.api.v1.endpoints.payments import SOLO_TRIAL_DAYS, TRIAL_DAYS
+
+    assert 360 <= SOLO_TRIAL_DAYS <= 366, SOLO_TRIAL_DAYS
+    assert TRIAL_DAYS == 14, "салон с командой остаётся на прежнем сроке"
+
+    page = (await client.get("/dlya-masterov")).text
+    assert "год бесплатно" in page
+    assert "14 дней" not in page, "старое обещание осталось на лендинге"
+
+    checkout = (await client.get("/business/checkout?plan=lite&for=master")).text
+    assert "год бесплатно" in checkout
+    assert "14 дней" not in checkout, "мастеру всё ещё обещают 14 дней"
+
+    # Салону текст НЕ меняли: у него по-прежнему две недели.
+    salon = (await client.get("/business/checkout?plan=business")).text
+    assert "14 дней" in salon

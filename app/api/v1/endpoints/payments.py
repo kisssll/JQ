@@ -27,7 +27,7 @@ from app.core.config import settings
 from app.core.worker import get_arq_pool
 from app.db.session import get_db
 from app.models.models import (
-    Master, Payment, PaymentKind, PaymentStatus, Salon, SalonSubscriptionStatus,
+    Master, Payment, PaymentKind, PaymentStatus, Salon, SalonPanelMode, SalonSubscriptionStatus,
     SubscriptionTier, User,
 )
 from app.services.receipts import subscription_receipt, verification_receipt
@@ -40,6 +40,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 TRIAL_DAYS = 14
+#: Мастер-одиночка получает год (решение 0019, п. 5): на это обещание он
+#: приходит с лендинга /dlya-masterov и из личных писем владельца. Салон с
+#: командой и модель остаются на 14 днях. Развилка делается по panel_mode в
+#: момент выдачи, потому что отдельного пути регистрации у мастера нет — он
+#: заводится как салон в режиме «работаю один».
+SOLO_TRIAL_DAYS = 365
 VERIFICATION_AMOUNT = Decimal("1.00")
 # Потолок предоплаты — чисто инженерная страховка от абсурдных сроков
 # (10 лет), продуктового ограничения тут нет.
@@ -161,7 +167,8 @@ async def init_business_payment(
     salon.business_tier = body.plan
     salon.auto_renew = body.auto_renew
     salon.subscription_status = SalonSubscriptionStatus.TRIALING
-    trial_ends_at = start_trial(salon, TRIAL_DAYS, now, active_masters=active_masters)
+    days = SOLO_TRIAL_DAYS if salon.panel_mode == SalonPanelMode.SOLO else TRIAL_DAYS
+    trial_ends_at = start_trial(salon, days, now, active_masters=active_masters)
 
     if not body.auto_renew:
         await db.commit()

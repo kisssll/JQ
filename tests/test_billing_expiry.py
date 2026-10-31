@@ -162,3 +162,49 @@ async def test_owner_can_hide_and_unhide_manually_when_billing_active(client, db
     r2 = await client.post(f"/api/v1/business/my-salon/visibility-toggle?salon_id={sid}")
     assert r2.status_code == 200
     assert r2.json()["is_hidden"] is False
+
+
+async def _trial_days_for(client, db_session, phone, name, mode):
+    """Сколько дней триала выдаст сервис салону в этом режиме панели."""
+    from app.models.models import SalonPanelMode
+
+    owner = await _mk_owner(db_session, phone)
+    sid = await _mk_published_salon(
+        db_session, owner, name,
+        subscription_status=SalonSubscriptionStatus.NONE,
+        panel_mode=SalonPanelMode.SOLO if mode == "solo" else SalonPanelMode.TEAM,
+    )
+    # У нового салона access_until по умолчанию +30 дней (значение колонки), и
+    # передать None мало: SQLAlchemy подставит умолчание. Гасим отдельно —
+    # иначе init отвечает «тариф уже подключён» и триал не выдаётся.
+    async with db_session() as db:
+        salon = await db.get(Salon, sid)
+        salon.access_until = None
+        await db.commit()
+
+    r = await client.post("/api/v1/auth/login", json={"phone": phone, "password": "Bizpass1"})
+    assert r.status_code == 200, r.text
+    client.cookies.set("access_token", r.json()["access_token"])
+
+    r = await client.post("/api/v1/payments/business/init",
+                          json={"salon_id": sid, "plan": "lite", "auto_renew": False, "employee_count": 1})
+    assert r.status_code == 200, r.text
+    assert r.json()["requires_payment"] is False
+
+    async with db_session() as db:
+        salon = await db.get(Salon, sid)
+        until = salon.subscription_expires_at
+        if until.tzinfo is None:
+            until = until.replace(tzinfo=timezone.utc)
+        return (until - datetime.now(timezone.utc)).days
+
+
+async def test_solo_master_gets_a_free_year_and_a_team_salon_does_not(client, db_session):
+    """Решение 0019, п. 5: мастеру-одиночке — год, салону с командой — прежние
+    две недели. Отдельного пути регистрации у мастера нет (он заводится как
+    салон в режиме «работаю один»), поэтому развилка идёт по panel_mode."""
+    solo = await _trial_days_for(client, db_session, "+79993330011", "ОдиночкаZZ", "solo")
+    team = await _trial_days_for(client, db_session, "+79993330012", "КомандаZZ", "team")
+
+    assert 360 <= solo <= 366, solo
+    assert 12 <= team <= 15, team

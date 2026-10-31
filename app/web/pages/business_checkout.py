@@ -143,7 +143,7 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
                     </a>
                     <div class="checkout-header">
                         <h1 class="text-display checkout-title">{page_title}</h1>
-                        <p class="text-body checkout-subtitle">{'Пара полей — и можно настраивать запись. Первые 14 дней бесплатно.' if m else 'Заполните данные — мы свяжемся для настройки'}</p>
+                        <p class="text-body checkout-subtitle">{'Пара полей — и можно настраивать запись. Первый год бесплатно.' if m else 'Заполните данные — мы свяжемся для настройки'}</p>
                     </div>
                     {login_gate}
 
@@ -211,9 +211,9 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
                                     Если не указать, чек придёт на телефон владельца.</p>
                             </div>
                             <button class="checkout-submit" id="submit-btn">
-                                {'Подключиться — 14 дней бесплатно' if m else 'Подключить салон'}
+                                {'Подключиться — год бесплатно' if m else 'Подключить салон'}
                             </button>
-                            <p class="checkout-note" id="submit-note">Первые 14 дней — бесплатно, карта не нужна. Дальше оплата — в кабинете, во вкладке «Тариф»: сами решаете, продолжать ли.</p>
+                            <p class="checkout-note" id="submit-note">{'Первый год' if m else 'Первые 14 дней'} — бесплатно, карта не нужна. Дальше оплата — в кабинете, во вкладке «Тариф»: сами решаете, продолжать ли.</p>
                         </div>
                         <div class="checkout-summary" id="tariff-card">
                             <h3 class="tariff-card-name" id="tariff-name">{e(active["name"])}</h3>

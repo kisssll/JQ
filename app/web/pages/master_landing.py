@@ -28,7 +28,11 @@ from app.web.components.styles import get_base_styles
 
 LANDING_SLUG = "dlya-masterov"
 PRICE_RUB = 250
-TRIAL_DAYS = 14
+#: Срок бесплатного периода для мастера-одиночки СЛОВОМ: он задан в днях в
+#: app/api/v1/endpoints/payments.py (SOLO_TRIAL_DAYS) и там же выдаётся. Здесь
+#: только подпись, и она обязана совпадать с тем, что выдаёт код, — лендинг не
+#: имеет права обещать больше (решение 0019, п. 5).
+TRIAL_LABEL = "год"
 
 _IMG = "/static/images/landing/masters"
 
@@ -46,7 +50,7 @@ def cta_url(params: Mapping[str, str], logged_in: bool) -> str:
     return f"/register?redirect={quote(checkout, safe='')}"
 
 
-def _cta(href: str, label: str = f"Подключиться — {TRIAL_DAYS} дней бесплатно",
+def _cta(href: str, label: str = f"Подключиться — {TRIAL_LABEL} бесплатно",
          short: str = "Попробовать бесплатно", note: bool = True) -> str:
     """Кнопка подключения.
 
@@ -106,7 +110,7 @@ _FAQ = [
     ("Клиенты останутся моими?",
      "Да. Контакты и история клиентов видны только вам — мы не передаём их "
      "другим мастерам и салонам."),
-    (f"Что будет после {TRIAL_DAYS} дней?",
+    (f"Что будет через {TRIAL_LABEL}?",
      f"Оплатите {PRICE_RUB} ₽ за месяц в кабинете, во вкладке «Тариф». Автоматических "
      "списаний нет. Не оплатили — через неделю запись по ссылке закроется, а все "
      "данные сохранятся, вернуться можно в любой момент."),
@@ -200,8 +204,8 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Онлайн-запись для частных бьюти-мастеров — Руми | {TRIAL_DAYS} дней бесплатно</title>
-    <meta name="description" content="Онлайн-запись для мастеров маникюра, бровистов, косметологов. Клиенты записываются сами по ссылке. Напоминания, карточки клиентов, выручка. {TRIAL_DAYS} дней бесплатно, от {PRICE_RUB} ₽/мес.">
+    <title>Онлайн-запись для частных бьюти-мастеров — Руми | {TRIAL_LABEL} бесплатно</title>
+    <meta name="description" content="Онлайн-запись для мастеров маникюра, бровистов, косметологов. Клиенты записываются сами по ссылке. Напоминания, карточки клиентов, выручка. {TRIAL_LABEL} бесплатно, от {PRICE_RUB} ₽/мес.">
     <meta name="robots" content="noindex, nofollow">
     {get_base_styles()}
     <script src="/static/js/master-landing.js" defer></script>
@@ -224,9 +228,9 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
                     <h1 class="ml-title">Онлайн-запись для частных <span class="ml-hl">бьюти-мастеров</span></h1>
                     <p class="ml-lead">Клиенты записываются сами по ссылке. Вы не тратите час на переписку
                         и не теряете окна. Без директа, заметок и сложных CRM.</p>
-                    {_cta(href, label=f"Попробовать {TRIAL_DAYS} дней бесплатно", short="Попробовать бесплатно")}
+                    {_cta(href, label=f"Попробовать {TRIAL_LABEL} бесплатно", short="Попробовать бесплатно")}
                     <ul class="ml-chips">
-                        <li>{ICON_CIRCLE_CHECK}{TRIAL_DAYS} дней бесплатно</li>
+                        <li>{ICON_CIRCLE_CHECK}{TRIAL_LABEL} бесплатно</li>
                         <li>{ICON_CIRCLE_CHECK}Карта не нужна</li>
                         <li>{ICON_CIRCLE_CHECK}Без автосписаний</li>
                     </ul>
@@ -266,7 +270,7 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
                 <div class="ml-price ml-reveal">
                     <p class="ml-price-name">Тариф «Лайт» для частного мастера</p>
                     <p class="ml-price-amount">{PRICE_RUB} ₽ <span>в месяц</span></p>
-                    <p class="ml-price-trial">Первые {TRIAL_DAYS} дней — бесплатно. Карта не нужна,
+                    <p class="ml-price-trial">Первый {TRIAL_LABEL} — бесплатно. Карта не нужна,
                         автоматических списаний нет.</p>
                     <ul class="ml-included">{included}</ul>
                     <p class="ml-price-note">Модели на отработку для пустых окон — пока только в Томске.</p>
@@ -291,7 +295,7 @@ def render_master_landing_page(params: Mapping[str, str], user=None) -> str:
 
         <section class="ml-final">
             <div class="ml-container">
-                <h2 class="ml-h2">Попробуйте {TRIAL_DAYS} дней бесплатно</h2>
+                <h2 class="ml-h2">Попробуйте {TRIAL_LABEL} бесплатно</h2>
                 {_cta(href, label="Подключиться", short="Подключиться")}
             </div>
         </section>
