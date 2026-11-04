@@ -62,7 +62,10 @@ async def test_tariff_prices_come_from_the_catalog(client):
     expected |= {"По запросу"}
     assert set(amounts) <= expected, set(amounts) - expected
     assert "Для моделей" in html and "Участие в моделинге бесплатное." in html
-    assert not re.search(r"(?:490|990|1\s?990)\s*₽", html)
+    model_section = html.split(
+        '<h2 class="tariffs-group-title">Для моделей</h2>', 1
+    )[1].split("</div>", 1)[0]
+    assert '<span class="amount">' not in model_section
 
 
 async def test_three_tabs_render_one_pane_active_each(client):

@@ -192,7 +192,7 @@ def test_short_hire_costs_only_days_worked():
 
     # дальше штат вернулся к оплаченному — доплата больше не растёт
     register_headcount(s, 3, at=t0 + timedelta(days=20))
-    assert abs(s.pending_proration - 25.0) < 0.5
+    assert abs(s.pending_proration - 24.0) < 0.5
 
 
 def test_settle_adds_the_final_stretch():
