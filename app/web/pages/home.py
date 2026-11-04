@@ -159,10 +159,10 @@ async def render_home_page(db: AsyncSession, user=None) -> str:
                 <div class="home-feature home-feature--model">
                     <div>
                         <p class="home-kicker home-kicker--light">Для прекрасных и смелых, как ты!</p>
-                        <h2 class="r-title">Стань моделью не через агентство, а <em>по подписке</em>.</h2>
+                        <h2 class="r-title">Стань моделью не через агентство, а <em>бесплатно</em>.</h2>
                         <p class="home-feature__text">Найдите предложение от мастеров, которое
                             придется по душе.</p>
-                        {ui.button("Оформить подписку", href="/model", icon=ICON_ARROW_RIGHT)}
+                        {ui.button("Заполнить анкету", href="/model", icon=ICON_ARROW_RIGHT)}
                     </div>
                     <ul class="home-model__list">{model_points}</ul>
                 </div>

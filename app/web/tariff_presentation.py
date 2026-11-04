@@ -24,9 +24,12 @@ PLAN_COPY: dict[str, dict] = {
     "lite": {
         "name": "Лайт",
         "size": "1–5 мастеров · цена зависит от размера команды",
+        # Цены ступеней подставляются из каталога (_lite_steps): вписанные
+        # строкой, они разошлись бы с Т-Кассой на первой же смене прайса —
+        # ровно от этого модуль и заводился, см. шапку файла.
         "features": [
-            "1 мастер — 399 ₽/мес; 2 мастера — 599 ₽/мес",
-            "3–5 мастеров — +240 ₽ за каждого начиная с 3-го (до 1 319 ₽/мес)",
+            "{lite_first}",
+            "{lite_rest}",
             "Управление расписанием",
             "Онлайн-запись клиентов",
             "Базовая аналитика",
@@ -65,6 +68,24 @@ PLAN_COPY: dict[str, dict] = {
 }
 
 
+def _lite_steps() -> dict[str, str]:
+    """Подписи ступеней «Лайта» — из каталога, не руками.
+
+    Прайс ступенчатый: первый мастер по unit_price, второй — по
+    second_employee_amount, каждый следующий добавляет
+    additional_employee_price. Потолок считаем по max_employees, чтобы
+    «до N ₽» не пришлось править вслед за ценами.
+    """
+    t = TARIFF_CATALOG["lite"]
+    top = t.second_employee_amount + t.additional_employee_price * (t.max_employees - 2)
+    return {
+        "lite_first": (f"1 мастер — {_money(t.unit_price)} ₽/мес; "
+                       f"2 мастера — {_money(t.second_employee_amount)} ₽/мес"),
+        "lite_rest": (f"3–{t.max_employees} мастеров — +{_money(t.additional_employee_price)} ₽ "
+                      f"за каждого начиная с 3-го (до {_money(top)} ₽/мес)"),
+    }
+
+
 def _money(value) -> str:
     return f"{int(value):,}".replace(",", " ")
 
@@ -87,13 +108,17 @@ def plan_view(plan: str) -> dict:
     """Всё, что нужно карточке тарифа: имя, размер салона, цена, состав."""
     copy = PLAN_COPY.get(plan, {})
     amount, period = price_parts(plan)
+    # Подписи ступеней «Лайта» — из каталога: в PLAN_COPY они стоят метками
+    # {lite_first}/{lite_rest}, иначе цена жила бы в двух местах сразу.
+    steps = _lite_steps()
+    features = [f.format(**steps) if "{" in f else f for f in copy.get("features", [])]
     return {
         "plan": plan,
         "name": copy.get("name", plan),
         "size": copy.get("size", ""),
         "price": amount,
         "period": period,
-        "features": copy.get("features", []),
+        "features": features,
     }
 
 

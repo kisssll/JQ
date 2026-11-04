@@ -168,3 +168,55 @@ def test_checkout_shows_the_new_lite_price_and_calculates_each_team_size():
     assert "От 399 ₽" in html
     assert '"1": 399' in html and '"2": 599' in html and '"5": 1319' in html
     assert "240 ₽" not in html
+
+
+def test_the_landing_price_comes_from_the_catalog():
+    """Цена на /dlya-masterov — из каталога, а не числом в разметке.
+
+    04.11.2026 «Лайт» подорожал с 250 до 399 ₽, и лендинг остался бы со
+    старой цифрой: сервис обещал бы одно, а касса списывала другое.
+    """
+    from app.services.tariffs import TARIFF_CATALOG
+    from app.web.pages.master_landing import PRICE_RUB
+
+    assert PRICE_RUB == int(TARIFF_CATALOG["lite"].unit_price)
+
+
+async def test_the_landing_shows_the_current_price(client):
+    from app.services.tariffs import TARIFF_CATALOG
+
+    page = (await client.get("/dlya-masterov")).text
+    assert f"{int(TARIFF_CATALOG['lite'].unit_price)} ₽" in page
+    assert "250 ₽" not in page, "на лендинге осталась прежняя цена"
+
+
+def test_lite_steps_in_the_showcase_are_taken_from_the_catalog():
+    """Ступени «Лайта» в карточке тарифа считаются по каталогу.
+
+    В составе тарифа стояли строки «1 мастер — 399 ₽», «+240 ₽ за каждого»,
+    хотя сам модуль заводился ровно ради того, чтобы цена не жила в двух
+    местах (см. его шапку). Проверяем, что подставляются настоящие числа.
+    """
+    from app.services.tariffs import TARIFF_CATALOG
+    from app.web.tariff_presentation import plan_view
+
+    t = TARIFF_CATALOG["lite"]
+    top = t.second_employee_amount + t.additional_employee_price * (t.max_employees - 2)
+    text = " ".join(plan_view("lite")["features"])
+
+    assert "{" not in text, f"метка подстановки осталась в тексте: {text}"
+    for value in (t.unit_price, t.second_employee_amount, t.additional_employee_price):
+        assert f"{int(value):,}".replace(",", " ") in text, (value, text)
+    assert f"{int(top):,}".replace(",", " ") in text, (top, text)
+
+
+async def test_the_home_page_does_not_sell_a_model_subscription(client):
+    """Моделинг стал бесплатным — главная больше не зовёт «оформить подписку».
+
+    Обещание платной подписки там, где её нет, — это и ложное обещание, и
+    тупик: на /model оформлять уже нечего.
+    """
+    page = (await client.get("/")).text
+    block = page[page.index('id="become-model"'):page.index("home-tbank-note")]
+    assert "подписк" not in block.lower(), block[:400]
+    assert "бесплатно" in block.lower()

@@ -27,7 +27,12 @@ from app.web.components.icons import ICON_ARROW_RIGHT, ICON_CIRCLE_CHECK
 from app.web.components.styles import get_base_styles
 
 LANDING_SLUG = "dlya-masterov"
-PRICE_RUB = 250
+#: Цена для одиночки берётся ИЗ КАТАЛОГА, а не числом: 04.11.2026 «Лайт»
+#: подорожал с 250 до 399 ₽, и лендинг остался бы со старой цифрой. Источник
+#: правды один — app/services/tariffs.py, его же читает Т-Касса.
+from app.services.tariffs import TARIFF_CATALOG  # noqa: E402
+
+PRICE_RUB = int(TARIFF_CATALOG["lite"].unit_price)
 #: Срок бесплатного периода для мастера-одиночки СЛОВОМ: он задан в днях в
 #: app/api/v1/endpoints/payments.py (SOLO_TRIAL_DAYS) и там же выдаётся. Здесь
 #: только подпись, и она обязана совпадать с тем, что выдаёт код, — лендинг не
