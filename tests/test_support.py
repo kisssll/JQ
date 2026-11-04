@@ -159,6 +159,7 @@ async def test_custom_plan_request_rejects_bad_email_or_headcount(client):
     ):
         response = await client.post("/api/v1/business/custom-plan-request", json=data)
         assert response.status_code == 422
+        assert isinstance(response.json()["detail"], list), response.text
 
 
 async def test_alert_failure_does_not_lose_the_request(db_session, monkeypatch):

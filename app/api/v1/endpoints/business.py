@@ -1,10 +1,9 @@
 # app/api/v1/endpoints/business.py
 from datetime import date
-import re
 from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -87,7 +86,7 @@ router = APIRouter()
 
 class CustomPlanRequest(BaseModel):
     name: str = Field(default="", max_length=100)
-    email: str = Field(min_length=5, max_length=254)
+    email: EmailStr = Field(max_length=254)
     phone: str = Field(default="", max_length=32)
     comment: str = Field(default="", max_length=1000)
     employees: int = Field(ge=21, le=500)
@@ -101,12 +100,7 @@ async def create_custom_plan_request(
     db: AsyncSession = Depends(get_db),
 ):
     """Запрос индивидуального тарифа из калькулятора; доступен без аккаунта."""
-    email = body.email.strip()
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Укажите корректный email для связи.",
-        )
+    email = str(body.email).strip()
 
     name = " ".join(body.name.split())
     phone = " ".join(body.phone.split())
