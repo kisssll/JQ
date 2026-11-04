@@ -47,7 +47,9 @@ VK_AUDIENCE_LABELS = {"client": "клиенты", "business": "бизнес"}
 
 
 def source_label(request: SupportRequest) -> str:
-    """«VK · клиенты» для обращений из ВК, иначе просто имя канала."""
+    """«VK · клиенты» для обращений из ВК; сайт отличаем от ботов."""
+    if request.channel == NotifyChannel.EMAIL and not request.chat_id:
+        return "Сайт · email"
     name = request.channel.value.upper()
     audience = VK_AUDIENCE_LABELS.get(request.vk_audience or "")
     if request.channel == NotifyChannel.VK and audience:
@@ -136,6 +138,8 @@ async def create_request(
     chat_id: Optional[int] = None, user: Optional[User] = None,
     photos: Optional[Sequence[str]] = None, rating: Optional[int] = None,
     notify: bool = True, vk_audience: Optional[str] = None,
+    alert_title: Optional[str] = None,
+    alert_body: Optional[str] = None,
 ) -> SupportRequest:
     """Сохранить обращение и позвать админов.
 
@@ -155,11 +159,15 @@ async def create_request(
     await db.refresh(request)
 
     if notify:
-        await _alert_admins(db, request, user)
+        await _alert_admins(db, request, user, alert_title, alert_body)
     return request
 
 
-async def _alert_admins(db, request: SupportRequest, user: Optional[User]) -> None:
+async def _alert_admins(
+    db, request: SupportRequest, user: Optional[User],
+    alert_title: Optional[str] = None,
+    alert_body: Optional[str] = None,
+) -> None:
     """Алерт не должен ронять приём обращения: человек своё уже отправил."""
     try:
         from app.services.notifications import notify_admins
@@ -169,9 +177,10 @@ async def _alert_admins(db, request: SupportRequest, user: Optional[User]) -> No
             who = f"{user.full_name or 'без имени'} ({user.phone})"
         preview = request.text[:300] + ("…" if len(request.text) > 300 else "")
         extra = f"\nФото: {len(request.photos)}" if request.photos else ""
+        body = alert_body or f"От: {who} · из {source_label(request)}{extra}\n\n{preview}"
         await notify_admins(
-            db, f"Обращение №{request.id}: {TOPIC_LABELS[request.topic]}",
-            f"От: {who} · из {source_label(request)}{extra}\n\n{preview}",
+            db, alert_title or f"Обращение №{request.id}: {TOPIC_LABELS[request.topic]}",
+            body,
         )
     except Exception:
         logger.exception("support: алерт админам не отправлен (обращение %s)", request.id)

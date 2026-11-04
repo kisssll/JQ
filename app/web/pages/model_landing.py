@@ -8,7 +8,6 @@ from app.web.components.icons import (
     ICON_USER_PLUS,
     ICON_SEARCH,
     ICON_CALENDAR_CHECK,
-    ICON_CIRCLE_CHECK,
     ICON_ARROW_RIGHT,
 )
 from app.web.components.tbank import render_tbank_partner_banner
@@ -22,7 +21,7 @@ def render_model_landing_page(user=None) -> str:
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Стань моделью | Руми</title>
-    <meta name="description" content="Оформи подписку и получай услуги от лучших мастеров по специальным ценам.">
+    <meta name="description" content="Стань моделью бесплатно: заполни анкету и получай приглашения от мастеров для отработки техник.">
     {get_base_styles()}
 </head>
 <body>
@@ -35,13 +34,13 @@ def render_model_landing_page(user=None) -> str:
                 <div class="model-hero-content">
                     <div class="model-hero-badge">
                         {ICON_CAMERA}
-                        <span>Подписка «Модель»</span>
+                        <span>Бесплатно для моделей</span>
                     </div>
                     <h1 class="model-hero-title">Стань моделью в <span class="highlight">руми</span></h1>
-                    <p class="model-hero-subtitle">Получай услуги от лучших мастеров по сниженным ценам. Пробуй новые процедуры, помогай мастерам совершенствовать навыки и создавай образ мечты.</p>
+                    <p class="model-hero-subtitle">Заполни анкету и получай приглашения от мастеров для отработки техник и создания портфолио. Участие в моделинге бесплатное.</p>
                     <div class="model-hero-buttons">
-                        <a href="#plans" class="model-hero-btn-primary">
-                            Смотреть тарифы
+                        <a href="/model/join" class="model-hero-btn-primary">
+                            Стать моделью бесплатно
                             {ICON_ARROW_RIGHT}
                         </a>
                         <a href="#how-it-works" class="model-hero-btn-secondary">Как это работает?</a>
@@ -56,7 +55,7 @@ def render_model_landing_page(user=None) -> str:
                 <div class="section-header-center">
                     <span class="badge">Как это работает</span>
                     <h2>4 простых шага</h2>
-                    <p>От регистрации до записи — всё просто и быстро</p>
+                    <p>От анкеты до приглашения — всё просто и бесплатно</p>
                 </div>
                 <div class="how-steps-grid">
                     <div class="how-step-item">
@@ -70,22 +69,22 @@ def render_model_landing_page(user=None) -> str:
                         <div class="step-icon">
                             {ICON_SPARKLES}
                         </div>
-                        <h3>Выбери подписку</h3>
-                        <p>Выбери тариф, который подходит именно тебе — от Старт до Премиум.</p>
+                        <h3>Заполни анкету</h3>
+                        <p>Расскажи о себе и отметь услуги, в которых хочешь участвовать как модель.</p>
                     </div>
                     <div class="how-step-item">
                         <div class="step-icon">
                             {ICON_SEARCH}
                         </div>
-                        <h3>Найди мастера</h3>
-                        <p>Ищи мастеров по рейтингу, отзывам и услугам. Фильтруй по расстоянию.</p>
+                        <h3>Дождись одобрения</h3>
+                        <p>После проверки анкеты мастера смогут приглашать тебя на отработку техник.</p>
                     </div>
                     <div class="how-step-item">
                         <div class="step-icon">
                             {ICON_CALENDAR_CHECK}
                         </div>
-                        <h3>Запишись на приём</h3>
-                        <p>Выбери удобное время и получи услугу со скидкой. Мастер уже ждёт!</p>
+                        <h3>Выбери приглашение</h3>
+                        <p>Общайся с мастером и выбери удобное время для процедуры.</p>
                     </div>
                 </div>
             </div>
@@ -94,87 +93,14 @@ def render_model_landing_page(user=None) -> str:
         <!-- Партнёрство с Т‑Банком -->
         {render_tbank_partner_banner()}
 
-        <!-- Тарифы -->
-        <section id="plans" class="section-py model-plans">
+        <section class="section-py model-plans">
             <div class="section-container">
                 <div class="section-header-center">
-                    <span class="badge">Тарифы</span>
-                    <h2>Выбери свой план</h2>
-                    <p>Три тарифа на любой бюджет — от пробного до безлимитного</p>
+                    <span class="badge">Без оплаты</span>
+                    <h2>Моделинг бесплатный</h2>
+                    <p>Заполнение анкеты и участие в поиске моделей ничего не стоят.</p>
                 </div>
-                <div class="plans-grid">
-                    <!-- Старт -->
-                    <div class="plan-card">
-                        <div class="plan-header">
-                            <h3 class="plan-name" style="text-align: center;">Старт</h3>
-                            <p class="plan-desc" style="text-align: center;">Для тех, кто хочет попробовать</p>
-                        </div>
-                        <div class="plan-price">
-                            <span class="amount">490 ₽</span>
-                            <span class="period">/мес</span>
-                        </div>
-                        <ul class="plan-features">
-                            <li>{ICON_CIRCLE_CHECK}<span>До 3 записей в месяц</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Скидка 30% на услуги мастеров</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Доступ к начинающим мастерам</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Базовое портфолио</span></li>
-                        </ul>
-                        <a href="/model/join" class="plan-btn">
-                            Оформить подписку
-                            {ICON_ARROW_RIGHT}
-                        </a>
-                    </div>
-
-                    <!-- Про (популярный) -->
-                    <div class="plan-card popular">
-                        <div class="popular-badge">Популярный</div>
-                        <div class="plan-header">
-                            <h3 class="plan-name" style="text-align: center;">Про</h3>
-                            <p class="plan-desc" style="text-align: center;">Самый популярный выбор</p>
-                        </div>
-                        <div class="plan-price">
-                            <span class="amount">990 ₽</span>
-                            <span class="period">/мес</span>
-                        </div>
-                        <ul class="plan-features">
-                            <li>{ICON_CIRCLE_CHECK}<span>До 8 записей в месяц</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Скидка 50% на все услуги</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Приоритетная запись</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Доступ к топ-мастерам</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Расширенное портфолио</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Эксклюзивные процедуры</span></li>
-                        </ul>
-                        <a href="/model/join" class="plan-btn">
-                            Оформить подписку
-                            {ICON_ARROW_RIGHT}
-                        </a>
-                    </div>
-
-                    <!-- Премиум -->
-                    <div class="plan-card">
-                        <div class="plan-header">
-                            <h3 class="plan-name" style="text-align: center;">Премиум</h3>
-                            <p class="plan-desc" style="text-align: center;">Максимум возможностей</p>
-                        </div>
-                        <div class="plan-price">
-                            <span class="amount">1 990 ₽</span>
-                            <span class="period">/мес</span>
-                        </div>
-                        <ul class="plan-features">
-                            <li>{ICON_CIRCLE_CHECK}<span>Безлимитные записи</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Скидка до 70% на услуги</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>VIP приоритет на запись</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Доступ ко всем мастерам</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Персональный менеджер</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Фотосессии для портфолио</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Ранний доступ к новым салонам</span></li>
-                        </ul>
-                        <a href="/model/join" class="plan-btn">
-                            Оформить подписку
-                            {ICON_ARROW_RIGHT}
-                        </a>
-                    </div>
-                </div>
+                <a href="/model/join" class="model-hero-btn-primary">Заполнить анкету {ICON_ARROW_RIGHT}</a>
             </div>
         </section>
 
@@ -188,19 +114,19 @@ def render_model_landing_page(user=None) -> str:
                 <div class="faq-list">
                     <div class="faq-item">
                         <button class="faq-question">Что значит «стать моделью»? <span class="faq-icon">+</span></button>
-                        <div class="faq-answer" style="display:none;">Стать моделью — значит получить доступ к специальным ценам на услуги мастеров, помогая им совершенствовать навыки. Вы получаете скидки, приоритетную запись и эксклюзивные предложения.</div>
+                        <div class="faq-answer" style="display:none;">Стать моделью — значит получать приглашения от мастеров для отработки техник и создания портфолио.</div>
                     </div>
                     <div class="faq-item">
                         <button class="faq-question">Кто может стать моделью? <span class="faq-icon">+</span></button>
-                        <div class="faq-answer" style="display:none;">Любой желающий, достигший 18 лет. Вам не нужен опыт — вы просто записываетесь на услуги по сниженной цене.</div>
+                        <div class="faq-answer" style="display:none;">Любой желающий, достигший 18 лет. Опыт не требуется — достаточно заполнить анкету.</div>
                     </div>
                     <div class="faq-item">
-                        <button class="faq-question">Могу ли я отменить подписку? <span class="faq-icon">+</span></button>
-                        <div class="faq-answer" style="display:none;">Да, вы можете отменить подписку в любой момент в настройках профиля. Оплата за следующий месяц списана не будет.</div>
+                        <button class="faq-question">Сколько стоит участие в моделинге? <span class="faq-icon">+</span></button>
+                        <div class="faq-answer" style="display:none;">Участие в моделинге бесплатное. Никакая подписка или оплата за анкету не требуется.</div>
                     </div>
                     <div class="faq-item">
-                        <button class="faq-question">Какие услуги доступны по подписке? <span class="faq-icon">+</span></button>
-                        <div class="faq-answer" style="display:none;">Все услуги, представленные на платформе: стрижки, окрашивание, маникюр, педикюр, массаж и многое другое. Конкретный список зависит от мастеров.</div>
+                        <button class="faq-question">Какие услуги доступны моделям? <span class="faq-icon">+</span></button>
+                        <div class="faq-answer" style="display:none;">Мастера публикуют приглашения на процедуры для отработки техник и создания портфолио. Условия каждой процедуры указываются в приглашении.</div>
                     </div>
                     <div class="faq-item">
                         <button class="faq-question">Как мастера выбирают моделей? <span class="faq-icon">+</span></button>

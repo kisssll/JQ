@@ -1,9 +1,10 @@
 # app/api/v1/endpoints/business.py
 from datetime import date
+import re
 from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -33,6 +34,7 @@ from app.services.consent_service import record_consents
 from app.services.subscription import has_access
 from app.services import panel_sections
 from app.core.config import settings
+from app.core.limiter import limiter
 
 
 async def ensure_owner_master(
@@ -81,6 +83,54 @@ def _validate_coords(latitude: Optional[float], longitude: Optional[float]) -> b
     )
 
 router = APIRouter()
+
+
+class CustomPlanRequest(BaseModel):
+    name: str = Field(default="", max_length=100)
+    email: str = Field(min_length=5, max_length=254)
+    phone: str = Field(default="", max_length=32)
+    comment: str = Field(default="", max_length=1000)
+    employees: int = Field(ge=21, le=500)
+
+
+@router.post("/custom-plan-request")
+@limiter.limit("5/hour")
+async def create_custom_plan_request(
+    request: Request,
+    body: CustomPlanRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Запрос индивидуального тарифа из калькулятора; доступен без аккаунта."""
+    email = body.email.strip()
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Укажите корректный email для связи.",
+        )
+
+    name = " ".join(body.name.split())
+    phone = " ".join(body.phone.split())
+    comment = body.comment.strip()
+    text = (
+        "Запрос индивидуального тарифа\n"
+        f"Сотрудников: {body.employees}\n"
+        f"Имя: {name or 'не указано'}\n"
+        f"Email для ответа: {email}\n"
+        f"Телефон для связи: {phone or 'не указан'}\n"
+        f"Комментарий: {comment or 'не указан'}"
+    )
+    from app.models.models import NotifyChannel, SupportTopic
+    from app.services.support import create_request
+
+    support_request = await create_request(
+        db,
+        topic=SupportTopic.QUESTION,
+        text=text,
+        channel=NotifyChannel.EMAIL,
+        alert_title="Запрос индивидуального тарифа",
+        alert_body=text,
+    )
+    return {"status": "received", "request_id": support_request.id}
 
 
 async def get_current_salon(

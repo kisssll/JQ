@@ -513,9 +513,7 @@ async def request_custom_tariff(
     return {"ok": True}
 
 
-# ── Тарифы «модели» (/model#plans) ──────────────────────────────────────────
-# Та же схема, что у бизнеса выше (см. init_business_payment) — но плательщик
-# всегда current_user, отдельный salon_id не нужен.
+# ── Legacy endpoints тарифа модели (подключение и оплата отключены) ─────────
 
 
 class InitModelPaymentRequest(BaseModel):
@@ -530,71 +528,11 @@ async def init_model_payment(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Выбор тарифа при оформлении анкеты модели (/model/join) — зеркально
-    init_business_payment, см. его докстринг."""
-    try:
-        amount = compute_amount(body.plan, catalog=MODEL_TARIFF_CATALOG)
-    except TariffError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-    from app.services.subscription import (
-        has_access as _has_access, start_trial as _start_trial,
-        trial_available as _trial_available,
+    """Отключённый legacy endpoint: моделям не требуется платный тариф."""
+    raise HTTPException(
+        status_code=410,
+        detail="Тарифы моделей отключены. Участие в моделинге бесплатное.",
     )
-
-    # Те же правила, что у салонов: живую подписку не затираем, бесплатный
-    # период — один раз на пользователя.
-    if _has_access(current_user):
-        raise HTTPException(
-            status_code=409, detail="Тариф уже подключён — сменить его можно в кабинете",
-        )
-    if not _trial_available(current_user):
-        raise HTTPException(
-            status_code=409,
-            detail="Бесплатный период уже использован — оплатите тариф в кабинете",
-        )
-
-    now = datetime.now(timezone.utc)
-    current_user.subscription_tier = SubscriptionTier(body.plan)
-    current_user.auto_renew = body.auto_renew
-    current_user.subscription_status = SalonSubscriptionStatus.TRIALING
-    trial_ends_at = _start_trial(current_user, TRIAL_DAYS, now)
-
-    if not body.auto_renew:
-        await db.commit()
-        return {"requires_payment": False, "redirect": "/model/dashboard?trial=1"}
-
-    _require_enabled()
-    payment = Payment(
-        user_id=current_user.id, plan=body.plan, kind=PaymentKind.VERIFICATION,
-        amount=float(VERIFICATION_AMOUNT), target_amount=float(amount),
-        invoice_id=uuid.uuid4().hex,
-    )
-    db.add(payment)
-    await db.flush()
-
-    notification_url, success_url, fail_url = _notify_urls("model")
-    payment.receipt_status = "pending" if (current_user.email or current_user.phone) else "none"
-    try:
-        client = TKassaClient()
-        result = await client.init(
-            order_id=payment.invoice_id, amount_rub=VERIFICATION_AMOUNT,
-            description=f"Верификация карты — тариф «{_plan_title(body.plan, MODEL_TARIFF_CATALOG)}» (Руми)",
-            notification_url=notification_url, success_url=success_url, fail_url=fail_url,
-            recurrent=True, customer_key=f"user:{current_user.id}",
-            client_ip=request.client.host if request.client else None,
-            receipt=verification_receipt(
-                amount_rub=VERIFICATION_AMOUNT,
-                email=current_user.email, phone=current_user.phone,
-            ),
-        )
-    except TKassaError as exc:
-        await db.rollback()
-        raise HTTPException(status_code=502, detail=f"Не удалось создать платёж в Т-Кассе: {exc}")
-
-    payment.provider_transaction_id = result.payment_id
-    await db.commit()
-    return {"requires_payment": True, "payment_url": result.payment_url}
 
 
 @router.post("/model/manual-charge")
@@ -603,45 +541,11 @@ async def manual_model_charge(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_enabled()
-    if not current_user.subscription_tier:
-        raise HTTPException(status_code=400, detail="Сначала выберите тариф")
-    plan = current_user.subscription_tier.value
-
-    try:
-        amount = compute_amount(plan, catalog=MODEL_TARIFF_CATALOG)
-    except TariffError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-    payment = Payment(
-        user_id=current_user.id, plan=plan, kind=PaymentKind.MANUAL,
-        amount=float(amount), invoice_id=uuid.uuid4().hex,
+    """Отключённый legacy endpoint: повторная оплата модели невозможна."""
+    raise HTTPException(
+        status_code=410,
+        detail="Оплата тарифа модели отключена. Участие в моделинге бесплатное.",
     )
-    db.add(payment)
-    await db.flush()
-
-    notification_url, success_url, fail_url = _notify_urls("model")
-    payment.receipt_status = "pending" if (current_user.email or current_user.phone) else "none"
-    try:
-        client = TKassaClient()
-        result = await client.init(
-            order_id=payment.invoice_id, amount_rub=amount,
-            description=f"Оплата тарифа «{_plan_title(plan, MODEL_TARIFF_CATALOG)}» — Руми",
-            notification_url=notification_url, success_url=success_url, fail_url=fail_url,
-            client_ip=request.client.host if request.client else None,
-            receipt=subscription_receipt(
-                total_rub=amount, monthly_rub=amount, months=1,
-                plan_title=_plan_title(plan, MODEL_TARIFF_CATALOG),
-                email=current_user.email, phone=current_user.phone,
-            ),
-        )
-    except TKassaError as exc:
-        await db.rollback()
-        raise HTTPException(status_code=502, detail=f"Не удалось создать платёж в Т-Кассе: {exc}")
-
-    payment.provider_transaction_id = result.payment_id
-    await db.commit()
-    return {"payment_url": result.payment_url}
 
 
 @router.post("/model/cancel-auto-renew")

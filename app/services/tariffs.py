@@ -21,19 +21,22 @@ class TariffError(ValueError):
 class Tariff:
     plan: str
     name: str
-    # per_employee: amount = unit_price * employee_count (лимит сотрудников
-    # тарифа задаёт диапазон). flat: фиксированная сумма в месяц.
-    billing: str  # "per_employee" | "flat"
+    # per_employee: amount = unit_price * employee_count; progressive: сумма
+    # для lite задаётся ступенчато; flat: фиксированная сумма в месяц.
+    billing: str  # "per_employee" | "progressive" | "flat"
     unit_price: Optional[Decimal] = None
     amount: Optional[Decimal] = None
     min_employees: Optional[int] = None
     max_employees: Optional[int] = None
+    second_employee_amount: Optional[Decimal] = None
+    additional_employee_price: Optional[Decimal] = None
 
 
 TARIFF_CATALOG: dict[str, Tariff] = {
     "lite": Tariff(
-        plan="lite", name="Лайт", billing="per_employee",
-        unit_price=Decimal("250"), min_employees=1, max_employees=5,
+        plan="lite", name="Лайт", billing="progressive",
+        unit_price=Decimal("399"), second_employee_amount=Decimal("599"),
+        additional_employee_price=Decimal("240"), min_employees=1, max_employees=5,
     ),
     "business": Tariff(
         plan="business", name="Бизнес", billing="flat", amount=Decimal("3500"),
@@ -43,9 +46,9 @@ TARIFF_CATALOG: dict[str, Tariff] = {
     ),
 }
 
-# Тарифы «модели» (/model#plans) — все flat, цены оттуда же (у моделей нет
-# понятия «сотрудников», поэтому compute_amount для них всегда без второго
-# аргумента).
+# Исторические тарифы моделей. Новое подключение и автопродление отключены;
+# каталог оставлен для обработки платежей, созданных до перехода на бесплатный
+# моделинг.
 MODEL_TARIFF_CATALOG: dict[str, Tariff] = {
     "start": Tariff(plan="start", name="Старт", billing="flat", amount=Decimal("490")),
     "pro": Tariff(plan="pro", name="Про", billing="flat", amount=Decimal("990")),
@@ -67,7 +70,6 @@ def compute_amount(
     if tariff.billing == "flat":
         return tariff.amount
 
-    # per_employee
     if employee_count is None:
         raise TariffError("Для тарифа «Лайт» нужно указать количество сотрудников")
     if not (tariff.min_employees <= employee_count <= tariff.max_employees):
@@ -75,6 +77,10 @@ def compute_amount(
             f"Тариф «{tariff.name}» — от {tariff.min_employees} до "
             f"{tariff.max_employees} сотрудников (указано {employee_count})"
         )
+    if tariff.billing == "progressive":
+        if employee_count == 1:
+            return tariff.unit_price
+        return tariff.second_employee_amount + tariff.additional_employee_price * (employee_count - 2)
     return tariff.unit_price * employee_count
 
 

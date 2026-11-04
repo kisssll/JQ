@@ -2,7 +2,7 @@
 """«Манифест» и «Тарифы и информация» по макету дизайнера (решение 0016, п. 2)."""
 import re
 
-from app.services.tariffs import MODEL_TARIFF_CATALOG, TARIFF_CATALOG
+from app.services.tariffs import TARIFF_CATALOG
 from app.web.components.header import PUBLIC_NAV
 from app.web.pages.legal import DOCUMENTS
 from app.web.pages.tariffs import _SITE_INSTRUCTIONS
@@ -50,16 +50,19 @@ async def test_manifest_has_no_stub_illustration_and_no_third_arch(client):
 async def test_tariff_prices_come_from_the_catalog(client):
     html = (await client.get("/tariffs")).text
     for name, t in TARIFF_CATALOG.items():
-        price = t.unit_price if t.billing == "per_employee" else t.amount
-        assert f'<span class="amount">{_money(price)} ₽</span>' in html, name
-    for name, t in MODEL_TARIFF_CATALOG.items():
-        assert f'<span class="amount">{_money(t.amount)} ₽</span>' in html, name
+        price = t.unit_price if t.billing in {"per_employee", "progressive"} else t.amount
+        prefix = "От " if t.billing == "progressive" else ""
+        assert f'<span class="amount">{prefix}{_money(price)} ₽</span>' in html, name
     amounts = re.findall(r'<span class="amount">([^<]+)</span>', html)
-    expected = {f"{_money(t.unit_price if t.billing == 'per_employee' else t.amount)} ₽"
-                for t in TARIFF_CATALOG.values()}
-    expected |= {f"{_money(t.amount)} ₽" for t in MODEL_TARIFF_CATALOG.values()}
+    expected = {
+        f"{'От ' if t.billing == 'progressive' else ''}"
+        f"{_money(t.unit_price if t.billing in {'per_employee', 'progressive'} else t.amount)} ₽"
+        for t in TARIFF_CATALOG.values()
+    }
     expected |= {"По запросу"}
     assert set(amounts) <= expected, set(amounts) - expected
+    assert "Для моделей" in html and "Участие в моделинге бесплатное." in html
+    assert not re.search(r"(?:490|990|1\s?990)\s*₽", html)
 
 
 async def test_three_tabs_render_one_pane_active_each(client):

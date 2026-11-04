@@ -1,4 +1,6 @@
 # app/web/pages/business_landing.py
+import json
+
 from app.web.components.header import render_header
 from app.web.components.footer import render_footer
 from app.web.components.styles import get_base_styles
@@ -20,10 +22,20 @@ from app.web.components.icons import (
     ICON_SPARKLES,
 )
 from app.web.components.tbank import render_tbank_partner_banner
+from app.services.tariffs import compute_amount, resolve_plan_for_employee_count
 
 
 def render_business_landing_page(user=None) -> str:
     """Объединённая страница «Для бизнеса» (лендинг)."""
+
+    calculator_pricing = {}
+    for count in range(1, 21):
+        plan = resolve_plan_for_employee_count(count)
+        calculator_pricing[str(count)] = {
+            "plan": plan,
+            "amount": int(compute_amount(plan, count)),
+        }
+    calculator_pricing_json = json.dumps(calculator_pricing)
 
     html = f"""<!DOCTYPE html>
 <html lang="ru">
@@ -80,6 +92,78 @@ def render_business_landing_page(user=None) -> str:
                     </div>
                 </div>
                 -->
+            </div>
+        </section>
+
+        <!-- Калькулятор стоимости -->
+        <section id="business-price-calculator" class="section-py bl-calculator" aria-labelledby="bl-calculator-title">
+            <div class="section-container">
+                <div class="bl-section-header">
+                    <span class="bl-badge">Стоимость</span>
+                    <h2 id="bl-calculator-title">Сколько стоит руми для вас?</h2>
+                    <p>Выберите формат работы и размер команды — покажем стоимость в месяц.</p>
+                </div>
+                <div class="bl-calculator-card" data-price-calculator data-pricing='{calculator_pricing_json}'>
+                    <div class="bl-calculator-controls">
+                        <fieldset class="bl-calc-fieldset">
+                            <legend>Кто вы?</legend>
+                            <div class="bl-calc-choices">
+                                <label class="bl-calc-choice">
+                                    <input type="radio" name="bl-calc-role" value="master" checked>
+                                    <span>Я частный мастер</span>
+                                </label>
+                                <label class="bl-calc-choice">
+                                    <input type="radio" name="bl-calc-role" value="salon">
+                                    <span>У меня салон</span>
+                                </label>
+                            </div>
+                        </fieldset>
+                        <div class="bl-calc-count" data-count-wrap hidden>
+                            <label for="bl-calc-count">Сколько мастеров в салоне?</label>
+                            <div class="bl-calc-stepper">
+                                <button type="button" data-count-step="-1" aria-label="Уменьшить число мастеров">−</button>
+                                <input id="bl-calc-count" type="number" min="2" max="500" value="2" inputmode="numeric">
+                                <button type="button" data-count-step="1" aria-label="Увеличить число мастеров">+</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bl-calculator-result" aria-live="polite">
+                        <span class="bl-calc-result-label" data-result-label>Ваша стоимость</span>
+                        <strong class="bl-calc-price" data-price>399 ₽</strong>
+                        <span class="bl-calc-period" data-period>/мес</span>
+                        <p class="bl-calc-detail" data-detail>Тариф для частного мастера.</p>
+                        <button class="bl-calc-cta" type="button" data-checkout-link data-plan="lite">
+                            Подключить
+                            {ICON_ARROW_RIGHT}
+                        </button>
+                        <form class="bl-calc-contact" data-contact-form hidden>
+                            <label for="bl-calc-name">Ваше имя</label>
+                            <input id="bl-calc-name" name="name" type="text" maxlength="100" autocomplete="name">
+                            <label for="bl-calc-email">Email для связи</label>
+                            <input id="bl-calc-email" name="email" type="email" maxlength="254"
+                                   autocomplete="email" required>
+                            <label for="bl-calc-phone">Телефон (необязательно)</label>
+                            <input id="bl-calc-phone" name="phone" type="tel" maxlength="32"
+                                   autocomplete="tel" inputmode="tel">
+                            <label for="bl-calc-comment">Комментарий (необязательно)</label>
+                            <textarea id="bl-calc-comment" name="comment" rows="4" maxlength="1000"></textarea>
+                            <span class="bl-calc-comment-count" data-comment-count aria-live="polite">0 / 1000</span>
+                            <p class="bl-calc-contact-help">
+                                Или напишите нам в
+                                <a href="https://vk.me/rummmiii?ref=support" target="_blank" rel="noopener noreferrer">VK</a>
+                                или на <a href="mailto:hello@rrumi.ru">hello@rrumi.ru</a>.
+                            </p>
+                            <p class="bl-calc-contact-error" data-contact-error role="alert" hidden></p>
+                            <button class="bl-calc-cta" type="submit" data-contact-submit>Отправить запрос</button>
+                        </form>
+                        <div class="bl-calc-success" data-contact-success hidden aria-live="polite">
+                            <strong>Запрос отправлен в поддержку.</strong>
+                            <span>Мы свяжемся с вами по указанному email. Также можно написать нам в
+                                <a href="https://vk.me/rummmiii?ref=support" target="_blank" rel="noopener noreferrer">VK</a>
+                                или на <a href="mailto:hello@rrumi.ru">hello@rrumi.ru</a>.</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -317,7 +401,7 @@ def render_business_landing_page(user=None) -> str:
                     </div>
                     <div class="bl-comparison-row">
                         <span>Стоимость входа</span>
-                        <span class="bl-comparison-rumi">{ICON_CIRCLE_CHECK} От 250 ₽ за сотрудника</span>
+                        <span class="bl-comparison-rumi">{ICON_CIRCLE_CHECK} От 399 ₽/мес за частного мастера</span>
                         <span class="bl-comparison-other">Выше, пакеты</span>
                     </div>
                     <!--
@@ -375,84 +459,6 @@ def render_business_landing_page(user=None) -> str:
         <!-- Партнёрство с Т‑Банком -->
         {render_tbank_partner_banner()}
 
-        <!-- Тарифы -->
-        <section id="pricing" class="section-py bl-pricing">
-            <div class="section-container">
-                <div class="bl-section-header">
-                    <span class="bl-badge">Тарифы</span>
-                    <h2>Простые и прозрачные цены</h2>
-                    <p>Выберите тариф под размер вашего салона. Более 20 сотрудников? Свяжитесь с нами для индивидуального предложения.</p>
-                </div>
-                <div class="bl-pricing-grid">
-                    <!-- Лайт -->
-                    <div class="bl-pricing-card">
-                        <div class="bl-plan-name" style="text-align: center;">Лайт</div>
-                        <div class="bl-plan-sub" style="text-align: center;">До 5 сотрудников</div>
-                        <div class="bl-plan-price">
-                            <span class="bl-price-amount">250 ₽</span>
-                            <span class="bl-price-period">за сотрудника/мес</span>
-                        </div>
-                        <ul class="bl-plan-features">
-                            <li>{ICON_CIRCLE_CHECK}<span>Оплата только за сотрудников</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Управление расписанием</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Онлайн-запись клиентов</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Базовая аналитика</span></li>
-                        </ul>
-                        <a href="/business/checkout?plan=lite" class="bl-plan-btn">
-                            Подключить
-                            {ICON_ARROW_RIGHT}
-                        </a>
-                    </div>
-
-                    <!-- Бизнес (популярный) -->
-                    <div class="bl-pricing-card bl-popular">
-                        <div class="bl-popular-badge">Популярный</div>
-                        <div class="bl-plan-name" style="text-align: center;">Бизнес</div>
-                        <div class="bl-plan-sub" style="text-align: center;">От 5 до 10 сотрудников</div>
-                        <div class="bl-plan-price">
-                            <span class="bl-price-amount">3 500 ₽</span>
-                            <span class="bl-price-period">/мес</span>
-                        </div>
-                        <ul class="bl-plan-features">
-                            <li>{ICON_CIRCLE_CHECK}<span>Всё из тарифа «Лайт»</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Расширенная аналитика</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Приоритет в выдаче</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Акции и программы лояльности</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Персональная поддержка</span></li>
-                        </ul>
-                        <a href="/business/checkout?plan=business" class="bl-plan-btn">
-                            Подключить
-                            {ICON_ARROW_RIGHT}
-                        </a>
-                    </div>
-
-                    <!-- Корпоративный -->
-                    <div class="bl-pricing-card">
-                        <div class="bl-plan-name" style="text-align: center;">Корпоративный</div>
-                        <div class="bl-plan-sub" style="text-align: center;">От 10 до 20 сотрудников</div>
-                        <div class="bl-plan-price">
-                            <span class="bl-price-amount">6 990 ₽</span>
-                            <span class="bl-price-period">/мес</span>
-                        </div>
-                        <ul class="bl-plan-features">
-                            <li>{ICON_CIRCLE_CHECK}<span>Всё из тарифа «Бизнес»</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Мульти-филиалы</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>VIP поддержка</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Индивидуальные интеграции</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Расширенная отчётность</span></li>
-                            <li>{ICON_CIRCLE_CHECK}<span>Выделенный менеджер</span></li>
-                        </ul>
-                        <a href="/business/checkout?plan=corporate" class="bl-plan-btn">
-                            Подключить
-                            {ICON_ARROW_RIGHT}
-                        </a>
-                    </div>
-                </div>
-                <div class="bl-pricing-footer">
-                    Более 20 сотрудников? <a href="/business/checkout?plan=custom" class="bl-text-link">Запросите индивидуальный тариф</a>
-                </div>
-            </div>
-        </section>
         {render_footer(user, "business")}
     </main>
 </body>

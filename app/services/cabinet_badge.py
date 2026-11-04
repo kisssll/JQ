@@ -1,12 +1,9 @@
 # app/services/cabinet_badge.py
-"""Бейдж подписки в левой карточке кабинета (решение 0015, п. 3).
+"""Бейдж тарифа салона в левой карточке кабинета (решение 0015, п. 3).
 
-Платный тариф в сервисе бывает у двоих: у салона (его видит владелец) и у
-модели. У клиента платного тарифа НЕТ — бейджа у него нет, и выдумывать его
-нельзя: подпись «Про» у человека, который ничего не покупал, — ложное
-обещание. По той же причине на просроченном тарифе пишем, что он кончился,
-а не название тарифа: доступа по нему уже нет (каталог и запись спрашивают
-access_until, см. app/services/subscription.py).
+Участие в моделинге бесплатное, поэтому отдельного тарифного бейджа модели
+больше нет. У клиента платного тарифа тоже нет. На просроченном тарифе салона
+пишем, что он кончился, а не название тарифа: доступа по нему уже нет.
 """
 from __future__ import annotations
 
@@ -18,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import Salon, SalonMember, SalonRole, SalonSubscriptionStatus
 from app.services.subscription import _aware, _now
-from app.services.tariffs import MODEL_TARIFF_CATALOG, TARIFF_CATALOG
+from app.services.tariffs import TARIFF_CATALOG
 
 # Дальше этого срока доступ — не оплаченный период: месячные тарифы так далеко
 # не продлеваются даже пачкой.
@@ -71,7 +68,7 @@ def salon_badge(salon, who: str = "") -> str:
 
 
 async def load_badges(db: AsyncSession, user) -> list[str]:
-    """Все бейджи человека: тариф салона, которым он владеет, и тариф модели."""
+    """Бейдж тарифа салона, которым человек владеет."""
     if user is None:
         return []
     badges: list[str] = []
@@ -96,11 +93,4 @@ async def load_badges(db: AsyncSession, user) -> list[str]:
         if text:
             badges.append(text)
 
-    if getattr(user, "is_model", False):
-        tier = getattr(user, "subscription_tier", None)
-        tariff = MODEL_TARIFF_CATALOG.get(tier.value if tier else "")
-        text = badge_text("Модель", user.subscription_status,
-                          tariff.name if tariff else "", user.access_until)
-        if text:
-            badges.append(text)
     return badges

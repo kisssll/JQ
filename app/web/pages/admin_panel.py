@@ -629,13 +629,18 @@ def _contest_tab(entries, phone_by_id):
 
 
 def _support_tab(requests, phone_by_id):
-    """Обращения из ботов. Ответ уходит человеку его же каналом."""
+    """Обращения из ботов и сайта."""
     from app.services.support import STATUS_LABELS, TOPIC_LABELS, source_label
 
     rows = ""
     for r in requests:
         who = phone_by_id.get(r.user_id) if r.user_id else None
-        who_html = _esc(who) if who else '<span class="text-muted">не авторизован</span>'
+        if who:
+            who_html = _esc(who)
+        elif r.channel.value == "email" and not r.chat_id:
+            who_html = '<span class="text-muted">форма сайта</span>'
+        else:
+            who_html = '<span class="text-muted">не авторизован</span>'
         photos = ""
         for url in (r.photos or []):
             photos += (f'<a href="{_esc(url)}" target="_blank" rel="noopener">'
@@ -645,6 +650,8 @@ def _support_tab(requests, phone_by_id):
         if r.answer:
             action = (f'<div class="adm-small text-muted">Ответ: '
                       f'{_esc(r.answer[:160])}</div>')
+        elif r.channel.value == "email" and not r.chat_id:
+            action = '<span class="adm-small text-muted">Свяжитесь по email из обращения.</span>'
         else:
             action = (
                 f'<form method="post" action="/api/v1/admin/support/{r.id}/answer" '
@@ -670,7 +677,7 @@ def _support_tab(requests, phone_by_id):
     <div class="tab-content" id="tab-support">
         <h2 class="adm-tab-title">Обращения ({len(requests)})</h2>
         <p class="adm-lead">
-            Пришли из ботов Telegram, MAX и ВКонтакте. Во ВКонтакте два сообщества: «клиенты» и
+            Пришли из ботов Telegram, MAX, ВКонтакте и формы сайта. Во ВКонтакте два сообщества: «клиенты» и
             «бизнес» — пометка рядом со статусом. Ответ уходит человеку тем же каналом
             (и в то же сообщество), которым он написал, и закрывает обращение.</p>
         <div class="adm-table-wrap"><table class="adm-table adm-table--support">

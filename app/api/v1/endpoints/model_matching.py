@@ -15,7 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import check_salon_permission, get_current_user, require_approved_model, require_is_model
 from app.db.session import get_db
 from app.models.models import (
-    Booking, BookingStatus, Master, ModelMatch, ModelMatchStatus, ModelModerationStatus, Service, User,
+    Booking, BookingStatus, Master, ModelMatch, ModelMatchStatus, ModelModerationStatus,
+    SalonSubscriptionStatus, Service, User,
 )
 from app.services.booking_service import BookingService
 from app.services.model_matching_service import (
@@ -26,6 +27,20 @@ from app.services.notifications import notify_booking_cancelled, notify_booking_
 from app.services.uploads import UploadError, delete_stored, save_image
 
 router = APIRouter()
+
+
+def _disable_legacy_model_billing(user: User) -> None:
+    user.subscription_tier = None
+    user.subscription_status = SalonSubscriptionStatus.NONE
+    user.auto_renew = False
+    user.trial_ends_at = None
+    user.subscription_expires_at = None
+    user.recurring_token = None
+    user.subscription_amount = None
+    user.card_last4 = None
+    user.access_until = None
+    user.trial_used_at = None
+    user.last_downgrade_at = None
 
 
 # ── Профиль модели ────────────────────────────────────────────────────────
@@ -59,6 +74,7 @@ async def upsert_model_profile(
     current_user.is_model = True
     current_user.model_bio = bio or None
     current_user.model_looking_for = looking_for or None
+    _disable_legacy_model_billing(current_user)
     if not was_model:
         current_user.model_moderation_status = ModelModerationStatus.PENDING
         current_user.model_rejection_reason = None

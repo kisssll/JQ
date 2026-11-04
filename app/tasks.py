@@ -778,9 +778,16 @@ async def finalize_tkassa_verification(
             "(сумма минимальна, сохранить RebillId важнее)", payment_id,
         )
 
-    model = Salon if kind == "business" else User
+    if kind != "business":
+        logger.info(
+            "finalize_tkassa_verification(%s): верификация модели возвращена; "
+            "автопродление модели отключено",
+            payment_id,
+        )
+        return "model_billing_disabled"
+
     async with AsyncSessionLocal() as db:
-        target = await db.get(model, target_id)
+        target = await db.get(Salon, target_id)
         if target is None:
             logger.error("finalize_tkassa_verification: %s %s не найден", kind, target_id)
             return "rejected"
@@ -793,15 +800,14 @@ async def finalize_tkassa_verification(
 
 
 async def _charge_due(db, client, kind: str, targets: list, notification_url: str, return_url: str, now) -> int:
-    """Общий проход по «должникам» одного вида (салоны ИЛИ модели) — см.
+    """Общий проход по должникам-салонам — см.
     charge_due_subscriptions. Возвращает число успешно продлённых.
 
     Для салонов (kind='business') тариф на КАЖДОЕ автосписание пересчитывается
     заново по фактическому числу активных мастеров (см.
     resolve_plan_for_employee_count в app/services/tariffs.py) — так тариф сам
     «дорастает»/«сжимается» вместе со штатом, без ручного переключения
-    владельцем. У моделей такого пересчёта нет — там тариф не зависит от
-    штата, берём как есть (subscription_amount, выставленный при выборе)."""
+    владельцем."""
     import uuid
     from datetime import datetime, timedelta, timezone
     from decimal import Decimal
@@ -811,6 +817,10 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
     from app.models.models import Master, Payment, PaymentKind, PaymentStatus, SalonSubscriptionStatus
     from app.services.tariffs import TariffError, compute_amount, resolve_plan_for_employee_count
     from app.services.tkassa import TKassaError
+
+    if kind != "business":
+        logger.error("charge_due_subscriptions: автосписания не-салонам отключены")
+        return 0
 
     processed = 0
     for target in targets:
@@ -923,7 +933,7 @@ async def _charge_due(db, client, kind: str, targets: list, notification_url: st
 
 async def charge_due_subscriptions(ctx: dict[str, Any]) -> str:
     """Плановые автосписания по автопродлению — раз в сутки (cron, см.
-    app/core/worker.py). Обслуживает и салоны (бизнес-тариф), и моделей —
+    app/core/worker.py).     Обслуживает салоны (бизнес-тариф) —
     у Т-Кассы нет своего планировщика подписок: плательщику с auto_renew=True
     и истёкшим subscription_expires_at заводим новый Init (свежий OrderId на
     сумму subscription_amount) и тут же Charge по сохранённому recurring_token
@@ -935,7 +945,7 @@ async def charge_due_subscriptions(ctx: dict[str, Any]) -> str:
 
     from app.core.config import settings
     from app.db.session import AsyncSessionLocal
-    from app.models.models import Salon, SalonSubscriptionStatus, User
+    from app.models.models import Salon, SalonSubscriptionStatus
     from app.services.tkassa import TKassaClient, TKassaError
 
     now = datetime.now(timezone.utc)
@@ -952,16 +962,7 @@ async def charge_due_subscriptions(ctx: dict[str, Any]) -> str:
                 Salon.subscription_expires_at <= now,
             )
         )).scalars().all()
-        due_models = (await db.execute(
-            select(User).where(
-                User.auto_renew == True,  # noqa: E712
-                User.recurring_token.isnot(None),
-                User.subscription_status.in_(due_statuses),
-                User.subscription_expires_at <= now,
-            )
-        )).scalars().all()
-
-        if not due_salons and not due_models:
+        if not due_salons:
             return "processed:0"
 
         try:
@@ -979,15 +980,9 @@ async def charge_due_subscriptions(ctx: dict[str, Any]) -> str:
                 db, client, "business", due_salons, notification_url,
                 f"{base}/business/dashboard?tab=billing", now,
             )
-        if due_models:
-            processed += await _charge_due(
-                db, client, "model", due_models, notification_url,
-                f"{base}/model/join", now,
-            )
-
     logger.info(
         "charge_due_subscriptions: успешно продлено %d из %d",
-        processed, len(due_salons) + len(due_models),
+        processed, len(due_salons),
     )
     return f"processed:{processed}"
 
@@ -1382,8 +1377,8 @@ async def subscription_reminders(ctx: dict[str, Any]) -> str:
     from sqlalchemy import select
 
     from app.db.session import AsyncSessionLocal
-    from app.models.models import Salon, SalonSubscriptionStatus, User
-    from app.services.notifications import notify_model_subscription, notify_subscription
+    from app.models.models import Salon, SalonSubscriptionStatus
+    from app.services.notifications import notify_subscription
     from app.services.subscription import _aware
     from app.services.tariffs import TARIFF_CATALOG
 
@@ -1394,7 +1389,7 @@ async def subscription_reminders(ctx: dict[str, Any]) -> str:
         value = _aware(value)
         return (value.date() - now.date()).days if value else None
 
-    async def _messages_for(target, is_salon: bool) -> list[str]:
+    async def _messages_for(target) -> list[str]:
         out: list[str] = []
         status = target.subscription_status
         trial_left = _days_until(getattr(target, "trial_ends_at", None))
@@ -1426,8 +1421,6 @@ async def subscription_reminders(ctx: dict[str, Any]) -> str:
             out.append(
                 "доступ по тарифу закончился — карточка скрыта из каталога, новая запись "
                 "закрыта. Уже созданные записи сохранены."
-                if is_salon else
-                "доступ по тарифу закончился — анкета скрыта из поиска."
             )
         return out
 
@@ -1436,16 +1429,8 @@ async def subscription_reminders(ctx: dict[str, Any]) -> str:
             select(Salon).where(Salon.subscription_status != SalonSubscriptionStatus.NONE)
         )).scalars().all()
         for salon in salons:
-            for text in await _messages_for(salon, True):
+            for text in await _messages_for(salon):
                 await notify_subscription(db, salon, text)
-                sent += 1
-
-        models = (await db.execute(
-            select(User).where(User.subscription_status != SalonSubscriptionStatus.NONE)
-        )).scalars().all()
-        for user in models:
-            for text in await _messages_for(user, False):
-                await notify_model_subscription(db, user, text)
                 sent += 1
 
     logger.info("subscription_reminders: отправлено %d напоминаний", sent)

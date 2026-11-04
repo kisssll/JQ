@@ -8,6 +8,7 @@ from app.web.components.icons import (
     ICON_CIRCLE_CHECK,
 )
 from app.core.config import settings
+from app.services.tariffs import compute_amount
 import json
 from app.web.pages.legal import LEGAL_VERSION
 
@@ -15,11 +16,11 @@ TARIFFS = {
     "lite": {
         "id": "lite",
         "name": "Лайт",
-        "description": "До 5 сотрудников",
-        "price": "250 ₽",
-        "period": "за сотрудника/мес",
+        "description": "1–5 сотрудников",
+        "price": "От 399 ₽",
+        "period": "/мес, зависит от числа мастеров",
         "features": [
-            "Оплата только за сотрудников",
+            "Цена зависит от размера команды",
             "Управление расписанием",
             "Онлайн-запись клиентов",
             "Базовая аналитика"
@@ -28,7 +29,7 @@ TARIFFS = {
     "business": {
         "id": "business",
         "name": "Бизнес",
-        "description": "5–10 сотрудников",
+        "description": "6–10 сотрудников",
         "price": "3 500 ₽",
         "period": "/мес",
         "features": [
@@ -41,7 +42,7 @@ TARIFFS = {
     "corporate": {
         "id": "corporate",
         "name": "Корпоративный",
-        "description": "10–20 сотрудников",
+        "description": "11–20 сотрудников",
         "price": "6 990 ₽",
         "period": "/мес",
         "features": [
@@ -117,6 +118,14 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
     phone_value = e(getattr(user, "phone", "") or "+7") if m else "+7"
 
     tariffs_json = json.dumps(TARIFFS, ensure_ascii=False)
+    lite_prices_json = json.dumps({
+        str(count): int(compute_amount("lite", count))
+        for count in range(1, 6)
+    })
+    lite_prices_json = json.dumps({
+        str(count): int(compute_amount("lite", count))
+        for count in range(1, 6)
+    })
     
     features_html = ''.join(f'<li>{ICON_CIRCLE_CHECK}<span>{f}</span></li>' for f in active["features"])
 
@@ -178,8 +187,8 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
                                 {panel_mode_field}
                                 <div id="employee-count-wrap" style="display:none;">
                                     <label class="form-label">Количество сотрудников *</label>
-                                    <input type="number" id="cx-employees" min="1" max="5" placeholder="От 1 до 5" class="form-input">
-                                    <p class="form-hint">Тариф «Лайт» — 250 ₽ за сотрудника/мес, это и есть ваша итоговая сумма.</p>
+                                    <input type="number" id="cx-employees" min="1" max="5" value="2" placeholder="От 1 до 5" class="form-input">
+                                    <p class="form-hint" id="lite-price-hint">Стоимость зависит от количества сотрудников.</p>
                                 </div>
                                 <!-- Ссылки вели на 404, пока страниц документов не
                                      существовало. Плюс согласие на ПДн отделено от
@@ -236,6 +245,7 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
     <script>
         // Данные тарифов из Python
         const tariffs = {tariffs_json};
+        const litePrices = {lite_prices_json};
         const forMaster = {'true' if m else 'false'};
         const paymentsEnabled = {'true' if settings.TKASSA_ENABLED else 'false'};
 
@@ -257,9 +267,28 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
                   || new URLSearchParams(window.location.search).get('plan') || 'business';
         }}
 
+        function updateLiteEstimate() {{
+            if (currentPlan() !== 'lite') return;
+            const count = forMaster || panelModeIsSolo()
+                ? 1
+                : parseInt(document.getElementById('cx-employees').value, 10);
+            const price = litePrices[count];
+            if (!price) return;
+            const formattedPrice = `${{price.toLocaleString('ru-RU')}} ₽`;
+            const priceEl = document.getElementById('tariff-price');
+            priceEl.querySelector('.price-amount').textContent = formattedPrice;
+            priceEl.querySelector('.price-period').textContent = '/мес';
+            document.getElementById('lite-price-hint').textContent =
+                `Итого: ${{formattedPrice}} в месяц для команды из ${{count}} мастеров.`;
+        }}
+
         document.querySelectorAll('input[name="panel_mode"]').forEach(function (input) {{
-            input.addEventListener('change', function () {{ switchTariff(currentPlan()); }});
+            input.addEventListener('change', function () {{
+                switchTariff(currentPlan());
+                updateLiteEstimate();
+            }});
         }});
+        document.getElementById('cx-employees').addEventListener('input', updateLiteEstimate);
 
         function switchTariff(planId) {{
             document.querySelectorAll('.tariff-btn').forEach(btn => {{
@@ -282,6 +311,7 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
 
             document.getElementById('employee-count-wrap').style.display =
                 (planId === 'lite' && !forMaster && !panelModeIsSolo()) ? '' : 'none';
+            updateLiteEstimate();
             // Переключатель автопродления убран (d3538e4 — всегда ручная оплата),
             // а обращение к нему осталось и роняло функцию на каждом клике.
             const renewalWrap = document.getElementById('renewal-mode-wrap');
@@ -301,6 +331,14 @@ def render_business_checkout_page(plan: str = "business", user=None, for_master:
 
         document.addEventListener('DOMContentLoaded', function() {{
             const params = new URLSearchParams(window.location.search);
+            const requestedCount = parseInt(params.get('employees'), 10);
+            if (!forMaster && requestedCount >= 2 && requestedCount <= 5) {{
+                document.getElementById('cx-employees').value = requestedCount;
+            }}
+            if (!forMaster && params.get('panel_mode') === 'team') {{
+                const teamMode = document.querySelector('input[name="panel_mode"][value="team"]');
+                if (teamMode) teamMode.checked = true;
+            }}
             const plan = params.get('plan');
             if (plan && tariffs[plan]) {{
                 switchTariff(plan);

@@ -116,6 +116,51 @@ async def test_admins_are_alerted(db_session, monkeypatch):
     assert alerts and "Обращение" in alerts[0]
 
 
+async def test_custom_plan_request_is_saved_in_support_and_alerts_admins(
+    client, db_session, monkeypatch,
+):
+    alerts = []
+
+    async def _capture(db, subject, body=""):
+        alerts.append((subject, body))
+
+    monkeypatch.setattr("app.services.notifications.notify_admins", _capture)
+    response = await client.post(
+        "/api/v1/business/custom-plan-request",
+        json={
+            "name": "Анна", "email": "anna@example.com", "phone": "+7 999 123-45-67",
+            "comment": "Нужны условия для сети салонов.", "employees": 22,
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "received"
+    assert alerts and alerts[0][0] == "Запрос индивидуального тарифа"
+    assert "anna@example.com" in alerts[0][1] and "22" in alerts[0][1]
+    assert "+7 999 123-45-67" in alerts[0][1]
+    assert "Нужны условия для сети салонов." in alerts[0][1]
+
+    async with db_session() as db:
+        req = (await db.execute(
+            select(SupportRequest).where(SupportRequest.id == response.json()["request_id"])
+        )).scalar_one()
+        assert req.topic == SupportTopic.QUESTION
+        assert req.channel == NotifyChannel.EMAIL
+        assert "Сотрудников: 22" in req.text
+        assert "Email для ответа: anna@example.com" in req.text
+        assert "Телефон для связи: +7 999 123-45-67" in req.text
+        assert "Комментарий: Нужны условия для сети салонов." in req.text
+
+
+async def test_custom_plan_request_rejects_bad_email_or_headcount(client):
+    for data in (
+        {"name": "Анна", "email": "not-an-email", "employees": 22},
+        {"name": "Анна", "email": "anna@example.com", "employees": 20},
+        {"name": "Анна", "email": "anna@example.com", "employees": 22, "comment": "x" * 1001},
+    ):
+        response = await client.post("/api/v1/business/custom-plan-request", json=data)
+        assert response.status_code == 422
+
+
 async def test_alert_failure_does_not_lose_the_request(db_session, monkeypatch):
     """Человек своё уже отправил — падение алерта не должно это отменять."""
     async def _boom(db, subject, body=""):

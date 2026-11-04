@@ -187,8 +187,8 @@ def test_short_hire_costs_only_days_worked():
 
     register_headcount(s, 4, at=t0)
     register_headcount(s, 3, at=t0 + timedelta(days=3))
-    # Лайт: 4-й мастер = +250 ₽/мес → 3 дня ≈ 25 ₽
-    assert abs(s.pending_proration - 25.0) < 0.5
+    # Лайт: 4-й мастер = +240 ₽/мес → 3 дня ≈ 24 ₽
+    assert abs(s.pending_proration - 24.0) < 0.5
 
     # дальше штат вернулся к оплаченному — доплата больше не растёт
     register_headcount(s, 3, at=t0 + timedelta(days=20))
@@ -203,7 +203,7 @@ def test_settle_adds_the_final_stretch():
     s = _salon(billed_masters=3, prorated_masters=3, proration_from=t0)
     register_headcount(s, 4, at=t0)
     total = settle_proration(s, at=t0 + timedelta(days=6))
-    assert abs(total - 50.0) < 0.5      # 6 дней × (250/30)
+    assert abs(total - 48.0) < 0.5      # 6 дней × (240/30)
 
 
 async def test_overlapping_bookings_rejected_by_db(db_session):

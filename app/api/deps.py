@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.session import get_db
-from app.models.models import User, UserRole, SalonMember, Master, ModelModerationStatus, SalonSubscriptionStatus
+from app.models.models import User, UserRole, SalonMember, Master, ModelModerationStatus
 from app.core.config import settings
 from app.core.security import decode_access_token
 
@@ -108,19 +108,11 @@ async def require_is_master(
 async def require_approved_model(
     current_user: User = Depends(require_is_model)
 ) -> User:
-    """Лента/свайпы модели — только после одобрения анкеты (см.
-    ModelModerationStatus) И выбранного тарифа (subscription_status, см.
-    /model#plans): модерация одна открыть доступ не даёт, как и оплата без
-    модерации — оба условия обязательны, зеркально Salon.published_at."""
+    """Лента и свайпы доступны модели после одобрения бесплатной анкеты."""
     if current_user.model_moderation_status != ModelModerationStatus.APPROVED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Анкета ещё не прошла модерацию",
-        )
-    if current_user.subscription_status == SalonSubscriptionStatus.NONE:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Сначала выберите тариф — без него анкета не активна",
         )
     return current_user
 

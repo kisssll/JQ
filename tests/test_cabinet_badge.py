@@ -1,8 +1,7 @@
-"""Бейдж подписки в кабинете (решение 0015, п. 3).
+"""Бейдж тарифов в кабинете (решение 0015, п. 3).
 
-У владельца — тариф его салона, у модели — её тариф, у клиента — ничего:
-клиентского платного тарифа нет, и подпись «Про» у человека, который ничего
-не покупал, была бы ложным обещанием. Кончился тариф — так и пишем.
+У владельца показывается тариф его салона. У модели и клиента платных
+тарифов нет.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -96,23 +95,22 @@ async def test_owner_sees_the_salon_tariff(client, db_session, until, shown, hid
         assert hidden not in r.text, path
 
 
-async def test_model_sees_own_tariff_and_not_pro_when_expired(client, db_session):
+async def test_model_has_no_paid_tariff_badge(client, db_session):
     await _user(db_session, "+79997770004", role=UserRole.CLIENT, is_model=True,
                 subscription_tier=SubscriptionTier.PRO, subscription_status=St.ACTIVE,
                 access_until=datetime.now(timezone.utc) - timedelta(hours=1))
     await _login(client, "+79997770004")
     r = await client.get("/profile")
-    assert "Модель · тариф закончился" in r.text
-    assert "· Про" not in r.text
+    assert "Модель ·" not in r.text
 
 
-async def test_model_with_a_live_tariff_sees_its_name(client, db_session):
+async def test_model_has_no_tariff_badge_even_if_legacy_subscription_data_exists(client, db_session):
     await _user(db_session, "+79997770005", role=UserRole.CLIENT, is_model=True,
                 subscription_tier=SubscriptionTier.PRO, subscription_status=St.ACTIVE,
                 access_until=datetime.now(timezone.utc) + timedelta(days=5))
     await _login(client, "+79997770005")
     r = await client.get("/favorites")
-    assert "Модель · Про до" in r.text
+    assert "Модель · Про" not in r.text
 
 
 async def test_panel_header_shows_the_real_tariff(client, db_session):

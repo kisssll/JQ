@@ -41,6 +41,7 @@ import './business/tabs/analytics.js';
 import './business/tabs/my-salon.js';
 import './model/dashboard.js';
 import './business/dashboard.js';
+import './business/price-calculator.js';
 import './business/panel-tour.js';
 import './business/panel-edit.js';
 import './business/evening-deal.js';

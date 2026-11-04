@@ -1,6 +1,6 @@
 # app/web/pages/tariffs.py
-"""«Тарифы и информация» — единая страница: все платные тарифы платформы
-(салоны + модели), документы и краткие инструкции по сайту. Три под-вкладки
+"""«Тарифы и информация» — единая страница: тарифы салонов, документы и
+краткие инструкции по сайту. Три под-вкладки
 переключаются на клиенте без перезагрузки (см. static/src/js/tariffs.js).
 
 Витринные тексты и цены тарифов — из app.web.tariff_presentation, который
@@ -24,7 +24,7 @@ from app.web.components.icons import (
 from app.web.components.guide_diagrams import BOOKING_FLOW, SALON_FLOW
 from app.web.components.tbank import render_tbank_partner_strip
 from app.web.pages.legal import DOCUMENTS, LEGAL_VERSION_HUMAN
-from app.web.tariff_presentation import all_model_plans, all_plans
+from app.web.tariff_presentation import all_plans
 
 _SITE_INSTRUCTIONS = [
     (
@@ -44,7 +44,7 @@ _SITE_INSTRUCTIONS = [
     (
         "Как стать моделью",
         'В боковом меню нажмите «<a class="text-link" href="/model">Стать моделью</a>», заполните анкету (фото, город, '
-        'о себе) и выберите тариф — первые 14 дней бесплатно. После этого вы сможете сами смотреть '
+        'о себе) и отправьте её на бесплатную модерацию. После одобрения вы сможете сами смотреть '
         'и откликаться на предложения мастеров, которые ищут модели для отработки, а также '
         'принимать или отклонять приглашения, которые пришлют вам салоны.',
     ),
@@ -128,16 +128,13 @@ TABS = {"plans": "Тарифы", "documents": "Документы", "guides": "�
 def render_tariffs_page(user=None, tab: str = "plans") -> str:
     business_cards = "".join(
         _plan_card_html(
-            t, "/business/register-salon",
-            "Обсудить условия" if t["plan"] == "custom" else "Подключить салон",
+            t,
+            "/business?employees=21#business-price-calculator"
+            if t["plan"] == "custom" else "/business/register-salon",
+            "Запросить условия" if t["plan"] == "custom" else "Подключить салон",
         )
         for t in all_plans()
     )
-    model_cards = "".join(
-        _plan_card_html(t, "/model/join", "Оформить подписку")
-        for t in all_model_plans()
-    )
-
     active = tab if tab in TABS else "plans"
 
     def tab_link(key: str) -> str:
@@ -158,8 +155,8 @@ def render_tariffs_page(user=None, tab: str = "plans") -> str:
                     <div class="plans-grid cols-4">{business_cards}</div>
 
                     <h2 class="tariffs-group-title">Для моделей</h2>
-                    <p class="tariffs-group-hint">Подписка модели даёт доступ к записям на отработку техник со скидкой.</p>
-                    <div class="plans-grid cols-3">{model_cards}</div>"""
+                    <p class="tariffs-group-hint">Участие в моделинге бесплатное. Стоимость процедуры зависит от договорённости с мастером. Заполните анкету и дождитесь её одобрения.</p>
+                    <a class="plan-btn" href="/model/join">Стать моделью {ICON_ARROW_RIGHT}</a>"""
     guides_body = f"""
                     {BOOKING_FLOW}
                     {SALON_FLOW}

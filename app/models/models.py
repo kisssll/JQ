@@ -320,9 +320,9 @@ class User(Base):
     panel_tour_done_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     panel_tour_step: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
 
-    # --- Подписка «модели» (Т-Касса) — тариф из SubscriptionTier (start/pro/premium,
-    # см. /model#plans), те же поля и та же механика (триал/автопродление/ручная
-    # оплата), что у Salon.subscription_status и соседей — см. их комментарии.
+    # --- Legacy-поля подписки модели. Моделинг теперь бесплатный: поля
+    # сохранены для совместимости с историческими платежами, но новые тарифы
+    # и автосписания для моделей отключены.
     subscription_tier: Mapped[Optional[SubscriptionTier]] = mapped_column(Enum(SubscriptionTier), nullable=True)
     subscription_status: Mapped[SalonSubscriptionStatus] = mapped_column(
         Enum(SalonSubscriptionStatus, name="usersubscriptionstatus"),
@@ -334,9 +334,7 @@ class User(Base):
     recurring_token: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     subscription_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     card_last4: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)
-    # Доступ и правила смены тарифа «модели» — зеркало Salon (см. подробные
-    # комментарии там). Штата у модели нет, поэтому планки/доплаты за рост
-    # штата здесь не нужны: тарифы моделей фиксированные.
+    # Legacy-поля доступа; одобренная анкета модели больше не зависит от них.
     access_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     trial_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     last_downgrade_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -62,18 +62,18 @@ def test_start_trial_marks_used_and_opens_access():
 # ── Доплата за рост штата ────────────────────────────────────────────────────
 
 def test_proration_within_lite_is_delta_based():
-    # было 4 мастера (1000 ₽), стало 5 (1250 ₽): доплата = 250/30 × дни
+    # было 4 мастера (1 079 ₽), стало 5 (1 319 ₽): доплата = 240/30 × дни
     # с 16 мая остаётся 16 дней (включая текущий), делитель всегда 30
     at = datetime(2026, 5, 16, tzinfo=timezone.utc)
     got = proration_for_growth("lite", 4, "lite", 5, at)
-    assert got == (Decimal("250") / 30 * 16).quantize(Decimal("0.01")) == Decimal("133.33")
+    assert got == (Decimal("240") / 30 * 16).quantize(Decimal("0.01")) == Decimal("128.00")
 
 
 def test_proration_between_tariffs_uses_difference_not_full_price():
-    # Лайт(5)=1250 → Бизнес=3500: берём разницу 2250, а НЕ полные 3500
+    # Лайт(5)=1319 → Бизнес=3500: берём разницу 2181, а НЕ полные 3500
     at = datetime(2026, 5, 16, tzinfo=timezone.utc)
     got = proration_for_growth("lite", 5, "business", 6, at)
-    assert got == (Decimal("2250") / 30 * 16).quantize(Decimal("0.01")) == Decimal("1200.00")
+    assert got == (Decimal("2181") / 30 * 16).quantize(Decimal("0.01")) == Decimal("1163.20")
     # для контраста: по полной цене нового тарифа вышло бы заметно больше
     assert got < (Decimal("3500") / 30 * 16)
 
