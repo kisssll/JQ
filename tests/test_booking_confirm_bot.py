@@ -159,7 +159,7 @@ async def test_reminder_text_is_the_one_chosen(client, db_session, monkeypatch):
     assert await tasks.send_booking_reminder({"job_try": 1}, booked["id"], 0) == "sent"
     text, markup = sent[0]
     assert text == (
-        f"Сегодня в {start:%H:%M} ждём вас на «Стрижка» в «ПереносZZ34»\n"
+        f"Сегодня в {start:%H:%M} ждём вас: «Стрижка», «ПереносZZ34»\n"
         "Томск, ул. 1\n\n"
         "Подтвердите пожалуйста — мастеру так спокойнее."
     )
