@@ -395,10 +395,15 @@ async def test_panel_marks_rescheduled_booking(client, db_session):
         assert r.status_code == 200, r.text[:300]
         return r.text
 
-    assert "Перенесена" not in await panel("records")
-    assert "Перенесена" not in await panel("schedule")
+    chip = '<span class="r-status r-status--accent">Перенесена</span>'
+    row = "Перенесена:</span>"  # строка «когда и сколько раз» в раскрытой записи
+    for tab in ("records", "schedule"):
+        page = await panel(tab)
+        assert chip not in page and row not in page
 
     r = await _move(client, booked["id"], _at(ctx["today"] + timedelta(days=1), 15))
     assert r.status_code == 200, r.text
-    assert "Перенесена" in await panel("records")
-    assert "Перенесена" in await panel("schedule")
+    for tab in ("records", "schedule"):
+        page = await panel(tab)
+        assert chip in page, tab
+        assert row in page and "1 раз, последний — " in page, tab
