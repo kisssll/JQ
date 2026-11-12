@@ -40,15 +40,20 @@ async def _salon_bookable(db, master_id: int) -> bool:
     # принимает (уже созданные брони это не затрагивает).
     from app.services.subscription import has_access
     return has_access(SimpleNamespace(access_until=row[6]))
-from app.schemas.booking import BookingCreate, BookingResponse, BookingCancel
+from app.schemas.booking import (
+    BookingCancel, BookingCreate, BookingReschedule, BookingResponse, RescheduleQuoteResponse,
+)
 from app.api.deps import get_current_user, get_salon_membership
-from app.services.notifications import notify_booking_cancelled, notify_booking_created, send_guest_booking_email
+from app.services.notifications import (
+    notify_booking_cancelled, notify_booking_created, notify_booking_rescheduled, send_guest_booking_email,
+)
+from app.services import booking_service as booking_svc
 from app.services.booking_service import (
     BookingService, SlotTakenError, can_mark_completed_now, can_mark_no_show_now, commit_booking,
 )
 from app.services.loyalty_service import LoyaltyService, LoyaltyError
 from app.services.schedule_utils import (
-    get_effective_work_intervals, is_within_booking_window, MAX_BOOKING_DAYS_AHEAD, window_is_busy,
+    get_effective_work_intervals, is_within_booking_window, MAX_BOOKING_DAYS_AHEAD,
 )
 from app.utils.timezone import get_salon_time
 
@@ -168,6 +173,73 @@ async def cancel_booking(
     await notify_booking_cancelled(db, booking)
     return booking
 
+async def _own_booking(db: AsyncSession, booking_id: int, user: User) -> Booking:
+    """Запись этого клиента или 404. Чужая и несуществующая неразличимы:
+    иначе перебором id можно было бы узнать, какие записи есть в системе
+    (так же, как в bot_actions.cancel_booking)."""
+    booking = (await db.execute(
+        select(Booking).where(Booking.id == booking_id, Booking.client_id == user.id)
+    )).scalar_one_or_none()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    return booking
+
+
+@router.get("/{booking_id}/reschedule/slots")
+async def reschedule_slots(
+    booking_id: int,
+    date: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Свободные окна для переноса своей записи на выбранный день."""
+    booking = await _own_booking(db, booking_id, current_user)
+    try:
+        return await booking_svc.reschedule_slots(db, booking, date)
+    except booking_svc.RescheduleError as err:
+        raise HTTPException(status_code=err.status_code, detail=err.message)
+
+
+@router.get("/{booking_id}/reschedule/quote", response_model=RescheduleQuoteResponse)
+async def reschedule_quote(
+    booking_id: int,
+    start_time: datetime,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Что выйдет после переноса — цену человек видит до подтверждения."""
+    booking = await _own_booking(db, booking_id, current_user)
+    try:
+        quote = await booking_svc.quote_reschedule(db, booking, start_time)
+    except booking_svc.RescheduleError as err:
+        raise HTTPException(status_code=err.status_code, detail=err.message)
+    return RescheduleQuoteResponse(
+        start_time=quote.start_time, end_time=quote.end_time,
+        final_price=quote.final_price, old_price=quote.old_price,
+        price_changed=quote.price_changed,
+    )
+
+
+@router.post("/{booking_id}/reschedule", response_model=BookingResponse)
+async def reschedule_booking(
+    booking_id: int,
+    data: BookingReschedule,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Перенос своей записи на другое время (решение 0020): та же запись,
+    другое время. 409 — окно занято, 400 — прошедшее время или запись уже
+    не активна, 404 — чужая или несуществующая."""
+    booking = await _own_booking(db, booking_id, current_user)
+    try:
+        old_start = await booking_svc.reschedule_booking(db, booking, data.start_time)
+    except booking_svc.RescheduleError as err:
+        raise HTTPException(status_code=err.status_code, detail=err.message)
+    booking = await db.get(Booking, booking_id)
+    await notify_booking_rescheduled(db, booking, old_start)
+    return booking
+
+
 @router.get("/available/{master_id}")
 async def get_available_slots(
     master_id: int,
@@ -205,61 +277,9 @@ async def get_available_slots(
     if not intervals:
         return {"slots": [], "message": "Мастер не работает в этот день, день закрыт или график задан с ошибкой"}
 
-    # Перерыв той же дорогой, что у проверки записи: показ и проверка обязаны
-    # считать одно и то же, иначе человек видит окно и получает отказ.
-    gap = await BookingService._break_minutes(db, master_id)
-    #: Перерыв нужен МЕЖДУ клиентами, а не после последнего за день (решение
-    #: владельца 31.10.2026). Отсюда три разных числа, и путать их нельзя:
-    #:   step — шаг сетки, с перерывом: соседние показанные окна не налезают
-    #:          на отдых между ними;
-    #:   busy_span — сколько окно держит мастера при сравнении с ЧУЖИМИ
-    #:          записями: услуга плюс перерыв, иначе покажем окно встык к
-    #:          следующему клиенту и мастер останется без передышки;
-    #:   fit_span — сколько нужно до конца смены: только услуга. Раньше здесь
-    #:          требовался и перерыв, и запись в конец смены пряталась, хотя
-    #:          проверка (BookingService.is_slot_available) её принимает.
-    step = service.duration_minutes + gap
-    busy_span = service.duration_minutes + gap
-    fit_span = service.duration_minutes
-
-    # Занятые интервалы берём за весь день — они могут попадать в любой из
-    # рабочих окон мастера (при сплит-сменах их несколько).
-    day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    day_end = day_start + timedelta(days=1)
-    booked = await db.execute(
-        select(Booking).where(
-            Booking.master_id == master_id,
-            Booking.start_time >= day_start,
-            Booking.start_time < day_end,
-            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
-        ).order_by(Booking.start_time)
+    slots, gap, step = await BookingService.free_slots(
+        db, master_id, service, salon, target_date, intervals=intervals,
     )
-    busy = [
-        (b.start_time.replace(tzinfo=None), b.end_time.replace(tzinfo=None))
-        for b in booked.scalars().all()
-    ]
-
-    now = get_salon_time(salon.timezone)
-    now = now.replace(tzinfo=None)
-
-    slots = []
-    for work_start, work_end in intervals:
-        current = work_start
-        while current + timedelta(minutes=fit_span) <= work_end:
-            slot_end = current + timedelta(minutes=busy_span)
-
-            if current < now:
-                current += timedelta(minutes=step)
-                continue
-
-            # Раньше перерыв после чужой записи здесь не вычитался: окно сразу
-            # после записи «не по сетке» показывалось, а проверка его отбивала
-            # (решение 0017, п. 1). Конец окна — с собственным перерывом: так
-            # сетка считалась и раньше, менять это — отдельное решение.
-            if not window_is_busy(current, slot_end, busy, gap):
-                slots.append(current.strftime("%Y-%m-%dT%H:%M"))
-
-            current += timedelta(minutes=step)
 
     return {
         "date": date,

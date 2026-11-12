@@ -191,6 +191,9 @@ async def test_reminder_goes_through_client_community(client, db_session, two_co
         return True
 
     monkeypatch.setattr(tasks, "_send_via_vk", vk_send)
+    # Запись стенда — на завтра; здесь проверяется маршрут, а не момент
+    # (момент сверяет reminder_is_due — см. test_booking_reschedule).
+    monkeypatch.setattr(notifications, "reminder_is_due", lambda *a, **kw: True)
     booking_id, *_ = await _salon_with_booking(db_session)
     assert await tasks.send_booking_reminder({"job_try": 1}, booking_id) == "sent"
     assert sent == [(301, "client")]
@@ -378,6 +381,7 @@ async def test_missing_client_address_reminder_goes_by_email(client, db_session,
 
     monkeypatch.setattr(tasks, "_send_via_smtp", smtp)
     monkeypatch.setattr(tasks, "_send_via_vk", vk_send)
+    monkeypatch.setattr(notifications, "reminder_is_due", lambda *a, **kw: True)  # маршрут, не момент
     booking_id, _, client_id, _ = await _salon_with_booking(db_session, client_kw={
         "vk_business_peer_id": 302, "email": "c@example.com", "notify_channel": NotifyChannel.VK})
     assert await tasks.send_booking_reminder({"job_try": 1}, booking_id) == "sent"

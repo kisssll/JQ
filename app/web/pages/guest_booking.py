@@ -24,6 +24,7 @@ from app.web.components.styles import get_base_styles
 from app.web.components.icons import ICON_ARROW_LEFT, ICON_CHECK
 from app.services.public_words import word, words_for
 from app.web.components import ui
+from app.web.components.reschedule import reschedule_button, reschedule_sheet
 from app.web.pages.legal import LEGAL_VERSION
 
 
@@ -223,7 +224,7 @@ async def render_guest_booking_page(db, salon_id: int) -> str:
     return _shell(f"Запись в {e(salon.name)}", inner)
 
 
-async def render_guest_manage_page(db, token: str) -> str:
+async def render_guest_manage_page(db, token: str, notice: str = "") -> str:
     booking = (await db.execute(
         select(Booking).where(Booking.guest_manage_token == token)
     )).scalar_one_or_none()
@@ -252,6 +253,18 @@ async def render_guest_manage_page(db, token: str) -> str:
         "Отменить запись", kind="danger", element_id="gb-cancel",
         block=True, data={"token": token},
     ) if can_cancel else ""
+    # Перенос — те же правила, что у отмены: активную запись можно сдвинуть
+    # без окна и без лимита (решение 0020). Ссылка-токен — и есть доступ.
+    reschedule_btn = reschedule_button(
+        api=f"/api/v1/guest/booking/{token}/reschedule",
+        done=f"/guest-booking/{token}?notice=rescheduled",
+        what=f"{service.name if service else 'Запись'}, {when}",
+        current=booking.start_time.strftime("%Y-%m-%dT%H:%M"), block=True,
+    ) if can_cancel else ""
+    notice_html = (
+        ui.notice("Запись перенесена на новое время.", tone="success")
+        if notice == "rescheduled" and booking.rescheduled_count else ""
+    )
 
     letter = e(((muser.full_name if muser else "М") or "М")[0])
     rows = (
@@ -265,6 +278,7 @@ async def render_guest_manage_page(db, token: str) -> str:
             <h1 class="r-display">Ваша запись</h1>
             <p>«{e(salon.name if salon else "")}»</p>
         </div>
+        {notice_html}
         <div class="r-card">
             <div class="gb-manage-who">
                 <div class="gb-ava" aria-hidden="true">{letter}</div>
@@ -274,9 +288,10 @@ async def render_guest_manage_page(db, token: str) -> str:
                 </div>
             </div>
             <dl class="gb-manage-list">{rows}</dl>
-            {f'<div class="gb-manage-act">{cancel_btn}</div>' if cancel_btn else ""}
+            {f'<div class="gb-manage-act">{reschedule_btn}{cancel_btn}</div>' if cancel_btn else ""}
             <p id="gb-cancel-msg" class="gb-manage-msg" role="status"></p>
         </div>
         <p class="gb-foot"><a href="/">На главную руми</a></p>
+        {reschedule_sheet() if reschedule_btn else ""}
     """
     return _shell("Ваша запись", inner)

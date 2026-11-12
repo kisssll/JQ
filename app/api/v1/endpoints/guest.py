@@ -185,3 +185,76 @@ async def cancel_guest_booking(request: Request, token: str, db: AsyncSession = 
     await db.refresh(booking)
     await notify_booking_cancelled(db, booking)
     return {"status": "cancelled"}
+
+
+async def _guest_booking(db: AsyncSession, token: str) -> Booking:
+    """Бронь по токену управления или 404 — без сессии, ссылка и есть доступ."""
+    booking = (await db.execute(
+        select(Booking).where(Booking.guest_manage_token == token)
+    )).scalar_one_or_none()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Бронь не найдена")
+    return booking
+
+
+@router.get("/booking/{token}/reschedule/slots")
+@limiter.limit("60/minute")
+async def guest_reschedule_slots(request: Request, token: str, date: str,
+                                 db: AsyncSession = Depends(get_db)):
+    """Свободные окна для переноса гостевой брони (та же механика, что у
+    записи на странице салона)."""
+    from app.services import booking_service as booking_svc
+
+    booking = await _guest_booking(db, token)
+    try:
+        return await booking_svc.reschedule_slots(db, booking, date)
+    except booking_svc.RescheduleError as err:
+        raise HTTPException(status_code=err.status_code, detail=err.message)
+
+
+@router.get("/booking/{token}/reschedule/quote")
+@limiter.limit("60/minute")
+async def guest_reschedule_quote(request: Request, token: str, start_time: datetime,
+                                 db: AsyncSession = Depends(get_db)):
+    """Итог переноса до подтверждения (цена могла измениться)."""
+    from app.services import booking_service as booking_svc
+
+    booking = await _guest_booking(db, token)
+    try:
+        quote = await booking_svc.quote_reschedule(db, booking, start_time)
+    except booking_svc.RescheduleError as err:
+        raise HTTPException(status_code=err.status_code, detail=err.message)
+    return {
+        "start_time": quote.start_time, "end_time": quote.end_time,
+        "final_price": quote.final_price, "old_price": quote.old_price,
+        "price_changed": quote.price_changed,
+    }
+
+
+class GuestReschedule(BaseModel):
+    start_time: datetime
+
+
+@router.post("/booking/{token}/reschedule")
+@limiter.limit("10/minute")
+async def reschedule_guest_booking(request: Request, token: str, data: GuestReschedule,
+                                   db: AsyncSession = Depends(get_db)):
+    """Перенос гостевой брони по токену: та же бронь, другое время."""
+    from app.services import booking_service as booking_svc
+    from app.services.notifications import notify_booking_rescheduled
+
+    booking = await _guest_booking(db, token)
+    try:
+        old_start = await booking_svc.reschedule_booking(db, booking, data.start_time)
+    except booking_svc.RescheduleError as err:
+        raise HTTPException(status_code=err.status_code, detail=err.message)
+    await notify_booking_rescheduled(db, booking, old_start)
+    await send_guest_booking_email(
+        db, booking, str(request.base_url),
+        "Запись перенесена",
+        f"Ваша запись перенесена на {booking.start_time.strftime('%d.%m.%Y в %H:%M')}. "
+        "Следить за статусом записи можно по кнопке ниже.",
+    )
+    return {"status": booking.status.value,
+            "start_time": booking.start_time.strftime("%Y-%m-%dT%H:%M"),
+            "final_price": booking.final_price}

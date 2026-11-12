@@ -8,6 +8,7 @@ from app.models.models import Booking, Master, Service, User as UserModel, Booki
 from app.services.schedule_utils import get_salon_work_hours, MAX_BOOKING_DAYS_AHEAD
 from app.services.schedule_service import ScheduleService
 from app.services.booking_service import can_mark_completed_now
+from app.web.components.reschedule import rescheduled_mark, rescheduled_note
 from app.services import panel_guide
 from app.web.components.hint import hint as _hint
 from app.web.components.icons import (
@@ -28,6 +29,24 @@ MONTH_NAMES_RU = [
 ]
 WEEKDAY_NAMES_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 WEEKDAY_NAMES_FULL_RU = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+
+
+def _moved_detail(b, salon) -> str:
+    """Строка «Перенесена: …» в раскрытой записи расписания (решение 0020)."""
+    note = rescheduled_note(b, getattr(salon, "timezone", None))
+    if not note:
+        return ""
+    return (f'<div class="detail-row"><span class="detail-label">Перенесена:</span>'
+            f'<span class="detail-value">{e(note)}</span></div>')
+
+
+def _moved_row(b, salon) -> str:
+    """То же для мобильной карточки — у неё своя разметка строк."""
+    note = rescheduled_note(b, getattr(salon, "timezone", None))
+    if not note:
+        return ""
+    return (f'<div class="record-card-row"><span class="record-card-label">Перенесена:</span> '
+            f'<span class="record-card-value">{e(note)}</span></div>')
 
 
 async def render_schedule_tab(
@@ -190,6 +209,7 @@ async def render_schedule_tab(
             <div class="schedule-booking-header" onclick="toggleDesktopCard(this)">
                 <span class="booking-time">{time_str}</span>
                 <span class="booking-hint">{seen_html}</span>
+                {rescheduled_mark(b)}
                 <span class="booking-client" title="{e(client_name)}">{e(client_name)}</span>
                 <span class="booking-arrow">{ICON_CHEVRON_DOWN}</span>
             </div>
@@ -210,6 +230,7 @@ async def render_schedule_tab(
                     <span class="detail-label">Статус:</span>
                     <span class="detail-value status-{status}">{status_label}</span>
                 </div>
+                {_moved_detail(b, salon)}
                 {f'<div class="detail-actions">{actions}</div>' if actions else ''}
             </div>
         </div>
@@ -248,6 +269,7 @@ async def render_schedule_tab(
                         <span class="record-card-date">{time_str}</span>
                         <span class="record-card-status-wrapper">
                             <span class="status-badge {status_class}">{status_label}</span>
+                            {rescheduled_mark(b)}
                         </span>
                     </div>
                     <div class="record-card-bottom">
@@ -260,6 +282,7 @@ async def render_schedule_tab(
                 <div class="record-card-row"><span class="record-card-label">Телефон:</span> <span class="record-card-value">{client_phone}</span></div>
                 <div class="record-card-row"><span class="record-card-label">Услуга:</span> <span class="record-card-value">{svc_name}</span></div>
                 <div class="record-card-row"><span class="record-card-label">Цена:</span> <span class="record-card-value">{price_str} ₽</span></div>
+                {_moved_row(b, salon)}
                 {f'<div class="record-card-actions">{actions}</div>' if actions else ''}
             </div>
         </div>

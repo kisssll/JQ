@@ -485,12 +485,20 @@ async def send_tg_message(ctx: dict[str, Any], chat_id: int, text: str) -> str:
     return "sent"
 
 
-async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
+async def send_booking_reminder(
+    ctx: dict[str, Any], booking_id: int, rescheduled_count: int | None = None,
+) -> str:
     """Напоминание клиенту за N часов до визита (ставится отложенно при
-    создании записи, _job_id = booking-reminder:{id} — дубли не плодятся).
+    создании записи и после каждого переноса — см.
+    notifications._schedule_reminder).
 
     Статус проверяем в момент отправки: запись могли отменить — тогда
-    молчим. Ошибки БД — транзиентные (ретрай), «нет записи» — постоянная.
+    молчим. Запись могли и перенести, а отложенный job из очереди надёжно не
+    снять — поэтому сверяем номер переноса (если он передан) и то, что сейчас
+    действительно окрестность напоминания для нынешнего start_time; иначе
+    skipped:stale. Job'ы, поставленные до появления переноса, номера не несут
+    — для них остаётся проверка по времени.
+    Ошибки БД — транзиентные (ретрай), «нет записи» — постоянная.
     """
     from sqlalchemy import select
 
@@ -506,6 +514,19 @@ async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
                 return "skipped:missing"
             if booking.status not in (BookingStatus.PENDING, BookingStatus.CONFIRMED):
                 return f"skipped:{booking.status.value}"
+            if (rescheduled_count is not None
+                    and rescheduled_count != (booking.rescheduled_count or 0)):
+                return "skipped:stale"
+
+            master = (
+                await db.execute(select(Master).where(Master.id == booking.master_id))
+            ).scalar_one()
+            salon = (
+                await db.execute(select(Salon).where(Salon.id == master.salon_id))
+            ).scalar_one()
+            from app.services.notifications import reminder_is_due
+            if not reminder_is_due(booking.start_time, salon.timezone):
+                return "skipped:stale"
 
             client = (
                 await db.execute(select(User).where(User.id == booking.client_id))
@@ -519,12 +540,6 @@ async def send_booking_reminder(ctx: dict[str, Any], booking_id: int) -> str:
             if not wants(client, TOPIC_REMINDERS):
                 return "skipped:muted"  # клиент отключил напоминания в боте
 
-            master = (
-                await db.execute(select(Master).where(Master.id == booking.master_id))
-            ).scalar_one()
-            salon = (
-                await db.execute(select(Salon).where(Salon.id == master.salon_id))
-            ).scalar_one()
             service = (
                 await db.execute(select(Service).where(Service.id == booking.service_id))
             ).scalar_one_or_none()

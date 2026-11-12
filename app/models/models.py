@@ -881,6 +881,12 @@ class Booking(Base):
     # (кнопка «Видел», не влияет на status). NULL — ещё не отмечал; чисто
     # информационный флаг для владельца/админа салона.
     master_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Перенос записи клиентом (решение 0020). Лимита на переносы нет: счётчик
+    # нужен, чтобы через пару месяцев решить по данным, нужен ли он, и чтобы
+    # салон видел в расписании, что запись двигали. Счётчик же различает
+    # отложенные напоминания: job ставится с ним в id, старый узнаёт, что устарел.
+    rescheduled_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    rescheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     client: Mapped["User"] = relationship(back_populates="bookings", foreign_keys=[client_id])
     master: Mapped["Master"] = relationship()

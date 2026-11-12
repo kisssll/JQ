@@ -37,6 +37,7 @@ from app.web.components.escaping import e
 from app.web.components.footer import render_footer
 from app.web.components.cabinet import plural, render_cabinet
 from app.web.components.header import render_header
+from app.web.components.reschedule import reschedule_button, reschedule_sheet
 from app.web.components.icons import (
     ICON_EDIT_PENCIL,
     ICON_STAR_EMPTY,
@@ -64,6 +65,7 @@ _MONTHS_GEN = ["января", "февраля", "марта", "апреля", "
 #: (редирект /bookings?reviewed=1) не говорил вообще ничего.
 _NOTICES = {
     "cancelled": ("Запись отменена. Время освободилось.", "neutral"),
+    "rescheduled": ("Запись перенесена на новое время.", "success"),
     "reviewed": ("Спасибо, отзыв сохранён.", "success"),
 }
 
@@ -214,14 +216,23 @@ def _render_card(b: Booking, ctx: dict, *, upcoming: bool) -> str:
 
     # ---------- Что с записью можно сделать ----------
     action = ""
+    pair = False
     if upcoming and b.status not in (BookingStatus.CANCELLED, BookingStatus.COMPLETED):
+        # Перенос стоит первым: если человеку неудобно время, сдвинуть запись
+        # лучше для обеих сторон, чем отменить и искать окно заново (решение 0020).
         # Подтверждение — лист снизу, а не confirm(): отмена освобождает время
         # и необратима, а системное окно браузера нельзя ни прочитать толком,
         # ни отличить от окна другого сайта.
-        action = ui.button(
+        what = f"{service_name}, {_when(b.start_time)}"
+        pair = True
+        action = reschedule_button(
+            api=f"/api/v1/bookings/{b.id}/reschedule",
+            done="/bookings?notice=rescheduled",
+            what=what, current=b.start_time.strftime("%Y-%m-%dT%H:%M"), small=True,
+        ) + ui.button(
             "Отменить запись", kind="secondary", small=True,
             classes="booking-cancel-btn",
-            data={"booking-id": b.id, "booking-what": f"{service_name}, {_when(b.start_time)}"},
+            data={"booking-id": b.id, "booking-what": what},
         )
     elif b.status == BookingStatus.COMPLETED:
         existing = _review_of(ctx, b.master_id, salon.id if salon else None)
@@ -258,7 +269,8 @@ def _render_card(b: Booking, ctx: dict, *, upcoming: bool) -> str:
         f"{ui.status(label, tone)}"
         "</div>"
         f"{ui.facts(tuple(facts))}"
-        + (f'<div class="booking-card__action">{action}</div>' if action else "")
+        + (f'<div class="booking-card__action{" booking-card__action--pair" if pair else ""}">'
+           f'{action}</div>' if action else "")
         + "</article>"
     )
 
@@ -366,6 +378,8 @@ async def render_bookings_page(db: AsyncSession, user, notice: str = "") -> str:
                     data={"sheet-close": "1"})
         + '</div>',
         element_id="cancelSheet", title="Отменить запись?")}
+
+    {reschedule_sheet()}
 
     {ui.sheet(
         '<form id="reviewForm" enctype="multipart/form-data">'

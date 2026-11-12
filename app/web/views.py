@@ -112,10 +112,10 @@ async def guest_booking_page(salon_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/guest-booking/{token}", response_class=HTMLResponse)
-async def guest_manage_page(token: str, db: AsyncSession = Depends(get_db)):
-    """Просмотр/отмена гостевой брони по токену."""
+async def guest_manage_page(token: str, notice: str = "", db: AsyncSession = Depends(get_db)):
+    """Просмотр, перенос и отмена гостевой брони по токену."""
     from app.web.pages.guest_booking import render_guest_manage_page
-    return HTMLResponse(content=await render_guest_manage_page(db, token))
+    return HTMLResponse(content=await render_guest_manage_page(db, token, notice))
 
 
 @router.get("/book/{salon_id}/qr")

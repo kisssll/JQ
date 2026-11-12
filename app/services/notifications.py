@@ -72,7 +72,7 @@ TOPIC_MODELS = "models"
 TOPIC_PROMOS = "promos"
 
 TOPIC_LABELS = {
-    TOPIC_BOOKINGS: "Записи (новые и отмены)",
+    TOPIC_BOOKINGS: "Записи (новые, переносы и отмены)",
     TOPIC_REMINDERS: "Напоминания о визите",
     TOPIC_PROMOS: "Акции и конкурсы",
     TOPIC_WAREHOUSE: "Склад и заявки",
@@ -160,6 +160,48 @@ def reminder_eta_utc(start_naive: datetime, salon_tz: str) -> datetime | None:
     aware = localize_time(start_naive, salon_tz)
     eta = aware.astimezone(timezone.utc) - REMINDER_BEFORE
     return eta if eta > datetime.now(timezone.utc) else None
+
+
+#: Насколько раньше расчётного момента напоминание ещё считается своим. arq
+#: не будит задачу раньше срока, запас — на расхождение часов воркера и базы.
+REMINDER_EARLY_SLACK = timedelta(minutes=15)
+
+
+def reminder_is_due(start_naive: datetime, salon_tz: str, now: datetime | None = None) -> bool:
+    """Сейчас окрестность напоминания для ЭТОГО времени записи?
+
+    Отложенный job из очереди надёжно не отменить, а после переноса старый
+    выстрелит в прежний час — с новым временем в тексте и не тогда, когда
+    надо. Поэтому задача сверяет момент сама: от «за REMINDER_BEFORE до
+    начала» (с небольшим запасом) и до самого начала.
+    """
+    start_utc = localize_time(start_naive, salon_tz).astimezone(timezone.utc)
+    now = now or datetime.now(timezone.utc)
+    return start_utc - REMINDER_BEFORE - REMINDER_EARLY_SLACK <= now < start_utc
+
+
+async def _schedule_reminder(booking: Booking, salon: Salon, client: User | None) -> None:
+    """Поставить отложенное напоминание клиенту.
+
+    В аргументах — номер переноса: задача сверит его с записью и промолчит,
+    если её с тех пор двигали. id job'а тоже с номером: arq не ставит второй
+    job с уже занятым id и молча ничего не делает, поэтому после переноса
+    прежний id переиспользовать нельзя. У нетронутой записи id прежний —
+    так он выглядел до переноса, и дубли при повторном вызове не плодятся.
+    """
+    if not has_channel(client, Audience.CLIENT):
+        return
+    eta = reminder_eta_utc(booking.start_time, salon.timezone)
+    if not eta:
+        return
+    count = booking.rescheduled_count or 0
+    job_id = f"booking-reminder:{booking.id}" + (f":{count}" if count else "")
+    pool = await get_arq_pool()
+    await pool.enqueue_job(
+        "send_booking_reminder", booking.id, count,
+        _defer_until=eta,
+        _job_id=job_id,
+    )
 
 
 async def _booking_context(db: AsyncSession, booking: Booking) -> dict:
@@ -252,15 +294,7 @@ async def notify_booking_created(db: AsyncSession, booking: Booking) -> None:
                 audience=Audience.BUSINESS,
             )
 
-        if has_channel(client, Audience.CLIENT):
-            eta = reminder_eta_utc(booking.start_time, salon.timezone)
-            if eta:
-                pool = await get_arq_pool()
-                await pool.enqueue_job(
-                    "send_booking_reminder", booking.id,
-                    _defer_until=eta,
-                    _job_id=f"booking-reminder:{booking.id}",
-                )
+        await _schedule_reminder(booking, salon, client)
     except Exception:
         logger.exception("notify_booking_created(%s): уведомления не поставлены", booking.id)
 
@@ -296,6 +330,53 @@ async def notify_booking_cancelled(db: AsyncSession, booking: Booking) -> None:
             )
     except Exception:
         logger.exception("notify_booking_cancelled(%s): уведомления не поставлены", booking.id)
+
+
+async def notify_booking_rescheduled(db: AsyncSession, booking: Booking, old_start: datetime) -> None:
+    """Клиент перенёс запись (решение 0020): всем сторонам — «с … на …», и
+    напоминание переставляется на новое время."""
+    await _salon_booking_email(db, booking, "rescheduled", old_start=old_start)
+    if not settings.TG_NOTIFY_ENABLED:
+        return
+    try:
+        ctx = await _booking_context(db, booking)
+        salon, service, client = ctx["salon"], ctx["service"], ctx["client"]
+        was = old_start.strftime("%d.%m в %H:%M")
+        now = booking.start_time.strftime("%d.%m в %H:%M")
+        service_name = service.name if service else "услуга"
+        client_name = (client.full_name or "клиент") if client else "клиент"
+        master_name = (
+            ctx["master_user"].full_name if ctx["master_user"] and ctx["master_user"].full_name
+            else "мастер"
+        )
+
+        fanout = _Fanout()
+        await fanout.send(
+            client,
+            f"🔄 Запись перенесена: {service_name} в «{salon.name}»\n"
+            f"Новое время: {now}, мастер {master_name}\n"
+            f"Адрес: {salon.address or 'уточните у салона'}",
+            topic=TOPIC_BOOKINGS,
+            audience=Audience.CLIENT,
+        )
+        await fanout.send(
+            ctx["master_user"],
+            f"🔄 Запись перенесена: {client_name} — {service_name}, с {was} на {now}",
+            topic=TOPIC_BOOKINGS,
+            audience=Audience.BUSINESS,
+        )
+        for member in await _members_with_permission(db, salon.id, "manage_schedule"):
+            await fanout.send(
+                member,
+                f"🔄 Запись перенесена в «{salon.name}»: {client_name} — {service_name}, "
+                f"с {was} на {now}, мастер {master_name}",
+                topic=TOPIC_BOOKINGS,
+                audience=Audience.BUSINESS,
+            )
+
+        await _schedule_reminder(booking, salon, client)
+    except Exception:
+        logger.exception("notify_booking_rescheduled(%s): уведомления не поставлены", booking.id)
 
 
 async def notify_booking_cancelled_master_left(
@@ -698,9 +779,11 @@ async def send_employee_credentials_email(db: AsyncSession, salon, name: str, lo
     return salon.email
 
 
-async def _salon_booking_email(db: AsyncSession, booking, kind: str) -> None:
-    """Копия уведомления о записи/отмене на почту салона (если задана).
-    kind: 'created' | 'cancelled'. Тихо выходит без почты салона."""
+async def _salon_booking_email(db: AsyncSession, booking, kind: str, *,
+                               old_start: datetime | None = None) -> None:
+    """Копия уведомления о записи/переносе/отмене на почту салона (если задана).
+    kind: 'created' | 'rescheduled' (нужен old_start) | 'cancelled'. Тихо
+    выходит без почты салона."""
     try:
         from app.models.models import Service, Master, Salon, User
         from app.services.email_templates import booking_status_email
@@ -717,6 +800,11 @@ async def _salon_booking_email(db: AsyncSession, booking, kind: str) -> None:
         if kind == "created":
             title = "Новая запись"
             intro = f"Клиент {client_name} записался к мастеру {master_name}. Подробности — в панели салона."
+        elif kind == "rescheduled":
+            title = "Запись перенесена"
+            was = old_start.strftime("%d.%m.%Y %H:%M") if old_start else "—"
+            intro = (f"Клиент {client_name} перенёс запись к мастеру {master_name}: "
+                     f"было {was}, стало {when}.")
         else:
             title = "Запись отменена"
             intro = f"Запись клиента {client_name} к мастеру {master_name} отменена."

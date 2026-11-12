@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from app.models.models import Booking, BookingStatus, Service as ServiceModel, User as UserModel
 from app.services.schedule_utils import MAX_BOOKING_DAYS_AHEAD
 from app.services.booking_service import can_mark_completed_now
+from app.web.components.reschedule import rescheduled_mark, rescheduled_note
 from app.web.components.icons import (
     ICON_CALENDAR_DAYS,
     ICON_USER_CHECK,
@@ -18,6 +19,16 @@ from app.web.components.icons import (
 
 # «Пришёл» доступна не раньше чем за час до начала записи; пока рано — кнопка
 # видна, но заблокирована с подсказкой (сервер тоже не даст, см. bookings.py).
+def _moved_row(b, salon) -> str:
+    """Строка «Перенесена: …» в раскрытой карточке — когда и сколько раз
+    клиент двигал запись. Пусто у нетронутой."""
+    note = rescheduled_note(b, getattr(salon, "timezone", None))
+    if not note:
+        return ""
+    return (f'<div class="record-card-row"><span class="record-card-label">Перенесена:</span> '
+            f'{e(note)}</div>')
+
+
 def _came_button(b, salon, too_early_title="Доступно за час до начала записи") -> str:
     if can_mark_completed_now(b, salon.timezone):
         return f'<button class="btn-action btn-action-success" onclick="recordMarkBooking({b.id}, \'complete\', this)">Пришёл</button>'
@@ -108,7 +119,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
             <td>{clients_by_id.get(b.client_id, '—')}</td>
             <td>{master_user_names.get(b.master_id, '—')}</td>
             <td>{e(s.name)}</td>
-            <td><span class="status-badge {status_class}">{label}</span>{badge}</td>
+            <td><span class="status-badge {status_class}">{label}</span>{badge}{rescheduled_mark(b)}</td>
             <td>{price} ₽</td>
             <td class="records-actions">{actions}</td>
         </tr>"""
@@ -143,6 +154,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
                         <span class="record-card-status-wrapper">
                             <span class="status-badge {status_class}">{label}</span>
                             {badge}
+                            {rescheduled_mark(b)}
                         </span>
                     </div>
                     <div class="record-card-bottom">
@@ -155,6 +167,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
                 <div class="record-card-row"><span class="record-card-label">Мастер:</span> {master_user_names.get(b.master_id, '—')}</div>
                 <div class="record-card-row"><span class="record-card-label">Услуга:</span> {e(s.name)}</div>
                 <div class="record-card-row"><span class="record-card-label">Сумма:</span> {price} ₽</div>
+                {_moved_row(b, salon)}
                 <div class="record-card-actions">{actions}</div>
             </div>
         </div>"""

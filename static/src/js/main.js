@@ -22,6 +22,7 @@ import './sheet.js';
 import './card-transition.js';
 import './salon-detail.js';
 import './bookings.js';
+import './reschedule.js';
 import './favorites.js';
 import './info-hint.js';
 import './guest-booking.js';

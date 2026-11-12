@@ -1,0 +1,32 @@
+/* =====================================================================
+   ПЕРЕНОС ЗАПИСИ (решение 0020)
+   Лист общий для «Моих записей» и гостевой страницы. Дни и окна берут
+   готовые .days / .r-slots со страницы салона — здесь только отступы
+   между шагами внутри листа.
+   ===================================================================== */
+#rescheduleSheet .days { margin-top: var(--space-8); }
+
+#rescheduleSheet .r-slots { min-height: var(--control-h); }
+
+.reschedule-summary {
+    display: grid;
+    gap: var(--space-4);
+    margin-top: var(--space-16);
+    padding-top: var(--space-16);
+    border-top: 1px solid var(--color-border);
+}
+
+.reschedule-summary .r-text { margin: 0; }
+
+/* Две кнопки у предстоящей записи — «Перенести» и «Отменить» — в строку,
+   на узком экране переносятся, а не сжимаются. */
+.booking-card__action--pair {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+}
+
+.gb-manage-act {
+    display: grid;
+    gap: var(--space-8);
+}
