@@ -28,6 +28,7 @@ from app.core.limiter import limiter
 from app.services.booking_service import BookingService, SlotTakenError, commit_booking
 from app.services.consent_service import record_consent
 from app.services.notifications import notify_booking_created, send_guest_booking_email
+from app.utils.timezone import get_salon_time
 
 router = APIRouter()
 
@@ -102,7 +103,13 @@ async def create_guest_booking(
         raise HTTPException(status_code=400, detail="Мастер недоступен")
 
     start = data.start_time.replace(tzinfo=None)
-    if start < datetime.now():
+    # start_time хранится наивным в зоне салона, поэтому «прошедшее время»
+    # считаем салонно-локальным «сейчас» — как в обычной записи
+    # (endpoints/bookings.py) и как прячет прошедшие окна слот-генератор.
+    # С datetime.now() сервера проверка расходилась с показанными окнами: у
+    # салона западнее сервера она отвергала свободное время, а у восточного
+    # принимала уже прошедшее.
+    if start < get_salon_time(salon.timezone).replace(tzinfo=None):
         raise HTTPException(status_code=400, detail="Нельзя записаться на прошедшее время")
 
     if not await BookingService.is_slot_available(db, data.master_id, start, service.duration_minutes):

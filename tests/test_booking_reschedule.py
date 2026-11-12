@@ -407,3 +407,30 @@ async def test_panel_marks_rescheduled_booking(client, db_session):
         page = await panel(tab)
         assert chip in page, tab
         assert row in page and "1 раз, последний — " in page, tab
+
+
+async def test_guest_booking_counts_the_past_by_salon_time(client, db_session):
+    """Гостевая запись считала «прошедшее время» часами СЕРВЕРА, а время
+    записи наивное и живёт в зоне салона (как в endpoints/bookings.py).
+
+    Отсюда и бралось расхождение с показанными окнами: салону западнее
+    сервера форма отказывала в свободном времени, а восточнее — принимала
+    уже прошедшее. Зона стенда взята заведомо западная, чтобы проверка не
+    зависела от часов машины.
+    """
+    from app.models.models import Salon
+
+    ctx = await _mk_salon_deal(db_session, owner_phone="+79995550020",
+                               name="ПереносZZ20", tz="Etc/GMT+12")
+    async with db_session() as db:
+        await db.execute(update(Salon).where(Salon.id == ctx["salon_id"])
+                         .values(guest_booking_enabled=True))
+        await db.commit()
+
+    soon = _local_today("Etc/GMT+12") + timedelta(hours=1)
+    r = await client.post("/api/v1/guest/booking", json={
+        "salon_id": ctx["salon_id"], "master_id": ctx["master_id"],
+        "service_id": ctx["service_id"], "start_time": soon.isoformat(),
+        "name": "Гость", "phone": "+79975550020", "pd_consent": True,
+    })
+    assert r.status_code in (200, 201), r.text
