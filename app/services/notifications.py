@@ -379,6 +379,43 @@ async def notify_booking_rescheduled(db: AsyncSession, booking: Booking, old_sta
         logger.exception("notify_booking_rescheduled(%s): уведомления не поставлены", booking.id)
 
 
+async def notify_booking_confirmed_by_client(db: AsyncSession, booking: Booking) -> None:
+    """Клиент нажал «Буду» в напоминании (решение 0020, п. 8).
+
+    Идёт только салону: клиенту бот отвечает прямо в диалоге, и письмо
+    «вы подтвердили» было бы вторым сообщением об одном нажатии. Тема —
+    существующая TOPIC_BOOKINGS: отдельная настройка растила бы список тем
+    быстрее пользы.
+    """
+    if not settings.TG_NOTIFY_ENABLED:
+        return
+    try:
+        ctx = await _booking_context(db, booking)
+        salon, service, client = ctx["salon"], ctx["service"], ctx["client"]
+        when = booking.start_time.strftime("%d.%m в %H:%M")
+        service_name = service.name if service else "услуга"
+        client_name = (client.full_name or "клиент") if client else "клиент"
+
+        fanout = _Fanout()
+        await fanout.send(
+            ctx["master_user"],
+            f"✅ Клиент подтвердил визит: {client_name} — {service_name}, {when}",
+            topic=TOPIC_BOOKINGS,
+            audience=Audience.BUSINESS,
+        )
+        for member in await _members_with_permission(db, salon.id, "manage_schedule"):
+            await fanout.send(
+                member,
+                f"✅ Клиент подтвердил визит в «{salon.name}»: {client_name} — "
+                f"{service_name}, {when}",
+                topic=TOPIC_BOOKINGS,
+                audience=Audience.BUSINESS,
+            )
+    except Exception:
+        logger.exception("notify_booking_confirmed_by_client(%s): уведомления не поставлены",
+                         booking.id)
+
+
 async def notify_booking_cancelled_master_left(
     db: AsyncSession, booking: Booking, *, leaver_id: int, base_url: str,
 ) -> None:

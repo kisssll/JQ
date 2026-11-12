@@ -279,12 +279,23 @@ async def on_promo_consent(callback: CallbackQuery) -> None:
     await callback.answer("Сохранено")
 
 
-# ── Мои записи, отмена, отзыв ────────────────────────────────────────────────
+# ── Мои записи, подтверждение, перенос, отмена, отзыв ───────────────────────
+
+def _kb(buttons: list) -> InlineKeyboardMarkup:
+    """Общее описание кнопок (bot_actions.BotButton) → разметка aiogram.
+    Раскладка общая на все три бота — см. bot_keyboards."""
+    from app.services import bot_keyboards
+
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(**cell) for cell in row]
+        for row in bot_keyboards.telegram(buttons)["inline_keyboard"]
+    ])
+
 
 async def on_my_bookings(message: Message) -> None:
-    """Ближайшие записи с кнопкой отмены у каждой."""
+    """Ближайшие записи с теми же тремя кнопками, что и в напоминании."""
     from app.db.session import AsyncSessionLocal
-    from app.services.bot_actions import format_booking, upcoming_bookings
+    from app.services.bot_actions import booking_buttons, format_booking, upcoming_bookings
 
     async with AsyncSessionLocal() as db:
         user = await _find_linked_user(db, message.chat.id)
@@ -301,12 +312,62 @@ async def on_my_bookings(message: Message) -> None:
         return
 
     for booking, salon, service, master_name in rows:
-        kb = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="Отменить запись",
-                                 callback_data=f"cnl:{booking.id}"),
-        ]])
         await message.answer(format_booking(booking, salon, service, master_name),
-                             reply_markup=kb)
+                             reply_markup=_kb(booking_buttons(booking.id)))
+
+
+async def on_confirm_booking(callback: CallbackQuery) -> None:
+    """«Буду». Статус записи не меняется — только отметка клиента."""
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import confirm_booking
+
+    try:
+        booking_id = int((callback.data or "").split(":", 1)[1])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, callback.message.chat.id)
+        if user is None:
+            await callback.answer("Telegram не привязан")
+            return
+        _, text = await confirm_booking(db, user.id, booking_id)
+
+    await callback.answer()
+    await callback.message.answer(text)
+
+
+async def on_reschedule(callback: CallbackQuery) -> None:
+    """Перенос из бота: без команды — список окон, с временем — сам перенос.
+
+    Занятое окно не тупик: показываем свежий список той же кнопкой.
+    """
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import reschedule_options, reschedule_to
+
+    parts = (callback.data or "").split(":", 2)
+    if len(parts) < 2 or not parts[1].isdigit():
+        await callback.answer()
+        return
+    booking_id = int(parts[1])
+    chosen = parts[2] if len(parts) == 3 else ""
+
+    async with AsyncSessionLocal() as db:
+        user = await _find_linked_user(db, callback.message.chat.id)
+        if user is None:
+            await callback.answer("Telegram не привязан")
+            return
+        if chosen:
+            ok, text = await reschedule_to(db, user.id, booking_id, chosen)
+            await callback.answer()
+            await callback.message.answer(text)
+            if ok:
+                return
+        text, buttons = await reschedule_options(db, user.id, booking_id)
+
+    await callback.answer()
+    await callback.message.answer(text, reply_markup=_kb(buttons) if buttons else None)
 
 
 async def on_cancel_booking(callback: CallbackQuery) -> None:
@@ -928,6 +989,8 @@ async def main() -> None:
     dp.message.register(on_my_bookings, Command("bookings"))
     dp.message.register(on_my_bookings, F.text == MENU_BTN_BOOKINGS)
     dp.callback_query.register(on_cancel_booking, F.data.startswith("cnl:"))
+    dp.callback_query.register(on_confirm_booking, F.data.startswith("cfm:"))
+    dp.callback_query.register(on_reschedule, F.data.startswith("rsc:"))
     dp.callback_query.register(on_review_stars, F.data.startswith("rev:"))
     dp.callback_query.register(on_service_rating, F.data.startswith("nps:"))
     dp.callback_query.register(on_promo_consent, F.data == "adc:yes")

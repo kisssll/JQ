@@ -887,6 +887,11 @@ class Booking(Base):
     # отложенные напоминания: job ставится с ним в id, старый узнаёт, что устарел.
     rescheduled_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     rescheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Клиент нажал «Буду» в напоминании (решение 0020, п. 7). Отдельное поле, а
+    # не статус CONFIRMED: тот ставит салон, и он уже считается выручкой
+    # (PAID_BOOKING_STATUSES) — тап клиента сдвинул бы деньги в аналитике,
+    # зарплатах и обзоре. Повторный тап время не переписывает.
+    client_confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     client: Mapped["User"] = relationship(back_populates="bookings", foreign_keys=[client_id])
     master: Mapped["Master"] = relationship()

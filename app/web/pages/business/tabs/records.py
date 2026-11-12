@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from app.models.models import Booking, BookingStatus, Service as ServiceModel, User as UserModel
 from app.services.schedule_utils import MAX_BOOKING_DAYS_AHEAD
 from app.services.booking_service import can_mark_completed_now
-from app.web.components.reschedule import rescheduled_mark, rescheduled_note
+from app.web.components.booking_marks import confirmed_mark, rescheduled_mark, rescheduled_note
 from app.web.components.icons import (
     ICON_CALENDAR_DAYS,
     ICON_USER_CHECK,
@@ -119,7 +119,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
             <td>{clients_by_id.get(b.client_id, '—')}</td>
             <td>{master_user_names.get(b.master_id, '—')}</td>
             <td>{e(s.name)}</td>
-            <td><span class="status-badge {status_class}">{label}</span>{badge}{rescheduled_mark(b)}</td>
+            <td><span class="status-badge {status_class}">{label}</span>{badge}{rescheduled_mark(b)}{confirmed_mark(b)}</td>
             <td>{price} ₽</td>
             <td class="records-actions">{actions}</td>
         </tr>"""
@@ -154,7 +154,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
                         <span class="record-card-status-wrapper">
                             <span class="status-badge {status_class}">{label}</span>
                             {badge}
-                            {rescheduled_mark(b)}
+                            {rescheduled_mark(b)}{confirmed_mark(b)}
                         </span>
                     </div>
                     <div class="record-card-bottom">

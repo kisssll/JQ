@@ -106,7 +106,8 @@ def callback_button(label: str, command: str, color: str = "secondary") -> dict:
     """Кнопка, нажатие которой приходит событием message_event.
 
     payload — объект {"c": команда}; команды те же, что у Telegram и MAX
-    (menu:bookings, cnl:ID, ntf:тема, sup:тема, rev:ID:N, nps:N, edc:yes).
+    (menu:bookings, cfm:ID, rsc:ID[:время], cnl:ID, ntf:тема, sup:тема,
+    rev:ID:N, nps:N, edc:yes).
     """
     return {
         "action": {"type": "callback", "label": label[:LABEL_MAX],

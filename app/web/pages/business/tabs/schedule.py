@@ -8,7 +8,7 @@ from app.models.models import Booking, Master, Service, User as UserModel, Booki
 from app.services.schedule_utils import get_salon_work_hours, MAX_BOOKING_DAYS_AHEAD
 from app.services.schedule_service import ScheduleService
 from app.services.booking_service import can_mark_completed_now
-from app.web.components.reschedule import rescheduled_mark, rescheduled_note
+from app.web.components.booking_marks import confirmed_mark, rescheduled_mark, rescheduled_note
 from app.services import panel_guide
 from app.web.components.hint import hint as _hint
 from app.web.components.icons import (
@@ -209,7 +209,7 @@ async def render_schedule_tab(
             <div class="schedule-booking-header" onclick="toggleDesktopCard(this)">
                 <span class="booking-time">{time_str}</span>
                 <span class="booking-hint">{seen_html}</span>
-                {rescheduled_mark(b)}
+                {rescheduled_mark(b)}{confirmed_mark(b)}
                 <span class="booking-client" title="{e(client_name)}">{e(client_name)}</span>
                 <span class="booking-arrow">{ICON_CHEVRON_DOWN}</span>
             </div>
@@ -269,7 +269,7 @@ async def render_schedule_tab(
                         <span class="record-card-date">{time_str}</span>
                         <span class="record-card-status-wrapper">
                             <span class="status-badge {status_class}">{status_label}</span>
-                            {rescheduled_mark(b)}
+                            {rescheduled_mark(b)}{confirmed_mark(b)}
                         </span>
                     </div>
                     <div class="record-card-bottom">

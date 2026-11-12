@@ -13,8 +13,9 @@
 - нажатия callback-кнопок приходят отдельным событием message_event, на
   которое обязательно отвечать, иначе у кнопки бесконечно крутится индикатор.
 
-Команды кнопок те же, что у двух других ботов (menu:*, cnl:, ntf:, sup:, rev:,
-nps:, adc:yes), — правила живут в общих bot_actions.py и support.py.
+Команды кнопок те же, что у двух других ботов (menu:*, cfm:, rsc:, cnl:, ntf:,
+sup:, rev:, nps:, adc:yes), — правила живут в общих bot_actions.py и
+support.py, а раскладка клавиатуры — в bot_keyboards.py.
 
 Сообществ два — клиентское и бизнесовое (решение 0013), и процессов два: тот
 же модуль, разное окружение (VK_BOT_ROLE и токен своего сообщества). Процесс
@@ -72,7 +73,7 @@ def _is_client() -> bool:
 #: владельца о сервисе (nps:) и конкурс мастеров. Поддержка (menu:support,
 #: sup:) есть в обоих: ответ уходит в то сообщество, откуда пришло обращение.
 _CLIENT_COMMANDS = ("menu:bookings", "menu:prefs", "menu:support", "sup:", "cnl:", "ntf:",
-                    "adc:yes", "rev:", "chn:")
+                    "adc:yes", "rev:", "chn:", "cfm:", "rsc:")
 
 
 def _allowed(command: str) -> bool:
@@ -274,7 +275,9 @@ async def show_main_menu(peer_id: int, user) -> None:
 
 
 async def show_bookings(peer_id: int) -> None:
-    from app.services.bot_actions import format_booking, upcoming_bookings
+    """Ближайшие записи с теми же тремя кнопками, что и в напоминании."""
+    from app.services import bot_keyboards
+    from app.services.bot_actions import booking_buttons, format_booking, upcoming_bookings
 
     async with await _db() as db:
         user, _ = await current_user(db, peer_id)
@@ -289,8 +292,7 @@ async def show_bookings(peer_id: int) -> None:
     for booking, salon, service, master_name in rows:
         await send(
             peer_id, format_booking(booking, salon, service, master_name),
-            vk_api.inline_keyboard([[vk_api.callback_button(
-                "Отменить запись", f"cnl:{booking.id}", "negative")]]),
+            bot_keyboards.vk(booking_buttons(booking.id)),
         )
 
 
@@ -303,6 +305,40 @@ async def cancel_from_bot(peer_id: int, booking_id: int) -> str:
             return "ВКонтакте не привязан к аккаунту."
         _, text = await cancel_booking(db, user.id, booking_id)
     await send(peer_id, text)
+    return ""
+
+
+async def confirm_from_bot(peer_id: int, booking_id: int) -> str:
+    """«Буду»: отметка клиента, статус записи не трогаем."""
+    from app.services.bot_actions import confirm_booking
+
+    async with await _db() as db:
+        user, _ = await current_user(db, peer_id)
+        if user is None:
+            return "ВКонтакте не привязан к аккаунту."
+        _, text = await confirm_booking(db, user.id, booking_id)
+    await send(peer_id, text)
+    return ""
+
+
+async def reschedule_from_bot(peer_id: int, booking_id: int, chosen: str) -> str:
+    """Без выбранного времени — окна кнопками; с ним — перенос. Занятое
+    окно не тупик: показываем свежий список."""
+    from app.services import bot_keyboards
+    from app.services.bot_actions import reschedule_options, reschedule_to
+
+    async with await _db() as db:
+        user, _ = await current_user(db, peer_id)
+        if user is None:
+            return "ВКонтакте не привязан к аккаунту."
+        if chosen:
+            ok, text = await reschedule_to(db, user.id, booking_id, chosen)
+            await send(peer_id, text)
+            if ok:
+                return ""
+        text, buttons = await reschedule_options(db, user.id, booking_id)
+
+    await send(peer_id, text, bot_keyboards.vk(buttons) if buttons else None)
     return ""
 
 
@@ -656,6 +692,18 @@ async def _dispatch_command(peer_id: int, command: str) -> Optional[str]:
             return await cancel_from_bot(peer_id, int(command.split(":", 1)[1])) or None
         except ValueError:
             return None
+    elif command.startswith("cfm:"):
+        try:
+            return await confirm_from_bot(peer_id, int(command.split(":", 1)[1])) or None
+        except ValueError:
+            return None
+    elif command.startswith("rsc:"):
+        # Время в команде само с двоеточиями (ГГГГ-ММ-ДДTЧЧ:ММ) — режем на три.
+        parts = command.split(":", 2)
+        if len(parts) < 2 or not parts[1].isdigit():
+            return None
+        return await reschedule_from_bot(
+            peer_id, int(parts[1]), parts[2] if len(parts) == 3 else "") or None
     elif command.startswith("ntf:"):
         await toggle_topic(peer_id, command.split(":", 1)[1])
     elif command == "adc:yes":

@@ -336,9 +336,10 @@ def _menu_kb() -> list:
 
 
 async def _show_bookings(bot: Bot, chat_id: int) -> None:
-    """Ближайшие записи, у каждой — кнопка отмены."""
+    """Ближайшие записи с теми же тремя кнопками, что и в напоминании."""
     from app.db.session import AsyncSessionLocal
-    from app.services.bot_actions import format_booking, upcoming_bookings
+    from app.services import bot_keyboards
+    from app.services.bot_actions import booking_buttons, format_booking, upcoming_bookings
 
     async with AsyncSessionLocal() as db:
         user = await _linked_user(db, chat_id)
@@ -353,12 +354,10 @@ async def _show_bookings(bot: Bot, chat_id: int) -> None:
         return
 
     for booking, salon, service, master_name in rows:
-        kb = InlineKeyboardBuilder()
-        kb.row(CallbackButton(text="Отменить запись", payload=f"cnl:{booking.id}"))
         await bot.send_message(
             chat_id=chat_id,
             text=format_booking(booking, salon, service, master_name),
-            attachments=[kb.as_markup()],
+            attachments=bot_keyboards.max_attachments(booking_buttons(booking.id)),
         )
 
 
@@ -373,6 +372,45 @@ async def _cancel_from_bot(event: MessageCallback, booking_id: int) -> None:
             return
         _, text = await cancel_booking(db, user.id, booking_id)
     await event.bot.send_message(chat_id=chat_id, text=text)
+
+
+async def _confirm_from_bot(event: MessageCallback, booking_id: int) -> None:
+    """«Буду»: отметка клиента, статус записи не трогаем."""
+    from app.db.session import AsyncSessionLocal
+    from app.services.bot_actions import confirm_booking
+
+    chat_id, _ = event.get_ids()
+    async with AsyncSessionLocal() as db:
+        user = await _linked_user(db, chat_id)
+        if user is None:
+            return
+        _, text = await confirm_booking(db, user.id, booking_id)
+    await event.bot.send_message(chat_id=chat_id, text=text)
+
+
+async def _reschedule_from_bot(event: MessageCallback, booking_id: int, chosen: str) -> None:
+    """Без выбранного времени — окна кнопками; с ним — перенос. Занятое
+    окно не тупик: показываем свежий список."""
+    from app.db.session import AsyncSessionLocal
+    from app.services import bot_keyboards
+    from app.services.bot_actions import reschedule_options, reschedule_to
+
+    chat_id, _ = event.get_ids()
+    async with AsyncSessionLocal() as db:
+        user = await _linked_user(db, chat_id)
+        if user is None:
+            return
+        if chosen:
+            ok, text = await reschedule_to(db, user.id, booking_id, chosen)
+            await event.bot.send_message(chat_id=chat_id, text=text)
+            if ok:
+                return
+        text, buttons = await reschedule_options(db, user.id, booking_id)
+
+    await event.bot.send_message(
+        chat_id=chat_id, text=text,
+        attachments=bot_keyboards.max_attachments(buttons) if buttons else None,
+    )
 
 
 async def _linked_user(db, chat_id: int):
@@ -591,6 +629,18 @@ async def on_callback(event: MessageCallback) -> None:
             await _cancel_from_bot(event, int(payload.split(":", 1)[1]))
         except ValueError:
             return
+    elif payload.startswith("cfm:"):
+        try:
+            await _confirm_from_bot(event, int(payload.split(":", 1)[1]))
+        except ValueError:
+            return
+    elif payload.startswith("rsc:"):
+        # Время в команде само с двоеточиями (ГГГГ-ММ-ДДTЧЧ:ММ) — режем на три.
+        parts = payload.split(":", 2)
+        if len(parts) < 2 or not parts[1].isdigit():
+            return
+        await _reschedule_from_bot(event, int(parts[1]),
+                                   parts[2] if len(parts) == 3 else "")
     elif payload == "menu:prefs":
         await _show_prefs(event.bot, chat_id)
     elif payload == "menu:support":

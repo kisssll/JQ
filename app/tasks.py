@@ -222,27 +222,44 @@ async def _send_via_vk(peer_id: int, text: str, keyboard: dict | None = None, *,
     return True
 
 
-async def _deliver(channel, address, text: str, subject: str = "Руми", *, audience) -> None:
+async def _deliver(channel, address, text: str, subject: str = "Руми", *, audience,
+                   buttons: list | None = None) -> None:
     """Отправка в уже отрезолвленный канал — общий транспорт для задач,
     которые шлют пользователю напрямую (напоминания). Канал резолвится
-    вызывающим кодом через notify_channel.resolve() с тем же audience."""
+    вызывающим кодом через notify_channel.resolve() с тем же audience.
+
+    buttons — общее описание кнопок (bot_actions.BotButton): каждый канал
+    рисует своё (bot_keyboards), почта кнопок не умеет и получает вместо них
+    ссылку.
+    """
     from app.models.models import NotifyChannel
+    from app.services import bot_keyboards
 
     if address is None:
         return
     try:
         if channel == NotifyChannel.EMAIL:
-            await _send_via_smtp(address, subject, text)
+            await _send_via_smtp(address, subject,
+                                 text + (bot_keyboards.email_tail(buttons) if buttons else ""))
         elif channel == NotifyChannel.MAX:
-            await _send_via_max(address, text)
+            await _send_via_max(address, text,
+                                bot_keyboards.max_attachments(buttons) if buttons else None)
         elif channel == NotifyChannel.VK:
-            await _send_via_vk(address, text, community=audience)
+            await _send_via_vk(address, text,
+                               bot_keyboards.vk(buttons) if buttons else None,
+                               community=audience)
         elif channel == NotifyChannel.TG:
-            await _send_via_telegram(address, text)
+            await _send_via_telegram(address, text,
+                                     reply_markup=bot_keyboards.telegram(buttons)
+                                     if buttons else None)
         else:
             logger.warning("_deliver: неизвестный канал %s", channel)
     except RecipientGone:
-        await _reroute_after_refusal(channel, address, text, subject, audience=audience)
+        # Досылка идёт без кнопок: запасным каналом чаще всего оказывается
+        # почта, а остальным текст и так несёт ссылку (email_tail).
+        await _reroute_after_refusal(channel, address,
+                                     text + (bot_keyboards.email_tail(buttons) if buttons else ""),
+                                     subject, audience=audience)
 
 
 async def _mark_channel_broken(channel_value: str, address, audience=None) -> None:
@@ -485,6 +502,29 @@ async def send_tg_message(ctx: dict[str, Any], chat_id: int, text: str) -> str:
     return "sent"
 
 
+def reminder_text(booking, salon, service) -> str:
+    """Текст напоминания за 2 часа до визита (решение 0020, п. 6).
+
+    Слова выбрал владелец, включая «Подтвердите пожалуйста» без запятой, —
+    их не правим. Названия услуги и салона идут в кавычках и как есть:
+    склонять произвольное имя («на стрижку в «Радуге»») нечем, а
+    «на Стрижка в «Радуга»» читается сломанным — кавычки это снимают.
+
+    «Сегодня» не всегда правда: напоминание за два часа до визита в 00:30
+    уходит накануне вечером, поэтому день считаем по времени салона.
+    """
+    from app.utils.timezone import get_salon_time
+
+    today = get_salon_time(getattr(salon, "timezone", None)).date()
+    day = "Сегодня" if booking.start_time.date() == today else "Завтра"
+    address = f"\n{salon.address}" if salon.address else ""
+    return (
+        f"{day} в {booking.start_time:%H:%M} ждём вас на "
+        f"«{service.name if service else 'услуга'}» в «{salon.name}»{address}\n\n"
+        "Подтвердите пожалуйста — мастеру так спокойнее."
+    )
+
+
 async def send_booking_reminder(
     ctx: dict[str, Any], booking_id: int, rescheduled_count: int | None = None,
 ) -> str:
@@ -544,11 +584,9 @@ async def send_booking_reminder(
                 await db.execute(select(Service).where(Service.id == booking.service_id))
             ).scalar_one_or_none()
 
-        text = (
-            f"⏰ Напоминаем: сегодня в {booking.start_time.strftime('%H:%M')} — "
-            f"{service.name if service else 'услуга'} в «{salon.name}»\n"
-            f"Адрес: {salon.address or 'уточните у салона'}"
-        )
+        text = reminder_text(booking, salon, service)
+        from app.services.bot_actions import booking_buttons
+        buttons = booking_buttons(booking.id)
         # Канал клиента резолвим здесь же — дальше объект пользователя не трогаем
         from app.services.notify_channel import resolve as _resolve_channel
         channel, address = _resolve_channel(client, Audience.CLIENT)
@@ -561,7 +599,7 @@ async def send_booking_reminder(
 
     try:
         await _deliver(channel, address, text, subject="Напоминание о записи — Руми",
-                       audience=Audience.CLIENT)
+                       audience=Audience.CLIENT, buttons=buttons)
     except TransientTaskError as exc:
         raise _retry(ctx, exc) from exc
     return "sent"
