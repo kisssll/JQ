@@ -605,3 +605,49 @@ def test_migration_downgrade_and_upgrade():
     finally:
         alembic_command.upgrade(cfg, "head")
     assert card <= asyncio.run(columns())
+
+
+# Все тесты выше подменяют сами функции отправки, поэтому разбор настоящего
+# ответа мессенджера ими не проверяется вовсе: номер сообщения там приходит
+# готовым. А это единственное новое место, где мы читаем чужой формат, и
+# ошибка в нём тихая — карточка просто никогда не обновится извне.
+
+
+async def test_telegram_sender_returns_the_message_number(monkeypatch):
+    """Номер карточки берётся из настоящего ответа Bot API, а не из воздуха."""
+    import httpx
+
+    monkeypatch.setattr(settings, "TG_BOT_TOKEN", "123:ABC")
+    real_init = httpx.AsyncClient.__init__
+
+    def mocked(self, *a, **kw):
+        kw.pop("proxy", None)
+        kw["transport"] = httpx.MockTransport(lambda r: httpx.Response(
+            200, json={"ok": True, "result": {"message_id": 4242, "chat": {"id": 1}}}))
+        real_init(self, *a, **kw)
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", mocked)
+    assert await tasks._send_via_telegram(1, "привет") == 4242
+    monkeypatch.undo()
+
+
+async def test_vk_sender_returns_the_message_number(monkeypatch):
+    """У ВК номер приходит прямо числом в ответе messages.send.
+
+    Ключ сообщества подменяем: без него отправка выходит в dev-заглушку и
+    настоящий разбор ответа не выполняется вовсе.
+    """
+    from app.services import vk_api, vk_community
+    from app.services.vk_community import Audience
+
+    async def fake_send(peer_id, text, keyboard=None, *, token):
+        assert token == "ключ-клиентского"
+        return 777
+
+    real_get = vk_community.get
+    monkeypatch.setattr(
+        vk_community, "get",
+        lambda c: type("T", (), {"token": "ключ-клиентского", "audience": real_get(c).audience})(),
+    )
+    monkeypatch.setattr(vk_api, "send_message", fake_send)
+    assert await tasks._send_via_vk(5, "привет", community=Audience.CLIENT) == 777
