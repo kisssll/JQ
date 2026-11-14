@@ -80,6 +80,36 @@ async def send_message(peer_id: int, text: str, keyboard: Optional[dict] = None,
     )
 
 
+#: «Нельзя отредактировать: сообщение слишком старое» (messages.edit).
+#: Срока документация ВК не называет — есть только эта ошибка, поэтому
+#: обращаемся с ней как с любым другим отказом правки: карточка остаётся
+#: прежней, а ответ человеку уходит отдельным сообщением (см. vk_bot.redraw).
+EDIT_TOO_OLD = 909
+
+
+async def edit_message(peer_id: int, text: str, keyboard: Optional[dict] = None, *,
+                       message_id: Optional[int] = None, cmid: Optional[int] = None,
+                       token: str) -> Any:
+    """Переписать уже отправленное сообщение (живая карточка, решение 0021).
+
+    Номер сообщения приходит двумя видами и это не наша прихоть: messages.send
+    возвращает глобальный message_id, а нажатие кнопки (message_event) несёт
+    conversation_message_id. messages.edit принимает оба — передаём тот,
+    который есть.
+
+    keyboard передаём всегда, в том числе пустую: иначе ВК оставит под
+    переписанным текстом прежние кнопки, и карточка отменённой записи
+    по-прежнему предлагала бы подтвердить визит.
+    """
+    return await call(
+        "messages.edit", token=token, peer_id=peer_id, message=text,
+        message_id=message_id, cmid=cmid,
+        keyboard=json.dumps(keyboard if keyboard else {"inline": True, "buttons": []},
+                            ensure_ascii=False),
+        keep_forward_messages=1, keep_snippets=1, dont_parse_links=0,
+    )
+
+
 async def answer_event(event_id: str, user_id: int, peer_id: int,
                        snackbar: Optional[str] = None, *, token: str) -> None:
     """Ответ на нажатие callback-кнопки. Без него у кнопки крутится индикатор."""

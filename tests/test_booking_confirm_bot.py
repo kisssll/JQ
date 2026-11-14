@@ -272,9 +272,12 @@ async def test_taken_slot_shows_a_fresh_list_instead_of_a_dead_end(
 
     await vk_bot.reschedule_from_bot(936, booked["id"], chosen)
 
-    # Первое сообщение — отказ, второе — свежий список с кнопками.
+    # Одно сообщение: отказ и свежий список приходят в той же карточке.
+    # До решения 0021 это были два сообщения подряд — отдельного экрана
+    # «что-то пошло не так» там больше нет.
+    assert len(vk_bot_sent) == 1
     assert "занят" in vk_bot_sent[0]["text"].lower()
-    assert vk_bot_sent[1]["kb"] is not None
+    assert vk_bot_sent[0]["kb"] is not None
     assert (await _booking(db_session, booked["id"])).rescheduled_count == 0
 
 

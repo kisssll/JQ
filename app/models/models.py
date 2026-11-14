@@ -892,6 +892,17 @@ class Booking(Base):
     # (PAID_BOOKING_STATUSES) — тап клиента сдвинул бы деньги в аналитике,
     # зарплатах и обзоре. Повторный тап время не переписывает.
     client_confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Где лежит карточка этой записи в переписке с ботом (решение 0021).
+    # Запись меняется и мимо карточки — отмена на сайте, отмена салоном,
+    # перенос с другого устройства, — и без этих трёх полей карточка врёт до
+    # первого тапа. Карточка одна: канал у человека один (notify_channel), и
+    # последняя нарисованная вытесняет прежнюю.
+    card_channel: Mapped[Optional[NotifyChannel]] = mapped_column(
+        Enum(NotifyChannel), nullable=True)
+    card_chat_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    # Строкой, а не числом: у MAX идентификатор сообщения строковый (mid),
+    # у Telegram и ВК — числовой. Одна колонка на три канала.
+    card_message_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     client: Mapped["User"] = relationship(back_populates="bookings", foreign_keys=[client_id])
     master: Mapped["Master"] = relationship()

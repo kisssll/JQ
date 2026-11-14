@@ -138,8 +138,10 @@ async def test_vk_our_fault_does_not_blame_recipient(vk_api_answers):
 
 
 async def test_vk_delivered(vk_api_answers):
+    """Дошедшее возвращается номером сообщения (решение 0021): по нему потом
+    правится карточка записи. Для вызывающих это по-прежнему «истина»."""
     vk_api_answers({"response": 123})
-    assert await tasks._send_via_vk(1, "hi", community="business") is True
+    assert await tasks._send_via_vk(1, "hi", community="business") == 123
 
 
 async def test_reminder_goes_to_vk_not_telegram(monkeypatch):

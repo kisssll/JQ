@@ -91,7 +91,8 @@ async def send_sms(ctx: dict[str, Any], phone: str, message: str) -> str:
 # ── Telegram-уведомления (бот @rumi_beauty_bot) ──────────────────
 
 
-async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None = None) -> bool:
+async def _send_via_telegram(chat_id: int, text: str,
+                             reply_markup: dict | None = None) -> bool | int:
     """Отправка сообщения ботом через Bot API (без aiogram: воркеру не нужен
     polling, достаточно одного HTTPS-вызова; конфликтов с процессом бота нет).
 
@@ -102,6 +103,11 @@ async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None 
     функция возвращалась как ни в чём не бывало — и вызывающий код принимал
     молчание за успех. Так на стейдже вопрос о согласии «спросил» человека,
     которому ничего не пришло (chat not found), и пометил его спрошенным.
+
+    Дошедшее возвращается номером сообщения (решение 0021: напоминание — это
+    карточка, которую потом надо переписать), а если номера нет — True.
+    Для вызывающих ничего не меняется: все они смотрят на истинность, а
+    номер сообщения в Telegram всегда ≥ 1.
     """
     import httpx
 
@@ -142,10 +148,14 @@ async def _send_via_telegram(chat_id: int, text: str, reply_markup: dict | None 
         logger.warning("telegram chat=%s: постоянный отказ %s %s",
                        chat_id, resp.status_code, description[:120])
         return False
-    return True
+    try:
+        return int(resp.json()["result"]["message_id"]) or True
+    except (ValueError, KeyError, TypeError):
+        return True
 
 
-async def _send_via_max(chat_id: int, text: str, attachments: list | None = None) -> bool:
+async def _send_via_max(chat_id: int, text: str,
+                        attachments: list | None = None) -> bool | str:
     """Отправка сообщения ботом MAX. В отличие от Telegram публичного HTTP-API
     под рукой нет — пользуемся клиентом maxapi (это разовый вызов, polling не
     поднимаем, конфликта с процессом бота нет).
@@ -154,6 +164,9 @@ async def _send_via_max(chat_id: int, text: str, attachments: list | None = None
     прочие 4xx — сообщение отклонено (False); сеть, 429, 5xx и всё
     нераспознанное — TransientTaskError (ретрай). Раньше ЛЮБАЯ ошибка считалась
     временной: заблокировавшему бота слали повторы до исчерпания попыток.
+
+    Дошедшее возвращается идентификатором сообщения (mid — у MAX он строковый),
+    а если его не дали — True. Нужен он для живой карточки (решение 0021).
     """
     from app.core.config import settings
 
@@ -166,7 +179,7 @@ async def _send_via_max(chat_id: int, text: str, attachments: list | None = None
 
     bot = Bot(settings.MAX_BOT_TOKEN)
     try:
-        await bot.send_message(chat_id=chat_id, text=text, attachments=attachments)
+        sent = await bot.send_message(chat_id=chat_id, text=text, attachments=attachments)
     except MaxApiError as exc:
         if exc.code in (403, 404):
             logger.warning("max chat=%s: получатель недоступен: %s", chat_id, exc.raw)
@@ -182,11 +195,20 @@ async def _send_via_max(chat_id: int, text: str, attachments: list | None = None
             await bot.close_session()
         except Exception:  # закрытие сессии не должно ронять задачу
             logger.debug("max chat=%s: сессия не закрылась", chat_id, exc_info=True)
-    return True
+    return _max_mid(sent) or True
+
+
+def _max_mid(sent) -> str:
+    """mid отправленного сообщения MAX: sent.message.body.mid. Пустая строка,
+    если ответ пришёл не той формы — тогда карточка просто не запомнится."""
+    try:
+        return str(sent.message.body.mid or "")
+    except AttributeError:
+        return ""
 
 
 async def _send_via_vk(peer_id: int, text: str, keyboard: dict | None = None, *,
-                       community) -> bool:
+                       community) -> bool | int:
     """Сообщение ботом сообщества ВК. Та же классификация, что у Telegram и MAX.
 
     900/901/902 — человек заблокировал сообщество или закрыл сообщения
@@ -197,6 +219,9 @@ async def _send_via_vk(peer_id: int, text: str, keyboard: dict | None = None, *,
     community — тип сообщения (vk_community.Audience). Токен берём ТОЛЬКО по
     нему: чужим токеном на этот адрес ВК ответил бы 901, и человек был бы
     помечен сломанным, ни в чём не провинившись (решение 0013).
+
+    Дошедшее возвращается номером сообщения (messages.send отдаёт его целым
+    числом), а если номера нет — True. Номер нужен живой карточке (0021).
     """
     import httpx
 
@@ -208,7 +233,7 @@ async def _send_via_vk(peer_id: int, text: str, keyboard: dict | None = None, *,
         return True
 
     try:
-        await vk_api.send_message(peer_id, text, keyboard, token=target.token)
+        sent = await vk_api.send_message(peer_id, text, keyboard, token=target.token)
     except vk_api.VkApiError as exc:
         if exc.code in vk_api.RECIPIENT_GONE_CODES:
             logger.warning("vk peer=%s: получатель недоступен: %s", peer_id, exc)
@@ -219,11 +244,11 @@ async def _send_via_vk(peer_id: int, text: str, keyboard: dict | None = None, *,
         return False
     except (httpx.HTTPError, ValueError) as exc:
         raise TransientTaskError(f"VK: {exc}") from exc
-    return True
+    return (sent if isinstance(sent, int) and not isinstance(sent, bool) else 0) or True
 
 
 async def _deliver(channel, address, text: str, subject: str = "Руми", *, audience,
-                   buttons: list | None = None) -> None:
+                   buttons: list | None = None):
     """Отправка в уже отрезолвленный канал — общий транспорт для задач,
     которые шлют пользователю напрямую (напоминания). Канал резолвится
     вызывающим кодом через notify_channel.resolve() с тем же audience.
@@ -231,35 +256,175 @@ async def _deliver(channel, address, text: str, subject: str = "Руми", *, au
     buttons — общее описание кнопок (bot_actions.BotButton): каждый канал
     рисует своё (bot_keyboards), почта кнопок не умеет и получает вместо них
     ссылку.
+
+    Возвращает номер отправленного сообщения, если канал его дал: напоминание
+    о записи — это карточка, которую потом придётся переписать (решение 0021).
+    Ни почта, ни досылка запасным каналом номера не дают — там None.
     """
     from app.models.models import NotifyChannel
     from app.services import bot_keyboards
 
     if address is None:
-        return
+        return None
+    sent = None
     try:
         if channel == NotifyChannel.EMAIL:
             await _send_via_smtp(address, subject,
                                  text + (bot_keyboards.email_tail(buttons) if buttons else ""))
         elif channel == NotifyChannel.MAX:
-            await _send_via_max(address, text,
-                                bot_keyboards.max_attachments(buttons) if buttons else None)
+            sent = await _send_via_max(address, text,
+                                       bot_keyboards.max_attachments(buttons) if buttons else None)
         elif channel == NotifyChannel.VK:
-            await _send_via_vk(address, text,
-                               bot_keyboards.vk(buttons) if buttons else None,
-                               community=audience)
+            sent = await _send_via_vk(address, text,
+                                      bot_keyboards.vk(buttons) if buttons else None,
+                                      community=audience)
         elif channel == NotifyChannel.TG:
-            await _send_via_telegram(address, text,
-                                     reply_markup=bot_keyboards.telegram(buttons)
-                                     if buttons else None)
+            sent = await _send_via_telegram(address, text,
+                                            reply_markup=bot_keyboards.telegram(buttons)
+                                            if buttons else None)
         else:
             logger.warning("_deliver: неизвестный канал %s", channel)
+        return sent if not isinstance(sent, bool) else None
     except RecipientGone:
         # Досылка идёт без кнопок: запасным каналом чаще всего оказывается
         # почта, а остальным текст и так несёт ссылку (email_tail).
         await _reroute_after_refusal(channel, address,
                                      text + (bot_keyboards.email_tail(buttons) if buttons else ""),
                                      subject, audience=audience)
+        return None
+
+
+# ── Правка уже отправленного сообщения (живая карточка, решение 0021) ───────
+#
+# Отказ правки НИКОГДА не поднимается выше: карточку могли удалить, чат —
+# заблокировать, а у ВК правка вдобавок протухает по сроку (ошибка 909). Это
+# побочное действие при отмене и переносе, и ронять их оно не имеет права.
+
+
+async def _edit_via_telegram(chat_id: int, message_id: str, text: str,
+                             reply_markup: dict | None = None) -> bool:
+    """editMessageText тем же HTTPS-вызовом, что sendMessage: воркеру aiogram
+    не нужен. reply_markup шлём всегда — пустую разметку тоже, иначе под
+    переписанным текстом остались бы прежние кнопки."""
+    import httpx
+
+    from app.core.config import settings
+
+    if not settings.TG_BOT_TOKEN:
+        logger.info("[dev-заглушка TG правка] chat=%s msg=%s: %s", chat_id, message_id, text[:60])
+        return True
+
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/editMessageText"
+    payload = {"chat_id": chat_id, "message_id": int(message_id), "text": text,
+               "reply_markup": reply_markup or {"inline_keyboard": []}}
+    try:
+        async with httpx.AsyncClient(timeout=10, proxy=settings.tg_proxy) as client:
+            resp = await client.post(url, json=payload)
+    except httpx.HTTPError as exc:
+        logger.warning("telegram chat=%s: карточка не переписана: %s", chat_id, exc)
+        return False
+    if resp.status_code != 200:
+        logger.info("telegram chat=%s msg=%s: карточка не переписана (%s)",
+                    chat_id, message_id, resp.status_code)
+        return False
+    return True
+
+
+async def _edit_via_max(message_id: str, text: str, attachments: list | None = None) -> bool:
+    from app.core.config import settings
+
+    if not settings.MAX_BOT_TOKEN:
+        logger.info("[dev-заглушка MAX правка] mid=%s: %s", message_id, text[:60])
+        return True
+
+    from maxapi import Bot
+
+    bot = Bot(settings.MAX_BOT_TOKEN)
+    try:
+        await bot.edit_message(message_id=str(message_id), text=text,
+                               attachments=attachments or [])
+    except Exception as exc:
+        logger.info("max mid=%s: карточка не переписана: %s", message_id, exc)
+        return False
+    finally:
+        try:
+            await bot.close_session()
+        except Exception:
+            logger.debug("max mid=%s: сессия не закрылась", message_id, exc_info=True)
+    return True
+
+
+async def _edit_via_vk(peer_id: int, message_id: str, text: str,
+                       keyboard: dict | None = None, *, community) -> bool:
+    from app.services import vk_api, vk_community
+
+    target = vk_community.get(community)
+    if not target.token:
+        logger.info("[dev-заглушка VK правка %s] peer=%s msg=%s: %s",
+                    target.audience.value, peer_id, message_id, text[:60])
+        return True
+    try:
+        await vk_api.edit_message(peer_id, text, keyboard,
+                                  message_id=int(message_id), token=target.token)
+    except Exception as exc:
+        logger.info("vk peer=%s msg=%s: карточка не переписана: %s", peer_id, message_id, exc)
+        return False
+    return True
+
+
+async def refresh_booking_card(ctx: dict[str, Any], booking_id: int, note: str = "") -> str:
+    """Переписать карточку записи в переписке: её изменили мимо бота.
+
+    Ставится из notifications при отмене, переносе и подтверждении, когда
+    действие пришло НЕ из бота (бот правит карточку сам, сразу и на месте).
+    Ретраев нет намеренно: к следующей попытке запись успеет измениться ещё
+    раз, а человек в любом случае получил обычное уведомление об отмене или
+    переносе — карточка лишь перестаёт противоречить ему.
+    """
+    from app.db.session import AsyncSessionLocal
+    from app.models.models import Booking, NotifyChannel
+    from app.services import booking_card, bot_keyboards
+
+    try:
+        async with AsyncSessionLocal() as db:
+            booking = await db.get(Booking, booking_id)
+            if booking is None or not booking.card_message_id:
+                return "skipped:no-card"
+            channel, chat_id = booking.card_channel, booking.card_chat_id
+            message_id = booking.card_message_id
+            text, buttons = await booking_card.render(db, booking_id, note=note)
+            if not text:
+                return "skipped:no-booking"
+    except Exception:
+        logger.exception("карточка записи %s: не удалось собрать", booking_id)
+        return "skipped:error"
+
+    from app.services.vk_community import Audience
+
+    # Вся правка под одним except: это побочное действие, и неожиданный сбой
+    # (хоть нечисловой номер сообщения в колонке) не должен красить задачу
+    # в упавшую и уводить воркер в ретраи.
+    try:
+        if channel == NotifyChannel.TG:
+            ok = await _edit_via_telegram(
+                chat_id, message_id, text,
+                bot_keyboards.telegram(buttons) if buttons else None)
+        elif channel == NotifyChannel.MAX:
+            ok = await _edit_via_max(
+                message_id, text,
+                bot_keyboards.max_attachments(buttons) if buttons else None)
+        elif channel == NotifyChannel.VK:
+            # Карточка записи — клиентское сообщение: бизнесовым сообществом
+            # его не тронуть (решение 0013).
+            ok = await _edit_via_vk(chat_id, message_id, text,
+                                    bot_keyboards.vk(buttons) if buttons else None,
+                                    community=Audience.CLIENT)
+        else:
+            return "skipped:no-channel"
+    except Exception:
+        logger.exception("карточка записи %s: правка не прошла", booking_id)
+        return "skipped:error"
+    return "updated" if ok else "skipped:refused"
 
 
 async def _mark_channel_broken(channel_value: str, address, audience=None) -> None:
@@ -599,10 +764,18 @@ async def send_booking_reminder(
         raise _retry(ctx, exc) from exc
 
     try:
-        await _deliver(channel, address, text, subject="Напоминание о записи — Руми",
-                       audience=Audience.CLIENT, buttons=buttons)
+        message_id = await _deliver(channel, address, text,
+                                    subject="Напоминание о записи — Руми",
+                                    audience=Audience.CLIENT, buttons=buttons)
     except TransientTaskError as exc:
         raise _retry(ctx, exc) from exc
+
+    # Напоминание — это и есть карточка записи: запоминаем, где она лежит,
+    # чтобы переписать её при отмене на сайте или переносе с другого
+    # устройства (решение 0021). Почта номера не даёт — тогда и писать нечего.
+    from app.services.booking_card import remember_in_new_session
+
+    await remember_in_new_session(booking_id, channel, address, message_id)
     return "sent"
 
 

@@ -292,9 +292,37 @@ def _kb(buttons: list) -> InlineKeyboardMarkup:
     ])
 
 
+async def _redraw(callback: CallbackQuery, text: str, buttons: list) -> None:
+    """Переписать ТУ САМУЮ карточку, по которой нажали (решение 0021).
+
+    Раньше каждый тап слал новое сообщение, а исходная карточка оставалась с
+    прежним временем и живыми кнопками. Теперь в переписке одно сообщение на
+    запись.
+
+    Сообщение могли удалить, а правку — отклонить: тогда отвечаем новым
+    сообщением, чтобы человек не остался без ответа вовсе. «Ничего не
+    изменилось» отказом не считаем — иначе двойной тап по «Перенести» слал бы
+    дубль того же списка.
+    """
+    markup = _kb(buttons) if buttons else None
+    try:
+        await callback.message.edit_text(text, reply_markup=markup)
+        return
+    except Exception as exc:
+        if "not modified" in str(exc).lower():
+            return
+        logger.info("tg: карточка не переписана (%s), отвечаем сообщением", exc)
+    try:
+        await callback.message.answer(text, reply_markup=markup)
+    except Exception:
+        logger.warning("tg: ответ на нажатие не отправлен", exc_info=True)
+
+
 async def on_my_bookings(message: Message) -> None:
     """Ближайшие записи с теми же тремя кнопками, что и в напоминании."""
     from app.db.session import AsyncSessionLocal
+    from app.models.models import NotifyChannel
+    from app.services import booking_card
     from app.services.bot_actions import booking_buttons, format_booking, upcoming_bookings
 
     async with AsyncSessionLocal() as db:
@@ -307,18 +335,22 @@ async def on_my_bookings(message: Message) -> None:
             return
         rows = await upcoming_bookings(db, user.id)
 
-    if not rows:
-        await message.answer("Ближайших записей нет.")
-        return
+        if not rows:
+            await message.answer("Ближайших записей нет.")
+            return
 
-    for booking, salon, service, master_name in rows:
-        await message.answer(format_booking(booking, salon, service, master_name),
-                             reply_markup=_kb(booking_buttons(booking.id)))
+        for booking, salon, service, master_name in rows:
+            sent = await message.answer(
+                format_booking(booking, salon, service, master_name),
+                reply_markup=_kb(booking_buttons(booking.id)))
+            await booking_card.remember(db, booking.id, NotifyChannel.TG,
+                                        message.chat.id, getattr(sent, "message_id", None))
 
 
 async def on_confirm_booking(callback: CallbackQuery) -> None:
     """«Буду». Статус записи не меняется — только отметка клиента."""
     from app.db.session import AsyncSessionLocal
+    from app.services import booking_card
     from app.services.bot_actions import confirm_booking
 
     try:
@@ -332,19 +364,25 @@ async def on_confirm_booking(callback: CallbackQuery) -> None:
         if user is None:
             await callback.answer("Telegram не привязан")
             return
-        _, text = await confirm_booking(db, user.id, booking_id)
+        _, told = await confirm_booking(db, user.id, booking_id)
+        # Состояние карточки считаем по базе: и первый тап, и повторный дают
+        # одну и ту же карточку с галочкой и без кнопок.
+        text, buttons = await booking_card.render(db, booking_id, owner_id=user.id)
 
-    await callback.answer()
-    await callback.message.answer(text)
+    await callback.answer(told[:200])
+    if text:
+        await _redraw(callback, text, buttons)
 
 
 async def on_reschedule(callback: CallbackQuery) -> None:
-    """Перенос из бота: без команды — список окон, с временем — сам перенос.
+    """Перенос из бота: без времени — список окон в той же карточке, с
+    временем — карточка с новым временем.
 
-    Занятое окно не тупик: показываем свежий список той же кнопкой.
+    Занятое окно не тупик: свежий список приходит в ту же карточку.
     """
     from app.db.session import AsyncSessionLocal
-    from app.services.bot_actions import reschedule_options, reschedule_to
+    from app.services import booking_card
+    from app.services.bot_actions import reschedule_to
 
     parts = (callback.data or "").split(":", 2)
     if len(parts) < 2 or not parts[1].isdigit():
@@ -358,20 +396,26 @@ async def on_reschedule(callback: CallbackQuery) -> None:
         if user is None:
             await callback.answer("Telegram не привязан")
             return
+        told = ""
         if chosen:
-            ok, text = await reschedule_to(db, user.id, booking_id, chosen)
-            await callback.answer()
-            await callback.message.answer(text)
+            ok, told = await reschedule_to(db, user.id, booking_id, chosen)
             if ok:
-                return
-        text, buttons = await reschedule_options(db, user.id, booking_id)
+                text, buttons = await booking_card.render(
+                    db, booking_id, owner_id=user.id, note=booking_card.NOTE_RESCHEDULED)
+            else:
+                text, buttons = await booking_card.render_slots(
+                    db, user.id, booking_id, prefix=told)
+        else:
+            text, buttons = await booking_card.render_slots(db, user.id, booking_id)
 
-    await callback.answer()
-    await callback.message.answer(text, reply_markup=_kb(buttons) if buttons else None)
+    await callback.answer(told[:200] if told else None)
+    if text:
+        await _redraw(callback, text, buttons)
 
 
 async def on_cancel_booking(callback: CallbackQuery) -> None:
     from app.db.session import AsyncSessionLocal
+    from app.services import booking_card
     from app.services.bot_actions import cancel_booking
 
     try:
@@ -385,16 +429,12 @@ async def on_cancel_booking(callback: CallbackQuery) -> None:
         if user is None:
             await callback.answer("Telegram не привязан")
             return
-        ok, text = await cancel_booking(db, user.id, booking_id)
+        ok, told = await cancel_booking(db, user.id, booking_id)
+        text, buttons = await booking_card.render(db, booking_id, owner_id=user.id)
 
-    await callback.answer(text if not ok else "Отменено")
-    if ok:
-        # Кнопку убираем: повторное нажатие уже ничего не изменит.
-        try:
-            await callback.message.edit_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-    await callback.message.answer(text)
+    await callback.answer(told[:200] if not ok else "Отменено")
+    if text:
+        await _redraw(callback, text, buttons)
 
 
 async def on_review_stars(callback: CallbackQuery) -> None:

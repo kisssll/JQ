@@ -134,7 +134,9 @@ async def cancel_booking(db, user_id: int, booking_id: int) -> tuple[bool, str]:
     try:
         from app.services.notifications import notify_booking_cancelled
 
-        await notify_booking_cancelled(db, booking)
+        # refresh_card=False: карточку правит сам бот, на месте и сразу
+        # (решение 0021) — второй правкой из очереди её только трясло бы.
+        await notify_booking_cancelled(db, booking, refresh_card=False)
     except Exception:
         logger.exception("bot: салон не уведомлён об отмене записи %s", booking_id)
 
@@ -186,7 +188,7 @@ async def confirm_booking(db, user_id: int, booking_id: int) -> tuple[bool, str]
     try:
         from app.services.notifications import notify_booking_confirmed_by_client
 
-        await notify_booking_confirmed_by_client(db, booking)
+        await notify_booking_confirmed_by_client(db, booking, refresh_card=False)
     except Exception:
         logger.exception("bot: салон не уведомлён о подтверждении записи %s", booking_id)
 
@@ -285,7 +287,7 @@ async def reschedule_to(db, user_id: int, booking_id: int, iso: str) -> tuple[bo
     try:
         from app.services.notifications import notify_booking_rescheduled
 
-        await notify_booking_rescheduled(db, booking, old_start)
+        await notify_booking_rescheduled(db, booking, old_start, refresh_card=False)
     except Exception:
         logger.exception("bot: салон не уведомлён о переносе записи %s", booking_id)
 

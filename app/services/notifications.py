@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.worker import get_arq_pool
+from app.services import booking_card
 from app.services.notify_channel import (
     enqueue_message,
     has_channel,
@@ -299,8 +300,14 @@ async def notify_booking_created(db: AsyncSession, booking: Booking) -> None:
         logger.exception("notify_booking_created(%s): уведомления не поставлены", booking.id)
 
 
-async def notify_booking_cancelled(db: AsyncSession, booking: Booking) -> None:
+async def notify_booking_cancelled(db: AsyncSession, booking: Booking, *,
+                                   refresh_card: bool = True) -> None:
     await _salon_booking_email(db, booking, "cancelled")  # копия на почту салона (не зависит от TG)
+    # Карточка в переписке осталась бы с живыми кнопками отменённой записи —
+    # перерисовываем её (решение 0021, п. 3). refresh_card=False приходит из
+    # бота: он правит ту самую карточку сам, сразу и на месте.
+    if refresh_card:
+        await booking_card.enqueue_refresh(booking.id, booking_card.NOTE_CANCELLED)
     if not settings.TG_NOTIFY_ENABLED:
         return
     try:
@@ -332,10 +339,15 @@ async def notify_booking_cancelled(db: AsyncSession, booking: Booking) -> None:
         logger.exception("notify_booking_cancelled(%s): уведомления не поставлены", booking.id)
 
 
-async def notify_booking_rescheduled(db: AsyncSession, booking: Booking, old_start: datetime) -> None:
+async def notify_booking_rescheduled(db: AsyncSession, booking: Booking, old_start: datetime, *,
+                                     refresh_card: bool = True) -> None:
     """Клиент перенёс запись (решение 0020): всем сторонам — «с … на …», и
     напоминание переставляется на новое время."""
     await _salon_booking_email(db, booking, "rescheduled", old_start=old_start)
+    # Перенос мог прийти с другого устройства или из гостевой ссылки —
+    # карточка в переписке до сих пор показывает прежнее время (0021, п. 3).
+    if refresh_card:
+        await booking_card.enqueue_refresh(booking.id, booking_card.NOTE_RESCHEDULED)
     if not settings.TG_NOTIFY_ENABLED:
         return
     try:
@@ -379,7 +391,8 @@ async def notify_booking_rescheduled(db: AsyncSession, booking: Booking, old_sta
         logger.exception("notify_booking_rescheduled(%s): уведомления не поставлены", booking.id)
 
 
-async def notify_booking_confirmed_by_client(db: AsyncSession, booking: Booking) -> None:
+async def notify_booking_confirmed_by_client(db: AsyncSession, booking: Booking, *,
+                                             refresh_card: bool = True) -> None:
     """Клиент нажал «Буду» в напоминании (решение 0020, п. 8).
 
     Идёт только салону: клиенту бот отвечает прямо в диалоге, и письмо
@@ -387,6 +400,10 @@ async def notify_booking_confirmed_by_client(db: AsyncSession, booking: Booking)
     существующая TOPIC_BOOKINGS: отдельная настройка растила бы список тем
     быстрее пользы.
     """
+    # Подтверждение приходит только из бота, но путь оставлен общим: если
+    # «Буду» когда-нибудь появится на сайте, карточка не станет врать.
+    if refresh_card:
+        await booking_card.enqueue_refresh(booking.id, booking_card.NOTE_CONFIRMED)
     if not settings.TG_NOTIFY_ENABLED:
         return
     try:

@@ -338,7 +338,8 @@ def _menu_kb() -> list:
 async def _show_bookings(bot: Bot, chat_id: int) -> None:
     """Ближайшие записи с теми же тремя кнопками, что и в напоминании."""
     from app.db.session import AsyncSessionLocal
-    from app.services import bot_keyboards
+    from app.models.models import NotifyChannel
+    from app.services import booking_card, bot_keyboards
     from app.services.bot_actions import booking_buttons, format_booking, upcoming_bookings
 
     async with AsyncSessionLocal() as db:
@@ -349,20 +350,54 @@ async def _show_bookings(bot: Bot, chat_id: int) -> None:
             return
         rows = await upcoming_bookings(db, user.id)
 
-    if not rows:
-        await bot.send_message(chat_id=chat_id, text="Ближайших записей нет.")
-        return
+        if not rows:
+            await bot.send_message(chat_id=chat_id, text="Ближайших записей нет.")
+            return
 
-    for booking, salon, service, master_name in rows:
-        await bot.send_message(
-            chat_id=chat_id,
-            text=format_booking(booking, salon, service, master_name),
-            attachments=bot_keyboards.max_attachments(booking_buttons(booking.id)),
-        )
+        for booking, salon, service, master_name in rows:
+            sent = await bot.send_message(
+                chat_id=chat_id,
+                text=format_booking(booking, salon, service, master_name),
+                attachments=bot_keyboards.max_attachments(booking_buttons(booking.id)),
+            )
+            await booking_card.remember(db, booking.id, NotifyChannel.MAX,
+                                        chat_id, _mid(sent))
+
+
+def _mid(sent) -> str:
+    """Идентификатор отправленного сообщения MAX (строковый mid)."""
+    try:
+        return str(sent.message.body.mid or "")
+    except AttributeError:
+        return ""
+
+
+async def _redraw(event: MessageCallback, text: str, buttons: list) -> None:
+    """Переписать ТУ САМУЮ карточку, по которой нажали (решение 0021).
+
+    event.edit одним вызовом и правит сообщение, и отвечает на нажатие —
+    кнопка не «висит». Сообщение могли удалить: тогда отвечаем обычным
+    сообщением, чтобы человек не остался без ответа.
+    """
+    from app.services import bot_keyboards
+
+    attachments = bot_keyboards.max_attachments(buttons) if buttons else []
+    try:
+        await event.edit(text=text, attachments=attachments)
+        return
+    except Exception as exc:
+        logger.info("max: карточка не переписана (%s), отвечаем сообщением", exc)
+    chat_id, _ = event.get_ids()
+    try:
+        await event.bot.send_message(chat_id=chat_id, text=text,
+                                     attachments=attachments or None)
+    except Exception:
+        logger.warning("max: ответ на нажатие не отправлен", exc_info=True)
 
 
 async def _cancel_from_bot(event: MessageCallback, booking_id: int) -> None:
     from app.db.session import AsyncSessionLocal
+    from app.services import booking_card
     from app.services.bot_actions import cancel_booking
 
     chat_id, _ = event.get_ids()
@@ -370,13 +405,20 @@ async def _cancel_from_bot(event: MessageCallback, booking_id: int) -> None:
         user = await _linked_user(db, chat_id)
         if user is None:
             return
-        _, text = await cancel_booking(db, user.id, booking_id)
-    await event.bot.send_message(chat_id=chat_id, text=text)
+        _, told = await cancel_booking(db, user.id, booking_id)
+        text, buttons = await booking_card.render(db, booking_id, owner_id=user.id)
+    if not text:
+        # Карточки нет (чужая или несуществующая запись) — отвечаем обычным
+        # сообщением: нажатие без ответа выглядит как сломанный бот.
+        await event.bot.send_message(chat_id=chat_id, text=told)
+        return
+    await _redraw(event, text, buttons)
 
 
 async def _confirm_from_bot(event: MessageCallback, booking_id: int) -> None:
     """«Буду»: отметка клиента, статус записи не трогаем."""
     from app.db.session import AsyncSessionLocal
+    from app.services import booking_card
     from app.services.bot_actions import confirm_booking
 
     chat_id, _ = event.get_ids()
@@ -384,33 +426,41 @@ async def _confirm_from_bot(event: MessageCallback, booking_id: int) -> None:
         user = await _linked_user(db, chat_id)
         if user is None:
             return
-        _, text = await confirm_booking(db, user.id, booking_id)
-    await event.bot.send_message(chat_id=chat_id, text=text)
+        _, told = await confirm_booking(db, user.id, booking_id)
+        text, buttons = await booking_card.render(db, booking_id, owner_id=user.id)
+    if not text:
+        await event.bot.send_message(chat_id=chat_id, text=told)
+        return
+    await _redraw(event, text, buttons)
 
 
 async def _reschedule_from_bot(event: MessageCallback, booking_id: int, chosen: str) -> None:
-    """Без выбранного времени — окна кнопками; с ним — перенос. Занятое
-    окно не тупик: показываем свежий список."""
+    """Без выбранного времени — окна в той же карточке; с ним — карточка с
+    новым временем. Занятое окно не тупик: свежий список приходит туда же."""
     from app.db.session import AsyncSessionLocal
-    from app.services import bot_keyboards
-    from app.services.bot_actions import reschedule_options, reschedule_to
+    from app.services import booking_card
+    from app.services.bot_actions import reschedule_to
 
     chat_id, _ = event.get_ids()
+    told = ""
     async with AsyncSessionLocal() as db:
         user = await _linked_user(db, chat_id)
         if user is None:
             return
         if chosen:
-            ok, text = await reschedule_to(db, user.id, booking_id, chosen)
-            await event.bot.send_message(chat_id=chat_id, text=text)
+            ok, told = await reschedule_to(db, user.id, booking_id, chosen)
             if ok:
-                return
-        text, buttons = await reschedule_options(db, user.id, booking_id)
-
-    await event.bot.send_message(
-        chat_id=chat_id, text=text,
-        attachments=bot_keyboards.max_attachments(buttons) if buttons else None,
-    )
+                text, buttons = await booking_card.render(
+                    db, booking_id, owner_id=user.id, note=booking_card.NOTE_RESCHEDULED)
+            else:
+                text, buttons = await booking_card.render_slots(
+                    db, user.id, booking_id, prefix=told)
+        else:
+            text, buttons = await booking_card.render_slots(db, user.id, booking_id)
+    if not text:
+        await event.bot.send_message(chat_id=chat_id, text=told or "Запись не найдена.")
+        return
+    await _redraw(event, text, buttons)
 
 
 async def _linked_user(db, chat_id: int):

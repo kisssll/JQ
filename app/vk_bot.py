@@ -87,12 +87,38 @@ def _allowed(command: str) -> bool:
 
 # ── отправка ────────────────────────────────────────────────────────────────
 
-async def send(peer_id: int, text: str, keyboard: Optional[dict] = None) -> None:
-    """Ответ в диалог. Ошибка отправки не должна ронять обработку события."""
+async def send(peer_id: int, text: str, keyboard: Optional[dict] = None):
+    """Ответ в диалог. Ошибка отправки не должна ронять обработку события.
+
+    Возвращает номер отправленного сообщения (его даёт messages.send) — по
+    нему потом переписывается карточка записи (решение 0021).
+    """
     try:
-        await vk_api.send_message(peer_id, text, keyboard, token=_community().token)
+        return await vk_api.send_message(peer_id, text, keyboard, token=_community().token)
     except Exception:
         logger.warning("vk peer=%s: ответ не отправлен", peer_id, exc_info=True)
+        return None
+
+
+async def redraw(peer_id: int, cmid: Optional[int], text: str,
+                 keyboard: Optional[dict] = None) -> None:
+    """Переписать ТУ САМУЮ карточку, по которой нажали (решение 0021).
+
+    Нажатие приходит с conversation_message_id — им и правим. Правка может
+    не пройти: сообщение удалили, или оно слишком старое (ошибка 909 — срока
+    документация ВК не называет, только эту ошибку). Тогда отвечаем обычным
+    сообщением: отказ правки не имеет права оставить человека без ответа.
+    """
+    if cmid:
+        try:
+            await vk_api.edit_message(peer_id, text, keyboard, cmid=cmid,
+                                      token=_community().token)
+            return
+        except Exception as exc:
+            why = ("сообщение слишком старое"
+                   if getattr(exc, "code", None) == vk_api.EDIT_TOO_OLD else exc)
+            logger.info("vk peer=%s cmid=%s: карточка не переписана: %s", peer_id, cmid, why)
+    await send(peer_id, text, keyboard)
 
 
 def _site_url(path: str) -> str:
@@ -276,7 +302,8 @@ async def show_main_menu(peer_id: int, user) -> None:
 
 async def show_bookings(peer_id: int) -> None:
     """Ближайшие записи с теми же тремя кнопками, что и в напоминании."""
-    from app.services import bot_keyboards
+    from app.models.models import NotifyChannel
+    from app.services import booking_card, bot_keyboards
     from app.services.bot_actions import booking_buttons, format_booking, upcoming_bookings
 
     async with await _db() as db:
@@ -286,59 +313,78 @@ async def show_bookings(peer_id: int) -> None:
             return
         rows = await upcoming_bookings(db, user.id)
 
-    if not rows:
-        await send(peer_id, "Ближайших записей нет.")
-        return
-    for booking, salon, service, master_name in rows:
-        await send(
-            peer_id, format_booking(booking, salon, service, master_name),
-            bot_keyboards.vk(booking_buttons(booking.id)),
-        )
+        if not rows:
+            await send(peer_id, "Ближайших записей нет.")
+            return
+        for booking, salon, service, master_name in rows:
+            sent = await send(
+                peer_id, format_booking(booking, salon, service, master_name),
+                bot_keyboards.vk(booking_buttons(booking.id)),
+            )
+            await booking_card.remember(db, booking.id, NotifyChannel.VK, peer_id, sent)
 
 
-async def cancel_from_bot(peer_id: int, booking_id: int) -> str:
+async def cancel_from_bot(peer_id: int, booking_id: int, cmid: Optional[int] = None) -> str:
+    from app.services import booking_card, bot_keyboards
     from app.services.bot_actions import cancel_booking
 
     async with await _db() as db:
         user, _ = await current_user(db, peer_id)
         if user is None:
             return "ВКонтакте не привязан к аккаунту."
-        _, text = await cancel_booking(db, user.id, booking_id)
-    await send(peer_id, text)
+        _, told = await cancel_booking(db, user.id, booking_id)
+        text, buttons = await booking_card.render(db, booking_id, owner_id=user.id)
+    if not text:
+        # Карточки нет (чужая или несуществующая запись) — отвечаем всплывашкой:
+        # нажатие без ответа выглядит как сломанный бот.
+        return told
+    await redraw(peer_id, cmid, text, bot_keyboards.vk(buttons) if buttons else None)
     return ""
 
 
-async def confirm_from_bot(peer_id: int, booking_id: int) -> str:
+async def confirm_from_bot(peer_id: int, booking_id: int, cmid: Optional[int] = None) -> str:
     """«Буду»: отметка клиента, статус записи не трогаем."""
+    from app.services import booking_card, bot_keyboards
     from app.services.bot_actions import confirm_booking
 
     async with await _db() as db:
         user, _ = await current_user(db, peer_id)
         if user is None:
             return "ВКонтакте не привязан к аккаунту."
-        _, text = await confirm_booking(db, user.id, booking_id)
-    await send(peer_id, text)
+        _, told = await confirm_booking(db, user.id, booking_id)
+        text, buttons = await booking_card.render(db, booking_id, owner_id=user.id)
+    if not text:
+        return told
+    await redraw(peer_id, cmid, text, bot_keyboards.vk(buttons) if buttons else None)
     return ""
 
 
-async def reschedule_from_bot(peer_id: int, booking_id: int, chosen: str) -> str:
-    """Без выбранного времени — окна кнопками; с ним — перенос. Занятое
-    окно не тупик: показываем свежий список."""
-    from app.services import bot_keyboards
-    from app.services.bot_actions import reschedule_options, reschedule_to
+async def reschedule_from_bot(peer_id: int, booking_id: int, chosen: str,
+                              cmid: Optional[int] = None) -> str:
+    """Без выбранного времени — окна в той же карточке; с ним — карточка с
+    новым временем. Занятое окно не тупик: свежий список приходит туда же."""
+    from app.services import booking_card, bot_keyboards
+    from app.services.bot_actions import reschedule_to
 
+    told = ""
     async with await _db() as db:
         user, _ = await current_user(db, peer_id)
         if user is None:
             return "ВКонтакте не привязан к аккаунту."
         if chosen:
-            ok, text = await reschedule_to(db, user.id, booking_id, chosen)
-            await send(peer_id, text)
+            ok, told = await reschedule_to(db, user.id, booking_id, chosen)
             if ok:
-                return ""
-        text, buttons = await reschedule_options(db, user.id, booking_id)
+                text, buttons = await booking_card.render(
+                    db, booking_id, owner_id=user.id, note=booking_card.NOTE_RESCHEDULED)
+            else:
+                text, buttons = await booking_card.render_slots(
+                    db, user.id, booking_id, prefix=told)
+        else:
+            text, buttons = await booking_card.render_slots(db, user.id, booking_id)
 
-    await send(peer_id, text, bot_keyboards.vk(buttons) if buttons else None)
+    if not text:
+        return told or "Запись не найдена."
+    await redraw(peer_id, cmid, text, bot_keyboards.vk(buttons) if buttons else None)
     return ""
 
 
@@ -663,11 +709,17 @@ async def on_message_event(obj: dict) -> None:
         except ValueError:
             payload = {}
     command = str(payload.get("c") or "") if isinstance(payload, dict) else ""
+    # Номер сообщения, под которым нажали кнопку: им карточка правится на
+    # месте (решение 0021). Другого номера нажатие не несёт.
+    try:
+        cmid = int(obj.get("conversation_message_id") or 0) or None
+    except (TypeError, ValueError):
+        cmid = None
 
     snackbar: Optional[str] = None
     try:
         if _allowed(command):
-            snackbar = await _dispatch_command(peer_id, command)
+            snackbar = await _dispatch_command(peer_id, command, cmid)
         else:
             logger.info("vk peer=%s: кнопка %s не из этого сообщества", peer_id, command)
     except Exception:
@@ -680,7 +732,8 @@ async def on_message_event(obj: dict) -> None:
             logger.warning("vk peer=%s: нажатие не подтверждено", peer_id, exc_info=True)
 
 
-async def _dispatch_command(peer_id: int, command: str) -> Optional[str]:
+async def _dispatch_command(peer_id: int, command: str,
+                            cmid: Optional[int] = None) -> Optional[str]:
     if command == "menu:bookings":
         await show_bookings(peer_id)
     elif command == "menu:prefs":
@@ -689,12 +742,12 @@ async def _dispatch_command(peer_id: int, command: str) -> Optional[str]:
         await show_topics(peer_id)
     elif command.startswith("cnl:"):
         try:
-            return await cancel_from_bot(peer_id, int(command.split(":", 1)[1])) or None
+            return await cancel_from_bot(peer_id, int(command.split(":", 1)[1]), cmid) or None
         except ValueError:
             return None
     elif command.startswith("cfm:"):
         try:
-            return await confirm_from_bot(peer_id, int(command.split(":", 1)[1])) or None
+            return await confirm_from_bot(peer_id, int(command.split(":", 1)[1]), cmid) or None
         except ValueError:
             return None
     elif command.startswith("rsc:"):
@@ -703,7 +756,7 @@ async def _dispatch_command(peer_id: int, command: str) -> Optional[str]:
         if len(parts) < 2 or not parts[1].isdigit():
             return None
         return await reschedule_from_bot(
-            peer_id, int(parts[1]), parts[2] if len(parts) == 3 else "") or None
+            peer_id, int(parts[1]), parts[2] if len(parts) == 3 else "", cmid) or None
     elif command.startswith("ntf:"):
         await toggle_topic(peer_id, command.split(":", 1)[1])
     elif command == "adc:yes":
