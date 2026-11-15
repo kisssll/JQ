@@ -123,6 +123,10 @@ class Settings(BaseSettings):
     # Уведомления о записях в Telegram (клиенту/мастеру/бизнесу через того же
     # бота + ARQ). Требует TG_BOT_TOKEN; получают только привязавшие Telegram.
     TG_NOTIFY_ENABLED: bool = False
+    # Карточка записи виджетом (Bot API 10.4, решение 0021) — только у этих
+    # chat_id, через запятую. Пусто — виджета нет ни у кого: клиенты без
+    # поддержки показывают такое сообщение неподдерживаемым вложением.
+    TG_WIDGET_CHAT_IDS: str = ""
 
     # Каталог загруженных изображений — локальное хранилище (fallback, когда
     # S3 не задан: тесты/локалка). В docker — volume. При заданном S3-бакете
@@ -319,6 +323,21 @@ class Settings(BaseSettings):
         молчит, и искать причину будем долго.
         """
         return self.TG_PROXY_URL.strip() or None
+
+    @property
+    def tg_widget_chat_ids(self) -> set[int]:
+        """chat_id, которым карточка записи уходит виджетом.
+
+        Строка приходит из .env, и опечатка в ней не должна ронять отправку
+        напоминаний всем: мусорные элементы пропускаем, а не бросаем.
+        """
+        ids: set[int] = set()
+        for part in self.TG_WIDGET_CHAT_IDS.split(","):
+            try:
+                ids.add(int(part.strip()))
+            except ValueError:
+                continue
+        return ids
 
     @property
     def DATABASE_URL(self) -> str:

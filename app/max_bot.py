@@ -340,7 +340,7 @@ async def _show_bookings(bot: Bot, chat_id: int) -> None:
     from app.db.session import AsyncSessionLocal
     from app.models.models import NotifyChannel
     from app.services import booking_card, bot_keyboards
-    from app.services.bot_actions import booking_buttons, format_booking, upcoming_bookings
+    from app.services.bot_actions import card_buttons, format_booking, upcoming_bookings
 
     async with AsyncSessionLocal() as db:
         user = await _linked_user(db, chat_id)
@@ -355,10 +355,11 @@ async def _show_bookings(bot: Bot, chat_id: int) -> None:
             return
 
         for booking, salon, service, master_name in rows:
+            buttons = card_buttons(booking)
             sent = await bot.send_message(
                 chat_id=chat_id,
                 text=format_booking(booking, salon, service, master_name),
-                attachments=bot_keyboards.max_attachments(booking_buttons(booking.id)),
+                attachments=bot_keyboards.max_attachments(buttons) if buttons else None,
             )
             await booking_card.remember(db, booking.id, NotifyChannel.MAX,
                                         chat_id, _mid(sent))

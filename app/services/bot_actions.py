@@ -66,6 +66,19 @@ def booking_buttons(booking_id: int) -> list[BotButton]:
     ]
 
 
+def card_buttons(booking) -> list[BotButton]:
+    """Кнопки записи в списке /bookings: те же, что на карточке.
+
+    Подтверждённая запись кнопок не имеет (booking_card.render): «Буду» уже
+    отработала, а «Перенести» и «Не смогу» на карточке после неё не
+    предлагаются. Список обязан показывать то же, иначе у одной записи в
+    переписке две разные правды о том, что с ней можно сделать.
+    """
+    if booking.client_confirmed_at is not None:
+        return []
+    return booking_buttons(booking.id)
+
+
 async def upcoming_bookings(db, user_id: int, limit: int = UPCOMING_LIMIT) -> list:
     """Ближайшие активные записи клиента: (booking, salon, master_name, service)."""
     from sqlalchemy import select

@@ -304,7 +304,7 @@ async def show_bookings(peer_id: int) -> None:
     """Ближайшие записи с теми же тремя кнопками, что и в напоминании."""
     from app.models.models import NotifyChannel
     from app.services import booking_card, bot_keyboards
-    from app.services.bot_actions import booking_buttons, format_booking, upcoming_bookings
+    from app.services.bot_actions import card_buttons, format_booking, upcoming_bookings
 
     async with await _db() as db:
         user, _ = await current_user(db, peer_id)
@@ -317,9 +317,10 @@ async def show_bookings(peer_id: int) -> None:
             await send(peer_id, "Ближайших записей нет.")
             return
         for booking, salon, service, master_name in rows:
+            buttons = card_buttons(booking)
             sent = await send(
                 peer_id, format_booking(booking, salon, service, master_name),
-                bot_keyboards.vk(booking_buttons(booking.id)),
+                bot_keyboards.vk(buttons) if buttons else None,
             )
             await booking_card.remember(db, booking.id, NotifyChannel.VK, peer_id, sent)
 

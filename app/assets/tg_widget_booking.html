@@ -1,0 +1,119 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/* Цвета фона, текста и разделителей берём у темы человека: светлая или тёмная
+   схема здесь следует теме ЧАТА, prefers-color-scheme не годится. Акцент и
+   радиусы наши (docs/design.md); шрифты только системные — сети внутри
+   виджета нет. */
+:root{--accent:#cf3d78;--r8:8px;--r16:16px}
+*{box-sizing:border-box;margin:0}
+body{background:var(--tg-theme-bg-color,transparent);color:var(--tg-theme-text-color,#222);
+  font:15px/1.3 system-ui,-apple-system,sans-serif;overflow:hidden}
+#card{padding:12px 14px;padding-right:calc(14px + var(--tg-content-safe-area-corner-right,0px));
+  padding-left:calc(14px + var(--tg-content-safe-area-corner-left,0px));
+  border-left:4px solid var(--accent);border-radius:var(--r16)}
+.top{display:flex;align-items:baseline;gap:10px}
+#time{font-size:30px;font-weight:700;letter-spacing:-.5px}
+#date{color:var(--tg-theme-hint-color,#777);font-size:15px;flex:1}
+#badge{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;
+  background:var(--accent);color:#fff;white-space:nowrap}
+#service{font-weight:600;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#who{color:var(--tg-theme-hint-color,#777);font-size:14px;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#title{font-weight:600;margin-top:8px}
+#slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.slot{background:var(--tg-theme-secondary-bg-color,#eee);border-radius:var(--r8);
+  padding:6px 4px;text-align:center;font-size:14px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.off #time{text-decoration:line-through;color:var(--tg-theme-hint-color,#777)}
+.off #badge,.past #badge{background:var(--tg-theme-hint-color,#777)}
+.off #card{border-left-color:var(--tg-theme-destructive-text-color,#d33)}
+.past #card{border-left-color:var(--tg-theme-hint-color,#777)}
+.ok #badge{background:var(--tg-theme-accent-text-color,var(--accent))}
+[hidden]{display:none!important}
+</style>
+<div id="root"><div id="card">
+  <div class="top"><span id="time"></span><span id="date"></span><span id="badge"></span></div>
+  <div id="service"></div>
+  <div id="who"></div>
+  <div id="title" hidden></div>
+  <div id="slots" hidden></div>
+</div></div>
+<script>
+// Вся логика экрана — в viewOf: чистая функция (строка chat_data, «сейчас») →
+// описание экрана. Она не трогает DOM, поэтому её зовёт и тест. Данные
+// записи попадают на страницу только через textContent: названия вводит
+// салон, и разметкой они не становятся.
+var SCREENS = {
+  card:  {tone: "card", badge: "Ждём подтверждения"},
+  ok:    {tone: "ok",   badge: "Подтверждено"},
+  moved: {tone: "ok",   badge: "Перенесено"},
+  off:   {tone: "off",  badge: "Отменено"},
+  past:  {tone: "past", badge: "Визит состоялся"}
+};
+var VISIT_HOURS = 1;  // сколько после начала визит ещё считается идущим
+
+function viewOf(raw, nowMs) {
+  var s = {};
+  try { var p = JSON.parse(raw); if (p && typeof p === "object") s = p; } catch (e) {}
+  var str = function (v) { return typeof v === "string" ? v : ""; };
+  var screen = str(s.s);
+  var slots = Array.isArray(s.sl) ? s.sl.filter(function (x) { return typeof x === "string"; }) : [];
+  var v = {tone: "card", badge: "", time: str(s.t), date: str(s.d), service: str(s.sv),
+           who: [str(s.m), str(s.p)].filter(Boolean).join(" · "),
+           title: "", slots: []};
+  if (screen === "slots" || screen === "busy") {
+    v.tone = "slots";
+    v.slots = slots;
+    v.title = screen === "busy" ? "Это время уже заняли. Выберите другое"
+            : slots.length ? "Выберите новое время"
+            : "Свободных окон на ближайшие дни нет";
+    return v;
+  }
+  var def = SCREENS[screen] || SCREENS.card;
+  // Визит прошёл — виджет гаснет сам по часам, сервер для этого не нужен.
+  if ((screen === "card" || screen === "ok" || screen === "moved" || !screen)
+      && typeof s.e === "number" && nowMs > (s.e + VISIT_HOURS * 3600) * 1000) {
+    def = SCREENS.past;
+  }
+  v.tone = def.tone;
+  v.badge = def.badge;
+  return v;
+}
+
+function draw() {
+  var w = window.TelegramWidget;
+  var v = viewOf(w ? w.chatData : null, Date.now());
+  var $ = function (id) { return document.getElementById(id); };
+  document.getElementById("root").className = v.tone;
+  $("time").textContent = v.time;
+  $("date").textContent = v.date;
+  $("badge").textContent = v.badge;
+  $("badge").hidden = !v.badge;
+  $("service").textContent = v.service;
+  $("who").textContent = v.who;
+  $("title").textContent = v.title;
+  $("title").hidden = !v.title;
+  var box = $("slots");
+  box.textContent = "";
+  v.slots.forEach(function (label) {
+    var d = document.createElement("div");
+    d.className = "slot";
+    d.textContent = label;
+    box.appendChild(d);
+  });
+  box.hidden = !v.slots.length;
+  // На экране окон строка «время · дата» не нужна (время как раз выбирают),
+  // а услуга и мастер остаются: видно, какую запись двигают.
+  var pick = v.tone === "slots";
+  $("time").hidden = pick;
+  $("date").hidden = pick;
+}
+
+if (window.TelegramWidget) {
+  TelegramWidget.onEvent("chatDataChanged", draw);
+  setInterval(draw, 60000);
+}
+draw();
+</script>

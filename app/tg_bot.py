@@ -292,7 +292,21 @@ def _kb(buttons: list) -> InlineKeyboardMarkup:
     ])
 
 
-async def _redraw(callback: CallbackQuery, text: str, buttons: list) -> None:
+async def _widget_state(db, callback: CallbackQuery, booking_id: int, user_id: int, *,
+                        note: str = "", screen: str | None = None,
+                        buttons: list | None = None) -> str | None:
+    """chat_data карточки-виджета, если этому чату он включён флагом; иначе
+    None, и _redraw идёт прежним путём (editMessageText)."""
+    from app.services import tg_widget
+
+    if not tg_widget.enabled_for(callback.message.chat.id):
+        return None
+    return await tg_widget.widget_state(db, booking_id, owner_id=user_id, note=note,
+                                        screen=screen, buttons=buttons)
+
+
+async def _redraw(callback: CallbackQuery, text: str, buttons: list,
+                  widget: str | None = None) -> None:
     """Переписать ТУ САМУЮ карточку, по которой нажали (решение 0021).
 
     Раньше каждый тап слал новое сообщение, а исходная карточка оставалась с
@@ -305,6 +319,22 @@ async def _redraw(callback: CallbackQuery, text: str, buttons: list) -> None:
     дубль того же списка.
     """
     markup = _kb(buttons) if buttons else None
+    if widget is not None:
+        # У виджета HTML не заменить, editMessageText на нём не пройдёт:
+        # меняем состояние, подпись и кнопки (см. tasks._edit_widget_via_telegram).
+        from app import tasks
+        from app.services import bot_keyboards
+
+        if await tasks._edit_widget_via_telegram(
+                callback.message.chat.id, str(callback.message.message_id), text, widget,
+                bot_keyboards.telegram(buttons) if buttons else None):
+            return
+        logger.info("tg: виджет не переписан, отвечаем сообщением")
+        try:
+            await callback.message.answer(text, reply_markup=markup)
+        except Exception:
+            logger.warning("tg: ответ на нажатие не отправлен", exc_info=True)
+        return
     try:
         await callback.message.edit_text(text, reply_markup=markup)
         return
@@ -323,7 +353,9 @@ async def on_my_bookings(message: Message) -> None:
     from app.db.session import AsyncSessionLocal
     from app.models.models import NotifyChannel
     from app.services import booking_card
-    from app.services.bot_actions import booking_buttons, format_booking, upcoming_bookings
+    from app import tasks
+    from app.services import bot_keyboards, tg_widget
+    from app.services.bot_actions import card_buttons, format_booking, upcoming_bookings
 
     async with AsyncSessionLocal() as db:
         user = await _find_linked_user(db, message.chat.id)
@@ -340,11 +372,31 @@ async def on_my_bookings(message: Message) -> None:
             return
 
         for booking, salon, service, master_name in rows:
-            sent = await message.answer(
-                format_booking(booking, salon, service, master_name),
-                reply_markup=_kb(booking_buttons(booking.id)))
+            buttons = card_buttons(booking)
+            message_id = None
+            sent_widget = False
+            if tg_widget.enabled_for(message.chat.id):
+                # Подпись — полный текст карточки (с адресом): так видят
+                # клиенты без поддержки виджетов.
+                caption, _ = await booking_card.render(db, booking.id, owner_id=user.id)
+                chat_data = await tg_widget.widget_state(db, booking.id, owner_id=user.id)
+                try:
+                    sent_id = await tasks._send_via_telegram(
+                        message.chat.id, caption,
+                        reply_markup=bot_keyboards.telegram(buttons) if buttons else None,
+                        widget=chat_data)
+                    sent_widget = bool(sent_id)
+                    if sent_widget and not isinstance(sent_id, bool):
+                        message_id = sent_id
+                except Exception:
+                    logger.warning("tg: виджет записи не отправлен, шлём текстом", exc_info=True)
+            if not sent_widget:
+                sent = await message.answer(
+                    format_booking(booking, salon, service, master_name),
+                    reply_markup=_kb(buttons) if buttons else None)
+                message_id = getattr(sent, "message_id", None)
             await booking_card.remember(db, booking.id, NotifyChannel.TG,
-                                        message.chat.id, getattr(sent, "message_id", None))
+                                        message.chat.id, message_id)
 
 
 async def on_confirm_booking(callback: CallbackQuery) -> None:
@@ -368,10 +420,11 @@ async def on_confirm_booking(callback: CallbackQuery) -> None:
         # Состояние карточки считаем по базе: и первый тап, и повторный дают
         # одну и ту же карточку с галочкой и без кнопок.
         text, buttons = await booking_card.render(db, booking_id, owner_id=user.id)
+        widget = await _widget_state(db, callback, booking_id, user.id)
 
     await callback.answer(told[:200])
     if text:
-        await _redraw(callback, text, buttons)
+        await _redraw(callback, text, buttons, widget)
 
 
 async def on_reschedule(callback: CallbackQuery) -> None:
@@ -381,7 +434,7 @@ async def on_reschedule(callback: CallbackQuery) -> None:
     Занятое окно не тупик: свежий список приходит в ту же карточку.
     """
     from app.db.session import AsyncSessionLocal
-    from app.services import booking_card
+    from app.services import booking_card, tg_widget
     from app.services.bot_actions import reschedule_to
 
     parts = (callback.data or "").split(":", 2)
@@ -400,17 +453,23 @@ async def on_reschedule(callback: CallbackQuery) -> None:
         if chosen:
             ok, told = await reschedule_to(db, user.id, booking_id, chosen)
             if ok:
+                note = booking_card.NOTE_RESCHEDULED
                 text, buttons = await booking_card.render(
-                    db, booking_id, owner_id=user.id, note=booking_card.NOTE_RESCHEDULED)
+                    db, booking_id, owner_id=user.id, note=note)
+                widget = await _widget_state(db, callback, booking_id, user.id, note=note)
             else:
                 text, buttons = await booking_card.render_slots(
                     db, user.id, booking_id, prefix=told)
+                widget = await _widget_state(db, callback, booking_id, user.id,
+                                             screen=tg_widget.SCREEN_BUSY, buttons=buttons)
         else:
             text, buttons = await booking_card.render_slots(db, user.id, booking_id)
+            widget = await _widget_state(db, callback, booking_id, user.id,
+                                         screen=tg_widget.SCREEN_SLOTS, buttons=buttons)
 
     await callback.answer(told[:200] if told else None)
     if text:
-        await _redraw(callback, text, buttons)
+        await _redraw(callback, text, buttons, widget)
 
 
 async def on_cancel_booking(callback: CallbackQuery) -> None:
@@ -431,10 +490,11 @@ async def on_cancel_booking(callback: CallbackQuery) -> None:
             return
         ok, told = await cancel_booking(db, user.id, booking_id)
         text, buttons = await booking_card.render(db, booking_id, owner_id=user.id)
+        widget = await _widget_state(db, callback, booking_id, user.id)
 
     await callback.answer(told[:200] if not ok else "Отменено")
     if text:
-        await _redraw(callback, text, buttons)
+        await _redraw(callback, text, buttons, widget)
 
 
 async def on_review_stars(callback: CallbackQuery) -> None:

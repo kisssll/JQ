@@ -92,7 +92,8 @@ async def send_sms(ctx: dict[str, Any], phone: str, message: str) -> str:
 
 
 async def _send_via_telegram(chat_id: int, text: str,
-                             reply_markup: dict | None = None) -> bool | int:
+                             reply_markup: dict | None = None,
+                             widget: str | None = None) -> bool | int:
     """Отправка сообщения ботом через Bot API (без aiogram: воркеру не нужен
     polling, достаточно одного HTTPS-вызова; конфликтов с процессом бота нет).
 
@@ -108,6 +109,10 @@ async def _send_via_telegram(chat_id: int, text: str,
     карточка, которую потом надо переписать), а если номера нет — True.
     Для вызывающих ничего не меняется: все они смотрят на истинность, а
     номер сообщения в Telegram всегда ≥ 1.
+
+    widget — chat_data (JSON-строка) карточки-виджета: тогда вместо
+    sendMessage уходит sendWidget, а text становится подписью. Без него путь
+    прежний, байт в байт; решает вызывающий по TG_WIDGET_CHAT_IDS.
     """
     import httpx
 
@@ -117,12 +122,22 @@ async def _send_via_telegram(chat_id: int, text: str,
         logger.info("[dev-заглушка TG] chat=%s: %s", chat_id, text[:60])
         return True
 
-    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/sendMessage"
+    method = "sendWidget" if widget is not None else "sendMessage"
+    url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/{method}"
     # Тот же прокси, что у бота: уведомления идут мимо aiogram, и без этого
     # они молча не доходили бы даже при живом боте.
     try:
         async with httpx.AsyncClient(timeout=10, proxy=settings.tg_proxy) as client:
-            payload = {"chat_id": chat_id, "text": text}
+            if widget is not None:
+                from app.services import tg_widget
+
+                # allow_queries НЕ передаём: без него виджет не может слать
+                # боту запросы вообще — кнопки у нас снаружи, обычные.
+                payload = {"chat_id": chat_id, "html": tg_widget.WIDGET_HTML,
+                           "chat_data": widget, "height": tg_widget.HEIGHT,
+                           "caption": tg_widget.fit_caption(text)}
+            else:
+                payload = {"chat_id": chat_id, "text": text}
             if reply_markup:
                 payload["reply_markup"] = reply_markup
             resp = await client.post(url, json=payload)
@@ -248,7 +263,7 @@ async def _send_via_vk(peer_id: int, text: str, keyboard: dict | None = None, *,
 
 
 async def _deliver(channel, address, text: str, subject: str = "Руми", *, audience,
-                   buttons: list | None = None):
+                   buttons: list | None = None, widget: str | None = None):
     """Отправка в уже отрезолвленный канал — общий транспорт для задач,
     которые шлют пользователю напрямую (напоминания). Канал резолвится
     вызывающим кодом через notify_channel.resolve() с тем же audience.
@@ -260,9 +275,12 @@ async def _deliver(channel, address, text: str, subject: str = "Руми", *, au
     Возвращает номер отправленного сообщения, если канал его дал: напоминание
     о записи — это карточка, которую потом придётся переписать (решение 0021).
     Ни почта, ни досылка запасным каналом номера не дают — там None.
+
+    widget — chat_data карточки-виджета; учитывается только в Telegram и
+    только у chat_id из TG_WIDGET_CHAT_IDS, всем остальным уходит обычный текст.
     """
     from app.models.models import NotifyChannel
-    from app.services import bot_keyboards
+    from app.services import bot_keyboards, tg_widget
 
     if address is None:
         return None
@@ -279,9 +297,18 @@ async def _deliver(channel, address, text: str, subject: str = "Руми", *, au
                                       bot_keyboards.vk(buttons) if buttons else None,
                                       community=audience)
         elif channel == NotifyChannel.TG:
-            sent = await _send_via_telegram(address, text,
-                                            reply_markup=bot_keyboards.telegram(buttons)
-                                            if buttons else None)
+            markup = bot_keyboards.telegram(buttons) if buttons else None
+            as_widget = widget is not None and tg_widget.enabled_for(address)
+            # kwarg widget только когда он нужен: без флага вызов выглядит
+            # ровно как до виджета.
+            sent = await (_send_via_telegram(address, text, reply_markup=markup, widget=widget)
+                          if as_widget else
+                          _send_via_telegram(address, text, reply_markup=markup))
+            if as_widget and not sent:
+                # Постоянный отказ на виджет (формат, версия Bot API): без
+                # запасного пути напоминание пропало бы вовсе. Обычный текст
+                # с теми же кнопками — то, что люди получали до виджета.
+                sent = await _send_via_telegram(address, text, reply_markup=markup)
         else:
             logger.warning("_deliver: неизвестный канал %s", channel)
         return sent if not isinstance(sent, bool) else None
@@ -326,6 +353,56 @@ async def _edit_via_telegram(chat_id: int, message_id: str, text: str,
     if resp.status_code != 200:
         logger.info("telegram chat=%s msg=%s: карточка не переписана (%s)",
                     chat_id, message_id, resp.status_code)
+        return False
+    return True
+
+
+async def _edit_widget_via_telegram(chat_id: int, message_id: str, caption: str,
+                                    chat_data: str, reply_markup: dict | None = None) -> bool:
+    """Перерисовать карточку-ВИДЖЕТ: HTML отправленного виджета заменить
+    нельзя ничем, поэтому editMessageText здесь не работает. Меняем состояние
+    (editMessageWidgetData), подпись (editMessageCaption) и кнопки
+    (editMessageReplyMarkup; пустая разметка снимает прежние).
+
+    «Message is not modified» успехом считаем: двойной тап даёт ту же
+    карточку. Любой другой отказ — False и строка в журнал, дальше не
+    поднимаем (см. комментарий к блоку).
+    """
+    import httpx
+
+    from app.core.config import settings
+    from app.services import tg_widget
+
+    if not settings.TG_BOT_TOKEN:
+        logger.info("[dev-заглушка TG правка виджета] chat=%s msg=%s: %s",
+                    chat_id, message_id, caption[:60])
+        return True
+
+    base = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/"
+    common = {"chat_id": chat_id, "message_id": int(message_id)}
+    calls = (
+        ("editMessageWidgetData", {**common, "chat_data": chat_data}),
+        ("editMessageCaption", {**common, "caption": tg_widget.fit_caption(caption)}),
+        ("editMessageReplyMarkup",
+         {**common, "reply_markup": reply_markup or {"inline_keyboard": []}}),
+    )
+    try:
+        async with httpx.AsyncClient(timeout=10, proxy=settings.tg_proxy) as client:
+            for method, payload in calls:
+                resp = await client.post(base + method, json=payload)
+                if resp.status_code == 200:
+                    continue
+                try:
+                    description = str(resp.json().get("description", ""))
+                except ValueError:
+                    description = resp.text[:200]
+                if "not modified" in description.lower():
+                    continue
+                logger.info("telegram chat=%s msg=%s: виджет не переписан, %s (%s) %s",
+                            chat_id, message_id, method, resp.status_code, description[:120])
+                return False
+    except httpx.HTTPError as exc:
+        logger.warning("telegram chat=%s: виджет не переписан: %s", chat_id, exc)
         return False
     return True
 
@@ -383,7 +460,7 @@ async def refresh_booking_card(ctx: dict[str, Any], booking_id: int, note: str =
     """
     from app.db.session import AsyncSessionLocal
     from app.models.models import Booking, NotifyChannel
-    from app.services import booking_card, bot_keyboards
+    from app.services import booking_card, bot_keyboards, tg_widget
 
     try:
         async with AsyncSessionLocal() as db:
@@ -395,6 +472,9 @@ async def refresh_booking_card(ctx: dict[str, Any], booking_id: int, note: str =
             text, buttons = await booking_card.render(db, booking_id, note=note)
             if not text:
                 return "skipped:no-booking"
+            widget_data = None
+            if channel == NotifyChannel.TG and tg_widget.enabled_for(chat_id):
+                widget_data = await tg_widget.widget_state(db, booking_id, note=note)
     except Exception:
         logger.exception("карточка записи %s: не удалось собрать", booking_id)
         return "skipped:error"
@@ -405,7 +485,11 @@ async def refresh_booking_card(ctx: dict[str, Any], booking_id: int, note: str =
     # (хоть нечисловой номер сообщения в колонке) не должен красить задачу
     # в упавшую и уводить воркер в ретраи.
     try:
-        if channel == NotifyChannel.TG:
+        if channel == NotifyChannel.TG and widget_data is not None:
+            ok = await _edit_widget_via_telegram(
+                chat_id, message_id, text, widget_data,
+                bot_keyboards.telegram(buttons) if buttons else None)
+        elif channel == NotifyChannel.TG:
             ok = await _edit_via_telegram(
                 chat_id, message_id, text,
                 bot_keyboards.telegram(buttons) if buttons else None)
@@ -756,6 +840,14 @@ async def send_booking_reminder(
         # Канал клиента резолвим здесь же — дальше объект пользователя не трогаем
         from app.services.notify_channel import resolve as _resolve_channel
         channel, address = _resolve_channel(client, Audience.CLIENT)
+        # Виджет — только Telegram и только chat_id из флага; у остальных
+        # состояние даже не собираем, путь прежний.
+        from app.models.models import NotifyChannel
+        from app.services import tg_widget
+        widget = None
+        if channel == NotifyChannel.TG and tg_widget.enabled_for(address):
+            async with AsyncSessionLocal() as db:
+                widget = await tg_widget.widget_state(db, booking_id)
     except TransientTaskError:
         raise
     except Exception as exc:  # БД недоступна и т.п. — пробуем позже
@@ -766,7 +858,8 @@ async def send_booking_reminder(
     try:
         message_id = await _deliver(channel, address, text,
                                     subject="Напоминание о записи — Руми",
-                                    audience=Audience.CLIENT, buttons=buttons)
+                                    audience=Audience.CLIENT, buttons=buttons,
+                                    widget=widget)
     except TransientTaskError as exc:
         raise _retry(ctx, exc) from exc
 
