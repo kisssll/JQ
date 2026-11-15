@@ -48,3 +48,59 @@ def test_init_sentry_noop_without_dsn(monkeypatch):
     obs._sentry_inited = False
     obs.init_sentry()  # не должно бросать и не должно инициализировать
     assert obs._sentry_inited is False
+
+
+# ── секреты в журнале (разбор 15.11.2026) ────────────────────────────────────
+#
+# Повод: httpx пишет на уровне INFO полный адрес запроса, а в адресе Bot API
+# лежит токен бота. Так токен стейдж-бота оказался в журнале контейнера.
+# Заглушка httpx до этого стояла только в ВК-боте, а трассировки не
+# маскировались вовсе — ни от токенов, ни от телефонов.
+
+FAKE_TOKEN = "1111122222:" + "X" * 35
+
+
+def test_bot_token_is_masked():
+    masked = obs.mask(f"POST https://api.telegram.org/bot{FAKE_TOKEN}/sendWidget 400")
+    assert "X" * 35 not in masked
+    assert "bot1111122222:***" in masked, "номер бота оставляем: по нему видно, чей запрос"
+
+
+def test_query_secrets_are_masked():
+    masked = obs.mask("https://api.vk.com/method/messages.send?access_token=vk1a" + "z" * 40 + "&v=5.199")
+    assert "z" * 40 not in masked
+    assert "access_token=***" in masked
+    assert "v=5.199" in masked, "остальные параметры не трогаем"
+
+
+def test_mask_passes_non_strings():
+    assert obs.mask(12345) == 12345
+    assert obs.mask(None) is None
+
+
+def test_traceback_is_masked_too():
+    """Трассировка уходит в тот же журнал. Раньше она не маскировалась, и
+    телефон с токеном попадали в лог даже при чистом сообщении."""
+    import sys
+
+    try:
+        raise ValueError(f"сбой у +79991234567, адрес /bot{FAKE_TOKEN}/sendMessage")
+    except ValueError:
+        rec = logging.LogRecord("t", logging.ERROR, __file__, 1, "упало", None,
+                                sys.exc_info())
+    data = json.loads(obs.JsonLogFormatter().format(rec))
+    assert "+79991234567" not in data["exc"]
+    assert "X" * 35 not in data["exc"]
+    assert "ValueError" in data["exc"], "сама ошибка остаётся читаемой"
+
+
+def test_httpx_logger_is_quiet_after_setup():
+    """Маска срежет токен и так, но строки про каждый запрос в журнале не
+    нужны вовсе — а заглушка стояла только в одном из пяти процессов."""
+    obs._logging_configured = False
+    try:
+        obs.setup_logging()
+        assert logging.getLogger("httpx").level == logging.WARNING
+        assert logging.getLogger("httpcore").level == logging.WARNING
+    finally:
+        obs._logging_configured = False

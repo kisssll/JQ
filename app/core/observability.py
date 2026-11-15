@@ -21,9 +21,30 @@ logger = logging.getLogger("observability")
 # +7XXXXXXXXXX → маскируем в исходящей телеметрии и JSON-логах.
 _PHONE_RE = re.compile(r"\+7\d{10}")
 
+# Токен бота в адресе Bot API: httpx пишет полный URL на уровне INFO, и
+# 15.11.2026 токен стейдж-бота так и оказался в журнале контейнера. Номер
+# бота не секрет и остаётся — по нему видно, чей это запрос.
+_BOT_TOKEN_RE = re.compile(r"(bot\d{5,}):[A-Za-z0-9_\-]{20,}")
+# Ключ сообщества ВК и прочие токены в строке запроса.
+_QUERY_SECRET_RE = re.compile(
+    r"((?:access_token|api_key|token|key|secret|password)=)[^&\s]+", re.I)
+
 
 def _mask_phones(text):
     return _PHONE_RE.sub("+7**********", text) if isinstance(text, str) else text
+
+
+def _mask_secrets(text):
+    """Токены — из любой строки, которая может попасть в журнал."""
+    if not isinstance(text, str):
+        return text
+    text = _BOT_TOKEN_RE.sub(r"\1:***", text)
+    return _QUERY_SECRET_RE.sub(r"\1***", text)
+
+
+def mask(text):
+    """Всё, что нельзя выпускать в журнал и телеметрию: ПДн и секреты."""
+    return _mask_secrets(_mask_phones(text))
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -34,10 +55,12 @@ class JsonLogFormatter(logging.Formatter):
             "ts": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "msg": _mask_phones(record.getMessage()),
+            "msg": mask(record.getMessage()),
         }
         if record.exc_info:
-            payload["exc"] = self.formatException(record.exc_info)
+            # Трассировку маскируем тоже: в ней бывает и телефон, и адрес
+            # запроса с токеном.
+            payload["exc"] = mask(self.formatException(record.exc_info))
         return json.dumps(payload, ensure_ascii=False)
 
 
@@ -61,6 +84,11 @@ def setup_logging() -> None:
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(level)
+    # httpx на INFO печатает полный адрес запроса, а в адресе Bot API лежит
+    # токен. Маска его срежет, но проще не писать вовсе: смысла в этих
+    # строках нет, а шуму много. Раньше заглушка стояла только в ВК-боте.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     _logging_configured = True
 
 
@@ -69,10 +97,10 @@ def _before_send(event, hint):
     try:
         entry = event.get("logentry")
         if entry and entry.get("message"):
-            entry["message"] = _mask_phones(entry["message"])
+            entry["message"] = mask(entry["message"])
         for exc in (event.get("exception") or {}).get("values", []):
             if exc.get("value"):
-                exc["value"] = _mask_phones(exc["value"])
+                exc["value"] = mask(exc["value"])
     except Exception:  # телеметрия не должна ронять приложение
         pass
     return event
