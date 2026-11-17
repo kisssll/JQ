@@ -1,7 +1,7 @@
 """Add sports organizations, schedule and guest bookings.
 
 Revision ID: a2f6d18b4c90
-Revises: 7c3a91e5d2b8
+Revises: c2f8a1d44e07
 """
 from typing import Sequence, Union
 from datetime import time
@@ -11,7 +11,7 @@ from alembic import op
 
 
 revision: str = "a2f6d18b4c90"
-down_revision: Union[str, Sequence[str], None] = "7c3a91e5d2b8"
+down_revision: Union[str, Sequence[str], None] = "c2f8a1d44e07"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
