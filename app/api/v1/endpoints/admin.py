@@ -23,6 +23,7 @@ from app.models.models import (
     SalonModerationStatus, PhotoReport, PhotoReportStatus, MasterPhoto, ReviewPhoto,
     ClientLoyalty, SalonModel, ClientNote, ModelModerationStatus,
 )
+from app.models.sport import SportOrganization
 from app.core.security import get_password_hash
 from app.web.auth import get_current_user_from_cookie
 
@@ -546,6 +547,69 @@ async def support_answer(sid: int, request: Request, answer: str = Form(""),
 
 
 # ── САЛОНЫ ───────────────────────────────────────────────────────────────────
+@router.post("/sport/organizations/{organization_id}/approve")
+async def sport_organization_approve(
+    organization_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    admin = await _get_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+    organization = (
+        await db.execute(
+            select(SportOrganization).where(SportOrganization.id == organization_id)
+        )
+    ).scalar_one_or_none()
+    if organization is None:
+        return _back("applications", err="Спортивный клуб не найден")
+    organization.moderation_status = "approved"
+    organization.rejection_reason = None
+    organization.is_published = True
+    _audit(
+        db,
+        admin.id,
+        "sport_organization_approve",
+        "sport_organization",
+        organization_id,
+        organization.name,
+    )
+    await db.commit()
+    return _back("applications", ok=f"«{organization.name}» одобрен")
+
+
+@router.post("/sport/organizations/{organization_id}/reject")
+async def sport_organization_reject(
+    organization_id: int,
+    request: Request,
+    reason: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    admin = await _get_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+    organization = (
+        await db.execute(
+            select(SportOrganization).where(SportOrganization.id == organization_id)
+        )
+    ).scalar_one_or_none()
+    if organization is None:
+        return _back("applications", err="Спортивный клуб не найден")
+    organization.moderation_status = "rejected"
+    organization.rejection_reason = reason.strip() or None
+    organization.is_published = False
+    _audit(
+        db,
+        admin.id,
+        "sport_organization_reject",
+        "sport_organization",
+        organization_id,
+        f"{organization.name}: {reason.strip()[:200]}",
+    )
+    await db.commit()
+    return _back("applications", ok=f"«{organization.name}» отклонён")
+
+
 @router.post("/salons/{sid}/approve")
 async def salon_approve(sid: int, request: Request, db: AsyncSession = Depends(get_db)):
     """Одобрить заявку салона: договор подтверждён → салон работает."""

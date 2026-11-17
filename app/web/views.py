@@ -54,6 +54,28 @@ async def gyms_page(request: Request, db: AsyncSession = Depends(get_db)):
     return HTMLResponse(content=await render_gyms_page(db, user, query, partial))
 
 
+@router.get("/sport/business", response_class=HTMLResponse, include_in_schema=False)
+async def sport_business_page(request: Request, db: AsyncSession = Depends(get_db)):
+    from app.models.sport import SportGymMember, SportOrganization
+    from app.web.pages.sport_business import render_sport_business_page
+
+    user = await get_current_user_from_cookie(request, db)
+    organizations = []
+    if user:
+        organizations = (
+            await db.execute(
+                select(SportOrganization)
+                .join(SportGymMember, SportGymMember.organization_id == SportOrganization.id)
+                .where(
+                    SportGymMember.user_id == user.id,
+                    SportGymMember.is_active.is_(True),
+                )
+                .order_by(SportOrganization.created_at.desc())
+            )
+        ).scalars().all()
+    return HTMLResponse(content=render_sport_business_page(user, organizations))
+
+
 @router.get("/sport/sparta", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/sport/sparta/", response_class=HTMLResponse, include_in_schema=False)
 async def sparta_sport_page(db: AsyncSession = Depends(get_db)):
@@ -70,7 +92,9 @@ async def sparta_sport_page(db: AsyncSession = Depends(get_db)):
     ).scalar_one_or_none()
     if organization is None:
         return HTMLResponse(content=render_status_page(404, "Страница не найдена", "Организация не опубликована."), status_code=404)
-    return HTMLResponse(content=render_sparta_app())
+    return HTMLResponse(content=render_sparta_app(
+        organization.slug, organization.name, organization.city, organization.logo_url
+    ))
 
 
 @router.get("/sport/sparta/{path:path}", response_class=HTMLResponse, include_in_schema=False)
@@ -79,15 +103,18 @@ async def sparta_sport_subpage(path: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/sport/{slug}", response_class=HTMLResponse, include_in_schema=False)
-async def sport_organization_page(slug: str, db: AsyncSession = Depends(get_db)):
-    from app.models.sport import SportOrganization
-    from app.web.pages.sport import render_sport_placeholder
+async def sport_organization_page(
+    slug: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.sport import SportCoach, SportGymMember, SportOrganization
+    from app.web.pages.sport import render_sparta_app
 
     organization = (
         await db.execute(
             select(SportOrganization).where(
                 SportOrganization.slug == slug,
-                SportOrganization.is_published.is_(True),
             )
         )
     ).scalar_one_or_none()
@@ -96,10 +123,40 @@ async def sport_organization_page(slug: str, db: AsyncSession = Depends(get_db))
             content=render_status_page(404, "Страница не найдена", "Спортивная организация не найдена."),
             status_code=404,
         )
-    if organization.slug == "sparta":
-        from app.web.pages.sport import render_sparta_app
-        return HTMLResponse(content=render_sparta_app())
-    return HTMLResponse(content=render_sport_placeholder(organization))
+    if not organization.is_published:
+        user = await get_current_user_from_cookie(request, db)
+        member_id = None if user is None else await db.scalar(
+            select(SportGymMember.id).where(
+                SportGymMember.organization_id == organization.id,
+                SportGymMember.user_id == user.id,
+                SportGymMember.is_active.is_(True),
+            )
+        )
+        coach_id = None if user is None else await db.scalar(
+            select(SportCoach.id).where(
+                SportCoach.organization_id == organization.id,
+                SportCoach.user_id == user.id,
+                SportCoach.is_active.is_(True),
+            )
+        )
+        if member_id is None and coach_id is None:
+            return HTMLResponse(
+                content=render_status_page(404, "Страница не найдена", "Организация не опубликована."),
+                status_code=404,
+            )
+    return HTMLResponse(content=render_sparta_app(
+        organization.slug, organization.name, organization.city, organization.logo_url
+    ))
+
+
+@router.get("/sport/{slug}/{path:path}", response_class=HTMLResponse, include_in_schema=False)
+async def sport_organization_subpage(
+    slug: str,
+    path: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    return await sport_organization_page(slug, request, db)
 
 
 @router.get("/", response_class=HTMLResponse)

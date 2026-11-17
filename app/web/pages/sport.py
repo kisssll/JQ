@@ -19,21 +19,36 @@ def render_sport_placeholder(organization: SportOrganization) -> str:
 </main></body></html>"""
 
 
-def render_sparta_app() -> str:
+def render_sparta_app(
+    slug: str = "sparta",
+    name: str = "Спарта Плюс",
+    city: str = "",
+    logo_url: str | None = None,
+) -> str:
+    safe_slug = html.escape(slug, quote=True)
+    safe_name = html.escape(name)
+    safe_name_attr = html.escape(name, quote=True)
+    safe_city_attr = html.escape(city, quote=True)
+    safe_logo_attr = html.escape(logo_url or "", quote=True)
+    favicon = (
+        '<link rel="icon" href="/static/sport/sparta/sparta-logo.png">'
+        if slug == "sparta"
+        else ""
+    )
     return f"""<!doctype html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Клуб боевого дзю-дзютцу «Спарта Плюс» в Томске">
+    <meta name="description" content="{safe_name} — спортивный клуб на Руми">
     <meta name="theme-color" content="#ffffff">
     <meta name="consent-version" content="{LEGAL_VERSION}">
-    <title>Спарта Плюс — Руми Спорт</title>
-    <link rel="icon" href="/static/sport/sparta/sparta-logo.png">
+    <title>{safe_name} — Руми Спорт</title>
+    {favicon}
     <link rel="stylesheet" href="/static/dist/sport-sparta.css">
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root" data-gym-slug="{safe_slug}" data-gym-name="{safe_name_attr}" data-gym-city="{safe_city_attr}" data-gym-logo="{safe_logo_attr}"></div>
     <script type="module" src="/static/dist/sport-sparta.js"></script>
 </body>
 </html>"""

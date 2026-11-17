@@ -126,7 +126,7 @@ def _reject_form(action, confirm, label=f"{ICON_X} Отклонить"):
 
 
 # ── ВКЛАДКА: ЗАЯВКИ (модерация регистрации бизнеса) ──────────────────────────
-def _applications_tab(pending, owner_phone_by_id, extra_by_id):
+def _applications_tab(pending, owner_phone_by_id, extra_by_id, sport_pending=()):
     """extra_by_id[salon.id] = {"photo": url|None, "services": [(name, price), ...]}"""
     cards = ""
     for s in pending:
@@ -173,11 +173,44 @@ def _applications_tab(pending, owner_phone_by_id, extra_by_id):
         </article>"""
     if not cards:
         cards = '<p class="adm-empty">Новых заявок нет</p>'
+    sport_cards = ""
+    for gym in sport_pending:
+        owner = owner_phone_by_id.get(gym.creator_id, "—") if gym.creator_id else "нет"
+        submitted = gym.created_at.strftime("%d.%m.%Y") if gym.created_at else "—"
+        approve = (
+            f'<form method="post" action="/api/v1/admin/sport/organizations/{gym.id}/approve" class="adm-form">'
+            f'{_btn(f"{ICON_CHECK} Одобрить", "primary")}</form>'
+        )
+        reject = _reject_form(
+            f"/api/v1/admin/sport/organizations/{gym.id}/reject",
+            f"Отклонить заявку «{_esc(gym.name)}»?",
+        )
+        sport_cards += f"""
+        <article class="r-card adm-app">
+            {_thumb(gym.logo_url, "lg", ICON_BUILDING2)}
+            <div class="adm-app__body">
+                <div class="adm-app__head">
+                    <strong>{_esc(gym.name)}</strong>
+                    <span class="adm-small text-muted">подана {submitted}</span>
+                </div>
+                <p class="adm-meta text-muted">
+                    {_esc(gym.city)} · {_esc(gym.address)} · {_esc(gym.phone)} · владелец {_esc(owner)}
+                </p>
+                <p class="adm-text">{_esc(gym.description) or '<span class="text-muted">Без описания</span>'}</p>
+                <div class="adm-actions">{approve}{reject}</div>
+            </div>
+        </article>"""
+    sport_cards_html = sport_cards or '<p class="adm-empty">Новых заявок нет</p>'
+    sport_section = (
+        f'<h2 class="adm-tab-title">Заявки спортивных клубов ({len(sport_pending)})</h2>'
+        f'<div class="adm-list">{sport_cards_html}</div>'
+    )
     return f"""
     <div class="tab-content" id="tab-applications">
         <h2 class="adm-tab-title">Заявки на регистрацию ({len(pending)})</h2>
         <p class="adm-lead">Салон работает только после одобрения: до этого он не виден в каталоге и запись закрыта.</p>
         <div class="adm-list">{cards}</div>
+        {sport_section}
     </div>
     """
 
@@ -809,6 +842,12 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     master_name_by_id = {m.id: name_by_uid.get(m.user_id, "Мастер") for m in masters}
 
     pending = [s for s in salons if s.moderation_status == SalonModerationStatus.PENDING]
+    from app.models.sport import SportOrganization
+    sport_pending = (await db.execute(
+        select(SportOrganization)
+        .where(SportOrganization.moderation_status == "pending")
+        .order_by(SportOrganization.created_at)
+    )).scalars().all()
 
     # Обращения из ботов — вкладка доступна ЛЮБОМУ модератору, поэтому данные
     # грузим до ветки is_senior (иначе у обычного модератора переменных нет).
@@ -864,7 +903,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
             "salon": salon_name_by_id.get(sid, "—") if sid else "—",
         })
 
-    applications_tab = _applications_tab(pending, phone_by_id, extra_by_id)
+    applications_tab = _applications_tab(pending, phone_by_id, extra_by_id, sport_pending)
     reports_tab = _reports_tab(reports_data)
 
     pending_models = [
@@ -908,7 +947,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     default_tab = "overview" if is_senior else "applications"
     _tab = q.get("tab", default_tab)
     active_tab = _tab if _tab in allowed_tabs else default_tab
-    pending_badge = _count(len(pending), "warning")
+    pending_badge = _count(len(pending) + len(sport_pending), "warning")
     models_badge = _count(len(pending_models), "warning")
     reports_badge = _count(len(reports_data), "danger")
     contest_badge = _count(len(contest_entries), "accent")

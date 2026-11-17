@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, time
 from typing import Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
@@ -27,6 +27,40 @@ class SportScheduleResponse(BaseModel):
     organization: SportOrganizationResponse
     trainings: list[SportTrainingResponse]
     exceptions: dict[str, bool]
+
+
+class SportTrainingUpdate(BaseModel):
+    id: str = Field(min_length=1, max_length=64)
+    days: list[int] = Field(min_length=1, max_length=7)
+    time: time
+    end: time
+    coach: str = Field(min_length=1, max_length=160)
+    gym: str = Field(min_length=1, max_length=200)
+    discipline: str = Field(min_length=1, max_length=120)
+    active: bool
+
+    @field_validator("days")
+    @classmethod
+    def _valid_days(cls, value: list[int]) -> list[int]:
+        if any(day < 0 or day > 6 for day in value) or len(set(value)) != len(value):
+            raise ValueError("Дни недели должны быть уникальными числами от 0 до 6")
+        return value
+
+    @field_validator("coach", "gym", "discipline", mode="before")
+    @classmethod
+    def _trim_schedule_text(cls, value: str) -> str:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _validate_time_range(self):
+        if self.end <= self.time:
+            raise ValueError("Время окончания должно быть позже времени начала")
+        return self
+
+
+class SportScheduleUpdate(BaseModel):
+    trainings: list[SportTrainingUpdate] = Field(max_length=500)
+    exceptions: dict[str, bool] = Field(default_factory=dict)
 
 
 class SportBookingCreate(BaseModel):
