@@ -16,6 +16,7 @@ import './submit-lock.js';
 import './phone-mask.js';
 import './profile.js';
 import './salons.js';
+import './gyms.js';
 import './tariffs.js';
 import './otp-code.js';
 import './sheet.js';

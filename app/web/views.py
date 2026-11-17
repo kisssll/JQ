@@ -41,24 +41,17 @@ from app.web.components.icons import (
 router = APIRouter()
 
 
-@router.get("/sport", include_in_schema=False)
-async def sport_directory_redirect():
-    return RedirectResponse(url="/sport/", status_code=307)
-
-
+@router.get("/sport", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/sport/", response_class=HTMLResponse, include_in_schema=False)
-async def sport_directory(db: AsyncSession = Depends(get_db)):
-    from app.models.sport import SportOrganization
-    from app.web.pages.sport import render_sport_directory
+async def gyms_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    from app.web.pages.gyms import parse_gym_query, render_gyms_page
 
-    organizations = (
-        await db.execute(
-            select(SportOrganization)
-            .where(SportOrganization.is_published.is_(True))
-            .order_by(SportOrganization.sort_order, SportOrganization.name)
-        )
-    ).scalars().all()
-    return HTMLResponse(content=render_sport_directory(organizations))
+    query = parse_gym_query(
+        request, default_city=(getattr(user, "city", "") or "")
+    )
+    partial = request.query_params.get("partial") == "1"
+    return HTMLResponse(content=await render_gyms_page(db, user, query, partial))
 
 
 @router.get("/sport/sparta", response_class=HTMLResponse, include_in_schema=False)

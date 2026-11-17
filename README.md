@@ -41,8 +41,10 @@ Dev-данные (`python -m app.scripts.seed_data`) создаются с па�
 
 ## Спортивный каталог (MVP)
 
-После `alembic upgrade head` каталог доступен по `/sport/`, страница первого
-клуба — по `/sport/sparta`. Расписание и заявки используют API:
+После `alembic upgrade head` каталог спортивных залов, клубов и секций
+доступен по `/sport/`: список поддерживает поиск и фильтр по городу, а
+«Спарта Плюс» — одна из карточек каталога (`/sport/sparta`). Расписание и
+заявки используют API:
 
 - `GET /api/v1/sport/organizations`
 - `GET /api/v1/sport/organizations/{slug}`

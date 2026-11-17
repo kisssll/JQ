@@ -104,3 +104,31 @@ async def test_sport_booking_rejects_stale_consent_without_creating_user(client,
         assert (
             await db.execute(select(User).where(User.phone == "+79990001122"))
         ).scalar_one_or_none() is None
+
+
+async def test_sport_catalog_searches_and_filters_gym_cards(client, db_session):
+    await _seed_organization(db_session, _booking_date())
+    async with db_session() as db:
+        db.add(
+            SportOrganization(
+                slug="other-city-club",
+                name="Другой клуб",
+                city="Новосибирск",
+                description="Фитнес",
+                is_published=True,
+            )
+        )
+        await db.commit()
+
+    response = await client.get(
+        "/sport?q=Тестовый&city=Томск&partial=1"
+    )
+    assert response.status_code == 200
+    assert 'class="r-salon gym-card"' in response.text
+    assert 'href="/sport/test-sport-club"' in response.text
+    assert "Другой клуб" not in response.text
+
+    page = await client.get("/sport")
+    assert page.status_code == 200
+    assert 'id="gymsFilterForm"' in page.text
+    assert 'id="gyms-list"' in page.text

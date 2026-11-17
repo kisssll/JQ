@@ -487,6 +487,13 @@
     grid-template-columns: minmax(0, 1fr);
 }
 
+.gym-description {
+    margin: var(--space-16) 0 0;
+    color: var(--color-muted);
+    font-size: var(--text-14);
+    line-height: var(--leading-text);
+}
+
 /* Пустая выдача и «Показать ещё» — не карточки: в сетке они становились
    колонкой шириной в одну карточку, и «Ничего не найдено» читалось как
    найденный салон с таким названием. */
