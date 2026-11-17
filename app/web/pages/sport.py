@@ -43,7 +43,7 @@ def render_sport_directory(organizations: list[SportOrganization]) -> str:
         .sport-list {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }}
         .sport-card {{ display: grid; grid-template-columns: 72px 1fr; gap: 18px; padding: 22px; border: 1px solid var(--color-border); border-radius: var(--radius-16); color: inherit; text-decoration: none; background: var(--color-surface); }}
         .sport-card:hover {{ border-color: var(--color-accent); }}
-        .sport-logo {{ width: 72px; height: 72px; display: grid; place-items: center; overflow: hidden; border-radius: 14px; background: var(--color-surface-alt); }}
+        .sport-logo {{ width: 72px; height: 72px; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-16); background: var(--color-surface-alt); }}
         .sport-logo img {{ width: 100%; height: 100%; object-fit: contain; }}
         .sport-city {{ margin: 0 0 5px; color: var(--color-muted); font-size: .85rem; }}
         .sport-card h2 {{ margin: 0 0 8px; font-size: 1.3rem; }}

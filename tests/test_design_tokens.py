@@ -430,11 +430,11 @@ def test_spring_presets_match_the_apple_values():
             f"{name}: {m.group(1)}/{m.group(2)} вместо {duration}/{bounce}")
 
 
-def test_only_motion_one_was_added():
-    """Единственная новая зависимость — Motion One."""
+def test_frontend_dependencies_are_explicit():
+    """Keep the legacy UI dependencies and the sport app's React runtime explicit."""
     import json
     deps = json.loads((ROOT / "package.json").read_text())["dependencies"]
-    assert set(deps) == {"choices.js", "flatpickr", "motion"}
+    assert set(deps) == {"choices.js", "flatpickr", "motion", "react", "react-dom"}
 
 
 def test_no_hardcoded_white_label_on_an_accent_fill():

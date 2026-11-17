@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Fira+Sans+Extra+Condensed:ital,wght@0,600;0,800;0,900;1,900&family=Inter:wght@400;500;600;700&display=swap");
-
 .schedule-page { padding: 72px var(--px) 110px; background: #f3f3f1; }
 .schedule-intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
 .schedule-intro h2 { max-width: 700px; font: 900 clamp(38px, 5vw, 72px)/.95 var(--cond); text-transform: uppercase; margin-top: 12px; }
@@ -91,14 +89,14 @@
     --gray: #6b6b6b;
     --line: #e4e4e1;
     --red: #e3170a;
-    --cond: "Fira Sans Extra Condensed", "Arial Narrow", sans-serif;
+    --cond: "Arial Narrow", "Manrope", sans-serif;
     --px: clamp(20px, 4vw, 64px);
   }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font-family: Inter, Arial, sans-serif;
+    font-family: "Manrope", Arial, sans-serif;
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
   }
@@ -1052,7 +1050,7 @@
   border: 0;
   border-bottom: 2px solid var(--line);
   background: var(--soft);
-  font: 500 16px Inter;
+  font: 500 16px "Manrope";
   color: var(--ink);
   text-transform: none;
   letter-spacing: 0;
@@ -1103,7 +1101,7 @@
 }
 .adm-logo small {
   display: block;
-  font-family: Inter;
+  font-family: "Manrope";
   font-weight: 500;
   font-size: 11px;
   color: #8a8a8a;
@@ -1261,7 +1259,7 @@ button.kpi-red:hover {
   padding: 0 12px;
   border: 0;
   background: #fff;
-  font: 500 14px Inter;
+  font: 500 14px "Manrope";
 }
 .seg {
   display: flex;
@@ -1427,7 +1425,7 @@ button.kpi-red:hover {
   }
   .hdr-staff-m {
     display: block;
-    font-family: Inter !important;
+    font-family: "Manrope" !important;
     font-size: 14px !important;
     font-weight: 500 !important;
     color: #9a9a9a;
@@ -2162,7 +2160,7 @@ main:has(> .page-title-sr) { padding-top: 66px; }
 .gallery-open .ph-over { position: absolute; inset: 0; display: flex; flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 22px; }
 .gallery-open .ph-img { transition: scale .6s ease; }
 .gallery-open:hover .ph-img { scale: 1.035; }
-.gallery-expand { width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.5); border-radius: 50%; font: 500 20px/1 Inter !important; }
+.gallery-expand { width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.5); border-radius: 50%; font: 500 20px/1 "Manrope" !important; }
 .gym-modal .gym-gallery-thumbs { flex-wrap: wrap; }
 .timetable tbody .is-today { background: #fffdf9; }
 .timetable-session { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; }
@@ -2219,7 +2217,7 @@ main:has(> .page-title-sr) { padding-top: 66px; }
   .hdr-nav button, .hdr-nav button.on { padding: 13px 0; text-align: left; font: 900 clamp(26px, 4vh, 42px)/1.1 var(--cond); border-bottom: 1px solid #303030; flex-shrink: 0; }
   .hdr-nav button.on { color: #ff6258; }
   .hdr-nav button::after { display: none; }
-  .hdr-nav .hdr-staff-m { display: block; margin-top: 14px; font: 500 14px/1.5 Inter !important; color: #bbb; }
+  .hdr-nav .hdr-staff-m { display: block; margin-top: 14px; font: 500 14px/1.5 "Manrope" !important; color: #bbb; }
 }
 @media (max-width: 860px) { .hdr-nav { top: 64px; } }
 @media (max-width: 640px) {
