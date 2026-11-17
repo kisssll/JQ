@@ -49,6 +49,7 @@ from app.api.v1.endpoints import schedule as schedule_endpoints
 from app.api.v1.endpoints import reports
 from app.api.v1.endpoints import model_matching
 from app.api.v1.endpoints import payments
+from app.api.v1.endpoints import sport as sport_endpoints
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -174,6 +175,11 @@ for _ext, _type in ((".webp", "image/webp"), (".avif", "image/avif"),
 
 # 1. Статические файлы — ПЕРВЫМИ!
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount(
+    "/photos",
+    StaticFiles(directory="static/sport/sparta/photos"),
+    name="sport-photos",
+)
 
 # Загруженные пользователями изображения (аватары, фото салонов) — отдельный
 # каталог-volume, не запекается в образ и переживает деплой
@@ -208,6 +214,7 @@ app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
 app.include_router(guest.router, prefix="/api/v1/guest", tags=["guest"])
 app.include_router(model_matching.router, prefix="/api/v1/model-matching", tags=["model-matching"])
 app.include_router(payments.router, prefix="/api/v1/payments", tags=["payments"])
+app.include_router(sport_endpoints.router, prefix="/api/v1/sport", tags=["sport"])
 
 # Healthcheck — регистрируем ДО веб-роутера, иначе его перехватывает
 # catch-all страниц (`/{path:path}`) и /health отдаёт 404.

@@ -41,6 +41,74 @@ from app.web.components.icons import (
 router = APIRouter()
 
 
+@router.get("/sport", include_in_schema=False)
+async def sport_directory_redirect():
+    return RedirectResponse(url="/sport/", status_code=307)
+
+
+@router.get("/sport/", response_class=HTMLResponse, include_in_schema=False)
+async def sport_directory(db: AsyncSession = Depends(get_db)):
+    from app.models.sport import SportOrganization
+    from app.web.pages.sport import render_sport_directory
+
+    organizations = (
+        await db.execute(
+            select(SportOrganization)
+            .where(SportOrganization.is_published.is_(True))
+            .order_by(SportOrganization.sort_order, SportOrganization.name)
+        )
+    ).scalars().all()
+    return HTMLResponse(content=render_sport_directory(organizations))
+
+
+@router.get("/sport/sparta", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/sport/sparta/", response_class=HTMLResponse, include_in_schema=False)
+async def sparta_sport_page(db: AsyncSession = Depends(get_db)):
+    from app.models.sport import SportOrganization
+    from app.web.pages.sport import render_sparta_app
+
+    organization = (
+        await db.execute(
+            select(SportOrganization).where(
+                SportOrganization.slug == "sparta",
+                SportOrganization.is_published.is_(True),
+            )
+        )
+    ).scalar_one_or_none()
+    if organization is None:
+        return HTMLResponse(content=render_status_page(404, "Страница не найдена", "Организация не опубликована."), status_code=404)
+    return HTMLResponse(content=render_sparta_app())
+
+
+@router.get("/sport/sparta/{path:path}", response_class=HTMLResponse, include_in_schema=False)
+async def sparta_sport_subpage(path: str, db: AsyncSession = Depends(get_db)):
+    return await sparta_sport_page(db)
+
+
+@router.get("/sport/{slug}", response_class=HTMLResponse, include_in_schema=False)
+async def sport_organization_page(slug: str, db: AsyncSession = Depends(get_db)):
+    from app.models.sport import SportOrganization
+    from app.web.pages.sport import render_sport_placeholder
+
+    organization = (
+        await db.execute(
+            select(SportOrganization).where(
+                SportOrganization.slug == slug,
+                SportOrganization.is_published.is_(True),
+            )
+        )
+    ).scalar_one_or_none()
+    if organization is None:
+        return HTMLResponse(
+            content=render_status_page(404, "Страница не найдена", "Спортивная организация не найдена."),
+            status_code=404,
+        )
+    if organization.slug == "sparta":
+        from app.web.pages.sport import render_sparta_app
+        return HTMLResponse(content=render_sparta_app())
+    return HTMLResponse(content=render_sport_placeholder(organization))
+
+
 @router.get("/", response_class=HTMLResponse)
 async def home_page(request: Request, db: AsyncSession = Depends(get_db)):
     """Главная страница."""

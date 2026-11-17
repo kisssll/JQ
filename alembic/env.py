@@ -23,6 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.models.models import Base
+import app.models.sport  # noqa: F401
 from app.core.config import settings
 
 target_metadata = Base.metadata

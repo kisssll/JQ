@@ -39,6 +39,21 @@ uvicorn app.main:app --reload
 
 Dev-данные (`python -m app.scripts.seed_data`) создаются с паролем `Seedpass1`.
 
+## Спортивный каталог (MVP)
+
+После `alembic upgrade head` каталог доступен по `/sport/`, страница первого
+клуба — по `/sport/sparta`. Расписание и заявки используют API:
+
+- `GET /api/v1/sport/organizations`
+- `GET /api/v1/sport/organizations/{slug}`
+- `GET /api/v1/sport/organizations/{slug}/schedule`
+- `POST /api/v1/sport/organizations/{slug}/bookings`
+
+Миграция `a2f6d18b4c90` создаёт таблицы спортивного каталога и добавляет
+начальные данные «Спарты Плюс». Перед публикацией проверьте актуальность
+расписания и адресов залов. В этом этапе администрирование расписания,
+абонементы и кабинет участника не подключены.
+
 ## Прод-деплой (Timeweb, один VPS, два стека)
 
 На сервере живут **три compose-проекта**: `rumi-prod` (docker-compose.prod.yml:
