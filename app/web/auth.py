@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, exists
 from app.db.session import get_db
 from app.models.models import User, SalonMember, Master
+from app.models.sport import SportCoach, SportGymMember
 from app.core.security import decode_access_token
 
 
@@ -46,4 +47,20 @@ async def get_current_user_from_cookie(request: Request, db: AsyncSession = Depe
             select(exists().where(Master.user_id == user.id, Master.is_active == True))
         )
         user.has_master_profile = bool(has_master.scalar())
+
+        has_sport = await db.execute(
+            select(exists().where(
+                SportGymMember.user_id == user.id,
+                SportGymMember.is_active == True,
+            ))
+        )
+        has_sport_coach = await db.execute(
+            select(
+                exists().where(
+                    SportCoach.user_id == user.id,
+                    SportCoach.is_active == True,
+                )
+            )
+        )
+        user.has_sport_access = bool(has_sport.scalar() or has_sport_coach.scalar())
     return user

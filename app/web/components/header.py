@@ -21,6 +21,12 @@ PUBLIC_NAV = (
     ("tariffs", "/tariffs", "Тарифы"),
 )
 
+SPORT_PUBLIC_NAV = (
+    ("sport", "/sport/", "Главная"),
+    ("sport_business", "/sport/business", "Для бизнеса"),
+    ("sport_tariffs", "/sport/tariffs", "Тарифы"),
+)
+
 
 def _link(href: str, icon: str, label: str, extra: str = "") -> str:
     return f'<a class="acct-menu__link {extra}" href="{href}">{icon}{label}</a>'
@@ -53,12 +59,21 @@ def render_account_tag(user=None) -> str:
 
         role = getattr(getattr(user, "role", None), "value", None)
         panel = ""
-        if (
+        has_salon_panel = (
             role in ("business", "master")
             or getattr(user, "has_salon_access", False)
             or getattr(user, "has_master_profile", False)
-        ):
+        )
+        sport_only_business = (
+            role == "business"
+            and getattr(user, "has_sport_access", False)
+            and not getattr(user, "has_salon_access", False)
+            and not getattr(user, "has_master_profile", False)
+        )
+        if has_salon_panel and not sport_only_business:
             panel += _link("/business/dashboard", ICON_BRIEFCASE, "Панель бизнеса")
+        if getattr(user, "has_sport_access", False):
+            panel += _link("/sport/business/dashboard", ICON_BRIEFCASE, "Панель спорт-клуба")
         if getattr(user, "is_model", False):
             panel += _link("/model/dashboard", ICON_MODEL, "Кабинет модели")
         if role == "admin":
@@ -94,7 +109,7 @@ def render_account_tag(user=None) -> str:
 
 
 def render_header(current_page: str = "home", user=None, panel: bool = False) -> str:
-    """Закреплённая шапка: логотип, шесть публичных пунктов, этикетка-вход.
+    """Закреплённая шапка: логотип, навигация раздела, этикетка-вход.
 
     Логотип — картинка, а не текст: начертание рукописное, системным шрифтом
     его не набрать. Размеры у <img> проставлены, чтобы шапка не дёргалась,
@@ -103,8 +118,10 @@ def render_header(current_page: str = "home", user=None, panel: bool = False) ->
     panel=True — страницы бизнес-панели: там своя навигация, этикетки нет;
     справа остаются выходы на сайт, в профиль и из аккаунта.
     """
-    logo = """
-            <a href="/" id="header-logo" aria-label="Руми — на главную">
+    is_sport = current_page == "sport" or current_page.startswith("sport_")
+    logo_href = "/sport/" if is_sport else "/"
+    logo = f"""
+            <a href="{logo_href}" id="header-logo" aria-label="Руми — на главную">
                 <picture>
                     <source type="image/webp" srcset="/static/images/rumi-logo.webp">
                     <img src="/static/images/rumi-logo.png" alt="Руми"
@@ -125,8 +142,9 @@ def render_header(current_page: str = "home", user=None, panel: bool = False) ->
     </header>
     """
 
+    public_nav = SPORT_PUBLIC_NAV if is_sport else PUBLIC_NAV
     links = "".join(
-        _nav_link(href, label, key == current_page) for key, href, label in PUBLIC_NAV
+        _nav_link(href, label, key == current_page) for key, href, label in public_nav
     )
     return f"""
     <header id="main-header">

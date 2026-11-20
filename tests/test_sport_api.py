@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.core.config import settings
-from app.models.models import ConsentDocument, User, UserConsent
+from app.models.models import ConsentDocument, User, UserConsent, UserRole
 from app.models.sport import (
     SportBooking,
     SportCoach,
@@ -279,6 +279,139 @@ async def test_sport_business_application_starts_pending_and_creates_owner_membe
         assert organization.is_published is False
         assert membership.role == "owner"
         assert membership.is_creator is True
+        assert (
+            await db.execute(select(User).where(User.id == organization.creator_id))
+        ).scalar_one().role == UserRole.BUSINESS
+
+
+async def test_admin_can_assign_existing_sport_club_to_owner_by_phone(client, db_session):
+    from app.core.security import get_password_hash
+
+    await _seed_organization(db_session, _booking_date())
+    async with db_session() as db:
+        organization = (
+            await db.execute(
+                select(SportOrganization).where(SportOrganization.slug == "test-sport-club")
+            )
+        ).scalar_one()
+        owner = User(
+            phone="+79990001005",
+            full_name="Владелец Спарты",
+            hashed_password=get_password_hash("Testpass1"),
+            role=UserRole.CLIENT,
+        )
+        new_owner = User(
+            phone="+79990001008",
+            full_name="Новый владелец",
+            hashed_password=get_password_hash("Testpass1"),
+            role=UserRole.CLIENT,
+        )
+        admin = User(
+            phone="+79990001006",
+            full_name="Старший модератор",
+            hashed_password=get_password_hash("Testpass1"),
+            role=UserRole.ADMIN,
+            is_senior_admin=True,
+        )
+        db.add_all([owner, new_owner, admin])
+        await db.commit()
+        organization_id = organization.id
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"phone": "+79990001006", "password": "Testpass1"},
+    )
+    client.cookies.set("access_token", login.json()["access_token"])
+    admin_page = await client.get("/admin?tab=sport")
+    assert admin_page.status_code == 200
+    assert f"/api/v1/admin/sport/organizations/{organization_id}/owner" in admin_page.text
+    response = await client.post(
+        f"/api/v1/admin/sport/organizations/{organization_id}/owner",
+        data={"owner_phone": "8 (999) 000-10-05"},
+    )
+    assert response.status_code == 302
+    assert "tab=sport" in response.headers["location"]
+
+    async with db_session() as db:
+        owner = (
+            await db.execute(select(User).where(User.phone == "+79990001005"))
+        ).scalar_one()
+        organization = await db.get(SportOrganization, organization_id)
+        membership = (
+            await db.execute(
+                select(SportGymMember).where(
+                    SportGymMember.organization_id == organization_id,
+                    SportGymMember.user_id == owner.id,
+                )
+            )
+        ).scalar_one()
+        assert owner.role == UserRole.BUSINESS
+        assert organization.creator_id == owner.id
+        assert membership.role == "owner"
+        assert membership.is_creator and membership.is_active
+        old_owner_id = owner.id
+
+    reassigned = await client.post(
+        f"/api/v1/admin/sport/organizations/{organization_id}/owner",
+        data={"owner_phone": "+79990001008"},
+    )
+    assert reassigned.status_code == 302
+    async with db_session() as db:
+        old_membership = (
+            await db.execute(
+                select(SportGymMember).where(
+                    SportGymMember.organization_id == organization_id,
+                    SportGymMember.user_id == old_owner_id,
+                )
+            )
+        ).scalar_one()
+        assert old_membership.is_active is False
+        assert old_membership.is_creator is False
+
+    client.cookies.clear()
+    owner_login = await client.post(
+        "/api/v1/auth/login",
+        json={"phone": "+79990001008", "password": "Testpass1"},
+    )
+    client.cookies.set("access_token", owner_login.json()["access_token"])
+    dashboard = await client.get("/sport/business/dashboard")
+    assert dashboard.status_code == 303
+    assert dashboard.headers["location"] == "/sport/test-sport-club/admin"
+    panel = await client.get(dashboard.headers["location"])
+    assert panel.status_code == 200
+    assert 'data-gym-slug="test-sport-club"' in panel.text
+
+
+async def test_only_senior_admin_can_assign_sport_club_owner(client, db_session):
+    await _seed_organization(db_session, _booking_date())
+    await register_user(client, "+79990001007", full_name="Модератор")
+    async with db_session() as db:
+        moderator = (
+            await db.execute(select(User).where(User.phone == "+79990001007"))
+        ).scalar_one()
+        moderator.role = UserRole.ADMIN
+        organization = (
+            await db.execute(
+                select(SportOrganization).where(SportOrganization.slug == "test-sport-club")
+            )
+        ).scalar_one()
+        await db.commit()
+        organization_id = organization.id
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"phone": "+79990001007", "password": "Testpass1"},
+    )
+    client.cookies.set("access_token", login.json()["access_token"])
+    response = await client.post(
+        f"/api/v1/admin/sport/organizations/{organization_id}/owner",
+        data={"owner_phone": "+79990001005"},
+    )
+    assert response.status_code == 302
+    assert "/login?redirect=/admin" in response.headers["location"]
+
+    async with db_session() as db:
+        organization = await db.get(SportOrganization, organization_id)
+        assert organization.creator_id is None
 
 
 async def test_sport_management_is_scoped_and_owner_can_add_staff(client, db_session):

@@ -76,7 +76,7 @@ def render_sport_business_page(user=None, organizations: list[SportOrganization]
     </style>
 </head>
 <body>
-    {render_header("sport", user)}
+    {render_header("sport_business", user)}
     <main class="sport-business">
         <p>Руми Спорт · для бизнеса</p>
         <h1>Подключите спортивный клуб</h1>
@@ -86,6 +86,56 @@ def render_sport_business_page(user=None, organizations: list[SportOrganization]
         {applications}
         <h2>Заявка на подключение</h2>
         {form}
+    </main>
+    {render_footer(user)}
+</body>
+</html>"""
+
+
+def render_sport_business_dashboard_page(user, organizations: list[tuple[SportOrganization, str]]) -> str:
+    status_labels = {
+        "pending": "На модерации",
+        "approved": "Опубликован",
+        "rejected": "Отклонён",
+    }
+    cards = "".join(
+        '<article class="sport-business__application">'
+        f'<h2>{html.escape(organization.name)}</h2>'
+        f'<p>{html.escape(organization.city)} · {html.escape(status_labels.get(organization.moderation_status, organization.moderation_status))}'
+        f' · роль: {html.escape(role)}</p>'
+        + (
+            f'<p>{html.escape(organization.rejection_reason)}</p>'
+            if organization.rejection_reason else ""
+        )
+        + f'<a href="/sport/{html.escape(organization.slug, quote=True)}/admin">Открыть панель клуба</a>'
+        + "</article>"
+        for organization, role in organizations
+    )
+    if not cards:
+        cards = (
+            '<p>У вас пока нет доступа к панели спортивного клуба. '
+            '<a href="/sport/business">Подключить клуб</a>.</p>'
+        )
+    return f"""<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Панель спортивного клуба — Руми</title>
+    {get_base_styles()}
+    <style>
+        .sport-business{{max-width:900px;margin:48px auto;padding:0 20px 72px}}
+        .sport-business__application{{padding:20px 0;border-bottom:1px solid #ddd}}
+        .sport-business__application h2{{margin:0 0 8px}}
+    </style>
+</head>
+<body>
+    {render_header("sport_business", user)}
+    <main class="sport-business">
+        <p>Руми Спорт · бизнес-панель</p>
+        <h1>Ваши спортивные клубы</h1>
+        {cards}
+        <p><a href="/sport/business">Подключить ещё один клуб</a></p>
     </main>
     {render_footer(user)}
 </body>

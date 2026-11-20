@@ -1048,6 +1048,8 @@ async def apply_sport_business(
             sort_order=1,
         ),
     ])
+    if user.role != UserRole.ADMIN:
+        user.role = UserRole.BUSINESS
     user_id, user_phone = user.id, user.phone
     await db.commit()
     organization_id = organization.id

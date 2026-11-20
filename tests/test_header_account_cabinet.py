@@ -6,7 +6,12 @@ from types import SimpleNamespace
 from sqlalchemy import update
 
 from app.models.models import User, UserRole
-from app.web.components.header import PUBLIC_NAV, render_account_tag, render_header
+from app.web.components.header import (
+    PUBLIC_NAV,
+    SPORT_PUBLIC_NAV,
+    render_account_tag,
+    render_header,
+)
 from tests.conftest import register_user
 
 PUBLIC_HREFS = ["/", "/salons", "/business", "/model", "/about", "/tariffs"]
@@ -38,6 +43,22 @@ def test_active_item_is_marked_and_only_one():
     html = render_header("salons")
     assert html.count('aria-current="page"') == 1
     assert 'class="header-link active" href="/salons" aria-current="page"' in html
+
+
+def test_sport_header_uses_sport_routes_only():
+    html = render_header("sport")
+    assert _nav_hrefs(html) == ["/sport/", "/sport/business", "/sport/tariffs"]
+    assert [href for _, href, _ in SPORT_PUBLIC_NAV] == _nav_hrefs(html)
+    assert 'id="header-logo" aria-label="Руми — на главную"' in html
+    assert '<a href="/sport/" id="header-logo"' in html
+    for beauty_href in ("/salons", "/business", "/model", "/about", "/tariffs"):
+        assert f'href="{beauty_href}"' not in html
+
+
+def test_sport_business_header_marks_its_own_route_active():
+    html = render_header("sport_business")
+    assert _nav_hrefs(html) == ["/sport/", "/sport/business", "/sport/tariffs"]
+    assert 'class="header-link active" href="/sport/business" aria-current="page"' in html
 
 
 async def test_public_pages_render_the_same_header(client):

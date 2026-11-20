@@ -396,6 +396,51 @@ def _now_utc():
     return datetime.now(timezone.utc)
 
 
+def _sport_organizations_tab(organizations, owner_phone_by_id):
+    cards = ""
+    for organization in organizations:
+        owner = owner_phone_by_id.get(organization.creator_id, "—") if organization.creator_id else "нет"
+        published = _badge("в каталоге", "success") if organization.is_published else _badge("не опубликован", "neutral")
+        status = {
+            "pending": ("на модерации", "warning"),
+            "approved": ("одобрен", "success"),
+            "rejected": ("отклонён", "danger"),
+        }.get(organization.moderation_status, (organization.moderation_status, "neutral"))
+        cards += f"""
+        <article class="r-card adm-app">
+            {_thumb(organization.logo_url, "lg", ICON_BUILDING2)}
+            <div class="adm-app__body">
+                <div class="adm-app__head">
+                    <strong>{_esc(organization.name)}</strong>
+                    <span class="adm-salon-badges">{_badge(status[0], status[1])}{published}</span>
+                </div>
+                <p class="adm-meta text-muted">
+                    #{organization.id} · {_esc(organization.city)} · {_esc(organization.address or "")}
+                    · Владелец: <strong>{_esc(owner)}</strong>
+                </p>
+                <p class="adm-small">Страница: <a href="/sport/{_esc(organization.slug)}" target="_blank" rel="noopener">/sport/{_esc(organization.slug)}</a></p>
+                <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/owner" class="adm-form">
+                    <label class="adm-field">
+                        <span class="adm-field-label">Назначить владельца по телефону</span>
+                        <input name="owner_phone" placeholder="+7 999 123-45-67"
+                               class="r-input adm-input" aria-label="Телефон владельца спортивного клуба">
+                    </label>
+                    {_btn("Назначить владельца")}
+                </form>
+                <p class="adm-hint">Укажите телефон существующего аккаунта. Пустое поле снимает владельца.</p>
+            </div>
+        </article>"""
+    if not cards:
+        cards = '<p class="adm-empty">Спортивных клубов пока нет</p>'
+    return f"""
+    <div class="tab-content" id="tab-sport">
+        <h2 class="adm-tab-title">Спортивные клубы ({len(organizations)})</h2>
+        <p class="adm-lead">Назначьте владельца существующему клубу. Владелец сможет открыть панель клуба и добавлять администраторов и тренеров.</p>
+        <div class="adm-list">{cards}</div>
+    </div>
+    """
+
+
 def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
     """Салон = карточка, а не строка таблицы.
 
@@ -915,9 +960,13 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     # Вкладки «Пользователи/Салоны/Отзывы/Аудит/Обзор» — только старшему
     # модератору: базовый модератор видит и решает только заявки и жалобы.
     overview = users_tab = salons_tab = reviews_tab = audit_tab = ""
+    sport_organizations_tab = ""
     if is_senior:
         reviews = (await db.execute(select(Review).order_by(Review.created_at.desc()).limit(200))).scalars().all()
         audits = (await db.execute(select(AdminAudit).order_by(AdminAudit.created_at.desc()).limit(100))).scalars().all()
+        sport_organizations = (await db.execute(
+            select(SportOrganization).order_by(SportOrganization.name, SportOrganization.id)
+        )).scalars().all()
         # «Живой» салон и «принимающая» карточка — по тем же правилам, что
         # каталог (решение 0016, п. 4): иначе админка показывала «активный»
         # салон у человека, удалившего аккаунт.
@@ -936,11 +985,12 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         overview = await _overview(db, users, salons_active)
         users_tab = _users_tab(users, user.id, master_by_uid, self_deleted)
         salons_tab = _salons_tab(salons, phone_by_id, live_salon_ids)
+        sport_organizations_tab = _sport_organizations_tab(sport_organizations, phone_by_id)
         reviews_tab = _reviews_tab(reviews, phone_by_id, master_name_by_id, salon_name_by_id)
         audit_tab = _audit_tab(audits, phone_by_id)
 
     allowed_tabs = (
-        {"overview", "users", "applications", "models", "reports", "salons",
+        {"overview", "users", "applications", "models", "reports", "salons", "sport",
          "reviews", "audit", "support", "contest"}
         if is_senior else {"applications", "models", "reports", "support", "contest"}
     )
@@ -964,6 +1014,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     tab_nav += f'<button class="tab-btn" data-tab="contest" onclick="switchTab(\'contest\')">{ICON_FILE_TEXT} Конкурс{contest_badge}</button>'
     if is_senior:
         tab_nav += f'<button class="tab-btn" data-tab="salons" onclick="switchTab(\'salons\')">{ICON_BUILDING2} Салоны</button>'
+        tab_nav += f'<button class="tab-btn" data-tab="sport" onclick="switchTab(\'sport\')">{ICON_BUILDING2} Спорт-клубы</button>'
         tab_nav += f'<button class="tab-btn" data-tab="reviews" onclick="switchTab(\'reviews\')">{ICON_MESSAGE_CIRCLE} Отзывы</button>'
         tab_nav += f'<button class="tab-btn" data-tab="audit" onclick="switchTab(\'audit\')">{ICON_FILE_TEXT} Аудит</button>'
 
@@ -993,6 +1044,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         {support_tab}
         {contest_tab}
         {salons_tab}
+        {sport_organizations_tab}
         {reviews_tab}
         {audit_tab}
     </main>

@@ -76,6 +76,82 @@ async def sport_business_page(request: Request, db: AsyncSession = Depends(get_d
     return HTMLResponse(content=render_sport_business_page(user, organizations))
 
 
+@router.get("/sport/tariffs", response_class=HTMLResponse, include_in_schema=False)
+async def sport_tariffs_page(request: Request, db: AsyncSession = Depends(get_db)):
+    from app.models.sport import SportMembershipPlan, SportOrganization
+    from app.web.pages.sport_tariffs import render_sport_tariffs_page
+
+    user = await get_current_user_from_cookie(request, db)
+    plans = (
+        await db.execute(
+            select(SportMembershipPlan, SportOrganization)
+            .join(
+                SportOrganization,
+                SportOrganization.id == SportMembershipPlan.organization_id,
+            )
+            .where(
+                SportOrganization.is_published.is_(True),
+                SportMembershipPlan.is_active.is_(True),
+            )
+            .order_by(
+                SportOrganization.name,
+                SportMembershipPlan.sort_order,
+                SportMembershipPlan.id,
+            )
+        )
+    ).all()
+    return HTMLResponse(content=render_sport_tariffs_page(user, plans))
+
+
+@router.get("/sport/business/dashboard", response_class=HTMLResponse, include_in_schema=False)
+async def sport_business_dashboard_page(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.sport import SportCoach, SportGymMember, SportOrganization
+    from app.web.pages.sport_business import render_sport_business_dashboard_page
+
+    user = await get_current_user_from_cookie(request, db)
+    if user is None:
+        return RedirectResponse(
+            "/login?redirect=%2Fsport%2Fbusiness%2Fdashboard",
+            status_code=302,
+        )
+    memberships = (await db.execute(
+        select(SportGymMember, SportOrganization)
+        .join(SportOrganization, SportOrganization.id == SportGymMember.organization_id)
+        .where(
+            SportGymMember.user_id == user.id,
+            SportGymMember.is_active.is_(True),
+        )
+        .order_by(SportOrganization.created_at.desc())
+    )).all()
+    organizations_by_id = {
+        organization.id: (organization, membership.role)
+        for membership, organization in memberships
+    }
+    coaches = (await db.execute(
+        select(SportCoach, SportOrganization)
+        .join(SportOrganization, SportOrganization.id == SportCoach.organization_id)
+        .where(
+            SportCoach.user_id == user.id,
+            SportCoach.is_active.is_(True),
+        )
+        .order_by(SportOrganization.created_at.desc())
+    )).all()
+    for _, organization in coaches:
+        organizations_by_id.setdefault(organization.id, (organization, "trainer"))
+    if len(organizations_by_id) == 1:
+        organization, _ = next(iter(organizations_by_id.values()))
+        return RedirectResponse(
+            f"/sport/{organization.slug}/admin",
+            status_code=303,
+        )
+    return HTMLResponse(content=render_sport_business_dashboard_page(
+        user, list(organizations_by_id.values())
+    ))
+
+
 @router.get("/sport/sparta", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/sport/sparta/", response_class=HTMLResponse, include_in_schema=False)
 async def sparta_sport_page(db: AsyncSession = Depends(get_db)):
