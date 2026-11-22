@@ -70,7 +70,7 @@ body.sport-directory .sport-home__art {
     justify-self: center;
     overflow: hidden;
     border: 1px solid var(--color-border);
-    border-radius: 50% 50% 0.75rem 0.75rem;
+    border-radius: 50% 50% var(--radius-16) var(--radius-16);
     background:
         radial-gradient(circle at 50% 42%, var(--color-surface) 0 23%, transparent 23.3%),
         var(--color-secondary);
@@ -191,7 +191,7 @@ body.sport-directory .sport-home__step {
     gap: 1rem;
     padding: 1.25rem;
     border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-16);
     background: var(--color-surface);
 }
 
@@ -213,7 +213,7 @@ body.sport-directory .sport-home__clubs-layout {
 }
 
 body.sport-directory .sport-home__clubs-layout .sport-home__eyebrow {
-    color: #8cc1e9;
+    color: var(--color-accent-text);
 }
 
 body.sport-directory .sport-home__clubs-layout h2 {
@@ -221,7 +221,7 @@ body.sport-directory .sport-home__clubs-layout h2 {
 }
 
 body.sport-directory .sport-home__clubs-layout h2 em {
-    color: #8cc1e9;
+    color: var(--color-accent-text);
 }
 
 body.sport-directory .sport-home__clubs-layout > div:first-child > p:last-child {

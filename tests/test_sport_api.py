@@ -20,6 +20,7 @@ from app.models.sport import (
 )
 from app.schemas.sport import SportTrainingUpdate
 from app.web.pages.legal import LEGAL_VERSION
+from tests.conftest import register_user
 
 
 async def _seed_organization(db_session, booking_date):
@@ -74,14 +75,14 @@ def _booking_date():
     return today + timedelta(days=2)
 
 
-def _booking_payload(booking_date, **overrides):
+def _booking_payload(default_booking_date, **overrides):
     payload = {
         "name": "Тестовый клиент",
         "phone": "+79990001122",
         "kind": "Пробное",
         "participant": "self",
         "training_id": "test-session",
-        "booking_date": booking_date.isoformat(),
+        "booking_date": default_booking_date.isoformat(),
         "gym": "Тестовый зал",
         "discipline": "Дзю-дзютцу",
         "pd_consent": True,
@@ -172,14 +173,18 @@ async def test_sport_catalog_searches_and_filters_gym_cards(client, db_session):
         await db.commit()
 
     response = await client.get(
-        "/sport?q=Тестовый&city=Томск&partial=1"
+        "/sport/clubs?q=Тестовый&city=Томск&partial=1"
     )
     assert response.status_code == 200
     assert 'class="r-salon gym-card"' in response.text
     assert 'href="/sport/test-sport-club"' in response.text
     assert "Другой клуб" not in response.text
 
-    page = await client.get("/sport")
+    home = await client.get("/sport")
+    assert home.status_code == 200
+    assert 'action="/sport/clubs"' in home.text
+
+    page = await client.get("/sport/clubs")
     assert page.status_code == 200
     assert 'id="gymsFilterForm"' in page.text
     assert 'id="gyms-list"' in page.text
@@ -233,7 +238,8 @@ async def test_sport_catalog_reads_gym_content_from_database(client, db_session)
     response = await client.get("/api/v1/sport/organizations/test-sport-club/catalog")
     assert response.status_code == 200, response.text
     data = response.json()
-    assert data["venues"][0]["address"] == "Тестовая, 1"
+    main_venue = next(venue for venue in data["venues"] if venue["name"] == "Главный зал")
+    assert main_venue["address"] == "Тестовая, 1"
     assert data["coaches"][0]["name"] == "Иван Тренер"
     assert data["disciplines"][0]["key"] == "Борьба"
     assert data["plans"][0]["price"] == 3500

@@ -91,6 +91,29 @@
     /* Тёмный блок на светлой странице (подвал, плашки): её --cherry. */
     --color-dark: #36061b;
 
+    /* Палитра Руми Спорт — молочный фон и синие акценты. */
+    --sport-background: #fff8e7;
+    --sport-surface: #ffffff;
+    --sport-surface-alt: #eaf2f8;
+    --sport-secondary: #dcebf7;
+    --sport-text: #12284b;
+    --sport-heading: #12284b;
+    --sport-body: #344963;
+    --sport-muted: #526478;
+    --sport-border: #d6dcd9;
+    --sport-border-strong: #b7c8d6;
+    --sport-primary: #0055a0;
+    --sport-accent: #0055a0;
+    --sport-accent-hover: #12284b;
+    --sport-accent-light: #e7f1f9;
+    --sport-accent-muted: #438bc433;
+    --sport-accent-text: #0055a0;
+    --sport-btn-text: #ffffff;
+    --sport-dark: #12284b;
+    --sport-glow: #8cc1e926;
+    --sport-shadow: #12284b12;
+    --sport-shadow-soft: #12284b0b;
+
     /* Скрим под модальными окнами и листами: чёрный не темизируется, он
        затемняет любую страницу одинаково. */
     --color-scrim: rgba(20, 17, 19, 0.55);
@@ -252,6 +275,27 @@
 
     --color-btn-text: #ffffff;
     --color-dark: #1c181a;
+    --sport-background: #101b2c;
+    --sport-surface: #182841;
+    --sport-surface-alt: #203650;
+    --sport-secondary: #25415f;
+    --sport-text: #f4f7fa;
+    --sport-heading: #f4f7fa;
+    --sport-body: #d5e0eb;
+    --sport-muted: #b2c3d3;
+    --sport-border: #31465d;
+    --sport-border-strong: #48617b;
+    --sport-primary: #438bc4;
+    --sport-accent: #438bc4;
+    --sport-accent-hover: #8cc1e9;
+    --sport-accent-light: #203650;
+    --sport-accent-muted: #8cc1e955;
+    --sport-accent-text: #8cc1e9;
+    --sport-btn-text: #101b2c;
+    --sport-dark: #101b2c;
+    --sport-glow: #8cc1e926;
+    --sport-shadow: #00000012;
+    --sport-shadow-soft: #0000000b;
     --color-scrim: rgba(0, 0, 0, 0.65);
 
     --page-gradient-1: #141113;
