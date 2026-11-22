@@ -47,9 +47,11 @@ def test_active_item_is_marked_and_only_one():
 
 def test_sport_header_uses_sport_routes_only():
     html = render_header("sport")
-    assert _nav_hrefs(html) == ["/sport/", "/sport/business", "/sport/tariffs"]
+    assert _nav_hrefs(html) == [
+        "/sport/", "/sport/clubs", "/sport/business", "/sport/tariffs"
+    ]
     assert [href for _, href, _ in SPORT_PUBLIC_NAV] == _nav_hrefs(html)
-    assert 'id="header-logo" aria-label="Руми — на главную"' in html
+    assert 'id="header-logo" aria-label="Руми Спорт — на главную"' in html
     assert '<a href="/sport/" id="header-logo"' in html
     for beauty_href in ("/salons", "/business", "/model", "/about", "/tariffs"):
         assert f'href="{beauty_href}"' not in html
@@ -57,7 +59,9 @@ def test_sport_header_uses_sport_routes_only():
 
 def test_sport_business_header_marks_its_own_route_active():
     html = render_header("sport_business")
-    assert _nav_hrefs(html) == ["/sport/", "/sport/business", "/sport/tariffs"]
+    assert _nav_hrefs(html) == [
+        "/sport/", "/sport/clubs", "/sport/business", "/sport/tariffs"
+    ]
     assert 'class="header-link active" href="/sport/business" aria-current="page"' in html
 
 

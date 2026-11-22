@@ -1,0 +1,497 @@
+.adm {
+  --ink: var(--sport-heading);
+  --soft: var(--sport-background);
+  --gray: var(--sport-muted);
+  --line: var(--sport-border);
+  --red: var(--sport-accent);
+  min-height: 100vh;
+  background: var(--sport-background);
+  color: var(--sport-text);
+  font-family: var(--font-body);
+}
+
+.adm .adm-side {
+  background: var(--sport-dark);
+  color: var(--color-on-dark);
+}
+
+.adm .adm-logo {
+  font-family: Impact, "Arial Narrow", Bahnschrift, sans-serif;
+}
+
+.adm .adm-logo small {
+  color: var(--sport-muted);
+}
+
+.adm .adm-side nav button {
+  border-radius: var(--radius-8);
+  color: var(--sport-muted);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.adm .adm-side nav button:hover,
+.adm .adm-side nav button.on {
+  background: var(--sport-accent-light);
+  color: var(--sport-heading);
+}
+
+.adm .adm-side nav button.on {
+  box-shadow: inset 3px 0 0 var(--sport-accent);
+}
+
+.adm .adm-side nav i {
+  border-radius: var(--radius-pill);
+  background: var(--sport-accent);
+  color: var(--sport-btn-text);
+}
+
+.adm .adm-exit {
+  border-radius: var(--radius-8);
+  color: var(--sport-muted);
+}
+
+.adm .adm-exit:hover {
+  background: var(--sport-accent-light);
+  color: var(--sport-heading);
+}
+
+.adm .adm-main {
+  background:
+    radial-gradient(circle at 100% 0, var(--sport-glow) 0 18rem, transparent 18.1rem),
+    var(--sport-background);
+}
+
+.adm .demo-ribbon {
+  top: 0.75rem;
+  right: 0.75rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--sport-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--sport-surface);
+  color: var(--sport-accent-text);
+  box-shadow: 0 0.25rem 1rem var(--sport-shadow-soft);
+  font-size: var(--text-12);
+}
+
+.adm .adm-h,
+.adm .adm-sub {
+  color: var(--sport-heading);
+  font-family: Impact, "Arial Narrow", Bahnschrift, sans-serif;
+  letter-spacing: -0.035em;
+}
+
+.adm .adm-h {
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+}
+
+.adm .adm-sub {
+  font-size: clamp(1.25rem, 2.5vw, 1.65rem);
+}
+
+.adm .admin-hint {
+  color: var(--sport-muted);
+  line-height: 1.6;
+}
+
+.adm .kpi,
+.adm .admin-insights > div,
+.adm .by-gym > div,
+.adm .tbl,
+.adm .seg,
+.adm .admin-training,
+.adm .week-day,
+.adm .training-editor,
+.adm .account-card,
+.adm .modal-box {
+  border: 1px solid var(--sport-border);
+  border-radius: var(--radius-16);
+  background: var(--sport-surface);
+  color: var(--sport-text);
+  box-shadow: 0 0.35rem 1.25rem var(--sport-shadow-soft);
+}
+
+.adm .kpi {
+  min-width: 0;
+  padding: 1.25rem;
+}
+
+.adm .kpi span,
+.adm .admin-insights span,
+.adm .by-gym span,
+.adm .tr small {
+  color: var(--sport-muted);
+}
+
+.adm .kpi b,
+.adm .by-gym b,
+.adm .admin-insights b {
+  color: var(--sport-heading);
+}
+
+.adm .kpi-red {
+  border-color: var(--sport-accent);
+  background: var(--sport-accent);
+  color: var(--sport-btn-text);
+}
+
+.adm .kpi-red span,
+.adm .kpi-red b,
+.adm .kpi-red em {
+  color: var(--sport-btn-text);
+}
+
+.adm button.kpi:hover {
+  box-shadow: inset 0 0 0 2px var(--sport-accent);
+}
+
+.adm button.kpi-red:hover {
+  background: var(--sport-accent-hover);
+}
+
+.adm .by-gym > div {
+  padding: 1.25rem;
+}
+
+.adm .filters select,
+.adm .record-search,
+.adm .month-picker input,
+.adm .member-add input,
+.adm .member-add select,
+.adm .training-editor input:not([type="checkbox"]),
+.adm .training-editor select,
+.adm .form input,
+.adm .form select,
+.adm .account-card form input,
+.adm .account-card form select {
+  border: 1px solid var(--sport-border-strong);
+  border-radius: var(--radius-8);
+  background: var(--sport-surface);
+  color: var(--sport-text);
+}
+
+.adm input:focus-visible,
+.adm select:focus-visible,
+.adm textarea:focus-visible,
+.adm button:focus-visible,
+.sport-admin-state button:focus-visible,
+.sport-admin-state a:focus-visible {
+  outline: 3px solid var(--sport-accent-muted);
+  outline-offset: 2px;
+}
+
+.adm .seg button {
+  border-radius: var(--radius-8);
+  color: var(--sport-muted);
+}
+
+.adm .seg button:hover {
+  color: var(--sport-heading);
+}
+
+.adm .seg button.on {
+  background: var(--sport-accent);
+  color: var(--sport-btn-text);
+}
+
+.adm .tbl {
+  overflow: auto;
+}
+
+.adm .tr {
+  border-color: var(--sport-border);
+}
+
+.adm .th {
+  background: var(--sport-surface-alt);
+  color: var(--sport-body);
+}
+
+.adm .st {
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+}
+
+.adm .st-new {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.adm .st-confirmed {
+  background: var(--color-info-light);
+  color: var(--color-info);
+}
+
+.adm .st-came {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.adm .st-cancelled {
+  background: var(--sport-surface-alt);
+  color: var(--sport-muted);
+}
+
+.adm .acts button,
+.adm .btn-black,
+.adm .btn-red,
+.adm .member-add button,
+.adm .admin-training-actions button {
+  min-height: 2.5rem;
+  border: 1px solid var(--sport-accent);
+  border-radius: var(--radius-8);
+  background: var(--sport-accent);
+  color: var(--sport-btn-text);
+  font-family: var(--font-body);
+  font-weight: 700;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.adm .acts button:hover,
+.adm .btn-black:hover,
+.adm .btn-red:hover,
+.adm .member-add button:hover,
+.adm .admin-training-actions button:hover {
+  border-color: var(--sport-accent-hover);
+  background: var(--sport-accent-hover);
+}
+
+.adm .acts .ghost,
+.adm .admin-training-actions button.ghost {
+  border-color: var(--sport-border-strong);
+  background: var(--sport-surface);
+  color: var(--sport-accent-text);
+  box-shadow: none;
+}
+
+.adm .acts .ghost:hover,
+.adm .admin-training-actions button.ghost:hover {
+  border-color: var(--sport-accent);
+  background: var(--sport-accent-light);
+  color: var(--sport-accent-text);
+}
+
+.adm .admin-training,
+.adm .training-editor {
+  padding: 1.25rem;
+}
+
+.adm .admin-training b,
+.adm .week-class > b,
+.adm .account-records small {
+  color: var(--sport-accent-text);
+}
+
+.adm .admin-training-actions button,
+.adm .calendar-controls button,
+.adm .week-class button {
+  border-radius: var(--radius-8);
+}
+
+.adm .calendar-controls button {
+  border: 1px solid var(--sport-border-strong);
+  background: var(--sport-surface);
+  color: var(--sport-accent-text);
+}
+
+.adm .week-day {
+  overflow: hidden;
+}
+
+.adm .week-day-head {
+  border: 0;
+  background: var(--sport-dark);
+  color: var(--color-on-dark);
+}
+
+.adm .week-class {
+  border-left-color: var(--sport-accent);
+  border-top: 1px solid var(--sport-border);
+  border-radius: var(--radius-8);
+  background: var(--sport-surface-alt);
+}
+
+.adm .week-class > span,
+.adm .week-class > small {
+  color: var(--sport-muted);
+}
+
+.adm .week-class button {
+  color: var(--sport-accent-text);
+  font-weight: 700;
+}
+
+.adm .week-class-off {
+  border-left-color: var(--sport-muted);
+}
+
+.adm .tr a {
+  color: var(--sport-accent-text);
+}
+
+.adm .week-empty,
+.adm .empty {
+  color: var(--sport-muted);
+}
+
+.adm .member-add input,
+.adm .member-add select {
+  min-width: min(100%, 16rem);
+  min-height: 2.5rem;
+}
+
+.adm .account-records > div {
+  border-color: var(--sport-border);
+}
+
+.adm .account-records .ghost {
+  border: 1px solid var(--sport-border-strong);
+  border-radius: var(--radius-8);
+  padding: 0.4rem 0.7rem;
+  color: var(--sport-accent-text);
+}
+
+.adm .account-records .ghost:hover {
+  background: var(--sport-accent-light);
+}
+
+.adm .modal-box {
+  max-width: 52rem;
+}
+
+.adm .sport-admin-alert,
+.sport-app-alert,
+.booking-error {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-8);
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  font-size: var(--text-14);
+  line-height: 1.5;
+}
+
+.sport-admin-state {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background:
+    radial-gradient(circle at 100% 0, var(--sport-glow) 0 18rem, transparent 18.1rem),
+    var(--sport-background);
+  color: var(--sport-text);
+  font-family: var(--font-body);
+}
+
+.sport-admin-state__card {
+  width: min(100%, 38rem);
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid var(--sport-border-strong);
+  border-radius: var(--radius-28);
+  background: var(--sport-surface);
+  box-shadow: 0 1rem 2.5rem var(--sport-shadow-soft);
+}
+
+.sport-admin-state__eyebrow {
+  margin: 0 0 0.75rem;
+  color: var(--sport-accent-text);
+  font-size: var(--text-12);
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.sport-admin-state__card h1 {
+  margin: 0;
+  color: var(--sport-heading);
+  font-family: Impact, "Arial Narrow", Bahnschrift, sans-serif;
+  font-size: clamp(2rem, 7vw, 3.25rem);
+  letter-spacing: -0.035em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.sport-admin-state__message {
+  margin: 1rem 0 0;
+  color: var(--sport-muted);
+  line-height: 1.6;
+}
+
+.sport-admin-state__message[role="alert"] {
+  color: var(--color-danger);
+}
+
+.sport-admin-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 1.5rem;
+}
+
+.sport-admin-state__actions .btn {
+  min-height: 2.75rem;
+  border: 1px solid var(--sport-accent);
+  border-radius: var(--radius-8);
+  background: var(--sport-accent);
+  color: var(--sport-btn-text);
+  font-weight: 700;
+}
+
+.sport-admin-state__actions .btn:hover {
+  border-color: var(--sport-accent-hover);
+  background: var(--sport-accent-hover);
+}
+
+.sport-admin-state__link {
+  color: var(--sport-accent-text);
+  font-weight: 700;
+  text-underline-offset: 0.2em;
+}
+
+.adm button:focus-visible,
+.adm a:focus-visible {
+  outline: 3px solid var(--sport-accent-muted);
+  outline-offset: 2px;
+}
+
+@media (max-width: 860px) {
+  .adm .adm-side {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .adm .adm-side nav {
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  .adm .adm-side nav button {
+    border: 1px solid transparent;
+  }
+
+  .adm .adm-side nav button.on {
+    box-shadow: inset 0 -3px 0 var(--sport-accent);
+  }
+
+  .adm .adm-exit {
+    margin: 0;
+  }
+
+  .adm .adm-main {
+    padding: 1.5rem 1rem 2.5rem;
+  }
+
+  .adm .demo-ribbon {
+    position: static;
+    grid-column: 1;
+    justify-self: start;
+    margin: 0.75rem 1rem 0;
+  }
+
+  .sport-business-dashboard__card-head {
+    align-items: flex-start;
+  }
+}

@@ -109,29 +109,56 @@ async def yandex_callback(
     db: AsyncSession = Depends(get_db),
 ):
     if not settings.YANDEX_OAUTH_ENABLED:
-        return RedirectResponse(url="/login", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url("yandex", state, "yandex"),
+            status_code=302,
+        )
 
     # state одноразовый: нет в Redis (истёк/подделан/повторён) — отказ
     r = get_redis()
     known = await r.get(f"oauth:yandex:{state}") if state else None
     if not known:
-        return RedirectResponse(url="/login?error=yandex", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url("yandex", state, "yandex"),
+            status_code=302,
+        )
     await r.delete(f"oauth:yandex:{state}")
 
     if not code:
-        return RedirectResponse(url="/login?error=yandex", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url("yandex", state, "yandex"),
+            status_code=302,
+        )
 
     token = await _exchange_code(code, _redirect_uri(request))
     profile = await _fetch_profile(token) if token else None
     if not profile:
-        return RedirectResponse(url="/login?error=yandex", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url("yandex", state, "yandex"),
+            status_code=302,
+        )
 
     raw_phone = ((profile.get("default_phone") or {}).get("number")) or ""
     phone = try_normalize_phone(raw_phone)
     if not phone:
         # Пользователь не поделился номером — наша модель телефон-центрична,
         # без него аккаунт не завести. Отправляем на обычную регистрацию.
-        return RedirectResponse(url="/register?error=yandex_no_phone", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url(
+                "yandex", state, "yandex_no_phone", register=True,
+            ),
+            status_code=302,
+        )
 
     user = (await db.execute(select(User).where(User.phone == phone))).scalar_one_or_none()
     if user is None:
@@ -157,7 +184,12 @@ async def yandex_callback(
     await adopt_oauth_email(db, user, profile.get("default_email"))
 
     if not user.is_active:
-        return RedirectResponse(url="/login?error=locked", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url("yandex", state, "locked"),
+            status_code=302,
+        )
 
     from app.services.auth_redirect import pop_for_oauth
     response = RedirectResponse(url=await pop_for_oauth("yandex", state), status_code=302)

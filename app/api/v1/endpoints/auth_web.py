@@ -26,6 +26,7 @@ from app.core.limiter import (
 from app.services import otp
 from app.services.consent_service import record_consent
 from app.services import password_reset
+from app.services.auth_redirect import safe_sport_redirect
 
 router = APIRouter()
 
@@ -34,6 +35,10 @@ def _safe_redirect(target: str) -> str:
     if not target or not target.startswith("/") or target.startswith("//"):
         return "/"
     return target
+
+
+def _sport_redirect(target: str) -> str:
+    return safe_sport_redirect(target)
 
 def _set_auth_cookie(response: RedirectResponse, user_id: int) -> None:
     """Устанавливает cookie с JWT-токеном (используя create_access_token из security)."""
@@ -57,17 +62,20 @@ async def login_web(
     phone: str = Form(...),
     password: str = Form(...),
     redirect: str = Form("/"),
+    auth_variant: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     """Вход через веб-форму."""
-    redirect = _safe_redirect(redirect)
+    sport_flow = auth_variant == "sport"
+    redirect = _sport_redirect(redirect) if sport_flow else _safe_redirect(redirect)
+    login_path = "/sport/login" if sport_flow else "/login"
     norm_phone = try_normalize_phone(phone)
     lookup_phone = norm_phone or phone
     keep_phone = quote(lookup_phone)
 
     if norm_phone and await is_account_locked(norm_phone):
         return RedirectResponse(
-            url=f"/login?error=locked&redirect={quote(redirect)}&phone={keep_phone}",
+            url=f"{login_path}?error=locked&redirect={quote(redirect)}&phone={keep_phone}",
             status_code=302,
         )
 
@@ -78,7 +86,7 @@ async def login_web(
         if norm_phone:
             await register_login_failure(norm_phone)
         return RedirectResponse(
-            url=f"/login?error=1&redirect={quote(redirect)}&phone={keep_phone}",
+            url=f"{login_path}?error=1&redirect={quote(redirect)}&phone={keep_phone}",
             status_code=302,
         )
 
@@ -86,7 +94,7 @@ async def login_web(
     # иначе is_active=False ничего не значит на веб-пути (см. deps.get_current_user).
     if not user.is_active:
         return RedirectResponse(
-            url=f"/login?error=locked&redirect={quote(redirect)}&phone={keep_phone}",
+            url=f"{login_path}?error=locked&redirect={quote(redirect)}&phone={keep_phone}",
             status_code=302,
         )
 
@@ -118,6 +126,7 @@ async def register_web(
     pd_consent: str = Form(""),
     consent_version: str = Form(""),
     redirect: str = Form(""),
+    auth_variant: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     """Регистрация через веб-форму. Роль всегда CLIENT (назначает сервер).
@@ -128,47 +137,52 @@ async def register_web(
     не удалять; без неё регистрация не проверяет телефон вовсе.
     """
     norm_phone = try_normalize_phone(phone)
+    sport_flow = auth_variant == "sport"
+    register_path = "/sport/register" if sport_flow else "/register"
     # Куда вернуть после регистрации. Раньше адрес игнорировался и человек
     # всегда попадал в /profile — пришедший со страницы подключения тарифа
     # терял её вместе с выбранным тарифом и метками рекламы.
-    redirect = _safe_redirect(redirect) if redirect else ""
+    if sport_flow:
+        redirect = _sport_redirect(redirect)
+    elif redirect:
+        redirect = _safe_redirect(redirect)
     keep = f"phone={quote(norm_phone or phone)}&full_name={quote(full_name)}"
     if redirect:
         keep += f"&redirect={quote(redirect, safe='')}"
 
     if norm_phone is None:
-        return RedirectResponse(url=f"/register?error=bad_phone&{keep}", status_code=302)
+        return RedirectResponse(url=f"{register_path}?error=bad_phone&{keep}", status_code=302)
 
     # Согласие на обработку ПДн обязательно: без него нельзя создавать учётную
     # запись, потому что сама регистрация и есть сбор персональных данных.
     if pd_consent != "1":
-        return RedirectResponse(url=f"/register?error=no_consent&{keep}", status_code=302)
+        return RedirectResponse(url=f"{register_path}?error=no_consent&{keep}", status_code=302)
 
     try:
         validate_password_strength(password)
     except ValueError:
-        return RedirectResponse(url=f"/register?error=weak_password&{keep}", status_code=302)
+        return RedirectResponse(url=f"{register_path}?error=weak_password&{keep}", status_code=302)
 
     existing = (await db.execute(select(User).where(User.phone == norm_phone))).scalar_one_or_none()
     # Реальный аккаунт с этим номером блокирует регистрацию; гостя (создан
     # гостевой записью) — не блокируем, «заберём» после верификации ниже.
     if existing is not None and not existing.is_guest:
-        return RedirectResponse(url=f"/register?error=phone_exists&{keep}", status_code=302)
+        return RedirectResponse(url=f"{register_path}?error=phone_exists&{keep}", status_code=302)
 
     # При выключенном OTP (нет каналов) поля подтверждения не требуем вовсе —
     # страница их и не показывает; verify_code в этом режиме всегда True.
     # Требуем только request_id: код нужен лишь СМС-каналу, для Telegram
     # его нет по устройству — какой канал и что проверять, решает verify_code.
     if settings.OTP_ENABLED and not request_id:
-        return RedirectResponse(url=f"/register?error=no_code&{keep}", status_code=302)
+        return RedirectResponse(url=f"{register_path}?error=no_code&{keep}", status_code=302)
 
     try:
         code_valid = await otp.verify_code(request_id, code, norm_phone)
     except otp.OTPError:
-        return RedirectResponse(url=f"/register?error=otp_unavailable&{keep}", status_code=302)
+        return RedirectResponse(url=f"{register_path}?error=otp_unavailable&{keep}", status_code=302)
 
     if not code_valid:
-        return RedirectResponse(url=f"/register?error=bad_code&{keep}", status_code=302)
+        return RedirectResponse(url=f"{register_path}?error=bad_code&{keep}", status_code=302)
 
     if existing is not None:
         # Гость «забирается»: апгрейд до полноценного аккаунта. Гостевые брони
@@ -214,6 +228,8 @@ async def register_web(
 async def forgot_password_web(
     request: Request,
     phone: str = Form(...),
+    auth_variant: str = Form(""),
+    redirect: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     """«Забыли пароль»: выпускает токен и шлёт ссылку по каналам пользователя.
@@ -223,7 +239,13 @@ async def forgot_password_web(
     что у OTP: каналы разные, защита одна).
     """
     norm_phone = try_normalize_phone(phone)
-    done_url = "/forgot-password?sent=1"
+    sport_flow = auth_variant == "sport"
+    done_path = "/sport/forgot-password" if sport_flow else "/forgot-password"
+    redirect_suffix = (
+        f"&redirect={quote(_sport_redirect(redirect), safe='')}"
+        if sport_flow else ""
+    )
+    done_url = f"{done_path}?sent=1{redirect_suffix}"
 
     if norm_phone is None:
         return RedirectResponse(url=done_url, status_code=302)
@@ -235,7 +257,13 @@ async def forgot_password_web(
     ).scalar_one_or_none()
     if user and user.is_active:
         token = await password_reset.issue_token(user)
-        await password_reset.deliver(user, token, request.url.netloc)
+        await password_reset.deliver(
+            user,
+            token,
+            request.url.netloc,
+            sport=sport_flow,
+            redirect=_sport_redirect(redirect) if sport_flow else "/sport",
+        )
 
     return RedirectResponse(url=done_url, status_code=302)
 
@@ -246,24 +274,39 @@ async def reset_password_web(
     request: Request,
     token: str = Form(...),
     password: str = Form(...),
+    auth_variant: str = Form(""),
+    redirect: str = Form(""),
     db: AsyncSession = Depends(get_db),
 ):
     """Смена пароля по одноразовому токену из ссылки (TG/email)."""
+    sport_flow = auth_variant == "sport"
+    reset_path = "/sport/reset-password" if sport_flow else "/reset-password"
+    login_path = "/sport/login" if sport_flow else "/login"
+    redirect_suffix = (
+        f"&redirect={quote(_sport_redirect(redirect), safe='')}"
+        if sport_flow else ""
+    )
     try:
         validate_password_strength(password)
     except ValueError:
         return RedirectResponse(
-            url=f"/reset-password?token={quote(token)}&error=weak_password",
+            url=f"{reset_path}?token={quote(token)}&error=weak_password{redirect_suffix}",
             status_code=302,
         )
 
     user_id = await password_reset.consume_token(token)
     if user_id is None:
-        return RedirectResponse(url="/reset-password?error=bad_token", status_code=302)
+        return RedirectResponse(
+            url=f"{reset_path}?error=bad_token{redirect_suffix}",
+            status_code=302,
+        )
 
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None or not user.is_active:
-        return RedirectResponse(url="/reset-password?error=bad_token", status_code=302)
+        return RedirectResponse(
+            url=f"{reset_path}?error=bad_token{redirect_suffix}",
+            status_code=302,
+        )
 
     user.hashed_password = get_password_hash(password)
     await db.commit()
@@ -272,4 +315,7 @@ async def reset_password_web(
     await reset_login_failures(user.phone)
     await password_reset.notify_changed(user)
 
-    return RedirectResponse(url="/login?reset=1", status_code=302)
+    return RedirectResponse(
+        url=f"{login_path}?reset=1{redirect_suffix}",
+        status_code=302,
+    )

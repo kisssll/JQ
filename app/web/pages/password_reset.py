@@ -1,16 +1,29 @@
 # app/web/pages/password_reset.py
 """Страницы сброса пароля: запрос ссылки и установка нового пароля."""
 import html
+from urllib.parse import quote
 
 from fastapi import Request
 
+from app.services.auth_redirect import safe_sport_redirect
 from app.web.components.styles import get_base_styles
 from app.web.components.icons import (
     ICON_X,
 )
 
 
-def _shell(title: str, body: str) -> str:
+def _sport_redirect(request: Request, sport: bool) -> str:
+    if not sport:
+        return ""
+    return safe_sport_redirect(request.query_params.get("redirect", ""))
+
+
+def _shell(title: str, body: str, *, sport: bool = False, redirect: str = "") -> str:
+    body_class = "auth-page sport-directory" if sport else "auth-page"
+    login_href = "/sport/login" if sport else "/login"
+    home_href = "/sport/" if sport else "/"
+    if sport:
+        login_href += f"?redirect={quote(redirect, safe='')}"
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -19,12 +32,12 @@ def _shell(title: str, body: str) -> str:
     <title>{title} — руми</title>
     {get_base_styles()}
 </head>
-<body class="auth-page">
+<body class="{body_class}">
     <div class="auth-card">
         <div class="auth-logo">руми.</div>
         {body}
         <div class="auth-links">
-            <a href="/login">Вход</a> · <a href="/">На главную</a>
+            <a href="{html.escape(login_href, quote=True)}">Вход</a> · <a href="{home_href}">На главную</a>
         </div>
     </div>
 </body>
@@ -33,6 +46,13 @@ def _shell(title: str, body: str) -> str:
 
 def render_forgot_password_page(request: Request) -> str:
     q = request.query_params
+    sport = request.url.path == "/sport/forgot-password"
+    redirect = _sport_redirect(request, sport)
+    auth_fields = (
+        '<input type="hidden" name="auth_variant" value="sport">'
+        f'<input type="hidden" name="redirect" value="{html.escape(redirect, quote=True)}">'
+        if sport else ""
+    )
     if q.get("sent"):
         body = """
         <h1 class="auth-title">Проверьте сообщения</h1>
@@ -40,7 +60,7 @@ def render_forgot_password_page(request: Request) -> str:
             Если аккаунт с этим номером существует и к нему привязан Telegram
             или почта — мы отправили ссылку для смены пароля (действует 30 минут).
         </p>"""
-        return _shell("Сброс пароля", body)
+        return _shell("Сброс пароля", body, sport=sport, redirect=redirect)
 
     # Номер подставляем из ссылки: сюда приходят со страницы входа и с
     # регистрации («телефон уже зарегистрирован»), где он уже введён.
@@ -52,17 +72,26 @@ def render_forgot_password_page(request: Request) -> str:
             в привязанный Telegram и на почту.
         </p>
         <form action="/api/v1/auth/forgot-password" method="post" data-submit-lock>
+            {auth_fields}
             <div class="form-group">
                 <label for="phone">Телефон</label>
                 <input type="tel" id="phone" name="phone" value="{phone}" placeholder="+7 (___) ___-__-__" class="phone-input" required>
             </div>
             <button type="submit" class="btn-primary auth-btn">Отправить ссылку</button>
         </form>"""
-    return _shell("Сброс пароля", body)
+    return _shell("Сброс пароля", body, sport=sport, redirect=redirect)
 
 
 def render_reset_password_page(request: Request) -> str:
     q = request.query_params
+    sport = request.url.path == "/sport/reset-password"
+    redirect = _sport_redirect(request, sport)
+    redirect_query = f"?redirect={quote(redirect, safe='')}" if sport else ""
+    auth_fields = (
+        '<input type="hidden" name="auth_variant" value="sport">'
+        f'<input type="hidden" name="redirect" value="{html.escape(redirect, quote=True)}">'
+        if sport else ""
+    )
     token = html.escape(q.get("token", ""), quote=True)
     error = q.get("error", "")
 
@@ -71,14 +100,14 @@ def render_reset_password_page(request: Request) -> str:
         <h1 class="auth-title">Ссылка не подходит</h1>
         <p style="color:var(--color-muted);font-size:0.9rem;line-height:1.5">
             Ссылка устарела (действует 30 минут) или уже использована.
-            Запросите новую на странице <a href="/forgot-password">сброса пароля</a>.
+            Запросите новую на странице <a href="{'/sport/forgot-password' if sport else '/forgot-password'}{redirect_query}">сброса пароля</a>.
         </p>"""
-        return _shell("Сброс пароля", body)
+        return _shell("Сброс пароля", body, sport=sport, redirect=redirect)
 
     banner = ""
     if error == "weak_password":
         banner = (
-            '<div style="background:var(--color-danger-light);color:var(--color-danger);border:1px solid var(--color-danger-border);'
+            '<div role="alert" style="background:var(--color-danger-light);color:var(--color-danger);border:1px solid var(--color-danger-border);'
             'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
             "Пароль не отвечает требованиям сложности</div>"
         )
@@ -87,6 +116,7 @@ def render_reset_password_page(request: Request) -> str:
         <h1 class="auth-title">Новый пароль</h1>
         {banner}
         <form action="/api/v1/auth/reset-password" method="post" data-submit-lock>
+            {auth_fields}
             <input type="hidden" name="token" value="{token}">
             <div class="form-group">
                 <label for="password">Придумайте новый пароль</label>
@@ -100,4 +130,4 @@ def render_reset_password_page(request: Request) -> str:
             </div>
             <button type="submit" id="submitBtn" class="btn-primary auth-btn" disabled>Сменить пароль</button>
         </form>"""
-    return _shell("Новый пароль", body)
+    return _shell("Новый пароль", body, sport=sport, redirect=redirect)

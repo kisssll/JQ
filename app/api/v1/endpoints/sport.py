@@ -977,7 +977,7 @@ async def apply_sport_business(
 
     user = await get_current_user_from_cookie(request, db)
     if user is None:
-        return RedirectResponse("/login?redirect=%2Fsport%2Fbusiness", status_code=303)
+        return RedirectResponse("/sport/login?redirect=%2Fsport%2Fbusiness", status_code=303)
     name, city, address = name.strip(), city.strip(), address.strip()
     normalized_phone = try_normalize_phone(phone)
     if not name or not city or not address or normalized_phone is None:

@@ -6,6 +6,7 @@ from fastapi import Request
 from app.core.config import settings
 from app.web.components.styles import get_base_styles
 from app.web.components.consent import render_consent_block
+from app.services.auth_redirect import safe_sport_redirect
 from app.web.components.icons import (
     ICON_X,
 )
@@ -15,8 +16,7 @@ def _alert(msg: str) -> str:
     if not msg:
         return ""
     return (
-        '<div style="background:var(--color-danger-light);color:var(--color-danger);border:1px solid var(--color-danger-border);'
-        'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
+        '<div class="r-notice r-notice--danger auth-alert" role="alert">'
         f'{msg}</div>'
     )
 
@@ -60,10 +60,27 @@ def render_register_page(request: Request) -> str:
     full_name = html.escape(q.get("full_name", ""), quote=True)
     # Адрес возврата после регистрации (страница подключения тарифа и т.п.).
     # Проверка на open redirect — на сервере, здесь только переносим значение.
+    sport_route = request.url.path == "/sport/register"
     redirect_raw = q.get("redirect", "")
-    redirect_field = (f'<input type="hidden" name="redirect" value="{html.escape(redirect_raw, quote=True)}">'
-                      if redirect_raw else "")
-    login_href = f"/login?redirect={html.escape(quote(redirect_raw, safe=''), quote=True)}" if redirect_raw else "/login"
+    sport_flow = (
+        sport_route
+        or redirect_raw == "/sport"
+        or redirect_raw.startswith("/sport/")
+    )
+    redirect_target = safe_sport_redirect(redirect_raw) if sport_flow else redirect_raw
+    body_class = "auth-page sport-directory" if sport_flow else "auth-page"
+    page_title = "Регистрация в Руми Спорт" if sport_flow else "Регистрация"
+    home_href = "/sport" if sport_flow else "/"
+    redirect_field = (
+        f'<input type="hidden" name="redirect" value="{html.escape(redirect_target, quote=True)}">'
+        if redirect_target else ""
+    )
+    login_path = "/sport/login" if sport_flow else "/login"
+    forgot_path = "/sport/forgot-password" if sport_flow else "/forgot-password"
+    login_href = (
+        f"{login_path}?redirect={html.escape(quote(redirect_target, safe=''), quote=True)}"
+        if redirect_target else login_path
+    )
     errors = {
         "phone_exists": "Пользователь с таким телефоном уже зарегистрирован",
         "weak_password": "Пароль не отвечает требованиям сложности",
@@ -81,11 +98,15 @@ def render_register_page(request: Request) -> str:
         # своей же формы: первый запрос успел создать аккаунт, второй увидел
         # номер занятым (инцидент 04.09.2026). Поэтому не тупик, а выходы.
         back = html.escape(quote(q.get("phone") or "", safe=""), quote=True)
+        redirect_suffix = (
+            f"&redirect={html.escape(quote(redirect_target, safe=''), quote=True)}"
+            if redirect_target else ""
+        )
         link = 'color:var(--color-danger);font-weight:600;text-decoration:underline'
         banner = _alert(
             "Пользователь с таким телефоном уже зарегистрирован. "
-            f'<a href="/login?phone={back}" style="{link}">Войти</a> · '
-            f'<a href="/forgot-password?phone={back}" style="{link}">Забыли пароль?</a>'
+            f'<a href="{login_path}?phone={back}{redirect_suffix}" style="{link}">Войти</a> · '
+            f'<a href="{forgot_path}?phone={back}{redirect_suffix}" style="{link}">Забыли пароль?</a>'
             '<div style="margin-top:0.375rem;font-size:0.8125rem">Если вы только что '
             'заполняли эту форму — аккаунт уже создан, войдите с тем паролем, '
             'который придумали.</div>'
@@ -140,16 +161,18 @@ def render_register_page(request: Request) -> str:
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Регистрация — руми</title>
+    <title>{page_title} — Руми</title>
     {get_base_styles()}
 </head>
-<body class="auth-page">
+<body class="{body_class}">
     <div class="auth-card">
         <div class="auth-logo">руми.</div>
+        {'<p class="auth-context">Руми Спорт · подключение клуба</p>' if sport_flow else ''}
         <h1 class="auth-title">Регистрация</h1>
         {banner}
         <form action="/api/v1/auth/register-web" method="post" data-submit-lock>
             {redirect_field}
+            {'<input type="hidden" name="auth_variant" value="sport">' if sport_flow else ''}
             <div class="form-group">
                 <label for="full_name">Имя</label>
                 <input type="text" id="full_name" name="full_name" value="{e(full_name)}" placeholder="Ваше имя">
@@ -168,7 +191,7 @@ def render_register_page(request: Request) -> str:
             <button type="submit" id="submitBtn" class="btn-primary auth-btn" disabled>Зарегистрироваться</button>
         </form>
         <div class="auth-links">
-            <a href="{login_href}">Вход</a> · <a href="/">На главную</a>
+            <a href="{login_href}">Вход</a> · <a href="{home_href}">На главную</a>
         </div>
     </div>
     {scripts}

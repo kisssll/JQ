@@ -39,13 +39,14 @@ def _nav_link(href: str, label: str, active: bool) -> str:
     return f'<a class="{cls}" href="{href}"{cur}>{label}</a>'
 
 
-def render_account_tag(user=None) -> str:
+def render_account_tag(user=None, current_page: str = "home") -> str:
     """Качающаяся этикетка — вход в аккаунт и всё личное (решение 0015, п. 2).
 
     Это настоящая кнопка (aria-expanded), а не hover-меню: на телефоне hover
     залипает, а с клавиатуры до него не добраться. Обещаний («30 секунд · 4 клика»)
     на ней нет — ничем не подтверждены (ч. 7 ст. 5 закона «О рекламе»).
     """
+    sport_flow = current_page == "sport" or current_page.startswith("sport_")
     if user:
         # Имя чистим пробелами: форма профиля пишет full_name как есть
         # (app/api/v1/endpoints/users.py), поэтому там может лежать один пробел —
@@ -54,40 +55,53 @@ def render_account_tag(user=None) -> str:
         name = (user.full_name or "").strip() or getattr(user, "phone", "") or "Пользователь"
         label = e(name.split()[0])
         items = f'<div class="acct-menu__who">{e(name)}</div>'
-        items += _link("/profile", ICON_USER, "Мой профиль")
-        items += _link("/bookings", ICON_CALENDAR_DAYS_SIDEBAR, "Мои записи")
-        items += _link("/favorites", ICON_HEART, "Избранное")
+        if sport_flow:
+            items += _link("/sport/clubs", ICON_CALENDAR_DAYS_SIDEBAR, "Все клубы")
+            if getattr(user, "has_sport_access", False):
+                items += _link(
+                    "/sport/business/dashboard",
+                    ICON_BRIEFCASE,
+                    "Панель спорт-клуба",
+                )
+            items += '<div class="acct-menu__sep"></div>'
+            items += _link("/sport/logout", ICON_LOGOUT, "Выйти", "acct-menu__link--out")
+        else:
+            items += _link("/profile", ICON_USER, "Мой профиль")
+            items += _link("/bookings", ICON_CALENDAR_DAYS_SIDEBAR, "Мои записи")
+            items += _link("/favorites", ICON_HEART, "Избранное")
 
-        role = getattr(getattr(user, "role", None), "value", None)
-        panel = ""
-        has_salon_panel = (
-            role in ("business", "master")
-            or getattr(user, "has_salon_access", False)
-            or getattr(user, "has_master_profile", False)
-        )
-        sport_only_business = (
-            role == "business"
-            and getattr(user, "has_sport_access", False)
-            and not getattr(user, "has_salon_access", False)
-            and not getattr(user, "has_master_profile", False)
-        )
-        if has_salon_panel and not sport_only_business:
-            panel += _link("/business/dashboard", ICON_BRIEFCASE, "Панель бизнеса")
-        if getattr(user, "has_sport_access", False):
-            panel += _link("/sport/business/dashboard", ICON_BRIEFCASE, "Панель спорт-клуба")
-        if getattr(user, "is_model", False):
-            panel += _link("/model/dashboard", ICON_MODEL, "Кабинет модели")
-        if role == "admin":
-            panel += _link("/admin", ICON_USER, "Админка")
-        if panel:
-            items += '<div class="acct-menu__sep"></div>' + panel
-        items += '<div class="acct-menu__sep"></div>'
-        items += _link("/logout", ICON_LOGOUT, "Выйти", "acct-menu__link--out")
+            role = getattr(getattr(user, "role", None), "value", None)
+            panel = ""
+            has_salon_panel = (
+                role in ("business", "master")
+                or getattr(user, "has_salon_access", False)
+                or getattr(user, "has_master_profile", False)
+            )
+            sport_only_business = (
+                role == "business"
+                and getattr(user, "has_sport_access", False)
+                and not getattr(user, "has_salon_access", False)
+                and not getattr(user, "has_master_profile", False)
+            )
+            if has_salon_panel and not sport_only_business:
+                panel += _link("/business/dashboard", ICON_BRIEFCASE, "Панель бизнеса")
+            if getattr(user, "has_sport_access", False):
+                panel += _link("/sport/business/dashboard", ICON_BRIEFCASE, "Панель спорт-клуба")
+            if getattr(user, "is_model", False):
+                panel += _link("/model/dashboard", ICON_MODEL, "Кабинет модели")
+            if role == "admin":
+                panel += _link("/admin", ICON_USER, "Админка")
+            if panel:
+                items += '<div class="acct-menu__sep"></div>' + panel
+            items += '<div class="acct-menu__sep"></div>'
+            items += _link("/logout", ICON_LOGOUT, "Выйти", "acct-menu__link--out")
     else:
         label = "Войти"
+        login_path = "/sport/login" if sport_flow else "/login"
+        register_path = "/sport/register" if sport_flow else "/register"
         items = (
-            _link("/login", ICON_USER, "Войти", "acct-menu__link--main")
-            + _link("/register", ICON_USER, "Регистрация")
+            _link(login_path, ICON_USER, "Войти", "acct-menu__link--main")
+            + _link(register_path, ICON_USER, "Регистрация")
         )
 
     return f"""
@@ -121,13 +135,21 @@ def render_header(current_page: str = "home", user=None, panel: bool = False) ->
     """
     is_sport = current_page == "sport" or current_page.startswith("sport_")
     logo_href = "/sport/" if is_sport else "/"
-    logo = f"""
-            <a href="{logo_href}" id="header-logo" aria-label="Руми — на главную">
+    logo_label = "Руми Спорт — на главную" if is_sport else "Руми — на главную"
+    logo_image = (
+        '<img class="header-logo-sport" src="/static/images/rumi-sport-logo.svg" alt="Руми Спорт" '
+        'width="480" height="268">'
+        if is_sport
+        else """
                 <picture>
                     <source type="image/webp" srcset="/static/images/rumi-logo.webp">
                     <img src="/static/images/rumi-logo.png" alt="Руми"
                          width="480" height="312">
-                </picture>
+                </picture>"""
+    )
+    logo = f"""
+            <a href="{logo_href}" id="header-logo" aria-label="{logo_label}">
+                {logo_image}
             </a>"""
 
     if panel:
@@ -157,5 +179,5 @@ def render_header(current_page: str = "home", user=None, panel: bool = False) ->
             </button>
         </div>
     </header>
-    {render_account_tag(user)}
+    {render_account_tag(user, current_page)}
     """

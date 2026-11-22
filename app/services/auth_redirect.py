@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from urllib.parse import unquote, urlencode
 
 _TTL_SECONDS = 600   # как и state OAuth: столько живёт вход через провайдера
 
@@ -18,6 +19,20 @@ def safe_redirect(target: Optional[str]) -> str:
     Пустая строка, если адрес не годится."""
     if not target or not target.startswith("/") or target.startswith("//") or "\\" in target:
         return ""
+    return target
+
+
+def safe_sport_redirect(target: Optional[str]) -> str:
+    """Keep redirects inside /sport, including after URL path normalization."""
+    target = safe_redirect(target)
+    if target != "/sport" and not target.startswith("/sport/"):
+        return "/sport"
+    decoded_path = unquote(target).split("?", 1)[0].split("#", 1)[0]
+    segments = decoded_path.split("/")
+    if "\\" in decoded_path or "//" in decoded_path or any(
+        segment in {".", ".."} for segment in segments
+    ):
+        return "/sport"
     return target
 
 
@@ -49,3 +64,26 @@ async def pop_for_oauth(provider: str, state: str, default: str = "/profile") ->
     if isinstance(value, bytes):
         value = value.decode()
     return safe_redirect(value) or default
+
+
+async def failure_page_url(
+    provider: str,
+    state: str,
+    error: str,
+    *,
+    register: bool = False,
+) -> str:
+    """Вернуть OAuth-ошибку в тот же спортивный или общий auth-поток."""
+    target = await pop_for_oauth(provider, state, default="")
+    sport = target == "/sport" or target.startswith("/sport/")
+    if sport:
+        target = safe_sport_redirect(target)
+    page = (
+        "/sport/register" if register else "/sport/login"
+    ) if sport else (
+        "/register" if register else "/login"
+    )
+    params = {"error": error}
+    if target:
+        params["redirect"] = target
+    return f"{page}?{urlencode(params)}"

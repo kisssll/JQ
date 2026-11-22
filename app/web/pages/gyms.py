@@ -234,7 +234,7 @@ async def render_gyms_page(
                 <div id="gyms-list" class="salons-grid">{grid}</div>
             </div>
         </section>
-        {render_footer(user)}
+        {render_footer(user, sport=True)}
     </main>
 </body>
 </html>"""

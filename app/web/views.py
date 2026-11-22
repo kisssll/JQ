@@ -51,6 +51,64 @@ async def sport_home_page(request: Request, db: AsyncSession = Depends(get_db)):
     return HTMLResponse(content=render_sport_home_page(user))
 
 
+@router.get("/sport/login", response_class=HTMLResponse, include_in_schema=False)
+async def sport_login_page(request: Request):
+    return HTMLResponse(content=render_login_page(request))
+
+
+@router.get("/sport/register", response_class=HTMLResponse, include_in_schema=False)
+async def sport_register_page(request: Request):
+    return HTMLResponse(content=render_register_page(request))
+
+
+@router.get("/sport/logout", response_class=HTMLResponse, include_in_schema=False)
+async def sport_logout_page():
+    response = RedirectResponse(url="/sport/", status_code=302)
+    response.delete_cookie("access_token")
+    return response
+
+
+@router.get("/sport/forgot-password", response_class=HTMLResponse, include_in_schema=False)
+async def sport_forgot_password_page(request: Request):
+    from app.web.pages.password_reset import render_forgot_password_page
+
+    return HTMLResponse(content=render_forgot_password_page(request))
+
+
+@router.get("/sport/reset-password", response_class=HTMLResponse, include_in_schema=False)
+async def sport_reset_password_page(request: Request):
+    from app.web.pages.password_reset import render_reset_password_page
+
+    return HTMLResponse(content=render_reset_password_page(request))
+
+
+@router.get("/sport/legal", response_class=HTMLResponse, include_in_schema=False)
+async def sport_legal_index_page(request: Request, db: AsyncSession = Depends(get_db)):
+    from app.web.pages.legal import render_legal_index
+
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_legal_index(user, sport=True))
+
+
+@router.get("/sport/legal/{slug}", response_class=HTMLResponse, include_in_schema=False)
+async def sport_legal_page(
+    slug: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.web.pages.legal import DOCUMENTS, render_legal_page
+
+    if slug not in DOCUMENTS:
+        return HTMLResponse(
+            content=render_status_page(
+                404, "Страница не найдена", "Такого документа нет.", sport=True,
+            ),
+            status_code=404,
+        )
+    user = await get_current_user_from_cookie(request, db)
+    return HTMLResponse(content=render_legal_page(slug, user, sport=True))
+
+
 @router.get("/sport/clubs", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/sport/clubs/", response_class=HTMLResponse, include_in_schema=False)
 async def gyms_page(request: Request, db: AsyncSession = Depends(get_db)):
@@ -131,7 +189,7 @@ async def sport_business_dashboard_page(
     user = await get_current_user_from_cookie(request, db)
     if user is None:
         return RedirectResponse(
-            "/login?redirect=%2Fsport%2Fbusiness%2Fdashboard",
+            "/sport/login?redirect=%2Fsport%2Fbusiness%2Fdashboard",
             status_code=302,
         )
     memberships = (await db.execute(
@@ -184,7 +242,9 @@ async def sparta_sport_page(db: AsyncSession = Depends(get_db)):
         )
     ).scalar_one_or_none()
     if organization is None:
-        return HTMLResponse(content=render_status_page(404, "Страница не найдена", "Организация не опубликована."), status_code=404)
+        return HTMLResponse(content=render_status_page(
+            404, "Страница не найдена", "Организация не опубликована.", sport=True,
+        ), status_code=404)
     return HTMLResponse(content=render_sparta_app(
         organization.slug,
         organization.name,
@@ -218,7 +278,10 @@ async def sport_organization_page(
     ).scalar_one_or_none()
     if organization is None:
         return HTMLResponse(
-            content=render_status_page(404, "Страница не найдена", "Спортивная организация не найдена."),
+            content=render_status_page(
+                404, "Страница не найдена", "Спортивная организация не найдена.",
+                sport=True,
+            ),
             status_code=404,
         )
     if not organization.is_published:
@@ -239,7 +302,10 @@ async def sport_organization_page(
         )
         if member_id is None and coach_id is None:
             return HTMLResponse(
-                content=render_status_page(404, "Страница не найдена", "Организация не опубликована."),
+                content=render_status_page(
+                    404, "Страница не найдена", "Организация не опубликована.",
+                    sport=True,
+                ),
                 status_code=404,
             )
     return HTMLResponse(content=render_sparta_app(
@@ -1186,16 +1252,35 @@ async def reset_password_page(request: Request):
     return HTMLResponse(content=render_reset_password_page(request))
 
 
-def render_status_page(code: int, title: str, message: str, extra: str = "") -> str:
+def render_status_page(
+    code: int,
+    title: str,
+    message: str,
+    extra: str = "",
+    *,
+    sport: bool = False,
+) -> str:
     """Общий каркас для полностраничных ошибок (404, 500 — см. также
     exception_handler(Exception) в app/main.py). Код/заголовок/текст/доп.
     блок (кнопка, путь и т.п.) параметризованы, стиль и низ (быстрые
     ссылки) — общие."""
+    body_class = "sport-directory" if sport else ""
+    links = (
+        '<a href="/sport" class="btn-primary">Руми Спорт</a>'
+        '<a href="/sport/clubs" class="btn-outline">Найти клуб</a>'
+        '<a href="/sport/business" class="btn-outline">Для клуба</a>'
+        if sport
+        else (
+            f'<a href="/" class="btn-primary">{ICON_HOUSE} На главную</a>'
+            f'<a href="/salons" class="btn-outline">{ICON_SCISSORS} Найти салон</a>'
+            f'<a href="/model" class="btn-outline">{ICON_CAMERA} Стать моделью</a>'
+        )
+    )
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{title} — руми</title>
+    <title>{title} — {'Руми Спорт' if sport else 'руми'}</title>
     {get_base_styles()}
     <style>
         .notfound {{
@@ -1248,16 +1333,14 @@ def render_status_page(code: int, title: str, message: str, extra: str = "") -> 
         }}
     </style>
 </head>
-<body>
+<body class="{body_class}">
     <div class="notfound">
         <div class="notfound-code">{code}</div>
         <h1>{title}</h1>
         <p>{message}</p>
         {extra}
         <div class="quick-links">
-            <a href="/" class="btn-primary">{ICON_HOUSE} На главную</a>
-            <a href="/salons" class="btn-outline">{ICON_SCISSORS} Найти салон</a>
-            <a href="/model" class="btn-outline">{ICON_CAMERA} Стать моделью</a>
+            {links}
         </div>
     </div>
 </body>
@@ -1266,9 +1349,11 @@ def render_status_page(code: int, title: str, message: str, extra: str = "") -> 
 
 @router.get("/{path:path}", response_class=HTMLResponse)
 async def not_found_page(request: Request, path: str):
+    sport = path == "sport" or path.startswith("sport/")
     html_content = render_status_page(
         404, "Страница не найдена",
         "Такой страницы не существует. Возможно, она была удалена или вы набрали неправильный адрес.",
         extra=f'<div class="path">/{e(path)}</div>',
+        sport=sport,
     )
     return HTMLResponse(content=html_content, status_code=404)

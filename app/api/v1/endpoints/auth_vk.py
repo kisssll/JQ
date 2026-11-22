@@ -135,18 +135,33 @@ async def vk_callback(
     db: AsyncSession = Depends(get_db),
 ):
     if not settings.VK_OAUTH_ENABLED:
-        return RedirectResponse(url="/login", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url("vk", state, "vk"),
+            status_code=302,
+        )
 
     # state одноразовый: нет в Redis (истёк/подделан/повторён) — отказ.
     # Значение = PKCE code_verifier для обмена кода.
     r = get_redis()
     verifier = await r.get(f"oauth:vk:{state}") if state else None
     if not verifier:
-        return RedirectResponse(url="/login?error=vk", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url("vk", state, "vk"),
+            status_code=302,
+        )
     await r.delete(f"oauth:vk:{state}")
 
     if not code or not device_id:
-        return RedirectResponse(url="/login?error=vk", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url("vk", state, "vk"),
+            status_code=302,
+        )
 
     if isinstance(verifier, bytes):
         verifier = verifier.decode()
@@ -154,13 +169,25 @@ async def vk_callback(
     token = await _exchange_code(code, verifier, device_id, _redirect_uri(request))
     profile = await _fetch_profile(token) if token else None
     if not profile:
-        return RedirectResponse(url="/login?error=vk", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url("vk", state, "vk"),
+            status_code=302,
+        )
 
     phone = try_normalize_phone(str(profile.get("phone") or ""))
     if not phone:
         # VK не отдал номер — наша модель телефон-центрична, без него аккаунт
         # не завести. Отправляем на обычную регистрацию.
-        return RedirectResponse(url="/register?error=vk_no_phone", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url(
+                "vk", state, "vk_no_phone", register=True,
+            ),
+            status_code=302,
+        )
 
     user = (await db.execute(select(User).where(User.phone == phone))).scalar_one_or_none()
     if user is None:
@@ -195,7 +222,12 @@ async def vk_callback(
         await db.rollback()
 
     if not user.is_active:
-        return RedirectResponse(url="/login?error=locked", status_code=302)
+        from app.services.auth_redirect import failure_page_url
+
+        return RedirectResponse(
+            url=await failure_page_url("vk", state, "locked"),
+            status_code=302,
+        )
 
     from app.services.auth_redirect import pop_for_oauth
     response = RedirectResponse(url=await pop_for_oauth("vk", state), status_code=302)

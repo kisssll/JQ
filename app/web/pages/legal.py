@@ -107,9 +107,10 @@ def _body(slug: str) -> str:
     return _cache[slug]
 
 
-def _other_links(current: str) -> str:
+def _other_links(current: str, sport: bool = False) -> str:
+    prefix = "/sport/legal/" if sport else "/"
     items = "".join(
-        f'<li><a class="legal-nav-link" href="/{d["slug"]}">{e(d["title"])}</a></li>'
+        f'<li><a class="legal-nav-link" href="{prefix}{d["slug"]}">{e(d["title"])}</a></li>'
         for slug, d in DOCUMENTS.items() if slug != current
     )
     return f'<ul class="legal-nav-list">{items}</ul>'
@@ -133,8 +134,17 @@ def _consent_reset(slug: str) -> str:
     )
 
 
-def render_legal_page(slug: str, user=None) -> str:
+def render_legal_page(slug: str, user=None, *, sport: bool = False) -> str:
     doc = DOCUMENTS[slug]
+    body = _body(slug)
+    if sport:
+        body = re.sub(
+            r'href="/(terms|privacy|consent|offer|license|cookies)"',
+            r'href="/sport/legal/\1"',
+            body,
+        )
+    body_class = ' class="sport-directory"' if sport else ""
+    current_page = "sport_legal" if sport else "legal"
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -144,8 +154,8 @@ def render_legal_page(slug: str, user=None) -> str:
     <meta name="description" content="{e(doc['description'])}">
     {get_base_styles()}
 </head>
-<body>
-    {render_header("legal", user)}
+<body{body_class}>
+    {render_header(current_page, user)}
 
     <main class="main-content legal-main">
         <div class="section-container legal-container">
@@ -154,14 +164,14 @@ def render_legal_page(slug: str, user=None) -> str:
                 <h1 class="legal-title">{e(doc['title'])}</h1>
                 <p class="legal-version">Редакция от {doc.get('version_human', LEGAL_VERSION_HUMAN)}</p>
                 <div class="legal-body">
-{_body(slug)}
+{body}
                 </div>
                 {_consent_reset(slug)}
             </article>
 
             <aside class="legal-aside">
                 <h2 class="legal-aside-title">Другие документы</h2>
-                {_other_links(slug)}
+                {_other_links(slug, sport=sport)}
                 <div class="legal-operator">
                     <p class="legal-operator-title">Оператор персональных данных</p>
                     <p>ООО «РУМИ»</p>
@@ -171,24 +181,27 @@ def render_legal_page(slug: str, user=None) -> str:
                 </div>
             </aside>
         </div>
-        {render_footer(user)}
+        {render_footer(user, sport=sport)}
     </main>
 </body>
 </html>"""
 
 
-def render_legal_index(user=None) -> str:
+def render_legal_index(user=None, *, sport: bool = False) -> str:
     """Единый список документов по адресу /legal.
 
     Не украшательство: Политика обработки ПДн в пп. 1.4 и 10.2 прямо называет
     https://rrumi.ru/legal страницей своего размещения, а такой страницы не
     было. Проще завести её, чем править текст, согласованный юристом.
     """
+    prefix = "/sport/legal/" if sport else "/"
     cards = "".join(
-        f'<li><a class="legal-nav-link" href="/{d["slug"]}">{e(d["title"])}</a>'
+        f'<li><a class="legal-nav-link" href="{prefix}{d["slug"]}">{e(d["title"])}</a>'
         f'<span class="legal-index-desc">{e(d["description"])}</span></li>'
         for d in DOCUMENTS.values()
     )
+    body_class = ' class="sport-directory"' if sport else ""
+    current_page = "sport_legal" if sport else "legal"
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -198,8 +211,8 @@ def render_legal_index(user=None) -> str:
     <meta name="description" content="Нормативные документы сервиса Руми: соглашение, политики, оферты.">
     {get_base_styles()}
 </head>
-<body>
-    {render_header("legal", user)}
+<body{body_class}>
+    {render_header(current_page, user)}
 
     <main class="main-content legal-main">
         <div class="section-container legal-container">
@@ -212,7 +225,7 @@ def render_legal_index(user=None) -> str:
                 </div>
             </article>
         </div>
-        {render_footer(user)}
+        {render_footer(user, sport=sport)}
     </main>
 </body>
 </html>"""

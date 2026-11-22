@@ -234,6 +234,10 @@ export default function App() {
   const [exceptions, setExceptions] = useState<Record<string, boolean>>({});
   const [scheduleLoading, setScheduleLoading] = useState(true);
   const [scheduleError, setScheduleError] = useState("");
+  const [managementState, setManagementState] = useState<"loading" | "ready" | "error">("loading");
+  const [managementError, setManagementError] = useState("");
+  const [managementNeedsLogin, setManagementNeedsLogin] = useState(false);
+  const [managementRetry, setManagementRetry] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     const loadCatalog = async () => {
@@ -283,26 +287,46 @@ export default function App() {
   }, [page]);
   useEffect(() => {
     if (page !== "/admin") return;
+    const controller = new AbortController();
     const loadManagement = async () => {
-      const response = await fetch(`/api/v1/sport/organizations/${encodeURIComponent(GYM_SLUG)}/manage`);
-      if (response.status === 401 || response.status === 403) {
-        setScheduleError("Нет доступа к кабинету этого клуба. Войдите в аккаунт сотрудника.");
-        return;
+      setManagementState("loading");
+      setManagementError("");
+      setManagementNeedsLogin(false);
+      try {
+        const response = await fetch(
+          `/api/v1/sport/organizations/${encodeURIComponent(GYM_SLUG)}/manage`,
+          { signal: controller.signal },
+        );
+        if (response.status === 401) {
+          setManagementNeedsLogin(true);
+          throw new Error("Сессия завершилась. Войдите, чтобы открыть панель клуба.");
+        }
+        if (response.status === 403) {
+          throw new Error("У вашего аккаунта нет доступа к панели этого клуба.");
+        }
+        if (!response.ok) {
+          throw new Error("Не удалось загрузить панель клуба. Попробуйте ещё раз.");
+        }
+        const data = await response.json();
+        setBookings(data.bookings);
+        setPayments(data.payments);
+        setTrainings(data.trainings);
+        setExceptions(data.exceptions);
+        setManagementRole(data.role);
+        setManagementTeam(data.team ?? []);
+        setManagementState("ready");
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setManagementError(error instanceof Error
+            ? error.message
+            : "Не удалось загрузить панель клуба. Попробуйте ещё раз.");
+          setManagementState("error");
+        }
       }
-      if (!response.ok) {
-        setScheduleError("Не удалось загрузить кабинет клуба.");
-        return;
-      }
-      const data = await response.json();
-      setBookings(data.bookings);
-      setPayments(data.payments);
-      setTrainings(data.trainings);
-      setExceptions(data.exceptions);
-      setManagementRole(data.role);
-      setManagementTeam(data.team ?? []);
     };
     void loadManagement();
-  }, [page]);
+    return () => controller.abort();
+  }, [page, managementRetry]);
   const [managementRole, setManagementRole] = useState("");
   const [managementTeam, setManagementTeam] = useState<{ id: number; name: string; phone: string; role: string }[]>([]);
 
@@ -322,11 +346,31 @@ export default function App() {
   const choosePlan = (plan: Plan) => book({ kind: plan.id === "trial" ? "Пробное" : "Обычное" });
 
   if (page === "/admin") {
-    if (!managementRole) return <main className="account-page"><div className="account-card">
-      <p className="tag">Кабинет клуба</p>
-      <h1>{scheduleError || "Загружаем кабинет…"}</h1>
-      <button className="btn btn-black" onClick={() => go("/")}>На главную</button>
-    </div></main>;
+    if (managementState !== "ready" || !managementRole) {
+      const loginHref = `/sport/login?redirect=${encodeURIComponent(`${APP_BASE_PATH}/admin`)}`;
+      return <main className="sport-admin-state">
+        <section className="sport-admin-state__card">
+          <p className="sport-admin-state__eyebrow">Руми Спорт · панель клуба</p>
+          <h1>{managementState === "error" ? "Не удалось открыть кабинет" : "Загружаем кабинет"}</h1>
+          {managementState === "loading"
+            ? <p className="sport-admin-state__message" role="status">Загружаем данные клуба…</p>
+            : <p className="sport-admin-state__message" role="alert">{managementError}</p>}
+          <div className="sport-admin-state__actions">
+            {managementState === "error" && (
+              <button
+                type="button"
+                className="btn btn-red"
+                onClick={() => setManagementRetry((attempt) => attempt + 1)}
+              >
+                Повторить
+              </button>
+            )}
+            {managementNeedsLogin && <a className="btn btn-black" href={loginHref}>Войти</a>}
+            <a className="sport-admin-state__link" href={APP_BASE_PATH}>На страницу клуба</a>
+          </div>
+        </section>
+      </main>;
+    }
     return <Admin
       bookings={bookings} setBookings={setBookings}
       payments={payments} setPayments={setPayments}
@@ -894,8 +938,8 @@ function Account({ bookings, book, loginRequired, error }: { bookings: Booking[]
         <p className="tag">Участник или родитель</p>
         <h2>Ваши заявки</h2>
         <p>Можно записаться без регистрации. Чтобы видеть историю заявок, войдите с тем же номером телефона, который указали при записи.</p>
-        {error && <p role="alert">{error}</p>}
-        {loginRequired && <a className="btn btn-black" href={`/login?redirect=${encodeURIComponent(`${APP_BASE_PATH}/account`)}`}>Войти или зарегистрироваться</a>}
+        {error && <p className="sport-app-alert" role="alert">{error}</p>}
+        {loginRequired && <a className="btn btn-black" href={`/sport/login?redirect=${encodeURIComponent(`${APP_BASE_PATH}/account`)}`}>Войти или зарегистрироваться</a>}
         {bookings.length > 0 && <div className="account-records">
           <p>Заявки клуба:</p>
           {bookings.map((item) => <div key={item.id}>
@@ -1072,7 +1116,7 @@ function BookingModal({
         <div className="booking-selected"><b>{f.sessionId ? `${fmtDate(f.date)} · ${f.time}` : "Подберём удобное время"}</b><span>{f.sessionId ? shortCoach(f.coach) : "Администратор поможет выбрать тренера"}</span><span>{f.gym}</span>{f.discipline !== "Направление уточняется" && <span>{f.discipline}</span>}</div>
         <label className="booking-consent">
           <input type="checkbox" required checked={pdConsent} onChange={(event) => setPdConsent(event.target.checked)} />
-          <span>Я даю согласие на обработку персональных данных на условиях <a href="/consent" target="_blank" rel="noopener noreferrer">Согласия</a>.</span>
+          <span>Я даю согласие на обработку персональных данных на условиях <a href="/sport/legal/consent" target="_blank" rel="noopener noreferrer">Согласия</a>.</span>
         </label>
         {error && <p className="booking-error" role="alert">{error}</p>}
         <button className="btn btn-red wide" disabled={!f.time || saving}>
@@ -1304,7 +1348,7 @@ function Admin({
       </aside>
 
       <main className="adm-main">
-        {actionError && <p className="account-card" role="alert">{actionError}</p>}
+        {actionError && <p className="sport-admin-alert" role="alert">{actionError}</p>}
         {tab === "overview" && (
           <>
             <h1 className="adm-h">Сводка</h1>

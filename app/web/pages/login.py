@@ -2,7 +2,9 @@
 import html
 from fastapi import Request
 from app.core.config import settings
+from app.services.auth_redirect import safe_sport_redirect
 from app.web.components.styles import get_base_styles
+from app.web.components.ui import notice
 
 # Разделитель «или» перед блоком соц-входов (показываем, если включён хоть один)
 OAUTH_DIVIDER = """
@@ -35,24 +37,30 @@ VK_BUTTON = """
 
 def _alert(msg: str) -> str:
     """Баннер-уведомление об ошибке."""
-    if not msg:
-        return ""
-    return (
-        '<div style="background:var(--color-danger-light);color:var(--color-danger);border:1px solid var(--color-danger-border);'
-        'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
-        f'{msg}</div>'
-    )
+    return notice(msg, tone="danger") if msg else ""
 
 
 def render_login_page(request: Request) -> str:
     """Страница входа."""
     q = request.query_params
-    redirect = html.escape(q.get("redirect", "/"), quote=True)
+    sport_route = request.url.path == "/sport/login"
+    redirect_raw = q.get("redirect", "")
+    sport_flow = (
+        sport_route
+        or redirect_raw == "/sport"
+        or redirect_raw.startswith("/sport/")
+    )
+    redirect_target = safe_sport_redirect(redirect_raw) if sport_flow else redirect_raw
+    redirect = html.escape(redirect_target or "/", quote=True)
+    body_class = "auth-page sport-directory" if sport_flow else "auth-page"
+    page_title = "Вход в Руми Спорт" if sport_flow else "Вход"
+    home_href = "/sport" if sport_flow else "/"
     # Адрес возврата передаём дальше — на регистрацию и во вход через
     # Яндекс/VK, иначе он терялся на первом же переходе.
     from urllib.parse import quote as _quote
-    redirect_raw = q.get("redirect", "")
-    redirect_qs = f"?redirect={_quote(redirect_raw, safe='')}" if redirect_raw else ""
+    redirect_qs = f"?redirect={_quote(redirect_target, safe='')}" if redirect_target else ""
+    register_path = "/sport/register" if sport_flow else "/register"
+    forgot_path = "/sport/forgot-password" if sport_flow else "/forgot-password"
     phone = html.escape(q.get("phone") or "+7", quote=True)
     errors = {
         "1": "Неверный телефон или пароль",
@@ -62,11 +70,7 @@ def render_login_page(request: Request) -> str:
     }
     success = ""
     if q.get("reset"):
-        success = (
-        '<div style="background:var(--color-success-light);color:var(--color-success);border:1px solid var(--color-success-border);'
-        'border-radius:var(--radius-8);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.875rem">'
-        'Пароль изменён — войдите с новым</div>'
-        )
+        success = notice("Пароль изменён — войдите с новым", tone="success")
     banner = _alert(errors.get(q.get("error", ""), ""))
     oauth_buttons = ""
     if settings.YANDEX_OAUTH_ENABLED:
@@ -80,16 +84,18 @@ def render_login_page(request: Request) -> str:
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Вход — руми</title>
+    <title>{page_title} — Руми</title>
     {get_base_styles()}
 </head>
-<body class="auth-page">
+<body class="{body_class}">
     <div class="auth-card">
         <div class="auth-logo">руми.</div>
+        {'<p class="auth-context">Руми Спорт · кабинет клуба</p>' if sport_flow else ''}
         <h1 class="auth-title">Вход</h1>
         {banner}{success}
         <form action="/api/v1/auth/login-web" method="post" data-submit-lock>
             <input type="hidden" name="redirect" value="{redirect}">
+            {'<input type="hidden" name="auth_variant" value="sport">' if sport_flow else ''}
             <div class="form-group">
                 <label for="phone">Телефон</label>
                 <input type="tel" id="phone" name="phone" value="{phone}" placeholder="+7 (___) ___-__-__" class="phone-input" required>
@@ -101,12 +107,11 @@ def render_login_page(request: Request) -> str:
             <button type="submit" class="btn-primary auth-btn">Войти</button>
         </form>
 
-        <!-- Кнопка регистрации (белая с розовой надписью) -->
-        <button type="button" class="auth-btn-outline" onclick="window.location.href='/register{html.escape(redirect_qs, quote=True)}'">Регистрация</button>
+        <button type="button" class="auth-btn-outline" onclick="window.location.href='{register_path}{html.escape(redirect_qs, quote=True)}'">Регистрация</button>
 
         {yandex_block}
         <div class="auth-links">
-            <a href="/forgot-password">Забыли пароль?</a> · <a href="/">На главную</a>
+            <a href="{forgot_path}{html.escape(redirect_qs, quote=True)}">Забыли пароль?</a> · <a href="{home_href}">На главную</a>
         </div>
     </div>
 </body>

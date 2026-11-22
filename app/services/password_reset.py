@@ -11,6 +11,7 @@
 """
 import logging
 import secrets
+from urllib.parse import quote
 
 from app.core.config import settings
 from app.core.limiter import get_redis
@@ -57,13 +58,22 @@ async def consume_token(token: str) -> int | None:
     return user_id
 
 
-async def deliver(user: User, token: str, host: str) -> None:
+async def deliver(
+    user: User,
+    token: str,
+    host: str,
+    *,
+    sport: bool = False,
+    redirect: str = "/sport",
+) -> None:
     """Ставит доставку ссылки в очередь по всем каналам пользователя.
 
     Ошибки глотаются с логом (как у уведомлений): ручка «забыли пароль»
     не должна падать из-за недоступной очереди.
     """
-    link = f"https://{host}/reset-password?token={token}"
+    reset_path = "/sport/reset-password" if sport else "/reset-password"
+    redirect_query = f"&redirect={quote(redirect, safe='')}" if sport else ""
+    link = f"https://{host}{reset_path}?token={quote(token)}{redirect_query}"
     try:
         pool = await get_arq_pool()
         # Сломанный Telegram пропускаем: ссылка и так уйдёт письмом, а отказ

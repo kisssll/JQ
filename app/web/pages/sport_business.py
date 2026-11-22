@@ -39,11 +39,11 @@ def render_sport_business_page(user=None, organizations: list[SportOrganization]
             <input type="hidden" name="consent_version" value="{version}">
             <label class="sport-business__check">
                 <input type="checkbox" name="offer_accepted" value="1" required>
-                Принимаю <a href="/license" target="_blank" rel="noopener noreferrer">условия для спортивных клубов</a>.
+                Принимаю <a href="/sport/legal/license" target="_blank" rel="noopener noreferrer">условия для спортивных клубов</a>.
             </label>
             <label class="sport-business__check">
                 <input type="checkbox" name="pd_consent" value="1" required>
-                Согласен(на) на обработку персональных данных по <a href="/consent" target="_blank" rel="noopener noreferrer">Согласию</a>.
+                Согласен(на) на обработку персональных данных по <a href="/sport/legal/consent" target="_blank" rel="noopener noreferrer">Согласию</a>.
             </label>
             <button type="submit">Подать заявку</button>
         </form>
@@ -52,7 +52,7 @@ def render_sport_business_page(user=None, organizations: list[SportOrganization]
         applications = ""
         form = (
             '<p class="sport-business__login">Чтобы подключить зал, '
-            '<a href="/login?redirect=%2Fsport%2Fbusiness">войдите или зарегистрируйтесь</a>.</p>'
+            '<a href="/sport/login?redirect=%2Fsport%2Fbusiness">войдите или зарегистрируйтесь</a>.</p>'
         )
 
     return f"""<!doctype html>
@@ -76,7 +76,7 @@ def render_sport_business_page(user=None, organizations: list[SportOrganization]
         <h2 class="sport-business__form-title">Заявка на подключение</h2>
         {form}
     </main>
-    {render_footer(user)}
+    {render_footer(user, sport=True)}
 </body>
 </html>"""
 
@@ -87,23 +87,37 @@ def render_sport_business_dashboard_page(user, organizations: list[tuple[SportOr
         "approved": "Опубликован",
         "rejected": "Отклонён",
     }
+    role_labels = {
+        "owner": "Владелец",
+        "admin": "Администратор",
+        "trainer": "Тренер",
+    }
     cards = "".join(
-        '<article class="sport-business__application">'
+        '<article class="sport-business__application sport-business-dashboard__card">'
+        '<div class="sport-business-dashboard__card-head">'
         f'<h2>{html.escape(organization.name)}</h2>'
-        f'<p>{html.escape(organization.city)} · {html.escape(status_labels.get(organization.moderation_status, organization.moderation_status))}'
-        f' · роль: {html.escape(role)}</p>'
+        f'<span class="sport-business-dashboard__status sport-business-dashboard__status--'
+        f'{html.escape(organization.moderation_status, quote=True)}">'
+        f'{html.escape(status_labels.get(organization.moderation_status, organization.moderation_status))}'
+        '</span></div>'
+        f'<p class="sport-business-dashboard__meta">{html.escape(organization.city)}'
+        f'<span>{html.escape(role_labels.get(role, role))}</span></p>'
         + (
-            f'<p>{html.escape(organization.rejection_reason)}</p>'
+            f'<p class="sport-business-dashboard__rejection">{html.escape(organization.rejection_reason)}</p>'
             if organization.rejection_reason else ""
         )
-        + f'<a href="/sport/{html.escape(organization.slug, quote=True)}/admin">Открыть панель клуба</a>'
+        + f'<a class="sport-business-dashboard__link" href="/sport/{html.escape(organization.slug, quote=True)}/admin">'
+        'Открыть панель клуба →</a>'
         + "</article>"
         for organization, role in organizations
     )
     if not cards:
         cards = (
-            '<p>У вас пока нет доступа к панели спортивного клуба. '
-            '<a href="/sport/business">Подключить клуб</a>.</p>'
+            '<div class="sport-business-dashboard__empty">'
+            '<h2>Пока нет подключённых клубов</h2>'
+            '<p>Подайте заявку, чтобы создать страницу клуба и управлять расписанием, записями и командой.</p>'
+            '<a class="sport-business-dashboard__link" href="/sport/business">Подключить клуб →</a>'
+            '</div>'
         )
     return f"""<!doctype html>
 <html lang="ru">
@@ -117,12 +131,17 @@ def render_sport_business_dashboard_page(user, organizations: list[tuple[SportOr
 </head>
 <body class="sport-directory">
     {render_header("sport_business", user)}
-    <main class="sport-business">
-        <p class="sport-page-eyebrow">Руми Спорт · бизнес-панель</p>
-        <h1>Ваши спортивные клубы</h1>
-        {cards}
-        <p><a href="/sport/business">Подключить ещё один клуб</a></p>
+    <main class="sport-business sport-business-dashboard">
+        <div class="sport-business-dashboard__intro">
+            <p class="sport-page-eyebrow">Руми Спорт · бизнес-панель</p>
+            <h1>Ваши клубы</h1>
+            <p class="sport-business__lead">Управляйте страницами организаций, расписанием и командой из одного места.</p>
+        </div>
+        <section class="sport-business-dashboard__grid" aria-label="Спортивные клубы">
+            {cards}
+        </section>
+        <a class="sport-business-dashboard__add" href="/sport/business">Подключить ещё один клуб</a>
     </main>
-    {render_footer(user)}
+    {render_footer(user, sport=True)}
 </body>
 </html>"""

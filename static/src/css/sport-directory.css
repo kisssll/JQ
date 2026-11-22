@@ -21,6 +21,29 @@ body.sport-directory {
     color: var(--color-heading);
 }
 
+body.sport-directory .notfound {
+    background:
+        radial-gradient(circle at 50% 22%, var(--sport-glow) 0 15rem, transparent 15.1rem),
+        var(--color-background);
+}
+
+body.sport-directory .notfound-code {
+    font-family: Impact, "Arial Narrow", Bahnschrift, sans-serif;
+}
+
+body.sport-directory .quick-links .btn-primary {
+    border-radius: var(--radius-8);
+    background: var(--color-accent);
+    color: var(--color-btn-text);
+}
+
+body.sport-directory .quick-links .btn-outline {
+    border-color: var(--color-border-strong);
+    border-radius: var(--radius-8);
+    background: var(--color-surface);
+    color: var(--color-accent-text);
+}
+
 :root[data-theme="dark"] body.sport-directory {
     --color-background: var(--sport-background);
     --color-surface: var(--sport-surface);
@@ -186,6 +209,126 @@ body.sport-directory .sport-tariffs {
 
 body.sport-directory .sport-business {
     max-width: 48rem;
+}
+
+body.sport-directory .sport-business-dashboard {
+    max-width: 76rem;
+}
+
+body.sport-directory .sport-business-dashboard__intro {
+    max-width: 48rem;
+    margin-bottom: 2rem;
+}
+
+body.sport-directory .sport-business-dashboard__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: 1rem;
+}
+
+body.sport-directory .sport-business-dashboard__card {
+    display: grid;
+    align-content: start;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 1.5rem;
+    border-radius: var(--radius-16);
+}
+
+body.sport-directory .sport-business-dashboard__card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+body.sport-directory .sport-business-dashboard__card h2 {
+    min-width: 0;
+    margin: 0;
+    color: var(--color-heading);
+    font-size: 1.25rem;
+    overflow-wrap: anywhere;
+}
+
+body.sport-directory .sport-business-dashboard__status {
+    flex: 0 0 auto;
+    padding: 0.3rem 0.65rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-info-light);
+    color: var(--color-info);
+    font-size: var(--text-12);
+    font-weight: 800;
+}
+
+body.sport-directory .sport-business-dashboard__status--approved {
+    background: var(--color-success-light);
+    color: var(--color-success);
+}
+
+body.sport-directory .sport-business-dashboard__status--rejected {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
+body.sport-directory .sport-business-dashboard__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin: 0;
+    color: var(--color-muted);
+}
+
+body.sport-directory .sport-business-dashboard__meta span {
+    color: var(--color-body);
+}
+
+body.sport-directory .sport-business-dashboard__rejection {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border-left: 3px solid var(--color-danger);
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
+body.sport-directory .sport-business-dashboard__link,
+body.sport-directory .sport-business-dashboard__add {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    margin-top: 0.5rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-8);
+    color: var(--color-accent-text);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+body.sport-directory .sport-business-dashboard__link:hover,
+body.sport-directory .sport-business-dashboard__add:hover {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-btn-text);
+}
+
+body.sport-directory .sport-business-dashboard__empty {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-16);
+    background: var(--color-surface);
+}
+
+body.sport-directory .sport-business-dashboard__empty h2 {
+    color: var(--color-heading);
+}
+
+body.sport-directory .sport-business-dashboard__empty p {
+    max-width: 38rem;
+    margin: 0;
+    color: var(--color-muted);
+    line-height: 1.6;
 }
 
 body.sport-directory .sport-page-eyebrow {

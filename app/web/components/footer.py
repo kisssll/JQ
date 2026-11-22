@@ -73,50 +73,71 @@ def _support_block(vk_audience: str = "client") -> str:
             </div>"""
 
 
-def render_footer(user=None, vk_audience: str = "client") -> str:
+def render_footer(user=None, vk_audience: str = "client", sport: bool = False) -> str:
     """
     Рендерит футер с адаптивными ссылками в зависимости от роли пользователя.
 
     vk_audience — в какое сообщество ВК ведёт ссылка поддержки: "client"
     (по умолчанию) или "business" для страниц панели, подключения и лендингов.
+    sport — использовать ссылки и описание спортивного раздела.
     """
-    # Ссылки общие для всех
-    client_links = [("Салоны", "/salons")]
-    about_links = [("Манифест", "/about")]
-
-    # Партнёрские предложения Т-Банка — видны всем, независимо от роли.
-    tbank_links = [
-        ("Подключение РКО", "/business/tbank/rko"),
-        ("Регистрация бизнеса", "/business/tbank/registration"),
-        ("Кредиты для развития бизнеса", "/business/tbank/credit"),
-    ]
-
-    if user is None:
-        # Неавторизованный пользователь
-        client_links.append(("Стать моделью", "/model"))
-        business_links = [("Подключить салон", "/business")]
+    if sport:
+        client_links = [
+            ("Все спортивные клубы", "/sport/clubs"),
+            ("Тарифы клубов", "/sport/tariffs"),
+        ]
+        business_links = [("Подключить клуб", "/sport/business")]
+        if getattr(user, "has_sport_access", False):
+            business_links.insert(0, ("Панель спорт-клуба", "/sport/business/dashboard"))
+        about_links = [("Главная Руми Спорт", "/sport/")]
+        document_links = [
+            ("Пользовательское соглашение", "/sport/legal/terms"),
+            ("Политика обработки ПДн", "/sport/legal/privacy"),
+            ("Согласие на обработку ПДн", "/sport/legal/consent"),
+            ("Оферта для клиентов", "/sport/legal/offer"),
+            ("Оферта для клубов", "/sport/legal/license"),
+            ("Политика cookie", "/sport/legal/cookies"),
+            ("Все документы", "/sport/legal"),
+        ]
+        footer_description = "Спортивные клубы, расписание и запись — в Руми Спорт."
     else:
-        # Авторизованный
-        role = user.role.value if hasattr(user, 'role') else None
+        client_links = [("Салоны", "/salons")]
+        about_links = [("Манифест", "/about")]
+        document_links = [
+            ("Пользовательское соглашение", "/terms"),
+            ("Политика обработки ПДн", "/privacy"),
+            ("Согласие на обработку ПДн", "/consent"),
+            ("Оферта для клиентов", "/offer"),
+            ("Оферта для салонов", "/license"),
+            ("Политика cookie", "/cookies"),
+            ("Все документы", "/legal"),
+        ]
+        footer_description = "Запись в салон за 4 клика. Управление салоном — в одном окне."
 
-        # Все авторизованные видят Мои записи, Избранное, Настройки
-        client_links.append(("Мои записи", "/bookings"))
-        client_links.append(("Избранное", "/favorites"))
+        # Партнёрские предложения Т-Банка — видны всем, независимо от роли.
+        tbank_links = [
+            ("Подключение РКО", "/business/tbank/rko"),
+            ("Регистрация бизнеса", "/business/tbank/registration"),
+            ("Кредиты для развития бизнеса", "/business/tbank/credit"),
+        ]
 
-        # Ролевые особенности
-        if role in ('client', 'admin'):
+        if user is None:
             client_links.append(("Стать моделью", "/model"))
-
-        if role == 'business':
-            business_links = [("Панель салона", "/business/dashboard")]
-        else:
             business_links = [("Подключить салон", "/business")]
-            if role == 'admin':
-                business_links.append(("Панель салона", "/business/dashboard"))
+        else:
+            role = user.role.value if hasattr(user, 'role') else None
+            client_links.append(("Мои записи", "/bookings"))
+            client_links.append(("Избранное", "/favorites"))
+            if role in ('client', 'admin'):
+                client_links.append(("Стать моделью", "/model"))
+            if role == 'business':
+                business_links = [("Панель салона", "/business/dashboard")]
+            else:
+                business_links = [("Подключить салон", "/business")]
+                if role == 'admin':
+                    business_links.append(("Панель салона", "/business/dashboard"))
 
-        # Для админа доступно все
-
-    business_links = business_links + tbank_links
+        business_links = business_links + tbank_links
 
     client_items = ''.join(
         f'<li><a class="footer-link" href="{url}">{text}</a></li>'
@@ -137,7 +158,7 @@ def render_footer(user=None, vk_audience: str = "client") -> str:
             <div class="footer-links-grid">
                 <div>
                     <h3 class="footer-logo">руми<span>.</span></h3>
-                    <p class="footer-desc">Запись в салон за 4 клика. Управление салоном — в одном окне.</p>
+                    <p class="footer-desc">{footer_description}</p>
                 </div>
                 <div>
                     <h4 class="footer-col-title">Клиентам</h4>
@@ -160,13 +181,7 @@ def render_footer(user=None, vk_audience: str = "client") -> str:
                 <div>
                     <h4 class="footer-col-title">Документы</h4>
                     <ul class="footer-nav-list">
-                        <li><a class="footer-link" href="/terms">Пользовательское соглашение</a></li>
-                        <li><a class="footer-link" href="/privacy">Политика обработки ПДн</a></li>
-                        <li><a class="footer-link" href="/consent">Согласие на обработку ПДн</a></li>
-                        <li><a class="footer-link" href="/offer">Оферта для клиентов</a></li>
-                        <li><a class="footer-link" href="/license">Оферта для салонов</a></li>
-                        <li><a class="footer-link" href="/cookies">Политика cookie</a></li>
-                        <li><a class="footer-link" href="/legal">Все документы</a></li>
+                        {''.join(f'<li><a class="footer-link" href="{url}">{text}</a></li>' for text, url in document_links)}
                     </ul>
                 </div>
             </div>

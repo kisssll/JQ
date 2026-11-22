@@ -64,6 +64,6 @@ def render_sport_tariffs_page(
             {cards}
         </section>
     </main>
-    {render_footer(user)}
+    {render_footer(user, sport=True)}
 </body>
 </html>"""

@@ -102,11 +102,13 @@ async def unhandled_exception_handler(request, exc: Exception):
         f'<button type="button" onclick="location.reload()" class="btn-primary" '
         f'style="margin-bottom:1.5rem;border:none;cursor:pointer">{ICON_REFRESH} Обновить страницу</button>'
     )
+    sport_request = request.url.path == "/sport" or request.url.path.startswith("/sport/")
     html_content = render_status_page(
         500, "Что-то пошло не так",
         "Такое иногда случается — обычно помогает обновить страницу. "
         "Если ошибка повторяется, напишите нам в поддержку.",
         extra=extra,
+        sport=sport_request,
     )
     return HTMLResponse(content=html_content, status_code=500)
 

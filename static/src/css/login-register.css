@@ -126,3 +126,54 @@
     background: var(--color-accent-light);
     transform: scale(1.02);
 }
+
+.auth-page.sport-directory {
+    background:
+        radial-gradient(circle at 100% 0, var(--sport-glow) 0 14rem, transparent 14.1rem),
+        var(--color-background);
+}
+
+.auth-page.sport-directory .auth-card {
+    max-width: 28rem;
+    border-color: var(--color-border-strong);
+    border-radius: var(--radius-28);
+    box-shadow: 0 1rem 2.5rem var(--sport-shadow-soft);
+}
+
+.auth-page.sport-directory .auth-logo {
+    margin-bottom: 0.75rem;
+    color: var(--color-accent-text);
+    letter-spacing: -0.06em;
+}
+
+.auth-context {
+    margin: 0 0 0.5rem;
+    color: var(--color-accent-text);
+    font-size: var(--text-12);
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.auth-page.sport-directory .auth-title {
+    font-family: Impact, "Arial Narrow", Bahnschrift, sans-serif;
+    font-size: clamp(2rem, 8vw, 2.75rem);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    text-transform: uppercase;
+}
+
+.auth-page.sport-directory .form-group input:focus {
+    box-shadow: 0 0 0 3px var(--color-accent-muted);
+}
+
+.auth-page.sport-directory .auth-btn-outline {
+    border-width: 1px;
+    border-color: var(--color-border-strong);
+    border-radius: var(--radius-8);
+}
+
+.auth-alert {
+    margin-bottom: 1rem;
+}

@@ -169,6 +169,6 @@ def render_sport_home_page(user=None) -> str:
             </div>
         </section>
     </main>
-    {render_footer(user)}
+    {render_footer(user, sport=True)}
 </body>
 </html>"""

@@ -171,6 +171,10 @@
     width: auto;
 }
 
+#header-logo img.header-logo-sport {
+    height: 3.146rem;
+}
+
 #header-nav {
     display: flex;
     flex: 1;
