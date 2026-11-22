@@ -1,8 +1,56 @@
 import html
+import json
+from urllib.parse import quote
 
+from app.core.config import settings
 from app.web.components.styles import get_base_styles
 from app.models.sport import SportOrganization
 from app.web.pages.legal import LEGAL_VERSION
+
+
+def _sport_meta_description(name: str, city: str, description: str) -> str:
+    summary = " ".join((description or "").split())
+    prefix = f"{name} · {city}" if city else name
+    text = f"{prefix}. {summary}" if summary else (
+        f"{prefix} — спортивный клуб: направления, расписание и онлайн-запись."
+    )
+    if len(text) > 160:
+        truncated = text[:157]
+        boundary = truncated.rfind(" ")
+        if boundary > 120:
+            truncated = truncated[:boundary]
+        text = truncated.rstrip(" ,.;:") + "…"
+    return html.escape(text, quote=True)
+
+
+def _sport_organization_schema(
+    slug: str,
+    name: str,
+    city: str,
+    address: str,
+    description: str,
+) -> str:
+    organization: dict[str, object] = {
+        "@context": "https://schema.org",
+        "@type": "SportsOrganization",
+        "name": name,
+        "url": f"{settings.PUBLIC_BASE_URL.rstrip('/')}/sport/{quote(slug, safe='')}",
+        "description": description,
+    }
+    if city or address:
+        location: dict[str, str] = {
+            "@type": "PostalAddress",
+            "addressCountry": "RU",
+        }
+        if city:
+            location["addressLocality"] = city
+        if address:
+            location["streetAddress"] = address
+        organization["address"] = location
+
+    body = json.dumps(organization, ensure_ascii=False, separators=(",", ":"))
+    body = body.replace("</", "<\\/")
+    return f'<script type="application/ld+json">{body}</script>'
 
 
 def render_sport_placeholder(organization: SportOrganization) -> str:
@@ -24,12 +72,30 @@ def render_sparta_app(
     name: str = "Спарта Плюс",
     city: str = "",
     logo_url: str | None = None,
+    description: str = "",
+    address: str = "",
 ) -> str:
     safe_slug = html.escape(slug, quote=True)
     safe_name = html.escape(name)
     safe_name_attr = html.escape(name, quote=True)
     safe_city_attr = html.escape(city, quote=True)
     safe_logo_attr = html.escape(logo_url or "", quote=True)
+    title = f"{name} · {city}" if city else name
+    if len(title) > 55:
+        title_prefix = title[:52]
+        boundary = title_prefix.rfind(" ")
+        if boundary > 35:
+            title_prefix = title_prefix[:boundary]
+        title = title_prefix.rstrip(" ·") + "…"
+    safe_title = html.escape(f"{title} | Руми Спорт")
+    meta_description = _sport_meta_description(name, city, description)
+    schema = _sport_organization_schema(
+        slug,
+        name,
+        city,
+        address,
+        description or f"{name} — спортивный клуб в {city} на Руми Спорт.",
+    )
     favicon = (
         '<link rel="icon" href="/static/sport/sparta/sparta-logo.png">'
         if slug == "sparta"
@@ -40,10 +106,11 @@ def render_sparta_app(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="{safe_name} — спортивный клуб на Руми">
+    <meta name="description" content="{meta_description}">
     <meta name="theme-color" content="#ffffff">
     <meta name="consent-version" content="{LEGAL_VERSION}">
-    <title>{safe_name} — Руми Спорт</title>
+    <title>{safe_title}</title>
+    {schema}
     {favicon}
     <link rel="stylesheet" href="/static/dist/sport-sparta.css">
 </head>

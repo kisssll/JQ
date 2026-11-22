@@ -61,30 +61,19 @@ def render_sport_business_page(user=None, organizations: list[SportOrganization]
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Подключить спортивный клуб — Руми</title>
+    <meta name="description" content="Подайте заявку, чтобы добавить спортивный клуб в Руми Спорт: страница организации, направления, расписание и абонементы.">
     {get_base_styles()}
-    <style>
-        .sport-business{{max-width:760px;margin:48px auto;padding:0 20px 72px}}
-        .sport-business__form{{display:grid;gap:16px;margin-top:28px}}
-        .sport-business__form label{{display:grid;gap:6px}}
-        .sport-business__form input,.sport-business__form textarea{{font:inherit;padding:12px;border:1px solid #d5d5d5;border-radius:8px}}
-        .sport-business__form textarea{{min-height:110px}}
-        .sport-business__form .sport-business__check{{display:flex;align-items:flex-start;gap:10px}}
-        .sport-business__form .sport-business__check input{{margin-top:5px}}
-        .sport-business__form button{{justify-self:start;padding:13px 22px;border:0;border-radius:999px;background:#1a1a1a;color:white;font:inherit;cursor:pointer}}
-        .sport-business__application{{padding:16px 0;border-bottom:1px solid #ddd}}
-        .sport-business__login{{margin-top:24px}}
-    </style>
 </head>
-<body>
+<body class="sport-directory">
     {render_header("sport_business", user)}
     <main class="sport-business">
-        <p>Руми Спорт · для бизнеса</p>
+        <p class="sport-page-eyebrow">Руми Спорт · для бизнеса</p>
         <h1>Подключите спортивный клуб</h1>
-        <p>Создайте страницу клуба, добавьте залы, тренеров, направления, расписание и тарифы.
+        <p class="sport-business__lead">Создайте страницу клуба, добавьте залы, тренеров, направления, расписание и тарифы.
            После проверки клуб появится в каталоге, а заявками и данными можно будет управлять
            из кабинета.</p>
         {applications}
-        <h2>Заявка на подключение</h2>
+        <h2 class="sport-business__form-title">Заявка на подключение</h2>
         {form}
     </main>
     {render_footer(user)}
@@ -122,17 +111,14 @@ def render_sport_business_dashboard_page(user, organizations: list[tuple[SportOr
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Панель спортивного клуба — Руми</title>
+    <meta name="description" content="Управление спортивными клубами в Руми Спорт.">
+    <meta name="robots" content="noindex,follow">
     {get_base_styles()}
-    <style>
-        .sport-business{{max-width:900px;margin:48px auto;padding:0 20px 72px}}
-        .sport-business__application{{padding:20px 0;border-bottom:1px solid #ddd}}
-        .sport-business__application h2{{margin:0 0 8px}}
-    </style>
 </head>
-<body>
+<body class="sport-directory">
     {render_header("sport_business", user)}
     <main class="sport-business">
-        <p>Руми Спорт · бизнес-панель</p>
+        <p class="sport-page-eyebrow">Руми Спорт · бизнес-панель</p>
         <h1>Ваши спортивные клубы</h1>
         {cards}
         <p><a href="/sport/business">Подключить ещё один клуб</a></p>

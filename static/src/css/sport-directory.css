@@ -1,0 +1,496 @@
+body.sport-directory {
+    --color-background: #fff8e7;
+    --color-surface: #ffffff;
+    --color-surface-alt: #eaf2f8;
+    --color-secondary: #dcebf7;
+    --color-text: #12284b;
+    --color-heading: #12284b;
+    --color-body: #344963;
+    --color-muted: #526478;
+    --color-border: #d6dcd9;
+    --color-border-strong: #b7c8d6;
+    --color-primary: #0055a0;
+    --color-accent: #0055a0;
+    --color-accent-hover: #12284b;
+    --color-accent-light: #e7f1f9;
+    --color-accent-muted: #438bc433;
+    --color-accent-text: #0055a0;
+    --color-btn-text: #ffffff;
+    --color-dark: #12284b;
+    background: var(--color-background);
+    color: var(--color-heading);
+}
+
+:root[data-theme="dark"] body.sport-directory {
+    --color-background: #101b2c;
+    --color-surface: #182841;
+    --color-surface-alt: #203650;
+    --color-secondary: #25415f;
+    --color-text: #f4f7fa;
+    --color-heading: #f4f7fa;
+    --color-body: #d5e0eb;
+    --color-muted: #b2c3d3;
+    --color-border: #31465d;
+    --color-border-strong: #48617b;
+    --color-primary: #438bc4;
+    --color-accent: #438bc4;
+    --color-accent-hover: #8cc1e9;
+    --color-accent-light: #203650;
+    --color-accent-muted: #8cc1e955;
+    --color-accent-text: #8cc1e9;
+    --color-btn-text: #101b2c;
+    --color-dark: #101b2c;
+}
+
+body.sport-directory .catalog-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 7rem 0 3.5rem;
+    background:
+        radial-gradient(circle at 88% 40%, #8cc1e926 0 12rem, transparent 12.1rem),
+        var(--color-background);
+}
+
+body.sport-directory .catalog-hero .section-container {
+    position: relative;
+    z-index: 1;
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.9fr);
+    gap: 2rem 3rem;
+    align-items: center;
+    max-width: 1280px;
+}
+
+body.sport-directory .catalog-hero__intro {
+    max-width: 40rem;
+}
+
+body.sport-directory .catalog-hero__intro h1 {
+    color: var(--color-heading);
+    font-family: Impact, "Arial Narrow", Bahnschrift, sans-serif;
+    font-size: clamp(3.5rem, 7vw, 6.5rem);
+    font-stretch: condensed;
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 0.95;
+    text-transform: uppercase;
+}
+
+body.sport-directory .catalog-hero__intro p {
+    max-width: 34rem;
+    margin-top: 1rem;
+    color: var(--color-muted);
+    font-size: clamp(1rem, 1.5vw, 1.2rem);
+    line-height: 1.7;
+}
+
+body.sport-directory .catalog-search {
+    width: 100%;
+    max-width: 38rem;
+    margin: 0;
+    padding: 0.3rem 0.3rem 0.3rem 1.2rem;
+    border-color: var(--color-border-strong);
+    border-radius: 0.65rem;
+    box-shadow: 0 0.75rem 2rem #12284b12;
+}
+
+body.sport-directory .catalog-search:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-muted);
+}
+
+body.sport-directory .catalog-search input {
+    color: var(--color-heading);
+}
+
+body.sport-directory .catalog-search .r-btn {
+    min-height: 3rem;
+    border-radius: 0.45rem;
+}
+
+body.sport-directory .gym-business-link {
+    margin: 0;
+}
+
+body.sport-directory .gym-business-link .r-btn {
+    min-height: 3rem;
+    border-color: var(--color-accent);
+    border-radius: 0.45rem;
+    background: var(--color-accent);
+    color: var(--color-btn-text);
+}
+
+body.sport-directory .catalog-body {
+    min-height: 24rem;
+    padding: 2rem 0 5rem;
+    background: linear-gradient(180deg, var(--color-surface-alt), var(--color-background) 16rem);
+}
+
+body.sport-directory .catalog-body .section-container {
+    max-width: 1080px;
+}
+
+body.sport-directory .salons-filter-bar {
+    margin-bottom: 1.25rem;
+    border-color: var(--color-border);
+}
+
+body.sport-directory .city-select,
+body.sport-directory .city-select-wrapper .choices__inner {
+    border-color: var(--color-border-strong);
+    border-radius: 0.55rem;
+}
+
+body.sport-directory .catalog-body .salons-grid {
+    gap: 1rem;
+}
+
+body.sport-directory .gym-card {
+    border-color: var(--color-border);
+    border-radius: 0.85rem;
+    background: var(--color-surface);
+    box-shadow: 0 0.4rem 1.5rem #12284b0b;
+}
+
+body.sport-directory .gym-card .r-salon__image {
+    background: var(--color-surface-alt);
+}
+
+body.sport-directory .gym-card .r-salon__body {
+    padding: 1.5rem;
+}
+
+body.sport-directory .gym-card .r-salon__name {
+    color: var(--color-heading);
+    font-family: var(--font-body);
+    font-size: clamp(1.2rem, 2vw, 1.55rem);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+}
+
+body.sport-directory .gym-card .r-salon__where,
+body.sport-directory .gym-description {
+    color: var(--color-muted);
+}
+
+body.sport-directory .gym-card .r-salon__all {
+    border-radius: 0.45rem;
+    color: var(--color-accent-text);
+}
+
+body.sport-directory .sport-business,
+body.sport-directory .sport-tariffs {
+    width: min(100% - 2rem, 76rem);
+    margin: 0 auto;
+    padding: 7rem 0 5rem;
+}
+
+body.sport-directory .sport-business {
+    max-width: 48rem;
+}
+
+body.sport-directory .sport-page-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 0.9rem;
+    color: var(--color-accent-text);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+body.sport-directory .sport-page-eyebrow::before {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-accent);
+    content: "";
+}
+
+body.sport-directory .sport-business h1,
+body.sport-directory .sport-tariffs h1 {
+    color: var(--color-heading);
+    font-family: Impact, "Arial Narrow", Bahnschrift, sans-serif;
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    text-transform: uppercase;
+}
+
+body.sport-directory .sport-business__lead,
+body.sport-directory .sport-tariffs__intro > p:not(.sport-page-eyebrow) {
+    max-width: 44rem;
+    margin-top: 1.25rem;
+    color: var(--color-muted);
+    font-size: 1rem;
+    line-height: 1.8;
+}
+
+body.sport-directory .sport-business__form-title {
+    margin: 2rem 0 0;
+    color: var(--color-heading);
+    font-size: 1.5rem;
+    letter-spacing: -0.03em;
+}
+
+body.sport-directory .sport-business__form {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    padding: clamp(1.25rem, 4vw, 2rem);
+    border: 1px solid var(--color-border);
+    border-radius: 0.9rem;
+    background: var(--color-surface);
+    box-shadow: 0 0.5rem 1.75rem #12284b0b;
+}
+
+body.sport-directory .sport-business__form label {
+    display: grid;
+    gap: 0.45rem;
+    color: var(--color-heading);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+body.sport-directory .sport-business__form input:not([type="hidden"]):not([type="checkbox"]),
+body.sport-directory .sport-business__form textarea {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 0.5rem;
+    background: var(--color-background);
+    color: var(--color-heading);
+    font: inherit;
+}
+
+body.sport-directory .sport-business__form textarea {
+    min-height: 7rem;
+    resize: vertical;
+}
+
+body.sport-directory .sport-business__form .sport-business__check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    color: var(--color-body);
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.6;
+}
+
+body.sport-directory .sport-business__check input {
+    flex: 0 0 auto;
+    width: 1.1rem;
+    height: 1.1rem;
+    margin: 0.2rem 0 0;
+    accent-color: var(--color-accent);
+}
+
+body.sport-directory .sport-business__form a,
+body.sport-directory .sport-business__login a {
+    color: var(--color-accent-text);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
+body.sport-directory .sport-business__form button {
+    justify-self: start;
+    min-height: 3rem;
+    padding: 0.75rem 1.25rem;
+    border: 0;
+    border-radius: 0.45rem;
+    background: var(--color-accent);
+    color: var(--color-btn-text);
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+body.sport-directory .sport-business__form button:hover {
+    background: var(--color-accent-hover);
+    transform: translateY(-1px);
+}
+
+body.sport-directory .sport-business__application {
+    margin-top: 1.25rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    background: var(--color-surface);
+}
+
+body.sport-directory .sport-business__application h2,
+body.sport-directory .sport-business__application h3 {
+    margin: 0 0 0.5rem;
+    color: var(--color-heading);
+    font-size: 1.2rem;
+}
+
+body.sport-directory .sport-business__application p {
+    margin-top: 0.5rem;
+    color: var(--color-muted);
+    line-height: 1.6;
+}
+
+body.sport-directory .sport-business__application a,
+body.sport-directory .sport-business > p a {
+    display: inline-flex;
+    margin-top: 0.75rem;
+    color: var(--color-accent-text);
+    font-weight: 800;
+    text-underline-offset: 0.15em;
+}
+
+body.sport-directory .sport-business__login {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    background: var(--color-surface);
+    line-height: 1.7;
+}
+
+body.sport-directory .sport-tariffs__intro {
+    max-width: 48rem;
+    margin-bottom: 2rem;
+}
+
+body.sport-directory .sport-tariffs__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+    gap: 1rem;
+}
+
+body.sport-directory .sport-tariff-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.85rem;
+    background: var(--color-surface);
+    box-shadow: 0 0.4rem 1.5rem #12284b0b;
+}
+
+body.sport-directory .sport-tariff-card__club {
+    color: var(--color-muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+body.sport-directory .sport-tariff-card h2 {
+    margin-top: 1rem;
+    color: var(--color-heading);
+    font-size: 1.35rem;
+    letter-spacing: -0.03em;
+}
+
+body.sport-directory .sport-tariff-card__price {
+    margin-top: 0.75rem;
+    color: var(--color-accent-text);
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+body.sport-directory .sport-tariff-card ul {
+    display: grid;
+    gap: 0.5rem;
+    margin: 1rem 0 1.25rem;
+    padding-left: 1.2rem;
+    color: var(--color-body);
+    line-height: 1.65;
+}
+
+body.sport-directory .sport-tariff-card a {
+    align-self: flex-start;
+    margin-top: auto;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 0.45rem;
+    color: var(--color-accent-text);
+    font-weight: 800;
+    line-height: 1.4;
+    text-decoration: none;
+}
+
+body.sport-directory .sport-tariff-card a:hover {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-btn-text);
+}
+
+body.sport-directory .sport-tariffs__empty {
+    grid-column: 1 / -1;
+    padding: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.85rem;
+    background: var(--color-surface);
+    color: var(--color-muted);
+    line-height: 1.7;
+}
+
+body.sport-directory .sport-tariffs__empty a {
+    display: inline-flex;
+    margin-left: 0.25rem;
+    color: var(--color-accent-text);
+    font-weight: 800;
+}
+
+@media (min-width: 900px) {
+    body.sport-directory .catalog-hero .catalog-search {
+        margin-top: 0;
+    }
+}
+
+@media (max-width: 899px) {
+    body.sport-directory .catalog-hero {
+        padding-top: 6rem;
+    }
+
+    body.sport-directory .catalog-hero .section-container {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1.5rem;
+    }
+}
+
+@media (max-width: 640px) {
+    body.sport-directory .sport-business,
+    body.sport-directory .sport-tariffs {
+        padding-top: 6rem;
+        padding-bottom: 3.5rem;
+    }
+
+    body.sport-directory .catalog-hero {
+        padding: 5.5rem 0 2.5rem;
+        background:
+            radial-gradient(circle at 100% 30%, #8cc1e926 0 8rem, transparent 8.1rem),
+            var(--color-background);
+    }
+
+    body.sport-directory .catalog-hero__intro h1 {
+        font-size: clamp(3rem, 13vw, 4.5rem);
+    }
+
+    body.sport-directory .catalog-search {
+        padding-left: 0.8rem;
+    }
+
+    body.sport-directory .catalog-search .r-btn {
+        padding-right: 1rem;
+        padding-left: 1rem;
+    }
+
+    body.sport-directory .catalog-body {
+        padding-top: 1.5rem;
+    }
+
+    body.sport-directory .gym-card .r-salon__body {
+        padding: 1.25rem;
+    }
+}

@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const citySelect = document.getElementById('gymCitySelect');
     if (!form || !grid) return;
 
+    const catalogPath = location.pathname.replace(/\/+$/, '') === '/sport/clubs'
+        ? '/sport/clubs'
+        : '/sport';
     form.dataset.ajax = '1';
     let activeRequest = 0;
 
@@ -27,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const query = new URLSearchParams(params);
         query.set('partial', '1');
         if (offset) query.set('offset', offset);
-        const response = await fetch('/sport?' + query.toString(), {
+        const response = await fetch(catalogPath + '?' + query.toString(), {
             headers: { 'X-Requested-With': 'fetch' },
         });
         if (!response.ok) throw new Error(`Gym catalog request failed: ${response.status}`);
@@ -49,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (historyMode && requestId === activeRequest) {
             const query = params.toString();
-            const url = '/sport' + (query ? '?' + query : '');
+            const url = catalogPath + (query ? '?' + query : '');
             if (historyMode === 'replace') history.replaceState({ gyms: true }, '', url);
             else history.pushState({ gyms: true }, '', url);
         }

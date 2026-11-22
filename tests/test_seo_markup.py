@@ -52,6 +52,36 @@ def test_schema_escapes_closing_tags():
     assert "</" not in render_site_schema()[:-len("</script>")]
 
 
+def test_sport_organization_page_has_metadata_and_structured_data():
+    from app.web.pages.sport import render_sparta_app
+
+    page = render_sparta_app(
+        slug="club",
+        name="Club & Team",
+        city="Tomsk",
+        address="Main street",
+        description="Training for every level.",
+    )
+    schema = _schema(page)
+
+    assert "<title>Club &amp; Team · Tomsk | Руми Спорт</title>" in page
+    assert 'content="Club &amp; Team · Tomsk. Training for every level."' in page
+    assert schema["@type"] == "SportsOrganization"
+    assert schema["url"] == "https://rrumi.ru/sport/club"
+    assert schema["address"]["addressLocality"] == "Tomsk"
+    assert schema["address"]["streetAddress"] == "Main street"
+
+
+def test_sport_home_has_webpage_structured_data():
+    from app.web.pages.sport_home import render_sport_home_page
+
+    schema = _schema(render_sport_home_page())
+
+    assert schema["@type"] == "WebPage"
+    assert schema["url"] == "https://rrumi.ru/sport/"
+    assert schema["inLanguage"] == "ru-RU"
+
+
 async def test_home_page_carries_the_schema_and_canonical(client):
     r = await client.get("/")
     assert r.status_code == 200
@@ -78,10 +108,39 @@ async def _sitemap(client) -> str:
 
 
 @pytest.mark.parametrize("path", ["/", "/salons", "/evening-deals", "/business",
-                                  "/model", "/tariffs", "/about", "/legal"])
+                                  "/model", "/tariffs", "/about", "/legal",
+                                  "/sport/", "/sport/clubs", "/sport/business",
+                                  "/sport/tariffs"])
 async def test_sitemap_lists_the_public_pages(client, path):
     body = await _sitemap(client)
     assert f"<loc>https://rrumi.ru{path}</loc>" in body.replace("rrumi.ru//", "rrumi.ru/"), path
+
+
+async def test_sitemap_lists_published_sport_organizations_only(client, db_session):
+    from app.models.sport import SportOrganization
+
+    async with db_session() as db:
+        db.add_all(
+            [
+                SportOrganization(
+                    slug="published-sport-club",
+                    name="Published club",
+                    city="Tomsk",
+                    is_published=True,
+                ),
+                SportOrganization(
+                    slug="unpublished-sport-club",
+                    name="Unpublished club",
+                    city="Tomsk",
+                    is_published=False,
+                ),
+            ]
+        )
+        await db.commit()
+
+    body = await _sitemap(client)
+    assert "<loc>https://rrumi.ru/sport/published-sport-club</loc>" in body
+    assert "<loc>https://rrumi.ru/sport/unpublished-sport-club</loc>" not in body
 
 
 async def test_sitemap_lists_the_legal_documents(client):

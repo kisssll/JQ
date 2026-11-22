@@ -23,6 +23,7 @@ PUBLIC_NAV = (
 
 SPORT_PUBLIC_NAV = (
     ("sport", "/sport/", "Главная"),
+    ("sport_clubs", "/sport/clubs", "Все клубы"),
     ("sport_business", "/sport/business", "Для бизнеса"),
     ("sport_tariffs", "/sport/tariffs", "Тарифы"),
 )

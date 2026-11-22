@@ -1,6 +1,7 @@
 # app/web/views.py
 from app.web.components.escaping import e
 import html
+from urllib.parse import quote
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,6 +44,15 @@ router = APIRouter()
 
 @router.get("/sport", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/sport/", response_class=HTMLResponse, include_in_schema=False)
+async def sport_home_page(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    from app.web.pages.sport_home import render_sport_home_page
+
+    return HTMLResponse(content=render_sport_home_page(user))
+
+
+@router.get("/sport/clubs", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/sport/clubs/", response_class=HTMLResponse, include_in_schema=False)
 async def gyms_page(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     from app.web.pages.gyms import parse_gym_query, render_gyms_page
@@ -51,7 +61,14 @@ async def gyms_page(request: Request, db: AsyncSession = Depends(get_db)):
         request, default_city=(getattr(user, "city", "") or "")
     )
     partial = request.query_params.get("partial") == "1"
-    return HTMLResponse(content=await render_gyms_page(db, user, query, partial))
+    return HTMLResponse(content=await render_gyms_page(
+        db,
+        user,
+        query,
+        partial,
+        current_page="sport_clubs",
+        catalog_path="/sport/clubs",
+    ))
 
 
 @router.get("/sport/business", response_class=HTMLResponse, include_in_schema=False)
@@ -169,7 +186,12 @@ async def sparta_sport_page(db: AsyncSession = Depends(get_db)):
     if organization is None:
         return HTMLResponse(content=render_status_page(404, "Страница не найдена", "Организация не опубликована."), status_code=404)
     return HTMLResponse(content=render_sparta_app(
-        organization.slug, organization.name, organization.city, organization.logo_url
+        organization.slug,
+        organization.name,
+        organization.city,
+        organization.logo_url,
+        organization.description,
+        organization.address or "",
     ))
 
 
@@ -221,7 +243,12 @@ async def sport_organization_page(
                 status_code=404,
             )
     return HTMLResponse(content=render_sparta_app(
-        organization.slug, organization.name, organization.city, organization.logo_url
+        organization.slug,
+        organization.name,
+        organization.city,
+        organization.logo_url,
+        organization.description,
+        organization.address or "",
     ))
 
 
@@ -1047,6 +1074,10 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
         ("business", "0.8"),
         ("model", "0.7"),
         ("tariffs", "0.6"),
+        ("sport/", "0.8"),
+        ("sport/clubs", "0.9"),
+        ("sport/business", "0.5"),
+        ("sport/tariffs", "0.7"),
         ("about", "0.5"),
         ("legal", "0.3"),
     ]
@@ -1087,6 +1118,18 @@ async def sitemap_xml(db: AsyncSession = Depends(get_db)):
     )).scalars().all()
     urls += [(f"{settings.PUBLIC_BASE_URL}/masters/{mid}", "0.6", None)
              for mid in masters]
+
+    from app.models.sport import SportOrganization
+
+    sport_slugs = (await db.execute(
+        select(SportOrganization.slug)
+        .where(SportOrganization.is_published.is_(True))
+        .order_by(SportOrganization.sort_order, SportOrganization.name)
+    )).scalars().all()
+    urls += [
+        (f"{settings.PUBLIC_BASE_URL}/sport/{quote(slug, safe='')}", "0.7", None)
+        for slug in sport_slugs
+    ]
 
     def entry(loc: str, priority: str, updated) -> str:
         lastmod = ""

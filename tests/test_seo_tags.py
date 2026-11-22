@@ -5,7 +5,19 @@ import re
 
 import pytest
 
-PAGES = ["/", "/salons", "/tariffs", "/about", "/business", "/legal", "/cookies"]
+PAGES = [
+    "/",
+    "/salons",
+    "/tariffs",
+    "/about",
+    "/business",
+    "/legal",
+    "/cookies",
+    "/sport/",
+    "/sport/clubs",
+    "/sport/business",
+    "/sport/tariffs",
+]
 
 
 def _meta(html: str, prop: str) -> str | None:
@@ -27,6 +39,28 @@ async def test_canonical_drops_query_parameters(client):
     разными страницами и делит между ними вес."""
     r = await client.get("/salons?q=маникюр&page=2")
     assert 'rel="canonical" href="https://rrumi.ru/salons"' in r.text
+
+
+async def test_sport_catalog_search_has_canonical_and_noindex(client):
+    r = await client.get("/sport/clubs?q=boxing")
+
+    assert 'rel="canonical" href="https://rrumi.ru/sport/clubs"' in r.text
+    assert 'name="robots" content="noindex,follow"' in r.text
+
+
+@pytest.mark.parametrize(
+    ("path", "canonical"),
+    [
+        ("/sport", "https://rrumi.ru/sport/"),
+        ("/sport/", "https://rrumi.ru/sport/"),
+        ("/sport/clubs/", "https://rrumi.ru/sport/clubs"),
+    ],
+)
+def test_sport_aliases_share_canonical_urls(path, canonical):
+    from app.web.seo_middleware import build_tags
+
+    tags = build_tags(path, "<html><head><title>Спорт</title></head></html>")
+    assert f'rel="canonical" href="{canonical}"' in tags
 
 
 async def test_page_keeps_its_own_canonical(client):

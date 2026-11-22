@@ -50,22 +50,12 @@ def render_sport_tariffs_page(
     <title>Тарифы спортивных клубов — Руми Спорт</title>
     <meta name="description" content="Абонементы и предложения спортивных клубов на Руми Спорт.">
     {get_base_styles()}
-    <style>
-        .sport-tariffs{{max-width:1120px;margin:48px auto;padding:0 20px 72px}}
-        .sport-tariffs__intro{{max-width:700px;margin-bottom:32px}}
-        .sport-tariffs__intro p{{color:#666;line-height:1.6}}
-        .sport-tariffs__grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}}
-        .sport-tariff-card{{padding:22px;border:1px solid #ddd;background:#fff}}
-        .sport-tariff-card__club{{color:#666;font-size:14px}}
-        .sport-tariff-card__price{{font-size:24px;font-weight:700}}
-        .sport-tariff-card ul{{padding-left:20px;line-height:1.7}}
-        .sport-tariff-card a,.sport-tariffs__empty a{{color:inherit}}
-    </style>
 </head>
-<body>
+<body class="sport-directory">
     {render_header("sport_tariffs", user)}
     <main class="sport-tariffs">
         <section class="sport-tariffs__intro">
+            <p class="sport-page-eyebrow">Руми Спорт · абонементы</p>
             <h1>Тарифы спортивных клубов</h1>
             <p>Условия и стоимость абонементов устанавливает каждый клуб. Выберите предложение,
             чтобы посмотреть информацию о клубе и записаться.</p>

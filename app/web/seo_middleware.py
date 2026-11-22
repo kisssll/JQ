@@ -50,7 +50,12 @@ def _attr(value: str) -> str:
 
 
 def build_tags(path: str, page_html: str) -> str:
-    canonical = f"{settings.PUBLIC_BASE_URL.rstrip('/')}{path}"
+    canonical_path = {
+        "/sport": "/sport/",
+        "/sport/": "/sport/",
+        "/sport/clubs/": "/sport/clubs",
+    }.get(path, path)
+    canonical = f"{settings.PUBLIC_BASE_URL.rstrip('/')}{canonical_path}"
 
     title_match = _TITLE_RE.search(page_html)
     title = _attr(title_match.group(1)) if title_match else SITE_NAME

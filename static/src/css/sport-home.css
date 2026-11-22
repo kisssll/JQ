@@ -1,0 +1,343 @@
+body.sport-directory .sport-home__hero {
+    padding: 5rem 0 3rem;
+}
+
+body.sport-directory .sport-home__hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+    align-items: center;
+}
+
+body.sport-directory .sport-home__intro {
+    min-width: 0;
+}
+
+body.sport-directory .sport-home__eyebrow {
+    margin-bottom: 1rem;
+    color: var(--color-accent-text);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+body.sport-directory .sport-home__title {
+    max-width: 15ch;
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    line-height: 1.06;
+    text-wrap: balance;
+}
+
+body.sport-directory .sport-home__title em,
+body.sport-directory .sport-home__section-head h2 em,
+body.sport-directory .sport-home__clubs-layout h2 em {
+    color: var(--color-accent-text);
+    font-style: italic;
+}
+
+body.sport-directory .sport-home__lead {
+    max-width: 44ch;
+    margin-top: 1rem;
+    font-size: 1.05rem;
+    line-height: 1.75;
+}
+
+body.sport-directory .sport-home__search {
+    max-width: 35rem;
+    margin-top: 1.5rem;
+}
+
+body.sport-directory .sport-home__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.5rem;
+    margin-top: 1rem;
+}
+
+body.sport-directory .sport-home__business-link {
+    color: var(--color-accent-text);
+    font-weight: 800;
+    text-underline-offset: 0.18em;
+}
+
+body.sport-directory .sport-home__art {
+    position: relative;
+    display: none;
+    width: min(100%, 22rem);
+    aspect-ratio: 4 / 5;
+    justify-self: center;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 50% 50% 0.75rem 0.75rem;
+    background:
+        radial-gradient(circle at 50% 42%, var(--color-surface) 0 23%, transparent 23.3%),
+        var(--color-secondary);
+}
+
+body.sport-directory .sport-home__art::before,
+body.sport-directory .sport-home__art::after {
+    position: absolute;
+    inset: 12% 9%;
+    border: 1px solid var(--color-accent);
+    border-radius: 50% 50% 45% 45%;
+    content: "";
+    opacity: 0.34;
+    transform: rotate(-18deg);
+}
+
+body.sport-directory .sport-home__art::after {
+    inset: 19% 15%;
+    opacity: 0.48;
+    transform: rotate(-18deg);
+}
+
+body.sport-directory .sport-home__art-label {
+    position: absolute;
+    z-index: 1;
+    top: 38%;
+    left: 50%;
+    color: var(--color-heading);
+    font-family: var(--font-heading);
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 700;
+    letter-spacing: -0.07em;
+    line-height: 0.88;
+    text-align: center;
+    transform: translate(-50%, -50%);
+}
+
+body.sport-directory .sport-home__art-caption {
+    position: absolute;
+    right: 1rem;
+    bottom: 1.25rem;
+    left: 1rem;
+    color: var(--color-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+body.sport-directory .sport-home__features,
+body.sport-directory .sport-home__faq {
+    padding: 4rem 0;
+}
+
+body.sport-directory .sport-home__section-head {
+    margin-bottom: 2rem;
+}
+
+body.sport-directory .sport-home__section-head .sport-home__eyebrow {
+    margin-bottom: 0.75rem;
+}
+
+body.sport-directory .sport-home__section-head h2,
+body.sport-directory .sport-home__clubs-layout h2 {
+    font-size: clamp(2rem, 4vw, 3.25rem);
+    line-height: 1.1;
+    text-wrap: balance;
+}
+
+body.sport-directory .sport-home__feature-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    border-top: 1px solid var(--color-border-strong);
+}
+
+body.sport-directory .sport-home__feature {
+    min-width: 0;
+    padding: 1.5rem 1.25rem 1.5rem 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+body.sport-directory .sport-home__number,
+body.sport-directory .sport-home__step > span {
+    color: var(--color-accent-text);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+body.sport-directory .sport-home__feature h3,
+body.sport-directory .sport-home__step h3 {
+    margin-top: 0.75rem;
+    color: var(--color-heading);
+    font-size: 1.25rem;
+    letter-spacing: -0.025em;
+}
+
+body.sport-directory .sport-home__feature p,
+body.sport-directory .sport-home__step p {
+    max-width: 34ch;
+    margin-top: 0.5rem;
+    color: var(--color-muted);
+    line-height: 1.7;
+}
+
+body.sport-directory .sport-home__steps {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+body.sport-directory .sport-home__step {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    background: var(--color-surface);
+}
+
+body.sport-directory .sport-home__step h3 {
+    margin-top: 0;
+}
+
+body.sport-directory .sport-home__for-clubs {
+    padding: 3.5rem 0;
+    background: var(--color-dark);
+    color: var(--color-on-dark);
+}
+
+body.sport-directory .sport-home__clubs-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: center;
+}
+
+body.sport-directory .sport-home__clubs-layout .sport-home__eyebrow {
+    color: #8cc1e9;
+}
+
+body.sport-directory .sport-home__clubs-layout h2 {
+    color: var(--color-on-dark);
+}
+
+body.sport-directory .sport-home__clubs-layout h2 em {
+    color: #8cc1e9;
+}
+
+body.sport-directory .sport-home__clubs-layout > div:first-child > p:last-child {
+    max-width: 54ch;
+    margin-top: 1rem;
+    color: var(--color-on-dark-muted);
+    line-height: 1.75;
+}
+
+body.sport-directory .sport-home__clubs-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.5rem;
+}
+
+body.sport-directory .sport-home__clubs-actions > a:last-child {
+    color: var(--color-on-dark);
+    font-weight: 700;
+    text-underline-offset: 0.18em;
+}
+
+body.sport-directory .sport-home__faq-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem 3rem;
+}
+
+body.sport-directory .sport-home__faq-list details {
+    padding: 1.1rem 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+body.sport-directory .sport-home__faq-list summary {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--color-heading);
+    font-weight: 800;
+    line-height: 1.5;
+    cursor: pointer;
+    list-style: none;
+}
+
+body.sport-directory .sport-home__faq-list summary::-webkit-details-marker {
+    display: none;
+}
+
+body.sport-directory .sport-home__faq-list summary::after {
+    flex: 0 0 auto;
+    color: var(--color-accent);
+    content: "+";
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+body.sport-directory .sport-home__faq-list details[open] summary::after {
+    content: "−";
+}
+
+body.sport-directory .sport-home__faq-list details > p {
+    max-width: 60ch;
+    margin-top: 0.75rem;
+    color: var(--color-muted);
+    line-height: 1.7;
+}
+
+body.sport-directory .sport-home__faq-list details > p a {
+    color: var(--color-accent-text);
+    font-weight: 700;
+    text-underline-offset: 0.15em;
+}
+
+@media (min-width: 640px) {
+    body.sport-directory .sport-home__feature-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    body.sport-directory .sport-home__feature + .sport-home__feature {
+        padding-left: 1.25rem;
+        border-left: 1px solid var(--color-border);
+    }
+
+    body.sport-directory .sport-home__steps {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 900px) {
+    body.sport-directory .sport-home__hero-grid {
+        grid-template-columns: minmax(0, 1.15fr) minmax(17rem, 0.85fr);
+        gap: 3rem;
+    }
+
+    body.sport-directory .sport-home__art {
+        display: block;
+    }
+
+    body.sport-directory .sport-home__clubs-layout {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 3rem;
+    }
+
+    body.sport-directory .sport-home__faq-layout {
+        grid-template-columns: minmax(14rem, 0.7fr) minmax(0, 1.3fr);
+        gap: 3rem;
+    }
+}
+
+@media (max-width: 639px) {
+    body.sport-directory .sport-home__hero {
+        padding-top: 5.5rem;
+    }
+
+    body.sport-directory .sport-home__features,
+    body.sport-directory .sport-home__faq {
+        padding: 3rem 0;
+    }
+}

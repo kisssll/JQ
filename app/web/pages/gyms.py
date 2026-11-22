@@ -130,20 +130,24 @@ def _query_string(query: GymQuery, *, limit: Optional[int] = None) -> str:
     return urlencode(values)
 
 
-async def render_gyms_grid(db: AsyncSession, query: GymQuery) -> str:
+async def render_gyms_grid(
+    db: AsyncSession,
+    query: GymQuery,
+    catalog_path: str = "/sport/clubs",
+) -> str:
     gyms, has_more = await _load_page(db, query)
     if not gyms and query.offset == 0:
         return render_empty_state(
             title="Ничего не найдено",
             text="Попробуйте изменить запрос или выбрать другой город.",
             icon=ICON_SEARCH,
-            action_href="/sport",
+            action_href=catalog_path,
             action_label="Сбросить фильтры",
         )
 
     cards = "".join(_render_card(gym) for gym in gyms)
     if has_more:
-        href = "/sport?" + _query_string(query, limit=query.limit + PAGE_SIZE)
+        href = catalog_path + "?" + _query_string(query, limit=query.limit + PAGE_SIZE)
         cards += (
             '<div class="salons-more">'
             + ui.button(
@@ -162,10 +166,12 @@ async def render_gyms_page(
     user=None,
     query: Optional[GymQuery] = None,
     partial: bool = False,
+    current_page: str = "sport_clubs",
+    catalog_path: str = "/sport/clubs",
 ) -> str:
     query = query or GymQuery()
     if partial:
-        return await render_gyms_grid(db, query)
+        return await render_gyms_grid(db, query, catalog_path)
 
     cities = await _available_cities(db)
     all_cities = cities if not query.city or query.city in cities else [query.city, *cities]
@@ -175,25 +181,31 @@ async def render_gyms_page(
         for city in all_cities
     )
     search_value = html.escape(query.q, quote=True)
-    grid = await render_gyms_grid(db, query)
+    grid = await render_gyms_grid(db, query, catalog_path)
+    robots_meta = (
+        '<meta name="robots" content="noindex,follow">'
+        if query.q or query.city or query.limit != PAGE_SIZE or query.offset
+        else ""
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Спорт — руми</title>
-    <meta name="description" content="Спортивные клубы, школы и секции рядом с вами.">
+    <title>Спортивные клубы и секции — Руми Спорт</title>
+    <meta name="description" content="Найдите спортивный клуб, школу или секцию: поиск по названию и городу, расписание, абонементы и запись на тренировку.">
+    {robots_meta}
     {get_base_styles()}
 </head>
-<body>
-    {render_header("sport", user)}
+<body class="sport-directory">
+    {render_header(current_page, user)}
     <main class="main-content">
         <section class="catalog-hero">
             <div class="section-container">
                 <div class="catalog-hero__intro">
-                    <h1 class="r-display">Спорт рядом</h1>
-                    <p class="r-text r-muted">Спортивные клубы, школы и секции на Руми.</p>
+                    <h1 class="r-display">Спортивные клубы</h1>
+                    <p class="r-text r-muted">Школы и секции на Руми Спорт. Ищите организации по названию или выберите город.</p>
                 </div>
                 <div class="catalog-search">
                     <span class="catalog-search__icon" aria-hidden="true">{ICON_SEARCH}</span>
@@ -208,7 +220,7 @@ async def render_gyms_page(
         </section>
         <section class="catalog-body">
             <div class="section-container">
-                <form method="get" action="/sport" id="gymsFilterForm" class="salons-filter-bar">
+                <form method="get" action="{html.escape(catalog_path, quote=True)}" id="gymsFilterForm" class="salons-filter-bar">
                     <div class="filter-row">
                         <div class="city-select-wrapper">
                             {ICON_MAP_PIN}
