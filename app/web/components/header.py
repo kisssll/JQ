@@ -24,7 +24,7 @@ PUBLIC_NAV = (
 SPORT_PUBLIC_NAV = (
     ("sport", "/sport/", "Главная"),
     ("sport_clubs", "/sport/clubs", "Все клубы"),
-    ("sport_business", "/sport/business", "Для бизнеса"),
+    ("sport_business", "/sport/business", "Для клубов"),
     ("sport_tariffs", "/sport/tariffs", "Тарифы"),
 )
 
@@ -165,13 +165,19 @@ def render_header(current_page: str = "home", user=None, panel: bool = False) ->
     </header>
     """
 
+    current = ' aria-current="true"'
+    beauty_href = "/directions/beauty" if is_sport else "/"
+    switch = f'''<nav class="direction-switch" aria-label="Направление Руми">
+        <a href="{beauty_href}"{current if not is_sport else ""}>Красота</a>
+        <a href="/sport/"{current if is_sport else ""}>Спорт</a>
+    </nav>'''
     public_nav = SPORT_PUBLIC_NAV if is_sport else PUBLIC_NAV
     links = "".join(
         _nav_link(href, label, key == current_page) for key, href, label in public_nav
     )
     return f"""
     <header id="main-header">
-        <div class="header-row">{logo}
+        <div class="header-row">{logo}{switch}
             <nav id="header-nav" aria-label="Разделы сайта">{links}</nav>
             <button type="button" id="header-burger" aria-label="Открыть меню"
                     aria-expanded="false" aria-controls="header-nav">

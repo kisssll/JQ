@@ -3,9 +3,13 @@ import json
 from urllib.parse import quote
 
 from app.core.config import settings
-from app.web.components.styles import get_base_styles
+from app.web.components.styles import _asset_version, get_base_styles
 from app.models.sport import SportOrganization
 from app.web.pages.legal import LEGAL_VERSION
+
+
+_SPARTA_CSS = _asset_version("sport-sparta.css")
+_SPARTA_JS = _asset_version("sport-sparta.js")
 
 
 def _sport_meta_description(name: str, city: str, description: str) -> str:
@@ -112,10 +116,10 @@ def render_sparta_app(
     <title>{safe_title}</title>
     {schema}
     {favicon}
-    <link rel="stylesheet" href="/static/dist/sport-sparta.css">
+    <link rel="stylesheet" href="/static/dist/sport-sparta.css?v={_SPARTA_CSS}">
 </head>
 <body>
     <div id="root" data-gym-slug="{safe_slug}" data-gym-name="{safe_name_attr}" data-gym-city="{safe_city_attr}" data-gym-logo="{safe_logo_attr}"></div>
-    <script type="module" src="/static/dist/sport-sparta.js"></script>
+    <script type="module" src="/static/dist/sport-sparta.js?v={_SPARTA_JS}"></script>
 </body>
 </html>"""

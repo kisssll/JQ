@@ -637,3 +637,11 @@ body.sport-directory .sport-tariffs__empty a {
         padding: 1.25rem;
     }
 }
+
+body.sport-directory .direction-switch {
+    border-color: var(--sport-blue);
+}
+body.sport-directory .direction-switch a:not([aria-current]):hover {
+    background: var(--sport-sky);
+    color: var(--sport-dark);
+}

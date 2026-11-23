@@ -2209,7 +2209,7 @@ main:has(> .page-title-sr) { padding-top: 66px; }
 .account-card form input { flex-basis: 220px; }
 .mobile-book { display: none; }
 @media (min-width: 901px) and (max-width: 1150px) { .timetable-session { grid-template-columns: 1fr; } .timetable-session button { justify-self: start; } }
-@media (max-width: 1180px) {
+@media (max-width: 1360px) {
   .hdr-staff { display: none; }
   .hdr-burger { display: flex; }
   .hdr-nav { display: none; position: fixed; inset: 66px 0 0; height: auto; background: #111; padding: 12px var(--px) 30px; flex-direction: column; gap: 0; overflow-y: auto; overscroll-behavior: contain; }
@@ -2265,4 +2265,33 @@ main:has(> .page-title-sr) { padding-top: 66px; }
 @media (prefers-reduced-motion: reduce) {
   .btn, .btn svg, .hdr, .hdr-nav button, .gallery-open .ph-img, .membership-faq summary span { transition: none; }
   .btn:active:not(:disabled) { translate: none; }
+}
+
+.hdr, .hdr.solid, .hdr-nav.open {
+  color: var(--sport-heading);
+  background: var(--sport-background);
+}
+.hdr .direction-switch {
+  margin-right: auto;
+  --color-background: var(--sport-background);
+  --color-heading: var(--sport-heading);
+  --color-accent: var(--sport-primary);
+  --color-btn-text: var(--sport-btn-text);
+  border-color: var(--sport-blue);
+}
+.hdr .hdr-staff, .hdr .hdr-nav button { color: var(--sport-heading); }
+.hdr .hdr-nav button.on { color: var(--sport-accent-text); }
+.hdr-burger span, .hdr-burger span::before, .hdr-burger span::after {
+  background: var(--sport-heading);
+}
+#root:has(.hdr) .btn-red, #root:has(.hdr) .btn-black {
+  background: var(--sport-primary);
+  color: var(--sport-btn-text);
+}
+.hdr .hdr-nav button::after { background: var(--sport-blue); }
+@media (max-width: 640px) {
+  .hdr { gap: 6px; padding-inline: 10px; }
+  .hdr-logo { flex-shrink: 1; min-width: 0; }
+  .hdr-logo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
+  .hdr-cta { display: none; }
 }

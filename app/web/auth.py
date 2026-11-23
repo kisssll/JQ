@@ -5,7 +5,7 @@ from sqlalchemy import select, exists
 from app.db.session import get_db
 from app.models.models import User, SalonMember, Master
 from app.models.sport import SportCoach, SportGymMember
-from app.core.security import decode_access_token
+from app.services.web_session import session_claims
 
 
 async def get_current_user_from_cookie(request: Request, db: AsyncSession = Depends(get_db)):
@@ -13,7 +13,7 @@ async def get_current_user_from_cookie(request: Request, db: AsyncSession = Depe
     token = request.cookies.get("access_token")
     if not token:
         return None
-    payload = decode_access_token(token)
+    payload = await session_claims(token)
     if payload is None:
         return None
     user_id = payload.get("sub")

@@ -44,8 +44,8 @@ def test_sport_login_and_registration_keep_sport_context():
 
     assert '<body class="auth-page sport-directory">' in login
     assert '<body class="auth-page sport-directory">' in register
-    assert "Руми Спорт · кабинет клуба" in login
-    assert "Руми Спорт · подключение клуба" in register
+    assert '<p class="auth-context">Руми Спорт</p>' in login
+    assert '<p class="auth-context">Руми Спорт</p>' in register
     assert 'href="/sport/forgot-password?redirect=%2Fsport%2Fbusiness"' in login
     assert 'value="/sport/business"' in register
 
@@ -54,7 +54,7 @@ def test_regular_login_does_not_get_sport_theme():
     page = render_login_page(_request("/login", "redirect=%2Fbusiness%2Fdashboard"))
 
     assert '<body class="auth-page">' in page
-    assert "Руми Спорт · кабинет клуба" not in page
+    assert '<p class="auth-context">Руми Спорт</p>' not in page
 
 
 def test_sport_auth_routes_keep_shared_auth_forms_and_sport_return():
@@ -146,7 +146,8 @@ def test_sport_public_pages_only_link_to_sport_internal_routes():
     ]
 
     assert internal_links
-    assert all(href == "/sport" or href.startswith("/sport/") for href in internal_links)
+    assert "/directions/beauty" in internal_links
+    assert all(href in {"/sport", "/directions/beauty"} or href.startswith("/sport/") for href in internal_links)
 
 
 def test_sport_password_recovery_stays_in_sport_flow():

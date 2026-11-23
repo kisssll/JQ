@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import re
+import uuid
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -108,7 +109,7 @@ def create_access_token(subject: int | str, expires_delta: Optional[timedelta] =
     """Создаёт подписанный RS256 access-токен. subject → claim `sub`."""
     now = datetime.now(timezone.utc)
     expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    payload = {"sub": str(subject), "iat": now, "exp": expire}
+    payload = {"jti": uuid.uuid4().hex, "sub": str(subject), "iat": now, "exp": expire}
     return jwt.encode(payload, _private_key(), algorithm=settings.ALGORITHM)
 
 

@@ -1,4 +1,4 @@
-// static/src/js/header.js — бургер шапки (до 900px) и этикетка-вход в аккаунт.
+// static/src/js/header.js — бургер шапки (в узкой шапке) и этикетка-вход в аккаунт.
 import { enter, exit } from './motion.js';
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -66,6 +66,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     window.addEventListener('resize', function () {
-        if (window.innerWidth > 900 && navOpen()) setNav(false);
+        if (navOpen() && getComputedStyle(burger).display === 'none') setNav(false);
     });
 });

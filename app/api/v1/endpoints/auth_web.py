@@ -260,7 +260,7 @@ async def forgot_password_web(
         await password_reset.deliver(
             user,
             token,
-            request.url.netloc,
+            (settings.SPORT_HOST if sport_flow else settings.BEAUTY_HOST) or request.url.netloc,
             sport=sport_flow,
             redirect=_sport_redirect(redirect) if sport_flow else "/sport",
         )

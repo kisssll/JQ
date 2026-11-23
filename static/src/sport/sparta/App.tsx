@@ -390,6 +390,10 @@ export default function App() {
           {GYM_LOGO && <img src={GYM_LOGO} alt={organization.name} />}
           <span>{organization.name}</span>
         </button>
+        <nav className="direction-switch" aria-label="Направление Руми">
+          <a href="/directions/beauty">Красота</a>
+          <a href="/sport/" aria-current="true">Спорт</a>
+        </nav>
         <nav id="site-navigation" aria-label="Основная навигация" className={menu ? "hdr-nav open" : "hdr-nav"}>
           {NAV.map(([t, p]) => (
             <button key={p} className={page === p ? "on" : ""} aria-current={page === p ? "page" : undefined} onClick={() => go(p)}>
@@ -397,12 +401,12 @@ export default function App() {
             </button>
           ))}
           <button className="hdr-staff-m" onClick={() => go("/account")}>
-            Войти / зарегистрироваться
+            Мой кабинет
           </button>
         </nav>
         <div className="hdr-right">
           <button className="hdr-staff" onClick={() => go("/account")}>
-            Войти / регистрация
+            Мой кабинет
           </button>
           <button className="btn btn-red hdr-cta" onClick={() => book()}>
             Записаться
@@ -452,7 +456,7 @@ export default function App() {
           <div>
             <b>Клуб</b>
             <p>{organization.city} · спортивный клуб</p>
-            <button onClick={() => go("/account")}>Войти / зарегистрироваться</button>
+            <button onClick={() => go("/account")}>Мой кабинет</button>
           </div>
         </div>
       </footer>

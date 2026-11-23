@@ -428,6 +428,9 @@ async def test_guest_booking_counts_the_past_by_salon_time(client, db_session):
         await db.commit()
 
     soon = _local_today("Etc/GMT+12") + timedelta(hours=1)
+    # Часовая услуга должна целиком помещаться в смену 00:00–23:59.
+    if soon.hour == 23:
+        soon = _at(soon + timedelta(days=1), 0)
     r = await client.post("/api/v1/guest/booking", json={
         "salon_id": ctx["salon_id"], "master_id": ctx["master_id"],
         "service_id": ctx["service_id"], "start_time": soon.isoformat(),

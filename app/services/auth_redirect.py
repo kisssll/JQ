@@ -25,7 +25,8 @@ def safe_redirect(target: Optional[str]) -> str:
 def safe_sport_redirect(target: Optional[str]) -> str:
     """Keep redirects inside /sport, including after URL path normalization."""
     target = safe_redirect(target)
-    if target != "/sport" and not target.startswith("/sport/"):
+    path = target.split("?", 1)[0].split("#", 1)[0]
+    if path != "/sport" and not path.startswith("/sport/"):
         return "/sport"
     decoded_path = unquote(target).split("?", 1)[0].split("#", 1)[0]
     segments = decoded_path.split("/")

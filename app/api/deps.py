@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app.db.session import get_db
 from app.models.models import User, UserRole, SalonMember, Master, ModelModerationStatus
 from app.core.config import settings
-from app.core.security import decode_access_token
+from app.services.web_session import session_claims
 
 # auto_error=False: отсутствие заголовка Authorization не должно ронять запрос
 # здесь же — веб-панель шлёт JWT только в cookie access_token (см.
@@ -36,7 +36,7 @@ async def get_current_user(
     if not token:
         raise credentials_exception
 
-    payload = decode_access_token(token)
+    payload = await session_claims(token)
     if payload is None:
         raise credentials_exception
     user_id = payload.get("sub")

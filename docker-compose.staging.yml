@@ -53,6 +53,8 @@ services:
       ENVIRONMENT: production
       TZ: Asia/Novosibirsk
       COOKIE_SECURE: "true"
+      BEAUTY_HOST: ${STAGING_DOMAIN:-staging.201-24-60-247.sslip.io}
+      SPORT_HOST: sport-staging.rrumi.ru
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379/0

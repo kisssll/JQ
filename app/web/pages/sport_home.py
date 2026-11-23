@@ -122,8 +122,7 @@ def render_sport_home_page(user=None) -> str:
                         {ui.button("Найти клуб", type_="submit", small=True)}
                     </form>
                     <div class="sport-home__actions">
-                        {ui.button("Все клубы", href="/sport/clubs", icon=ICON_ARROW_RIGHT)}
-                        <a class="sport-home__business-link" href="/sport/business">Для спортивных клубов</a>
+                        <a class="sport-home__business-link" href="/sport/business">Для клубов</a>
                     </div>
                 </div>
                 <div class="sport-home__art" aria-hidden="true">

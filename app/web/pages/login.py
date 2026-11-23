@@ -90,7 +90,7 @@ def render_login_page(request: Request) -> str:
 <body class="{body_class}">
     <div class="auth-card">
         <div class="auth-logo">руми.</div>
-        {'<p class="auth-context">Руми Спорт · кабинет клуба</p>' if sport_flow else ''}
+        {'<p class="auth-context">Руми Спорт</p>' if sport_flow else ''}
         <h1 class="auth-title">Вход</h1>
         {banner}{success}
         <form action="/api/v1/auth/login-web" method="post" data-submit-lock>

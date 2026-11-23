@@ -142,3 +142,22 @@ async def test_pages_render(client: httpx.AsyncClient):
     assert r.status_code == 200 and "Новый пароль" in r.text
     r = await client.get("/reset-password")
     assert "Ссылка не подходит" in r.text
+
+
+async def test_sport_reset_link_and_return_to_training(client, db_session, sent_jobs, monkeypatch):
+    host = "sport-staging.rrumi.ru"
+    monkeypatch.setattr(pwreset.settings, "SPORT_HOST", host)
+    user_data = await register_user(client, PHONE)
+    async with db_session() as db:
+        user = await db.get(User, user_data["user"]["id"])
+        user.tg_chat_id = 777001
+        await db.commit()
+    form = {"auth_variant": "sport", "redirect": "/sport/sparta/schedule?day=2"}
+    await client.post("/api/v1/auth/forgot-password", data={**form, "phone": PHONE})
+    token = await _issued_token(user_data["user"]["id"])
+    assert f"https://{host}/sport/reset-password?token={token}&redirect=%2Fsport%2Fsparta" in sent_jobs[0][1][1]
+    response = await client.post("/api/v1/auth/reset-password",
+                                 data={**form, "token": token, "password": NEW_PASSWORD})
+    assert response.headers["location"] == "/sport/login?reset=1&redirect=%2Fsport%2Fsparta%2Fschedule%3Fday%3D2"
+    login = await client.post("/api/v1/auth/login-web", data={**form, "phone": PHONE, "password": NEW_PASSWORD})
+    assert login.headers["location"] == form["redirect"]

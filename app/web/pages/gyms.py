@@ -215,7 +215,7 @@ async def render_gyms_page(
                            enterkeyhint="search">
                     {ui.button("Найти", type_="submit", small=True, form="gymsFilterForm")}
                 </div>
-                <p class="gym-business-link">{ui.button("Подключить спортивный клуб", kind="secondary", href="/sport/business")}</p>
+                <p class="gym-business-link"><a href="/sport/business">Для клубов</a></p>
             </div>
         </section>
         <section class="catalog-body">

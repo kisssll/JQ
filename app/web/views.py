@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.core.config import settings
 from app.services.live_accounts import live_master, salon_has_live_owner
 from app.models.models import Salon, User, Master, Service as ServiceModel
+from app.web.directions import logout
 from app.services.subscription import access_clause
 from app.services.price import format_service_price
 from app.web.pages.home import render_home_page
@@ -62,10 +63,8 @@ async def sport_register_page(request: Request):
 
 
 @router.get("/sport/logout", response_class=HTMLResponse, include_in_schema=False)
-async def sport_logout_page():
-    response = RedirectResponse(url="/sport/", status_code=302)
-    response.delete_cookie("access_token")
-    return response
+async def sport_logout_page(request: Request):
+    return await logout(request, "/sport/")
 
 
 @router.get("/sport/forgot-password", response_class=HTMLResponse, include_in_schema=False)
@@ -865,10 +864,8 @@ async def register_page(request: Request):
 
 
 @router.get("/logout", response_class=HTMLResponse)
-async def logout_page():
-    response = RedirectResponse(url="/", status_code=302)
-    response.delete_cookie("access_token")
-    return response
+async def logout_page(request: Request):
+    return await logout(request, "/")
 
 
 @router.get("/about", response_class=HTMLResponse)

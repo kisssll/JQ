@@ -11,6 +11,7 @@ from slowapi import _rate_limit_exceeded_handler
 
 from app.api.v1.endpoints import users
 from app.api.v1.endpoints import bookings
+from app.web.directions import DirectionRoutes, router as directions_router
 from app.web.views import router as web_router, sitemap_xml
 from app.api.v1.endpoints import master as master_endpoints
 from app.api.v1.endpoints import outreach
@@ -158,6 +159,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(DirectionRoutes)
 app.add_middleware(SeoTagsMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CSRFOriginMiddleware)
@@ -230,4 +232,5 @@ app.add_api_route("/sitemap.xml", sitemap_xml, methods=["GET"], include_in_schem
 
 
 # 3. Веб-роутер (страницы) — ПОСЛЕ API
+app.include_router(directions_router)
 app.include_router(web_router, include_in_schema=False)

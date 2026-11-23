@@ -167,7 +167,7 @@ def render_register_page(request: Request) -> str:
 <body class="{body_class}">
     <div class="auth-card">
         <div class="auth-logo">руми.</div>
-        {'<p class="auth-context">Руми Спорт · подключение клуба</p>' if sport_flow else ''}
+        {'<p class="auth-context">Руми Спорт</p>' if sport_flow else ''}
         <h1 class="auth-title">Регистрация</h1>
         {banner}
         <form action="/api/v1/auth/register-web" method="post" data-submit-lock>
