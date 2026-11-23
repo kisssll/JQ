@@ -336,6 +336,12 @@ body.sport-directory .sport-home__faq-list details > p a {
         padding-top: 5.5rem;
     }
 
+    body.sport-directory .sport-home__title {
+        max-width: 100%;
+        font-size: clamp(1.875rem, 9vw, 2.5rem);
+        overflow-wrap: anywhere;
+    }
+
     body.sport-directory .sport-home__features,
     body.sport-directory .sport-home__faq {
         padding: 3rem 0;

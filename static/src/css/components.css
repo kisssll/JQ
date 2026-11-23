@@ -402,6 +402,24 @@
 @media (max-width: 900px) {
     .acct-tag { right: 12px; }
     .acct-tag__card { width: 60px; }
+
+    /* На главных кнопка целиком помещается в шапке высотой 60px. */
+    body:is(.sport-home, :has(> .home-main)) .acct-tag {
+        top: var(--space-8);
+        animation: none;
+    }
+
+    body:is(.sport-home, :has(> .home-main)) :is(.acct-tag__string, .acct-tag__hole) {
+        display: none;
+    }
+
+    body:is(.sport-home, :has(> .home-main)) .acct-tag__card {
+        align-content: center;
+        gap: 0;
+        padding: var(--space-4);
+        border-radius: var(--radius-16);
+        box-shadow: none;
+    }
 }
 
 .acct-tag__btn:focus-visible,
