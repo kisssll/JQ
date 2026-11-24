@@ -43,6 +43,13 @@ class SportOrganization(Base):
         Boolean, nullable=False, default=True, server_default="true"
     )
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    subscription_tier: Mapped[Optional[str]] = mapped_column(String(30), nullable=True, default="gym", server_default="gym")
+    subscription_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="trialing", server_default="trialing"
+    )
+    subscription_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    custom_subscription_price: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    custom_subscription_notes: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

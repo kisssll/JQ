@@ -21,14 +21,14 @@ def render_sport_business_page(
     success_banner = ""
     if success:
         success_banner = """
-        <div class="sport-business__success" style="background:var(--color-success-light, #e6f9ed);color:var(--color-success, #12803b);padding:1rem 1.25rem;border-radius:var(--radius-16, 16px);margin-bottom:2rem;font-size:0.95rem;line-height:1.5;">
+        <div class="sport-business__success" style="background:var(--color-success-light);color:var(--color-success);padding:1rem 1.25rem;border-radius:var(--radius-16);margin-bottom:2rem;font-size:0.95rem;line-height:1.5;">
             <strong>Заявка на подключение клуба принята!</strong><br>
             Клуб отправлен на модерацию. Вы уже можете перейти в управление залом для настройки расписания, тренеров и направлений.
         </div>"""
 
     cta_register = """
         <div style="margin: 1.5rem 0 2rem;">
-            <a href="/sport/business/register-gym" class="btn-primary" style="display:inline-block;padding:0.75rem 1.5rem;text-decoration:none;border-radius:var(--radius-16, 16px);font-weight:600;">
+            <a href="/sport/business/register-gym" class="btn-primary" style="display:inline-block;padding:0.75rem 1.5rem;text-decoration:none;border-radius:var(--radius-16);font-weight:600;">
                 + Заполнить анкету и добавить клуб
             </a>
         </div>"""
@@ -120,7 +120,7 @@ def render_sport_business_dashboard_page(
     success_banner = ""
     if success:
         success_banner = """
-        <div class="sport-business__success" style="background:var(--color-success-light, #e6f9ed);color:var(--color-success, #12803b);padding:1rem 1.25rem;border-radius:var(--radius-16, 16px);margin-bottom:2rem;font-size:0.95rem;line-height:1.5;">
+        <div class="sport-business__success" style="background:var(--color-success-light);color:var(--color-success);padding:1rem 1.25rem;border-radius:var(--radius-16);margin-bottom:2rem;font-size:0.95rem;line-height:1.5;">
             <strong>Заявка на подключение клуба принята!</strong><br>
             Клуб отправлен на модерацию. Вы уже можете перейти в управление залом для настройки расписания, тренеров и направлений.
         </div>"""

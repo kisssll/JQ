@@ -1,34 +1,48 @@
-from types import SimpleNamespace
-
-from app.web.pages.sport_tariffs import render_sport_tariffs_page
-
-
-def test_sport_tariffs_page_uses_sport_navigation_and_shows_club_plans():
-    plan = SimpleNamespace(
-        name="Абонемент",
-        price=12500,
-        unit="месяц",
-        items=["Безлимитные тренировки"],
-    )
-    organization = SimpleNamespace(
-        name="Спарта",
-        city="Томск",
-        slug="sparta",
-    )
-
-    page = render_sport_tariffs_page(plans=[(plan, organization)])
-    nav = page.split('id="header-nav"', 1)[1].split("</nav>", 1)[0]
-
-    assert 'href="/sport/tariffs"' in nav
-    assert 'href="/business"' not in nav
-    assert "Стать моделью" not in nav
-    assert "Спарта" in page
-    assert "12 500 ₽" in page
-    assert "/sport/sparta/prices" in page
+import pytest
+from app.services.sport_tariffs import (
+    SPORT_ADDITIONAL_VENUE_PRICE,
+    SPORT_COACH_MONTHLY_PRICE,
+    SPORT_GYM_BASE_MONTHLY_PRICE,
+)
 
 
-def test_sport_tariffs_page_shows_empty_state_when_no_club_plans():
-    page = render_sport_tariffs_page()
+async def test_sport_tariffs_page_renders_calculator_and_plans(client):
+    response = await client.get("/sport/tariffs")
+    assert response.status_code == 200
+    html = response.text
 
-    assert "Пока нет опубликованных тарифов" in page
-    assert 'href="/sport/"' in page
+    # Title & eyebrow
+    assert "Тарифы и информация" in html
+    assert "Руми Спорт · тарифы" in html
+
+    # Calculator elements
+    assert "data-sport-calculator" in html
+    assert "Я отдельный тренер" in html
+    assert "Спортзал / сеть" in html
+    assert "Сколько залов или филиалов у вас?" in html
+    assert f"{SPORT_COACH_MONTHLY_PRICE} ₽" in html
+    assert "3 500 ₽" in html
+    assert "2 500 ₽" in html
+
+    # Tariff plans cards
+    assert "Тренер" in html
+    assert "Спортивный клуб" in html
+    assert "Спортивная сеть" in html
+    assert "Индивидуальный" in html
+
+    # Tabs
+    assert "Тарифы и калькулятор" in html
+    assert "Документы" in html
+    assert "Инструкции" in html
+
+    # Documents tab
+    docs_resp = await client.get("/sport/tariffs?tab=documents")
+    assert docs_resp.status_code == 200
+    assert "Условия использования платформы для спортивных клубов" in docs_resp.text
+    assert "Согласие на обработку персональных данных" in docs_resp.text
+
+    # Guides tab
+    guides_resp = await client.get("/sport/tariffs?tab=guides")
+    assert guides_resp.status_code == 200
+    assert "Как подключить спортивный клуб к платформе" in guides_resp.text
+    assert "Как работает индивидуальная запись к тренерам" in guides_resp.text

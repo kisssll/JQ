@@ -6,6 +6,7 @@
 import logging
 import secrets
 from datetime import datetime, timezone
+from typing import Optional
 from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
@@ -270,6 +271,48 @@ async def set_salon_plan(sid: int, request: Request, plan: str = Form(...),
            f"«{salon.name}»: тариф {was} → {plan}", salon_id=salon.id)
     await db.commit()
     return _back("salons", ok=f"«{salon.name}»: тариф {TARIFF_CATALOG[plan].name}")
+
+
+@router.post("/salons/{sid}/custom-offer")
+async def set_salon_custom_offer(
+    sid: int,
+    request: Request,
+    price: Optional[int] = Form(None),
+    notes: str = Form(""),
+    reset: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Закрепить индивидуальное предложение (тариф) за салоном.
+    Переопределяет расчёт по стандартной сетке платформы.
+    """
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    salon = (await db.execute(select(Salon).where(Salon.id == sid))).scalar_one_or_none()
+    if not salon:
+        return _back("salons", err="Салон не найден")
+
+    if reset == "1" or price is None:
+        salon.custom_subscription_price = None
+        salon.custom_subscription_notes = None
+        _audit(db, admin.id, "reset_custom_offer", "salon", salon.id,
+               f"«{salon.name}»: индивидуальное предложение сброшено", salon_id=salon.id)
+        await db.commit()
+        return _back("salons", ok=f"«{salon.name}»: возвращён стандартный расчёт тарифа")
+
+    if price < 0:
+        return _back("salons", err="Цена не может быть отрицательной")
+
+    salon.custom_subscription_price = int(price)
+    clean_notes = (notes or "").strip()
+    salon.custom_subscription_notes = clean_notes or None
+    _audit(db, admin.id, "set_custom_offer", "salon", salon.id,
+           f"«{salon.name}»: закреплено индивидуальное предложение {price} ₽/мес ({clean_notes})",
+           salon_id=salon.id)
+    await db.commit()
+    formatted = f"{price:,}".replace(",", " ")
+    return _back("salons", ok=f"«{salon.name}»: закреплён индивидуальный тариф {formatted} ₽/мес")
 
 
 @router.post("/salons/{sid}/revoke-access")
@@ -691,6 +734,113 @@ async def sport_organization_reject(
     )
     await db.commit()
     return _back("applications", ok=f"«{organization.name}» отклонён")
+
+
+@router.post("/sport/organizations/{organization_id}/custom-offer")
+async def sport_organization_custom_offer(
+    organization_id: int,
+    request: Request,
+    price: Optional[int] = Form(None),
+    notes: str = Form(""),
+    reset: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Закрепить индивидуальное предложение (тариф) за спортивным клубом."""
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    from app.models.sport import SportOrganization
+
+    org = (await db.execute(select(SportOrganization).where(SportOrganization.id == organization_id))).scalar_one_or_none()
+    if not org:
+        return _back("sport", err="Спортивный клуб не найден")
+
+    if reset == "1" or price is None:
+        org.custom_subscription_price = None
+        org.custom_subscription_notes = None
+        _audit(db, admin.id, "reset_custom_offer", "sport_organization", org.id,
+               f"«{org.name}»: индивидуальное предложение сброшено")
+        await db.commit()
+        return _back("sport", ok=f"«{org.name}»: возвращён стандартный расчёт тарифа")
+
+    if price < 0:
+        return _back("sport", err="Цена не может быть отрицательной")
+
+    org.custom_subscription_price = int(price)
+    clean_notes = (notes or "").strip()
+    org.custom_subscription_notes = clean_notes or None
+    _audit(db, admin.id, "set_custom_offer", "sport_organization", org.id,
+           f"«{org.name}»: закреплено индивидуальное предложение {price} ₽/мес ({clean_notes})")
+    await db.commit()
+    formatted = f"{price:,}".replace(",", " ")
+    return _back("sport", ok=f"«{org.name}»: закреплён индивидуальный тариф {formatted} ₽/мес")
+
+
+@router.post("/sport/organizations/{organization_id}/grant-trial")
+async def sport_organization_grant_trial(
+    organization_id: int,
+    request: Request,
+    days: int = Form(30),
+    db: AsyncSession = Depends(get_db),
+):
+    """Выдать спортивному клубу бесплатный пробный период."""
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    from app.models.sport import SportOrganization
+    from datetime import datetime, timedelta, timezone
+
+    org = (await db.execute(select(SportOrganization).where(SportOrganization.id == organization_id))).scalar_one_or_none()
+    if not org:
+        return _back("sport", err="Спортивный клуб не найден")
+
+    days = max(1, min(int(days or 30), 3650))
+    org.subscription_status = "trialing"
+    now = datetime.now(timezone.utc)
+    base = org.subscription_expires_at if org.subscription_expires_at and org.subscription_expires_at > now else now
+    org.subscription_expires_at = base + timedelta(days=days)
+    _audit(db, admin.id, "sport_grant_trial", "sport_organization", org.id,
+           f"«{org.name}»: выдан бесплатный период {days} дн. до {org.subscription_expires_at:%d.%m.%Y}")
+    await db.commit()
+    return _back("sport", ok=f"«{org.name}»: пробный период продлён до {org.subscription_expires_at:%d.%m.%Y}")
+
+
+@router.post("/sport/organizations/{organization_id}/grant-access")
+async def sport_organization_grant_access(
+    organization_id: int,
+    request: Request,
+    months: int = Form(1),
+    forever: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Выдать спортивному клубу оплаченный доступ вручную."""
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    from app.models.sport import SportOrganization
+    from app.services.subscription import OPEN_ENDED_UNTIL
+    from datetime import datetime, timedelta, timezone
+
+    org = (await db.execute(select(SportOrganization).where(SportOrganization.id == organization_id))).scalar_one_or_none()
+    if not org:
+        return _back("sport", err="Спортивный клуб не найден")
+
+    now = datetime.now(timezone.utc)
+    months = max(1, min(int(months or 1), 120))
+    base = org.subscription_expires_at if org.subscription_expires_at and org.subscription_expires_at > now else now
+    until = OPEN_ENDED_UNTIL if forever else base + timedelta(days=30 * months)
+    org.subscription_status = "active"
+    org.subscription_expires_at = until
+
+    how = "бессрочно" if forever else f"на {months} мес."
+    _audit(db, admin.id, "sport_grant_access", "sport_organization", org.id,
+           f"«{org.name}»: доступ выдан {how} до {until:%d.%m.%Y}")
+    await db.commit()
+    ok = f"«{org.name}»: доступ открыт бессрочно" if forever else f"«{org.name}»: доступ открыт до {until:%d.%m.%Y}"
+    return _back("sport", ok=ok)
 
 
 @router.post("/salons/{sid}/approve")

@@ -406,28 +406,85 @@ def _sport_organizations_tab(organizations, owner_phone_by_id):
             "approved": ("одобрен", "success"),
             "rejected": ("отклонён", "danger"),
         }.get(organization.moderation_status, (organization.moderation_status, "neutral"))
+        custom_price = getattr(organization, "custom_subscription_price", None)
+        custom_notes = getattr(organization, "custom_subscription_notes", None)
+        sub_badge = (
+            f' {_badge(f"инд. тариф {custom_price:,} ₽/мес".replace(",", " "), "accent")}'
+            if custom_price is not None else ""
+        )
+        sub_expires = organization.subscription_expires_at.strftime("%d.%m.%Y") if getattr(organization, "subscription_expires_at", None) else "не задан"
+
         cards += f"""
         <article class="r-card adm-app">
             {_thumb(organization.logo_url, "lg", ICON_BUILDING2)}
             <div class="adm-app__body">
                 <div class="adm-app__head">
                     <strong>{_esc(organization.name)}</strong>
-                    <span class="adm-salon-badges">{_badge(status[0], status[1])}{published}</span>
+                    <span class="adm-salon-badges">{_badge(status[0], status[1])}{published}{sub_badge}</span>
                 </div>
                 <p class="adm-meta text-muted">
                     #{organization.id} · {_esc(organization.city)} · {_esc(organization.address or "")}
-                    · Владелец: <strong>{_esc(owner)}</strong>
+                    · Владелец: <strong>{_esc(owner)}</strong> · Доступ: <strong>до {sub_expires}</strong>
                 </p>
                 <p class="adm-small">Страница: <a href="/sport/{_esc(organization.slug)}" target="_blank" rel="noopener">/sport/{_esc(organization.slug)}</a></p>
-                <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/owner" class="adm-form">
-                    <label class="adm-field">
-                        <span class="adm-field-label">Назначить владельца по телефону</span>
-                        <input name="owner_phone" placeholder="+7 999 123-45-67"
-                               class="r-input adm-input" aria-label="Телефон владельца спортивного клуба">
-                    </label>
-                    {_btn("Назначить владельца")}
-                </form>
-                <p class="adm-hint">Укажите телефон существующего аккаунта. Пустое поле снимает владельца.</p>
+
+                <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin:0.75rem 0;">
+                    <div style="flex:1;min-width:240px;">
+                        <h4 class="adm-group-title" style="margin:0 0 0.4rem;font-size:0.85rem;">Владелец клуба</h4>
+                        <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/owner" class="adm-form">
+                            <label class="adm-field">
+                                <span class="adm-field-label">Назначить по телефону</span>
+                                <input name="owner_phone" placeholder="+7 999 123-45-67"
+                                       class="r-input adm-input" aria-label="Телефон владельца спортивного клуба">
+                            </label>
+                            {_btn("Назначить")}
+                        </form>
+                    </div>
+
+                    <div style="flex:1;min-width:280px;">
+                        <h4 class="adm-group-title" style="margin:0 0 0.4rem;font-size:0.85rem;">Доступ и бесплатный период</h4>
+                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;">
+                            <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/grant-trial" class="adm-form">
+                                <label class="adm-field">
+                                    <span class="adm-field-label">Дней</span>
+                                    <input name="days" type="number" min="1" max="365" value="30" class="r-input adm-input is-num" style="width:70px;">
+                                </label>
+                                {_btn("Триал")}
+                            </form>
+                            <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/grant-access" class="adm-form">
+                                <label class="adm-field">
+                                    <span class="adm-field-label">Месяцев</span>
+                                    <input name="months" type="number" min="1" max="120" value="1" class="r-input adm-input is-num" style="width:70px;">
+                                </label>
+                                {_btn("Доступ")}
+                            </form>
+                            <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/grant-access" class="adm-form"
+                                  data-confirm="Открыть «{_esc(organization.name)}» доступ БЕССРОЧНО?" data-confirm-label="Открыть бессрочно">
+                                <input type="hidden" name="forever" value="1">
+                                {_btn("Бессрочно")}
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border-top:1px dashed var(--color-border);padding-top:0.75rem;margin-top:0.5rem;">
+                    <p class="adm-small" style="font-weight:600;margin:0 0 0.4rem;">Индивидуальное предложение (вместо расчёта платформы 3500+2500):</p>
+                    <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/custom-offer" class="adm-form" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;">
+                        <label class="adm-field">
+                            <span class="adm-field-label">Цена, ₽/мес</span>
+                            <input name="price" type="number" min="0" max="500000" placeholder="2500" value="{custom_price if custom_price is not None else ''}" class="r-input adm-input is-num" style="width:110px;">
+                        </label>
+                        <label class="adm-field">
+                            <span class="adm-field-label">Условия / примечание</span>
+                            <input name="notes" placeholder="Спецусловия сети" value="{_esc(custom_notes or '')}" class="r-input adm-input" style="width:180px;">
+                        </label>
+                        {_btn("Закрепить")}
+                    </form>
+                    {f'''<form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/custom-offer" class="adm-form" style="margin-top:0.3rem;">
+                        <input type="hidden" name="reset" value="1">
+                        {_btn("Сбросить к стандарту платформы", "secondary")}
+                    </form>''' if custom_price is not None else ""}
+                </div>
             </div>
         </article>"""
     if not cards:
@@ -594,6 +651,24 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
                             </label>
                             {_btn("Сменить тариф")}
                         </form>
+                        <div style="border-top:1px dashed var(--color-border);padding-top:0.75rem;margin-top:0.5rem;width:100%;">
+                            <p class="adm-small" style="font-weight:600;margin:0 0 0.4rem;">Индивидуальное предложение (вместо расчёта платформы):</p>
+                            <form method="post" action="/api/v1/admin/salons/{s.id}/custom-offer" class="adm-form" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;">
+                                <label class="adm-field">
+                                    <span class="adm-field-label">Цена, ₽/мес</span>
+                                    <input name="price" type="number" min="0" max="500000" placeholder="2500" value="{s.custom_subscription_price if getattr(s, 'custom_subscription_price', None) is not None else ''}" class="r-input adm-input is-num" style="width:110px;">
+                                </label>
+                                <label class="adm-field">
+                                    <span class="adm-field-label">Условия / примечание</span>
+                                    <input name="notes" placeholder="Спецусловия сети" value="{_esc(getattr(s, 'custom_subscription_notes', None) or '')}" class="r-input adm-input" style="width:180px;">
+                                </label>
+                                {_btn("Закрепить")}
+                            </form>
+                            {f'''<form method="post" action="/api/v1/admin/salons/{s.id}/custom-offer" class="adm-form" style="margin-top:0.3rem;">
+                                <input type="hidden" name="reset" value="1">
+                                {_btn("Сбросить к стандарту платформы", "secondary")}
+                            </form>''' if getattr(s, "custom_subscription_price", None) is not None else ""}
+                        </div>
                     </div>
                 </section>
             </div>
@@ -801,8 +876,13 @@ def _subscription_cell(s) -> str:
     pending_html = (f'<span class="adm-sub is-trial">доплата {int(round(pending))} ₽</span>'
                     if pending > 0 else "")
 
+    custom_offer_info = (
+        f' {_badge(f"инд. {getattr(s, "custom_subscription_price", 0):,} ₽/мес".replace(",", " "), "accent")}'
+        if getattr(s, "custom_subscription_price", None) is not None else ""
+    )
+
     return (f'<span>Тариф: <strong>{plan}</strong></span>'
-            f'<span class="adm-sub {tone}">{label}</span>{access}{pending_html}')
+            f'<span class="adm-sub {tone}">{label}</span>{access}{pending_html}{custom_offer_info}')
 
 
 def _reviews_tab(reviews, client_by_id, master_name_by_id, salon_name_by_id):

@@ -501,6 +501,8 @@ class Salon(Base):
 
     working_hours: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     business_tier: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    custom_subscription_price: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    custom_subscription_notes: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     #: Победитель конкурса Руми: до этой даты салон поднимается в каталоге и
     #: несёт метку. Метка обязательна — подъём без неё выглядит как скрытая
     #: реклама (см. docs/decisions/0006-metki-v-kataloge.md).

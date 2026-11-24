@@ -121,6 +121,18 @@ async def _payments_history(db: AsyncSession, salon_id: int) -> str:
 
 def _next_charge_block(salon: Salon, active_masters: int) -> str:
     """Сколько и когда спишется: тариф по текущему штату + накопленная доплата."""
+    custom_price = getattr(salon, "custom_subscription_price", None)
+    if custom_price is not None:
+        when = salon.subscription_expires_at
+        when_str = f" · {when.strftime(_DATE_FMT)}" if when else ""
+        notes = f" ({e(salon.custom_subscription_notes)})" if salon.custom_subscription_notes else ""
+        return (
+            f'<div style="background:var(--color-accent-light);border:1px solid var(--color-border);border-radius:var(--radius-16);padding:0.75rem 1rem;margin-top:0.75rem;">'
+            f'<p style="margin:0;font-size:0.95rem;color:var(--color-heading);font-weight:600;">'
+            f'Действует индивидуальное предложение: {_money(custom_price)} ₽/мес{notes}</p>'
+            f'<p style="margin:0.25rem 0 0;font-size:0.85rem;color:var(--color-muted);">Закреплено администратором платформы вместо стандартного расчёта{when_str}.</p>'
+            f'</div>'
+        )
     plan = salon.business_tier or resolve_plan_for_employee_count(active_masters)
     try:
         base = compute_amount(plan, active_masters)

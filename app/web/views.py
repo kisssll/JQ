@@ -164,30 +164,11 @@ async def register_gym_page(request: Request, db: AsyncSession = Depends(get_db)
 
 
 @router.get("/sport/tariffs", response_class=HTMLResponse, include_in_schema=False)
-async def sport_tariffs_page(request: Request, db: AsyncSession = Depends(get_db)):
-    from app.models.sport import SportMembershipPlan, SportOrganization
+async def sport_tariffs_page(request: Request, tab: str = "plans", db: AsyncSession = Depends(get_db)):
     from app.web.pages.sport_tariffs import render_sport_tariffs_page
 
     user = await get_current_user_from_cookie(request, db)
-    plans = (
-        await db.execute(
-            select(SportMembershipPlan, SportOrganization)
-            .join(
-                SportOrganization,
-                SportOrganization.id == SportMembershipPlan.organization_id,
-            )
-            .where(
-                SportOrganization.is_published.is_(True),
-                SportMembershipPlan.is_active.is_(True),
-            )
-            .order_by(
-                SportOrganization.name,
-                SportMembershipPlan.sort_order,
-                SportMembershipPlan.id,
-            )
-        )
-    ).all()
-    return HTMLResponse(content=render_sport_tariffs_page(user, plans))
+    return HTMLResponse(content=render_sport_tariffs_page(user, tab=tab))
 
 
 @router.get("/sport/business/dashboard", response_class=HTMLResponse, include_in_schema=False)

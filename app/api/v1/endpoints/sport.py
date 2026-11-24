@@ -816,7 +816,8 @@ async def remove_sport_staff(
     if staff is None:
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
     await db.commit()
-    return {"ok": True, "role": role, "name": name}
+    staff_name = getattr(staff, "name", "")
+    return {"ok": True, "role": role, "name": staff_name}
 
 
 @router.post("/organizations/{slug}/payments")
