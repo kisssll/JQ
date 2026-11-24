@@ -876,10 +876,13 @@ def _subscription_cell(s) -> str:
     pending_html = (f'<span class="adm-sub is-trial">доплата {int(round(pending))} ₽</span>'
                     if pending > 0 else "")
 
-    custom_offer_info = (
-        f' {_badge(f"инд. {getattr(s, "custom_subscription_price", 0):,} ₽/мес".replace(",", " "), "accent")}'
-        if getattr(s, "custom_subscription_price", None) is not None else ""
-    )
+    custom_price = getattr(s, "custom_subscription_price", None)
+    if custom_price is None:
+        custom_offer_info = ""
+    else:
+        custom_price_text = f"{custom_price:,}".replace(",", " ")
+        custom_offer_badge = _badge(f"инд. {custom_price_text} ₽/мес", "accent")
+        custom_offer_info = f" {custom_offer_badge}"
 
     return (f'<span>Тариф: <strong>{plan}</strong></span>'
             f'<span class="adm-sub {tone}">{label}</span>{access}{pending_html}{custom_offer_info}')
