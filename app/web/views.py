@@ -129,7 +129,7 @@ async def gyms_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/sport/business", response_class=HTMLResponse, include_in_schema=False)
-async def sport_business_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def sport_business_page(request: Request, submitted: str = "", success: str = "", db: AsyncSession = Depends(get_db)):
     from app.models.sport import SportGymMember, SportOrganization
     from app.web.pages.sport_business import render_sport_business_page
 
@@ -147,7 +147,20 @@ async def sport_business_page(request: Request, db: AsyncSession = Depends(get_d
                 .order_by(SportOrganization.created_at.desc())
             )
         ).scalars().all()
-    return HTMLResponse(content=render_sport_business_page(user, organizations))
+    show_success = bool(submitted or success == "1")
+    return HTMLResponse(content=render_sport_business_page(user, organizations, success=show_success))
+
+
+@router.get("/sport/business/register-gym", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/sport/register-gym", response_class=HTMLResponse, include_in_schema=False)
+async def register_gym_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Анкета регистрации спортивного клуба / зала."""
+    from app.web.pages.register_gym import render_register_gym_page
+
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/sport/login?redirect=/sport/business/register-gym", status_code=302)
+    return HTMLResponse(content=render_register_gym_page(user))
 
 
 @router.get("/sport/tariffs", response_class=HTMLResponse, include_in_schema=False)
@@ -180,6 +193,8 @@ async def sport_tariffs_page(request: Request, db: AsyncSession = Depends(get_db
 @router.get("/sport/business/dashboard", response_class=HTMLResponse, include_in_schema=False)
 async def sport_business_dashboard_page(
     request: Request,
+    submitted: str = "",
+    success: str = "",
     db: AsyncSession = Depends(get_db),
 ):
     from app.models.sport import SportCoach, SportGymMember, SportOrganization
@@ -215,22 +230,30 @@ async def sport_business_dashboard_page(
     )).all()
     for _, organization in coaches:
         organizations_by_id.setdefault(organization.id, (organization, "trainer"))
-    if len(organizations_by_id) == 1:
+    show_success = bool(submitted or success == "1")
+    if len(organizations_by_id) == 1 and not show_success:
         organization, _ = next(iter(organizations_by_id.values()))
         return RedirectResponse(
             f"/sport/{organization.slug}/admin",
             status_code=303,
         )
     return HTMLResponse(content=render_sport_business_dashboard_page(
-        user, list(organizations_by_id.values())
+        user, list(organizations_by_id.values()), success=show_success
     ))
 
 
 @router.get("/sport/sparta", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/sport/sparta/", response_class=HTMLResponse, include_in_schema=False)
 async def sparta_sport_page(db: AsyncSession = Depends(get_db)):
-    from app.models.sport import SportOrganization
-    from app.web.pages.sport import render_sparta_app
+    from app.models.sport import (
+        SportCoach,
+        SportDiscipline,
+        SportGalleryImage,
+        SportMembershipPlan,
+        SportOrganization,
+        SportVenue,
+    )
+    from app.web.pages.sport import render_sport_gym_template
 
     organization = (
         await db.execute(
@@ -244,13 +267,55 @@ async def sparta_sport_page(db: AsyncSession = Depends(get_db)):
         return HTMLResponse(content=render_status_page(
             404, "Страница не найдена", "Организация не опубликована.", sport=True,
         ), status_code=404)
-    return HTMLResponse(content=render_sparta_app(
-        organization.slug,
-        organization.name,
-        organization.city,
-        organization.logo_url,
-        organization.description,
-        organization.address or "",
+
+    venues = (
+        await db.execute(
+            select(SportVenue)
+            .where(SportVenue.organization_id == organization.id, SportVenue.is_active.is_(True))
+            .order_by(SportVenue.sort_order, SportVenue.id)
+        )
+    ).scalars().all()
+    coaches = (
+        await db.execute(
+            select(SportCoach)
+            .where(SportCoach.organization_id == organization.id, SportCoach.is_active.is_(True))
+            .order_by(SportCoach.sort_order, SportCoach.id)
+        )
+    ).scalars().all()
+    disciplines = (
+        await db.execute(
+            select(SportDiscipline)
+            .where(SportDiscipline.organization_id == organization.id, SportDiscipline.is_active.is_(True))
+            .order_by(SportDiscipline.sort_order, SportDiscipline.id)
+        )
+    ).scalars().all()
+    plans = (
+        await db.execute(
+            select(SportMembershipPlan)
+            .where(SportMembershipPlan.organization_id == organization.id, SportMembershipPlan.is_active.is_(True))
+            .order_by(SportMembershipPlan.sort_order, SportMembershipPlan.id)
+        )
+    ).scalars().all()
+    gallery = (
+        await db.execute(
+            select(SportGalleryImage)
+            .where(SportGalleryImage.organization_id == organization.id, SportGalleryImage.is_active.is_(True))
+            .order_by(SportGalleryImage.sort_order, SportGalleryImage.id)
+        )
+    ).scalars().all()
+
+    return HTMLResponse(content=render_sport_gym_template(
+        slug=organization.slug,
+        name=organization.name,
+        city=organization.city,
+        logo_url=organization.logo_url,
+        description=organization.description,
+        address=organization.address or "",
+        venues=venues,
+        coaches=coaches,
+        disciplines=disciplines,
+        plans=plans,
+        gallery=gallery,
     ))
 
 
@@ -265,8 +330,16 @@ async def sport_organization_page(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    from app.models.sport import SportCoach, SportGymMember, SportOrganization
-    from app.web.pages.sport import render_sparta_app
+    from app.models.sport import (
+        SportCoach,
+        SportDiscipline,
+        SportGalleryImage,
+        SportGymMember,
+        SportMembershipPlan,
+        SportOrganization,
+        SportVenue,
+    )
+    from app.web.pages.sport import render_sport_gym_template
 
     organization = (
         await db.execute(
@@ -307,13 +380,55 @@ async def sport_organization_page(
                 ),
                 status_code=404,
             )
-    return HTMLResponse(content=render_sparta_app(
-        organization.slug,
-        organization.name,
-        organization.city,
-        organization.logo_url,
-        organization.description,
-        organization.address or "",
+
+    venues = (
+        await db.execute(
+            select(SportVenue)
+            .where(SportVenue.organization_id == organization.id, SportVenue.is_active.is_(True))
+            .order_by(SportVenue.sort_order, SportVenue.id)
+        )
+    ).scalars().all()
+    coaches = (
+        await db.execute(
+            select(SportCoach)
+            .where(SportCoach.organization_id == organization.id, SportCoach.is_active.is_(True))
+            .order_by(SportCoach.sort_order, SportCoach.id)
+        )
+    ).scalars().all()
+    disciplines = (
+        await db.execute(
+            select(SportDiscipline)
+            .where(SportDiscipline.organization_id == organization.id, SportDiscipline.is_active.is_(True))
+            .order_by(SportDiscipline.sort_order, SportDiscipline.id)
+        )
+    ).scalars().all()
+    plans = (
+        await db.execute(
+            select(SportMembershipPlan)
+            .where(SportMembershipPlan.organization_id == organization.id, SportMembershipPlan.is_active.is_(True))
+            .order_by(SportMembershipPlan.sort_order, SportMembershipPlan.id)
+        )
+    ).scalars().all()
+    gallery = (
+        await db.execute(
+            select(SportGalleryImage)
+            .where(SportGalleryImage.organization_id == organization.id, SportGalleryImage.is_active.is_(True))
+            .order_by(SportGalleryImage.sort_order, SportGalleryImage.id)
+        )
+    ).scalars().all()
+
+    return HTMLResponse(content=render_sport_gym_template(
+        slug=organization.slug,
+        name=organization.name,
+        city=organization.city,
+        logo_url=organization.logo_url,
+        description=organization.description,
+        address=organization.address or "",
+        venues=venues,
+        coaches=coaches,
+        disciplines=disciplines,
+        plans=plans,
+        gallery=gallery,
     ))
 
 

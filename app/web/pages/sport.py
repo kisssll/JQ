@@ -33,6 +33,7 @@ def _sport_organization_schema(
     city: str,
     address: str,
     description: str,
+    venues: list | None = None,
 ) -> str:
     organization: dict[str, object] = {
         "@context": "https://schema.org",
@@ -41,7 +42,22 @@ def _sport_organization_schema(
         "url": f"{settings.PUBLIC_BASE_URL.rstrip('/')}/sport/{quote(slug, safe='')}",
         "description": description,
     }
-    if city or address:
+    if venues:
+        sub_locations = []
+        for v in venues:
+            loc = {
+                "@type": "SportsClub",
+                "name": getattr(v, "name", "") or name,
+                "address": {
+                    "@type": "PostalAddress",
+                    "addressCountry": "RU",
+                    "addressLocality": getattr(v, "city", "") or city,
+                    "streetAddress": getattr(v, "address", ""),
+                }
+            }
+            sub_locations.append(loc)
+        organization["subOrganization"] = sub_locations
+    elif city or address:
         location: dict[str, str] = {
             "@type": "PostalAddress",
             "addressCountry": "RU",
@@ -58,26 +74,28 @@ def _sport_organization_schema(
 
 
 def render_sport_placeholder(organization: SportOrganization) -> str:
-    name = html.escape(organization.name)
-    city = html.escape(organization.city)
-    return f"""<!doctype html>
-<html lang="ru"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{name} — Руми Спорт</title>{get_base_styles()}</head>
-<body><main class="container" style="max-width:760px;margin:12vh auto;padding:24px">
-<a href="/sport/">← Все спортивные организации</a>
-<p class="eyebrow" style="margin-top:32px">{city}</p>
-<h1>{name}</h1><p>Страница организации готовится.</p>
-</main></body></html>"""
+    return render_sport_gym_template(
+        slug=organization.slug,
+        name=organization.name,
+        city=organization.city or "",
+        logo_url=organization.logo_url,
+        description=organization.description or "",
+        address=organization.address or "",
+    )
 
 
-def render_sparta_app(
-    slug: str = "sparta",
-    name: str = "Спарта Плюс",
+def render_sport_gym_template(
+    slug: str = "club",
+    name: str = "Спортивный клуб",
     city: str = "",
     logo_url: str | None = None,
     description: str = "",
     address: str = "",
+    venues: list | None = None,
+    coaches: list | None = None,
+    disciplines: list | None = None,
+    plans: list | None = None,
+    gallery: list | None = None,
 ) -> str:
     safe_slug = html.escape(slug, quote=True)
     safe_name = html.escape(name)
@@ -99,12 +117,40 @@ def render_sparta_app(
         city,
         address,
         description or f"{name} — спортивный клуб в {city} на Руми Спорт.",
+        venues=venues,
     )
-    favicon = (
-        '<link rel="icon" href="/static/sport/sparta/sparta-logo.png">'
-        if slug == "sparta"
-        else ""
-    )
+    if logo_url:
+        favicon = f'<link rel="icon" href="{html.escape(logo_url, quote=True)}">'
+    elif slug == "sparta":
+        favicon = '<link rel="icon" href="/static/sport/sparta/sparta-logo.png">'
+    else:
+        favicon = '<link rel="icon" href="/static/icons/favicon.ico">'
+
+    # SSR skeleton / initial markup for SEO, accessibility and smooth hydration
+    ssr_parts = [
+        '<div class="sport-gym-ssr" style="display:none;" aria-hidden="true">',
+        f'<h1>{safe_name}</h1>',
+    ]
+    if city:
+        ssr_parts.append(f'<p class="city">{html.escape(city)}</p>')
+    if description:
+        ssr_parts.append(f'<p class="desc">{html.escape(description)}</p>')
+    if venues:
+        ssr_parts.append('<div class="venues">')
+        for v in venues:
+            v_name = html.escape(getattr(v, "name", "") or "")
+            v_addr = html.escape(getattr(v, "address", "") or "")
+            ssr_parts.append(f'<div class="venue-item"><strong>{v_name}</strong>: {v_addr}</div>')
+        ssr_parts.append('</div>')
+    if disciplines:
+        ssr_parts.append('<div class="disciplines">')
+        for d in disciplines:
+            d_name = html.escape(getattr(d, "name", "") or "")
+            ssr_parts.append(f'<span class="discipline-tag">{d_name}</span>')
+        ssr_parts.append('</div>')
+    ssr_parts.append('</div>')
+    ssr_markup = "".join(ssr_parts)
+
     return f"""<!doctype html>
 <html lang="ru">
 <head>
@@ -119,7 +165,11 @@ def render_sparta_app(
     <link rel="stylesheet" href="/static/dist/sport-sparta.css?v={_SPARTA_CSS}">
 </head>
 <body>
-    <div id="root" data-gym-slug="{safe_slug}" data-gym-name="{safe_name_attr}" data-gym-city="{safe_city_attr}" data-gym-logo="{safe_logo_attr}"></div>
+    <div id="root" data-gym-slug="{safe_slug}" data-gym-name="{safe_name_attr}" data-gym-city="{safe_city_attr}" data-gym-logo="{safe_logo_attr}">{ssr_markup}</div>
     <script type="module" src="/static/dist/sport-sparta.js?v={_SPARTA_JS}"></script>
 </body>
 </html>"""
+
+
+# Backward compatibility alias
+render_sparta_app = render_sport_gym_template

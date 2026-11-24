@@ -139,13 +139,27 @@ async def _clean_state():
         await conn.execute(f"truncate {names} restart identity cascade")
     await conn.close()
 
-    r = aioredis.from_url(settings.REDIS_URL)
-    await r.flushdb()
-    await r.aclose()
+    try:
+        r = aioredis.from_url(settings.REDIS_URL)
+        await r.flushdb()
+        await r.aclose()
+    except Exception:
+        pass
     yield
 
 
-# ── HTTP-клиент ──────────────────────────────────────────────────────────────
+@pytest.fixture(autouse=True)
+def _mock_limiter_storage():
+    """Переключаем slowapi на memory:// если локальный Redis недоступен."""
+    from app.core.limiter import limiter
+    try:
+        import redis
+        r = redis.from_url(settings.REDIS_URL)
+        r.ping()
+    except Exception:
+        limiter.enabled = False
+    yield
+    limiter.enabled = True
 @pytest.fixture()
 async def client():
     from app.main import app

@@ -7,13 +7,32 @@ from app.web.components.styles import get_base_styles
 from app.web.pages.legal import LEGAL_VERSION
 
 
-def render_sport_business_page(user=None, organizations: list[SportOrganization] | None = None) -> str:
+def render_sport_business_page(
+    user=None,
+    organizations: list[SportOrganization] | None = None,
+    success: bool = False,
+) -> str:
     organizations = organizations or []
     status_labels = {
         "pending": "На модерации",
         "approved": "Одобрен",
         "rejected": "Отклонён",
     }
+    success_banner = ""
+    if success:
+        success_banner = """
+        <div class="sport-business__success" style="background:var(--color-success-light, #e6f9ed);color:var(--color-success, #12803b);padding:1rem 1.25rem;border-radius:var(--radius-16, 16px);margin-bottom:2rem;font-size:0.95rem;line-height:1.5;">
+            <strong>Заявка на подключение клуба принята!</strong><br>
+            Клуб отправлен на модерацию. Вы уже можете перейти в управление залом для настройки расписания, тренеров и направлений.
+        </div>"""
+
+    cta_register = """
+        <div style="margin: 1.5rem 0 2rem;">
+            <a href="/sport/business/register-gym" class="btn-primary" style="display:inline-block;padding:0.75rem 1.5rem;text-decoration:none;border-radius:var(--radius-16, 16px);font-weight:600;">
+                + Заполнить анкету и добавить клуб
+            </a>
+        </div>"""
+
     if user:
         applications = "".join(
             '<article class="sport-business__application">'
@@ -52,7 +71,7 @@ def render_sport_business_page(user=None, organizations: list[SportOrganization]
         applications = ""
         form = (
             '<p class="sport-business__login">Чтобы подключить зал, '
-            '<a href="/sport/login?redirect=%2Fsport%2Fbusiness">войдите или зарегистрируйтесь</a>.</p>'
+            '<a href="/sport/login?redirect=%2Fsport%2Fbusiness%2Fregister-gym">войдите или зарегистрируйтесь</a>.</p>'
         )
 
     return f"""<!doctype html>
@@ -72,8 +91,10 @@ def render_sport_business_page(user=None, organizations: list[SportOrganization]
         <p class="sport-business__lead">Создайте страницу клуба, добавьте залы, тренеров, направления, расписание и тарифы.
            После проверки клуб появится в каталоге, а заявками и данными можно будет управлять
            из кабинета.</p>
+        {success_banner}
+        {cta_register}
         {applications}
-        <h2 class="sport-business__form-title">Заявка на подключение</h2>
+        <h2 class="sport-business__form-title">Быстрая заявка на подключение</h2>
         {form}
     </main>
     {render_footer(user, sport=True)}
@@ -81,7 +102,11 @@ def render_sport_business_page(user=None, organizations: list[SportOrganization]
 </html>"""
 
 
-def render_sport_business_dashboard_page(user, organizations: list[tuple[SportOrganization, str]]) -> str:
+def render_sport_business_dashboard_page(
+    user,
+    organizations: list[tuple[SportOrganization, str]],
+    success: bool = False,
+) -> str:
     status_labels = {
         "pending": "На модерации",
         "approved": "Опубликован",
@@ -92,6 +117,14 @@ def render_sport_business_dashboard_page(user, organizations: list[tuple[SportOr
         "admin": "Администратор",
         "trainer": "Тренер",
     }
+    success_banner = ""
+    if success:
+        success_banner = """
+        <div class="sport-business__success" style="background:var(--color-success-light, #e6f9ed);color:var(--color-success, #12803b);padding:1rem 1.25rem;border-radius:var(--radius-16, 16px);margin-bottom:2rem;font-size:0.95rem;line-height:1.5;">
+            <strong>Заявка на подключение клуба принята!</strong><br>
+            Клуб отправлен на модерацию. Вы уже можете перейти в управление залом для настройки расписания, тренеров и направлений.
+        </div>"""
+
     cards = "".join(
         '<article class="sport-business__application sport-business-dashboard__card">'
         '<div class="sport-business-dashboard__card-head">'
@@ -116,7 +149,7 @@ def render_sport_business_dashboard_page(user, organizations: list[tuple[SportOr
             '<div class="sport-business-dashboard__empty">'
             '<h2>Пока нет подключённых клубов</h2>'
             '<p>Подайте заявку, чтобы создать страницу клуба и управлять расписанием, записями и командой.</p>'
-            '<a class="sport-business-dashboard__link" href="/sport/business">Подключить клуб →</a>'
+            '<a class="sport-business-dashboard__link" href="/sport/business/register-gym">Подключить клуб →</a>'
             '</div>'
         )
     return f"""<!doctype html>
@@ -137,10 +170,11 @@ def render_sport_business_dashboard_page(user, organizations: list[tuple[SportOr
             <h1>Ваши клубы</h1>
             <p class="sport-business__lead">Управляйте страницами организаций, расписанием и командой из одного места.</p>
         </div>
+        {success_banner}
         <section class="sport-business-dashboard__grid" aria-label="Спортивные клубы">
             {cards}
         </section>
-        <a class="sport-business-dashboard__add" href="/sport/business">Подключить ещё один клуб</a>
+        <a class="sport-business-dashboard__add" href="/sport/business/register-gym">Подключить ещё один клуб</a>
     </main>
     {render_footer(user, sport=True)}
 </body>

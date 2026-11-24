@@ -1,7 +1,8 @@
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from app.web.pages.legal import LEGAL_VERSION
 
 
 class SportOrganizationResponse(BaseModel):
@@ -10,6 +11,7 @@ class SportOrganizationResponse(BaseModel):
     city: str
     description: str
     logo_url: Optional[str] = None
+    address: Optional[str] = None
 
 
 class SportTrainingResponse(BaseModel):
@@ -105,3 +107,108 @@ class SportBookingCreate(BaseModel):
         if not self.pd_consent:
             raise ValueError("Необходимо согласие на обработку персональных данных")
         return self
+
+
+class SportProfileUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=160)
+    description: Optional[str] = Field(default=None, max_length=4000)
+    address: Optional[str] = Field(default=None, max_length=300)
+    phone: Optional[str] = Field(default=None, max_length=24)
+    email: Optional[EmailStr] = None
+    logo_url: Optional[str] = Field(default=None, max_length=500)
+
+
+class SportVenueCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    address: str = Field(min_length=1, max_length=300)
+    description: str = Field(default="", max_length=2000)
+    hours: str = Field(default="", max_length=160)
+    photo_url: Optional[str] = Field(default=None, max_length=500)
+
+
+class SportDisciplineCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=2000)
+    level: str = Field(default="", max_length=120)
+
+
+class SportPlanCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=120)
+    price: int = Field(ge=0)
+    unit: str = Field(default="", max_length=80)
+    items: list[str] = Field(default_factory=list)
+    featured: bool = False
+
+
+class SportGalleryCreate(BaseModel):
+    image_url: str = Field(min_length=1, max_length=500)
+    alt_text: str = Field(default="", max_length=200)
+
+
+class SportCoachScheduleItem(BaseModel):
+    day_of_week: int = Field(ge=0, le=6)  # 0=Mon ... 6=Sun
+    start_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    end_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    slot_duration_minutes: int = Field(default=60, ge=15, le=240)
+    break_minutes: int = Field(default=15, ge=0, le=120)
+
+
+class SportCoachScheduleUpdate(BaseModel):
+    schedules: list[SportCoachScheduleItem]
+
+
+class SportServiceCreate(BaseModel):
+    coach_id: Optional[int] = None
+    name: str = Field(min_length=1, max_length=160)
+    description: str = Field(default="", max_length=2000)
+    price: int = Field(ge=0)
+    duration_minutes: int = Field(default=60, ge=15, le=240)
+
+
+class SportCoachBookingCreate(BaseModel):
+    coach_id: int
+    service_id: int
+    start_time: datetime
+    name: str = Field(min_length=2, max_length=100)
+    phone: str = Field(min_length=6, max_length=24)
+    email: Optional[EmailStr] = None
+    consent_version: str = Field(default=LEGAL_VERSION)
+    pd_consent: bool = True
+
+
+class SportStaffInvite(BaseModel):
+    phone: str = Field(min_length=6, max_length=24)
+    full_name: str = Field(min_length=2, max_length=100)
+    role: Literal["manager", "admin", "trainer"] = "admin"
+    permissions: dict[str, bool] = Field(default_factory=dict)
+
+
+class SportScheduleClosureCreate(BaseModel):
+    coach_id: Optional[int] = None
+    venue_id: Optional[int] = None
+    date: date
+    reason: str = Field(default="", max_length=255)
+
+
+class SportBookingReschedule(BaseModel):
+    new_start_time: datetime
+
+
+class SportReviewCreate(BaseModel):
+    coach_id: Optional[int] = None
+    booking_id: Optional[int] = None
+    rating: int = Field(ge=1, le=5)
+    comment: str = Field(default="", max_length=2000)
+
+
+class SportReviewReply(BaseModel):
+    admin_response: str = Field(min_length=1, max_length=2000)
+
+
+class SportCoachPayrollUpdate(BaseModel):
+    commission_percent: int = Field(default=50, ge=0, le=100)
+    base_rate_per_session: int = Field(default=0, ge=0)
+    bonus: int = Field(default=0, ge=0)
+    notes: str = Field(default="", max_length=255)
+

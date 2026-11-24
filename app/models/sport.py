@@ -48,11 +48,38 @@ class SportOrganization(Base):
     )
 
 
+SPORT_PERMISSION_KEYS = (
+    "manage_gym",         # настройки клуба, залов, фото, профиля
+    "manage_owners",      # передача владения, назначение совладельцев
+    "manage_managers",    # назначение управляющих
+    "manage_admins",      # назначение администраторов
+    "manage_coaches",     # найм тренеров, услуги, графики
+    "manage_schedule",    # расписание групповых и персональных тренировок
+    "manage_bookings",    # подтверждение, отмена, отметка посещения / неявки
+    "manage_reviews",     # ответы на отзывы
+    "view_finances",      # отчёты о выручке, аналитика
+    "manage_payroll",     # ставки тренеров, расчёт зарплат
+)
+
+SPORT_OWNER_PERMISSIONS: dict[str, bool] = {k: True for k in SPORT_PERMISSION_KEYS}
+SPORT_MANAGER_PERMISSIONS: dict[str, bool] = {
+    **SPORT_OWNER_PERMISSIONS,
+    "manage_owners": False,
+}
+SPORT_ADMIN_PERMISSIONS: dict[str, bool] = {
+    **SPORT_OWNER_PERMISSIONS,
+    "manage_owners": False,
+    "manage_managers": False,
+    "view_finances": False,
+    "manage_payroll": False,
+}
+
+
 class SportGymMember(Base):
     __tablename__ = "sport_gym_members"
     __table_args__ = (
         UniqueConstraint("organization_id", "user_id", name="uq_sport_gym_member"),
-        CheckConstraint("role IN ('owner', 'admin')", name="ck_sport_gym_member_role"),
+        CheckConstraint("role IN ('owner', 'manager', 'admin')", name="ck_sport_gym_member_role"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -63,9 +90,77 @@ class SportGymMember(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
+    permissions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     is_creator: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class SportScheduleClosure(Base):
+    """Закрытые даты (отпуск / больничный тренера либо ремонт / закрытие зала / всего клуба)."""
+    __tablename__ = "sport_schedule_closures"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("sport_organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    coach_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("sport_coaches.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    venue_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("sport_venues.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    reason: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class SportReview(Base):
+    """Отзывы клиентов о клубе и тренерах."""
+    __tablename__ = "sport_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("sport_organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    coach_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("sport_coaches.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    client_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    booking_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("sport_bookings.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-5
+    comment: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    admin_response: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class SportCoachPayroll(Base):
+    """Условия оплаты и расчет вознаграждения тренера."""
+    __tablename__ = "sport_coach_payrolls"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("sport_organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    coach_id: Mapped[int] = mapped_column(
+        ForeignKey("sport_coaches.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    commission_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=50, server_default="50")
+    base_rate_per_session: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    bonus: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    notes: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
@@ -240,6 +335,40 @@ class SportTrainingException(Base):
     is_cancelled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
 
+class SportCoachSchedule(Base):
+    """Статичные окна/график тренера по дням недели (0=понедельник ... 6=воскресенье)."""
+    __tablename__ = "sport_coach_schedules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    coach_id: Mapped[int] = mapped_column(
+        ForeignKey("sport_coaches.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    day_of_week: Mapped[int] = mapped_column(Integer, nullable=False)  # 0=Mon, 6=Sun
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
+    slot_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60, server_default="60")
+    break_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=15, server_default="15")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
+
+class SportService(Base):
+    """Персональные услуги тренеров / клуба (индивидуальная тренировка, консультация и т.д.)."""
+    __tablename__ = "sport_services"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("sport_organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    coach_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("sport_coaches.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    price: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60, server_default="60")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
+
 class SportBooking(Base):
     __tablename__ = "sport_bookings"
     __table_args__ = (
@@ -256,6 +385,12 @@ class SportBooking(Base):
     training_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("sport_trainings.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    coach_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("sport_coaches.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    service_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("sport_services.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     client_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
@@ -267,6 +402,9 @@ class SportBooking(Base):
     experience: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     kind: Mapped[str] = mapped_column(String(24), nullable=False)
     requested_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    start_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    price: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     requested_gym: Mapped[str] = mapped_column(String(200), nullable=False)
     requested_discipline: Mapped[str] = mapped_column(String(120), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", server_default="pending")

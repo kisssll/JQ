@@ -9,8 +9,12 @@ from app.services.web_session import session_claims
 
 
 async def get_current_user_from_cookie(request: Request, db: AsyncSession = Depends(get_db)):
-    """Получает текущего пользователя из JWT-токена в куках."""
+    """Получает текущего пользователя из JWT-токена в куках или заголовке Authorization."""
     token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("Authorization") or ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
     if not token:
         return None
     payload = await session_claims(token)
