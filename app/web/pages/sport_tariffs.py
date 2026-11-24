@@ -42,12 +42,12 @@ _SPORT_DOCUMENTS = [
         "description": "Условия обработки данных клиентов, тренеров и сотрудников спортивных клубов.",
     },
     {
-        "slug": "terms",
+        "slug": "sport/legal/terms",
         "title": "Пользовательское соглашение сервиса Руми",
         "description": "Общие условия использования онлайн-сервиса Руми для физических и юридических лиц.",
     },
     {
-        "slug": "privacy",
+        "slug": "sport/legal/privacy",
         "title": "Политика конфиденциальности",
         "description": "Порядок сбора, хранения и защиты конфиденциальной информации и файлов cookie.",
     },
@@ -115,7 +115,7 @@ def _sport_documents_html() -> str:
     cards = "".join(
         f"""
         <a class="doc-card" href="/{d['slug']}" style="display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-16);margin-bottom:0.75rem;text-decoration:none;color:inherit;transition:transform 0.15s, border-color 0.15s;">
-            <span class="doc-card-icon" style="flex-shrink:0;color:var(--color-primary);">{ICON_FILE_TEXT}</span>
+            <span class="doc-card-icon" style="flex-shrink:0;color:var(--color-accent-text);">{ICON_FILE_TEXT}</span>
             <span class="doc-card-text" style="flex:1;">
                 <span class="doc-card-title" style="display:block;font-weight:600;font-size:1rem;color:var(--color-heading);margin-bottom:0.25rem;">{html.escape(d['title'])}</span>
                 <span class="doc-card-desc" style="display:block;font-size:0.85rem;color:var(--color-muted);margin-bottom:0.25rem;">{html.escape(d['description'])}</span>
@@ -159,7 +159,7 @@ def render_sport_tariffs_page(user=None, tab: str = "plans", plans=None) -> str:
     <section class="sport-calc-section" style="max-width:960px;margin:0 auto 3.5rem;">
         <div class="sport-calc-card" data-sport-calculator data-pricing='{pricing_json}' style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-28);padding:2rem 2.5rem;box-shadow:0 8px 30px rgba(0, 0, 0, 0.04);">
             <div style="text-align:center;margin-bottom:2rem;">
-                <span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:var(--radius-pill);background:var(--color-accent-light);color:var(--color-primary);font-size:0.85rem;font-weight:600;margin-bottom:0.5rem;">Калькулятор тарифа</span>
+                <span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:var(--radius-pill);background:var(--color-accent-light);color:var(--color-accent-text);font-size:0.85rem;font-weight:600;margin-bottom:0.5rem;">Калькулятор тарифа</span>
                 <h2 style="font-size:1.85rem;margin:0 0 0.5rem;color:var(--color-heading);">Сколько стоит Руми Спорт для вас?</h2>
                 <p style="margin:0;color:var(--color-muted);font-size:1rem;">Выберите формат работы: частный тренер или спортивный клуб с залами.</p>
             </div>
@@ -465,7 +465,7 @@ def render_sport_tariffs_page(user=None, tab: str = "plans", plans=None) -> str:
     <main class="main-content" style="padding-top:5rem;">
         <div class="section-container">
             <header style="text-align:center;margin-bottom:2.5rem;">
-                <p class="sport-page-eyebrow" style="color:var(--color-primary);font-weight:600;font-size:0.95rem;margin-bottom:0.5rem;">Руми Спорт · тарифы</p>
+                <p class="sport-page-eyebrow" style="color:var(--color-accent-text);font-weight:600;font-size:0.95rem;margin-bottom:0.5rem;">Руми Спорт · тарифы</p>
                 <h1 style="font-size:2.25rem;font-weight:800;color:var(--color-heading);margin:0 0 0.75rem;">Тарифы и информация</h1>
                 <p style="color:var(--color-muted);font-size:1.1rem;max-width:640px;margin:0 auto;">
                     Прозрачная стоимость сервиса для спортивных клубов, залов и персональных тренеров. Первые 14 дней бесплатно.

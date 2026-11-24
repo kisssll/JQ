@@ -428,9 +428,9 @@ def _sport_organizations_tab(organizations, owner_phone_by_id):
                 </p>
                 <p class="adm-small">Страница: <a href="/sport/{_esc(organization.slug)}" target="_blank" rel="noopener">/sport/{_esc(organization.slug)}</a></p>
 
-                <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin:0.75rem 0;">
-                    <div style="flex:1;min-width:240px;">
-                        <h4 class="adm-group-title" style="margin:0 0 0.4rem;font-size:0.85rem;">Владелец клуба</h4>
+                <div class="adm-org-management">
+                    <div class="adm-org-management__column">
+                        <h4 class="adm-group-title adm-org-management__title">Владелец клуба</h4>
                         <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/owner" class="adm-form">
                             <label class="adm-field">
                                 <span class="adm-field-label">Назначить по телефону</span>
@@ -441,20 +441,20 @@ def _sport_organizations_tab(organizations, owner_phone_by_id):
                         </form>
                     </div>
 
-                    <div style="flex:1;min-width:280px;">
-                        <h4 class="adm-group-title" style="margin:0 0 0.4rem;font-size:0.85rem;">Доступ и бесплатный период</h4>
-                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;">
+                    <div class="adm-org-management__column adm-org-management__column--access">
+                        <h4 class="adm-group-title adm-org-management__title">Доступ и бесплатный период</h4>
+                        <div class="adm-org-management__forms">
                             <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/grant-trial" class="adm-form">
                                 <label class="adm-field">
                                     <span class="adm-field-label">Дней</span>
-                                    <input name="days" type="number" min="1" max="365" value="30" class="r-input adm-input is-num" style="width:70px;">
+                                    <input name="days" type="number" min="1" max="365" value="30" class="r-input adm-input is-num adm-org-management__input">
                                 </label>
                                 {_btn("Триал")}
                             </form>
                             <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/grant-access" class="adm-form">
                                 <label class="adm-field">
                                     <span class="adm-field-label">Месяцев</span>
-                                    <input name="months" type="number" min="1" max="120" value="1" class="r-input adm-input is-num" style="width:70px;">
+                                    <input name="months" type="number" min="1" max="120" value="1" class="r-input adm-input is-num adm-org-management__input">
                                 </label>
                                 {_btn("Доступ")}
                             </form>
@@ -467,20 +467,20 @@ def _sport_organizations_tab(organizations, owner_phone_by_id):
                     </div>
                 </div>
 
-                <div style="border-top:1px dashed var(--color-border);padding-top:0.75rem;margin-top:0.5rem;">
-                    <p class="adm-small" style="font-weight:600;margin:0 0 0.4rem;">Индивидуальное предложение (вместо расчёта платформы 3500+2500):</p>
-                    <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/custom-offer" class="adm-form" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;">
+                <div class="adm-custom-offer">
+                    <p class="adm-small adm-custom-offer__title">Индивидуальное предложение (вместо расчёта платформы 3500+2500):</p>
+                    <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/custom-offer" class="adm-form">
                         <label class="adm-field">
                             <span class="adm-field-label">Цена, ₽/мес</span>
-                            <input name="price" type="number" min="0" max="500000" placeholder="2500" value="{custom_price if custom_price is not None else ''}" class="r-input adm-input is-num" style="width:110px;">
+                            <input name="price" type="number" min="0" max="500000" placeholder="2500" value="{custom_price if custom_price is not None else ''}" class="r-input adm-input is-num adm-custom-offer__price">
                         </label>
                         <label class="adm-field">
                             <span class="adm-field-label">Условия / примечание</span>
-                            <input name="notes" placeholder="Спецусловия сети" value="{_esc(custom_notes or '')}" class="r-input adm-input" style="width:180px;">
+                            <input name="notes" placeholder="Спецусловия сети" value="{_esc(custom_notes or '')}" class="r-input adm-input adm-custom-offer__notes">
                         </label>
                         {_btn("Закрепить")}
                     </form>
-                    {f'''<form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/custom-offer" class="adm-form" style="margin-top:0.3rem;">
+                    {f'''<form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/custom-offer" class="adm-form adm-custom-offer__reset">
                         <input type="hidden" name="reset" value="1">
                         {_btn("Сбросить к стандарту платформы", "secondary")}
                     </form>''' if custom_price is not None else ""}
@@ -651,20 +651,20 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
                             </label>
                             {_btn("Сменить тариф")}
                         </form>
-                        <div style="border-top:1px dashed var(--color-border);padding-top:0.75rem;margin-top:0.5rem;width:100%;">
-                            <p class="adm-small" style="font-weight:600;margin:0 0 0.4rem;">Индивидуальное предложение (вместо расчёта платформы):</p>
-                            <form method="post" action="/api/v1/admin/salons/{s.id}/custom-offer" class="adm-form" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="adm-custom-offer">
+                            <p class="adm-small adm-custom-offer__title">Индивидуальное предложение (вместо расчёта платформы):</p>
+                            <form method="post" action="/api/v1/admin/salons/{s.id}/custom-offer" class="adm-form">
                                 <label class="adm-field">
                                     <span class="adm-field-label">Цена, ₽/мес</span>
-                                    <input name="price" type="number" min="0" max="500000" placeholder="2500" value="{s.custom_subscription_price if getattr(s, 'custom_subscription_price', None) is not None else ''}" class="r-input adm-input is-num" style="width:110px;">
+                                    <input name="price" type="number" min="0" max="500000" placeholder="2500" value="{s.custom_subscription_price if getattr(s, 'custom_subscription_price', None) is not None else ''}" class="r-input adm-input is-num adm-custom-offer__price">
                                 </label>
                                 <label class="adm-field">
                                     <span class="adm-field-label">Условия / примечание</span>
-                                    <input name="notes" placeholder="Спецусловия сети" value="{_esc(getattr(s, 'custom_subscription_notes', None) or '')}" class="r-input adm-input" style="width:180px;">
+                                    <input name="notes" placeholder="Спецусловия сети" value="{_esc(getattr(s, 'custom_subscription_notes', None) or '')}" class="r-input adm-input adm-custom-offer__notes">
                                 </label>
                                 {_btn("Закрепить")}
                             </form>
-                            {f'''<form method="post" action="/api/v1/admin/salons/{s.id}/custom-offer" class="adm-form" style="margin-top:0.3rem;">
+                            {f'''<form method="post" action="/api/v1/admin/salons/{s.id}/custom-offer" class="adm-form adm-custom-offer__reset">
                                 <input type="hidden" name="reset" value="1">
                                 {_btn("Сбросить к стандарту платформы", "secondary")}
                             </form>''' if getattr(s, "custom_subscription_price", None) is not None else ""}

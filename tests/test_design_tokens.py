@@ -23,7 +23,7 @@ _SKIP = ("node_modules", "/.git/", "static/dist", "/.venv/", "__pycache__",
 
 def _source_files():
     for p in ROOT.rglob("*"):
-        s = str(p)
+        s = p.as_posix()
         if any(x in s for x in _SKIP) or not p.is_file():
             continue
         if p.suffix in (".py", ".css", ".js"):
