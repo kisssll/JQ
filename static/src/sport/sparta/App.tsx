@@ -666,7 +666,8 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
         </div>
       </section>
 
-      <section className="tiles">
+      {IS_SPARTA && <h2 className="sparta-home-strip" id="sparta-info-title">Информация</h2>}
+      <section className="tiles" aria-labelledby={IS_SPARTA ? "sparta-info-title" : undefined}>
         {(
           [
             [IS_SPARTA ? "Наши залы" : "Залы", `${gyms.length} ${gyms.length === 1 ? "площадка" : "площадок"}`, "/gyms", "gym_irk", "gyms"],
