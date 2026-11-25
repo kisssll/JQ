@@ -125,10 +125,8 @@ def render_sport_home_page(user=None) -> str:
                         <a class="sport-home__business-link" href="/sport/business">Для клубов</a>
                     </div>
                 </div>
-                <div class="sport-home__art" aria-hidden="true">
-                    <span class="sport-home__art-label">РУМИ<br>СПОРТ</span>
-                    <span class="sport-home__art-caption">Клубы · занятия · запись</span>
-                </div>
+                <img class="sport-home__art" src="/static/sport/rumi-sport-hero.png"
+                     width="481" height="520" alt="" fetchpriority="high">
             </div>
         </section>
 
