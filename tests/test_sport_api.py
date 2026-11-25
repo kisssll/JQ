@@ -101,7 +101,8 @@ async def test_sport_booking_creates_guest_and_records_consent(client, db_sessio
 
     response = await client.post(
         "/api/v1/sport/organizations/test-sport-club/bookings",
-        json=_booking_payload(booking_date),
+        json=_booking_payload(booking_date, phone="8 (999) 000-11-22", email="parent@example.com",
+                              participant="child", child_name="Участник", child_age=10, experience="Начинающий"),
     )
     assert response.status_code == 201, response.text
 
@@ -121,6 +122,12 @@ async def test_sport_booking_creates_guest_and_records_consent(client, db_sessio
 
         assert booking.status == "pending"
         assert booking.training_id is not None
+        assert booking.client_id == user.id
+        assert booking.contact_email == "parent@example.com"
+        assert booking.child_name == "Участник"
+        assert booking.child_age == 10
+        assert booking.requested_date == booking_date
+        assert booking.experience == "Начинающий"
         assert user.is_guest is True
         assert consent.version == LEGAL_VERSION
         assert consent.source == "sport_guest_booking"

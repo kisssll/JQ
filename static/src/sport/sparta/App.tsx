@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import AdminClients from "./AdminClients";
 import AdminSchedule from "./AdminSchedule";
 import AdminStaff, { type SportPermissions, type StaffMember } from "./AdminStaff";
-import { ClubReviews, ClubSettings, CoachPayroll, type ClubProfile } from "./AdminClubTabs";
+import { ClubReviews, ClubSettings, CoachPayroll, EMPTY_SITE_CATALOG, type ClubProfile, type SiteCatalog } from "./AdminClubTabs";
 import { sportRequest } from "./admin-api";
 
 /* ---------------- data ---------------- */
@@ -49,11 +49,11 @@ type Plan = {
 
 export type Gym = { id: string; address: string; name: string; note: string; disciplines: string[]; hours: string; photo?: string | null };
 export type Coach = { id: number; name: string; role: string; tags: string; exp: string; about: string; photo?: string | null };
-export type Discipline = { key: string; name: string; text: string; level: string };
+export type Discipline = { key: string; name: string; text: string; level: string; photo?: string | null };
 type GalleryPhoto = { src: string; alt: string; credit?: string };
 export type Training = { id: string; days: number[]; time: string; end: string; coach: string; coachId?: number | null; gym: string; discipline: string; active: boolean };
 const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-const upcomingSlots = (trainings: Training[] = []) => Array.from({ length: 14 }, (_, offset) => {
+const upcomingSlots = (trainings: Training[] = []) => Array.from({ length: 15 }, (_, offset) => {
   const date = new Date(); date.setDate(date.getDate() + offset);
   return trainings.filter((item) => item.active && item.days.includes(date.getDay())).map((item) => ({ ...item, date: localDate(date) }));
 }).flat();
@@ -230,6 +230,7 @@ export default function App() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [gallery, setGallery] = useState<GalleryPhoto[]>([]);
   const [organization, setOrganization] = useState<ClubProfile>({ name: GYM_NAME, city: "", description: "", phone: "" });
+  const [siteCatalog, setSiteCatalog] = useState<SiteCatalog>(EMPTY_SITE_CATALOG);
   const [accountLoginRequired, setAccountLoginRequired] = useState(false);
   const [exceptions, setExceptions] = useState<Record<string, boolean>>({});
   const [scheduleLoading, setScheduleLoading] = useState(true);
@@ -316,12 +317,12 @@ export default function App() {
           const requestId = response.headers.get("X-Request-ID");
           throw new Error(requestId ? `Не удалось загрузить панель клуба. Код запроса: ${requestId}` : "Не удалось загрузить панель клуба. Попробуйте ещё раз.");
         }
-        const data = await response.json() as {
+        const data = await response.json() as SiteCatalog & {
           bookings: Booking[]; payments: Payment[]; trainings: Training[]; exceptions: Record<string, boolean>;
           today: string; role: string; permissions: SportPermissions; canAssignPermissions: boolean;
           team: StaffMember[]; coaches: Coach[]; organization: typeof organization;
           venues: { id: number; name: string; address: string; description: string; hours: string; photo_url?: string | null }[];
-          disciplines: { name: string; description: string; level: string }[];
+          disciplines: { name: string; description: string; level: string; photo_url?: string | null }[];
           plans: (Omit<Plan, "id"> & { code: string })[];
         };
         if (controller.signal.aborted) return;
@@ -335,8 +336,9 @@ export default function App() {
         setManagementTeam(data.team ?? []);
         setManagementDate(data.today ?? today());
         setOrganization(data.organization);
+        setSiteCatalog({ venues: data.venues, disciplines: data.disciplines, plans: data.plans, gallery: data.gallery });
         setCoaches(data.coaches ?? []);
-        const disciplines = data.disciplines.map((item) => ({ key: item.name, name: item.name, text: item.description, level: item.level }));
+        const disciplines = data.disciplines.map((item) => ({ key: item.name, name: item.name, text: item.description, level: item.level, photo: item.photo_url }));
         setDisciplines(disciplines);
         setGyms(data.venues.map((item) => ({ ...item, id: String(item.id), note: item.description,
           photo: item.photo_url, disciplines: disciplines.map((discipline) => discipline.key) })));
@@ -373,7 +375,11 @@ export default function App() {
 
   const book = (b: Partial<Booking> = {}) => setBookingFor(b);
   const choosePlan = (plan: Plan) => book({ kind: plan.id === "trial" ? "Пробное" : "Обычное" });
-  const publicOrganization = GYM_SLUG === "sparta" ? { ...organization, name: GYM_NAME } : organization;
+  const publicOrganization = IS_SPARTA && organization.name.toLocaleLowerCase("ru") === "спарта плюс"
+    ? { ...organization, name: GYM_NAME }
+    : organization;
+  const clubLogo = organization.logo_url && !(IS_SPARTA && organization.logo_url === "/static/sport/sparta/sparta-logo.png")
+    ? organization.logo_url : GYM_LOGO;
   const publicGallery = GYM_SLUG === "sparta" ? gallery.map((photo) => photo.src === "/photos/disciplines/self-defense-01.png"
     ? { ...photo, src: "/photos/disciplines/self-defense-02.png" } : photo) : gallery;
 
@@ -412,7 +418,15 @@ export default function App() {
       setCoaches={setCoaches}
       role={managementRole} slug={GYM_SLUG} team={managementTeam}
       permissions={managementPermissions} canAssignPermissions={canAssignPermissions}
-      setTeam={setManagementTeam} organization={organization} onProfileSaved={setOrganization} current={managementDate} onExit={() => go("/")}
+      setTeam={setManagementTeam} organization={organization} clubLogo={clubLogo} onProfileSaved={setOrganization}
+      siteCatalog={siteCatalog} onSiteSaved={(catalog) => {
+        setSiteCatalog({ venues: catalog.venues, disciplines: catalog.disciplines, plans: catalog.plans, gallery: catalog.gallery });
+        const updated = catalog.disciplines.map((item) => ({ key: item.name ?? "", name: item.name ?? "", text: item.description ?? "", level: item.level ?? "", photo: item.photo_url }));
+        setDisciplines(updated);
+        setGyms(catalog.venues.map((item) => ({ id: String(item.id), name: item.name ?? "", address: item.address ?? "", note: item.description ?? "",
+          hours: item.hours ?? "", photo: item.photo_url, disciplines: updated.map((discipline) => discipline.key) })));
+        setPlans(catalog.plans.map((item) => ({ id: item.code ?? "", name: item.name ?? "", price: item.price ?? 0, unit: item.unit ?? "", items: item.items ?? [], featured: item.featured })));
+      }} current={managementDate} onExit={() => go("/")}
     />;
   }
 
@@ -421,7 +435,7 @@ export default function App() {
       <header className={`hdr${solid || menu || page !== "/" ? " solid" : ""}${IS_SPARTA ? " sparta-header" : ""}`}>
         <div className="hdr-brand">
           <button className="hdr-logo" onClick={() => go("/")}>
-            {GYM_LOGO && <img src={GYM_LOGO} alt="" />}
+            {clubLogo && <img src={clubLogo} alt="" />}
             <span>{publicOrganization.name}</span>
           </button>
           {!IS_SPARTA && <nav className="direction-switch" aria-label="Направление Руми">
@@ -464,7 +478,7 @@ export default function App() {
       <footer className="ftr">
         <div className="ftr-top">
           <div className="ftr-big">
-            {IS_SPARTA && <img src={GYM_LOGO} alt="" loading="lazy" />}
+            {IS_SPARTA && clubLogo && <img src={clubLogo} alt="" loading="lazy" />}
             {publicOrganization.name}
           </div>
           <button className="btn btn-red" onClick={() => book()}>
@@ -489,11 +503,14 @@ export default function App() {
           <div>
             <b>Связь</b>
             {organization.phone && <p><a href={`tel:${organization.phone}`}>{organization.phone}</a></p>}
-            {GYM_SLUG === "sparta" && <p><a href="https://vk.ru/spartaplus" target="_blank" rel="noreferrer">Сообщество VK</a></p>}
+            {organization.email && <p><a href={`mailto:${organization.email}`}>{organization.email}</a></p>}
+            {organization.vk_url && <p><a href={organization.vk_url} target="_blank" rel="noreferrer">ВКонтакте</a></p>}
+            {organization.telegram_url && <p><a href={organization.telegram_url} target="_blank" rel="noreferrer">Telegram</a></p>}
           </div>
           <div>
             <b>Клуб</b>
             <p>{organization.city} · спортивный клуб</p>
+            {organization.address && <p>{organization.address}</p>}
             <button onClick={() => go("/account")}>Мой кабинет</button>
           </div>
         </div>
@@ -523,7 +540,7 @@ export default function App() {
                 child_name: b.childName || null,
                 child_age: b.participant === "child" ? Number(b.childAge) : null,
                 training_id: b.sessionId || null,
-                booking_date: b.sessionId ? b.date : null,
+                booking_date: b.date || null,
                 gym: b.gym,
                 discipline: b.discipline,
                 pd_consent: b.pdConsent,
@@ -560,7 +577,7 @@ export default function App() {
 
 type Book = (b?: Partial<Booking>) => void;
 
-function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void; book: Book; organization: { name: string; city: string; description: string; phone: string }; gyms: Gym[]; gallery: GalleryPhoto[] }) {
+function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void; book: Book; organization: ClubProfile; gyms: Gym[]; gallery: GalleryPhoto[] }) {
   const reasonPhotos = IS_SPARTA
     ? ["beginners", "age-groups", "self-defense"].map((name) => `${SPARTA_HOME_PHOTOS}/${name}.webp`)
     : gallery.slice(0, 3).map((photo) => photo.src);
@@ -582,7 +599,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
         label={IS_SPARTA ? "Команда клуба «Спарта»" : `Фото клуба ${organization.name}`}
         size="2400 × 1400"
         className="cover cover-hero"
-        srcOverride={IS_SPARTA ? `${SPARTA_HOME_PHOTOS}/team.webp` : gallery[0]?.src}
+        srcOverride={organization.cover_url || (IS_SPARTA ? `${SPARTA_HOME_PHOTOS}/team.webp` : gallery[0]?.src)}
         ignoreDefault
       >
         {IS_SPARTA ? (
@@ -714,8 +731,10 @@ function VenueMap({ city, address }: { city: string; address: string }) {
 function SpartaVenueCard({ gym, city, open }: { gym: Gym; city: string; open: (index: number) => void }) {
   const [selected, setSelected] = useState(0);
   const photos = spartaVenuePhotos(gym.address);
+  if (gym.photo && !photos.some((item) => item.src === gym.photo)) photos.unshift({ src: gym.photo, alt: gym.address });
   const isIrkutsk = gym.address.includes("Иркутский");
-  const first = isIrkutsk ? 2 : gym.address.includes("Учебная") ? 1 : 0;
+  const customPhoto = gym.photo && !/^\/photos\/gyms\/(irk|fr|ssmu)-club-1\.jpg$/.test(gym.photo);
+  const first = customPhoto ? 0 : isIrkutsk ? 2 : gym.address.includes("Учебная") ? 1 : 0;
   const currentIndex = photos.length ? (selected + first) % photos.length : 0;
   const photo = photos[currentIndex] ?? (gym.photo ? { src: gym.photo, alt: gym.address } : null);
   const move = (step: number) => setSelected((index) => (index + step + photos.length) % photos.length);
@@ -729,7 +748,7 @@ function SpartaVenueCard({ gym, city, open }: { gym: Gym; city: string; open: (i
     <div className="sparta-venue-copy">
       <h2>{title}</h2>
       <div>
-        <button type="button" className="btn btn-red" onClick={() => open(isIrkutsk && selected === 0 ? 3 : currentIndex)}>Подробнее</button>
+        <button type="button" className="btn btn-red" onClick={() => open(isIrkutsk && !customPhoto && selected === 0 ? 3 : currentIndex)}>Подробнее</button>
         <VenueMap city={city} address={gym.address} />
       </div>
     </div>
@@ -740,7 +759,7 @@ function SpartaGyms({ book, gyms, city }: { book: Book; gyms: Gym[]; city: strin
   const [openGym, setOpenGym] = useState<Gym | null>(null);
   const [selected, setSelected] = useState(0);
   const photos = openGym ? spartaVenuePhotos(openGym.address) : [];
-  if (openGym && photos.length === 0 && openGym.photo) photos.push({ src: openGym.photo, alt: openGym.address });
+  if (openGym?.photo && !photos.some((item) => item.src === openGym.photo)) photos.unshift({ src: openGym.photo, alt: openGym.address });
   const details = openGym && <div className="sparta-venue-details">
     <h2>{openGym.address.includes("Иркутский") ? "Что есть в зале" : openGym.name}</h2>
     <p>{openGym.address}</p>
@@ -943,14 +962,14 @@ function Disciplines({ book, disciplines }: { book: Book; disciplines: Disciplin
             label={d.name}
             size="1600 × 1200"
             className="discipline-image"
-            srcOverride={IS_SPARTA ? SPARTA_DISCIPLINE_PHOTOS[d.key] : undefined}
+            srcOverride={d.photo || (IS_SPARTA ? SPARTA_DISCIPLINE_PHOTOS[d.key] : undefined)}
             ignoreDefault
           />
             <div className="discipline-copy">
               {!IS_SPARTA && <p className="tag">{d.level}</p>}
               <h2>{d.name}</h2>
               <p>{d.text}</p>
-              {IS_SPARTA && d.key === "ММА" && <p className="disc-credit">Фото: <a href="https://commons.wikimedia.org/wiki/File:ML3,_Lesak_vs._Baryshnikov.jpg" target="_blank" rel="noreferrer">striking.pictures</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a> · уменьшено и кадрировано при показе</p>}
+              {IS_SPARTA && d.key === "ММА" && !d.photo && <p className="disc-credit">Фото: <a href="https://commons.wikimedia.org/wiki/File:ML3,_Lesak_vs._Baryshnikov.jpg" target="_blank" rel="noreferrer">striking.pictures</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a> · уменьшено и кадрировано при показе</p>}
               <button className="btn btn-red" onClick={() => book({ discipline: d.key })}>
                 Записаться <Arrow />
               </button>
@@ -1115,12 +1134,11 @@ function BookingModal({
   onSubmit: (b: Omit<Booking, "id" | "status"> & { pdConsent: boolean }) => void | Promise<void>;
   centered?: boolean;
 }) {
-  const slots = upcomingSlots(trainings).filter((slot) => exceptions[`${slot.date}:${slot.id}`] !== false);
-  const selectedInitial = initial.sessionId && initial.date && initial.date >= today() && !slots.some((slot) => slot.id === initial.sessionId && slot.date === initial.date)
-    ? trainings.filter((slot) => slot.id === initial.sessionId && slot.active && exceptions[`${initial.date}:${slot.id}`] !== false).map((slot) => ({ ...slot, date: initial.date! }))
-    : [];
-  const options = [...selectedInitial, ...slots];
-  const suggested = options.find((slot) => (!initial.gym || slot.gym === initial.gym) && (!initial.coach || slot.coach === initial.coach) && (!initial.discipline || slot.discipline === initial.discipline)) ?? options[0];
+  const now = new Date();
+  const lastDate = new Date(now);
+  lastDate.setDate(now.getDate() + 14);
+  const options = upcomingSlots(trainings).filter((slot) => exceptions[`${slot.date}:${slot.id}`] !== false);
+  const initialSlot = options.find((slot) => slot.id === initial.sessionId && slot.date === initial.date);
   const [f, setF] = useState({
     name: "",
     phone: "",
@@ -1130,17 +1148,23 @@ function BookingModal({
     participant: "self" as "self" | "child",
     childName: "",
     childAge: "",
-    discipline: initial.discipline ?? suggested?.discipline ?? "Направление уточняется",
-    gym: initial.gym ?? suggested?.gym ?? gyms[0]?.address ?? "",
-    coach: initial.coach ?? suggested?.coach ?? "",
-    sessionId: initial.sessionId ?? (initial.discipline ? "" : suggested?.id ?? ""),
-    date: initial.date ?? suggested?.date ?? today(),
-    time: initial.time ?? (initial.discipline ? "По согласованию" : suggested?.time ?? ""),
+    discipline: initialSlot?.discipline ?? initial.discipline ?? "Направление уточняется",
+    gym: initialSlot?.gym ?? initial.gym ?? "",
+    coach: initialSlot?.coach ?? "",
+    sessionId: initialSlot?.id ?? "",
+    date: initialSlot?.date ?? "",
+    time: initialSlot?.time ?? "По согласованию",
   });
   const [done, setDone] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [pdConsent, setPdConsent] = useState(false);
+  const available = options.filter((slot) => slot.gym === f.gym && slot.date === f.date)
+    .sort((a, b) => a.time.localeCompare(b.time));
+  const resetSelection = (gym: string, date: string) => setF((current) => ({
+    ...current, gym, date, sessionId: "", coach: "", time: "По согласованию",
+    discipline: initial.discipline ?? "Направление уточняется",
+  }));
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF({ ...f, [k]: e.target.value });
   if (done)
@@ -1162,7 +1186,7 @@ function BookingModal({
       <h2 className="m-title">Запись на тренировку</h2>
       <p className="booking-intro">Выберите занятие и оставьте контакт для подтверждения. Можно записать себя или ребёнка.</p>
       <form
-        className="form"
+        className="form sport-booking-form"
         onSubmit={async (e) => {
           e.preventDefault();
           if (f.participant === "child" && (!f.childName.trim() || !f.childAge.trim())) return;
@@ -1208,18 +1232,23 @@ function BookingModal({
           <label>Опыт занятий · необязательно<select value={f.experience} onChange={set("experience")}><option value="">Не указывать</option><option>Нет, начинаю с нуля</option><option>Да, раньше занимался(лась)</option><option>Да, занимаюсь сейчас</option></select></label>
         </div></details>
         <label className="full">Зал
-          <select value={f.gym} onChange={(e) => { const gym = e.target.value; const slot = options.find((item) => item.gym === gym); setF({ ...f, gym, sessionId: slot?.id ?? "", coach: slot?.coach ?? "", date: slot?.date ?? today(), time: slot?.time ?? "По согласованию" }); }}>
+          <select required value={f.gym} onChange={(e) => resetSelection(e.target.value, "")}>
+            <option value="">Выберите зал</option>
             {gyms.map((gym) => <option key={gym.id} value={gym.address}>{gym.address}</option>)}
           </select>
         </label>
-        <label className="full">Тренировка
-          <select value={f.sessionId ? `${f.date}|${f.sessionId}` : "request"} onChange={(e) => {
-            const selected = options.find((slot) => `${slot.date}|${slot.id}` === e.target.value);
+        <label className="full">Дата тренировки
+          <input type="date" min={localDate(now)} max={localDate(lastDate)} value={f.date}
+            disabled={!f.gym} onChange={(e) => resetSelection(f.gym, e.target.value)} />
+        </label>
+        <label className="full">Время и тренер
+          <select disabled={!f.gym || !f.date} value={f.sessionId} onChange={(e) => {
+            const selected = available.find((slot) => slot.id === e.target.value);
             if (selected) setF({ ...f, sessionId: selected.id, date: selected.date, time: selected.time, coach: selected.coach, gym: selected.gym, discipline: selected.discipline });
-            else setF({ ...f, sessionId: "", time: "По согласованию" });
+            else resetSelection(f.gym, f.date);
           }}>
-            <option value="request">Подобрать время с администратором</option>
-            {options.filter((slot) => slot.gym === f.gym).map((slot) => <option key={`${slot.date}|${slot.id}`} value={`${slot.date}|${slot.id}`}>{fmtDate(slot.date)} · {slot.time} · {shortCoach(slot.coach)}</option>)}
+            <option value="">{f.date ? "Подобрать время с администратором" : "Сначала выберите зал и дату"}</option>
+            {available.map((slot) => <option key={slot.id} value={slot.id}>{slot.time}–{slot.end} · {shortCoach(slot.coach)} · {slot.discipline}</option>)}
           </select>
         </label>
         <div className="booking-selected"><b>{f.sessionId ? `${fmtDate(f.date)} · ${f.time}` : "Подберём удобное время"}</b><span>{f.sessionId ? shortCoach(f.coach) : "Администратор поможет выбрать тренера"}</span><span>{f.gym}</span>{f.discipline !== "Направление уточняется" && <span>{f.discipline}</span>}</div>
@@ -1267,7 +1296,10 @@ function Admin({
   team,
   setTeam,
   organization,
+  clubLogo,
   onProfileSaved,
+  siteCatalog,
+  onSiteSaved,
   current,
   onExit,
 }: {
@@ -1292,6 +1324,9 @@ function Admin({
   setTeam: React.Dispatch<React.SetStateAction<StaffMember[]>>;
   organization: ClubProfile;
   onProfileSaved: (profile: ClubProfile) => void;
+  clubLogo: string;
+  siteCatalog: SiteCatalog;
+  onSiteSaved: (catalog: SiteCatalog) => void;
   current: string;
   onExit: () => void;
 }) {
@@ -1410,7 +1445,7 @@ function Admin({
     <div className="adm">
       <aside className="adm-side">
         <div className="adm-logo">
-          {GYM_LOGO && <img src={GYM_LOGO} alt="" />}
+          {clubLogo && <img src={clubLogo} alt="" />}
           <div>
             {organization.name}<small>Панель клуба</small>
           </div>
@@ -1428,7 +1463,7 @@ function Admin({
             Оплаты {pending.length > 0 && <i>{pending.length}</i>}
           </button>}
           {canManageTeam && <button className={tab === "team" ? "on" : ""} onClick={() => openTab("team")}>Сотрудники</button>}
-          {permissions.manage_gym && <button className={tab === "settings" ? "on" : ""} onClick={() => openTab("settings")}>Мой клуб</button>}
+          {canAssignPermissions && <button className={tab === "settings" ? "on" : ""} onClick={() => openTab("settings")}>Мой клуб</button>}
           {permissions.manage_reviews && <button className={tab === "reviews" ? "on" : ""} onClick={() => openTab("reviews")}>Отзывы</button>}
           {canSeePayroll && <button className={tab === "payroll" ? "on" : ""} onClick={() => openTab("payroll")}>{trainer ? "Моё вознаграждение" : "Вознаграждения"}</button>}
         </nav>
@@ -1496,7 +1531,7 @@ function Admin({
         )}
 
         {tab === "team" && canManageTeam && <AdminStaff slug={slug} team={team} permissions={permissions} canAssignPermissions={canAssignPermissions} onSaved={saveStaff} onRemoved={removeStaff} />}
-        {tab === "settings" && permissions.manage_gym && <ClubSettings slug={slug} profile={organization} onSaved={onProfileSaved} />}
+        {tab === "settings" && canAssignPermissions && <ClubSettings slug={slug} profile={organization} catalog={siteCatalog} onSaved={onProfileSaved} onCatalogSaved={onSiteSaved} />}
         {tab === "reviews" && permissions.manage_reviews && <ClubReviews slug={slug} />}
         {tab === "payroll" && canSeePayroll && <CoachPayroll slug={slug} coaches={coaches} canEdit={permissions.manage_payroll === true} />}
 
@@ -1546,14 +1581,18 @@ function Admin({
                   <span>
                     <b>{b.participant === "child" ? b.childName : b.name}</b>
                     <small>{b.participant === "child" ? `Родитель: ${b.name} · ` : ""}<a href={`tel:${b.phone.replace(/[^\d+]/g, "")}`}>{b.phone}</a></small>
+                    {b.childAge && <small>Возраст ребёнка: {b.childAge}</small>}
+                    {b.email && <small><a href={`mailto:${b.email}`}>{b.email}</a></small>}
+                    {b.experience && <small>{b.experience}</small>}
                   </span>
                   <span>
                     {b.kind ? `${b.kind} · ${b.discipline}` : b.discipline}
                     <small>{b.gym}</small>
                   </span>
                   <span>
-                    {fmtDate(b.date)}
-                    <small>{b.time}</small>
+                    {b.date ? fmtDate(b.date) : "Дата по согласованию"}
+                    <small>{b.time || "Время по согласованию"}</small>
+                    {b.coach && <small>{b.coach}</small>}
                   </span>
                   <span>
                     <i className={`st st-${b.status}`}>{STATUS[b.status]}</i>
@@ -1565,7 +1604,9 @@ function Admin({
                     {b.status === "confirmed" && (
                       <button onClick={() => setB(b.id, "came")}>Пришёл</button>
                     )}
-                    {b.status === "new" && <button className="ghost" onClick={() => navigator.clipboard.writeText(`Здравствуйте! Вы записаны на ${b.kind?.toLowerCase() ?? ""} занятие клуба «${organizationName}» ${fmtDate(b.date)} в ${b.time}, зал: ${b.gym}. Подтвердите, пожалуйста, что сможете прийти.`)}>Скопировать сообщение</button>}
+                    {b.status === "new" && <button className="ghost" onClick={() => navigator.clipboard.writeText(b.date && b.time
+                      ? `Здравствуйте! Вы записаны на ${b.kind?.toLowerCase() ?? ""} занятие клуба «${organizationName}» ${fmtDate(b.date)} в ${b.time}, зал: ${b.gym}. Подтвердите, пожалуйста, что сможете прийти.`
+                      : `Здравствуйте! Мы получили вашу заявку на тренировку в клубе «${organizationName}». Давайте согласуем время занятия.`)}>Скопировать сообщение</button>}
                     {(b.status === "new" || b.status === "confirmed") && (
                       <button className="ghost" onClick={() => {
                         if (window.confirm("Вы точно хотите отменить запись?")) void setB(b.id, "cancelled");
@@ -1674,7 +1715,7 @@ function Admin({
               child_name: b.childName || null,
               child_age: b.participant === "child" ? Number(b.childAge) : null,
               training_id: b.sessionId || null,
-              booking_date: b.sessionId ? b.date : null,
+              booking_date: b.date || null,
               gym: b.gym,
               discipline: b.discipline,
               pd_consent: b.pdConsent,

@@ -41,7 +41,9 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
   const [error, setError] = useState("");
   const [credentials, setCredentials] = useState<Credentials | null>(null);
   const orderedTeam = [...team.filter((member) => member.role === "trainer"), ...team.filter((member) => member.role !== "trainer")];
-  const assignableRoles = (["trainer", "admin", "manager"] as const).filter((role) => permissions[ROLE_PERMISSIONS[role]]);
+  const canEdit = (role: StaffMember["role"]) => permissions[ROLE_PERMISSIONS[role]]
+    && (role !== "trainer" || canAssignPermissions);
+  const assignableRoles = (["trainer", "admin", "manager"] as const).filter(canEdit);
   const busy = editor !== null || accessEditor !== null || removing;
 
   async function remove(member: StaffMember) {
@@ -80,10 +82,10 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
         {member.tags && <p>{member.tags}</p>}
         {member.about && <p className="admin-staff-about">{member.about}</p>}
         <div className="admin-form-actions">
-          {permissions[ROLE_PERMISSIONS[member.role]] && <button className="admin-secondary" disabled={busy} onClick={() => setEditor(member)}>Изменить</button>}
+          {canEdit(member.role) && <button className="admin-secondary" disabled={busy} onClick={() => setEditor(member)}>Изменить</button>}
           {canAssignPermissions && (member.role === "admin" || member.role === "manager") && !member.isCreator &&
             <button className="admin-secondary" disabled={busy} onClick={() => setAccessEditor(member)}>Права доступа</button>}
-          {member.role !== "owner" && permissions[ROLE_PERMISSIONS[member.role]] && <button className="admin-text-button" disabled={busy} onClick={() => void remove(member)}>Убрать из команды</button>}
+          {member.role !== "owner" && canEdit(member.role) && <button className="admin-text-button" disabled={busy} onClick={() => void remove(member)}>Убрать из команды</button>}
         </div>
       </article>)}
     </div>
@@ -211,25 +213,28 @@ function StaffEditor({ slug, member, assignableRoles, onCancel, onSave }: {
     <h2 className="adm-sub">{member ? `Карточка сотрудника · ${member.name}` : "Новый сотрудник"}</h2>
     {error && <p className="sport-admin-alert" role="alert">{error}</p>}
     <fieldset disabled={saving}>
-      <div className="admin-editor-grid">
-        <label>Имя<input name="name" defaultValue={member?.name} required minLength={2} maxLength={160} autoFocus /></label>
+      <div className="admin-staff-editor-layout">
+      <div className="admin-editor-grid admin-staff-editor-fields">
+        <label>Имя<input name="name" defaultValue={member?.name} required minLength={2} maxLength={160} autoFocus placeholder="Фамилия, имя, отчество" /></label>
         {member ? <label>Контактный телефон<input name="contact_phone" type="tel" maxLength={24} defaultValue={member.phone} /></label>
           : <label>Телефон для входа<input name="phone" type="tel" maxLength={24} placeholder="+7 900 000-00-00" required /></label>}
         {!member && <label>Роль<select name="role" value={role} onChange={(event) => setRole(event.target.value as StaffMember["role"])}>
           {assignableRoles.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
         </select></label>}
         {role === "trainer" && <>
-          <label>Должность<input name="title" maxLength={160} defaultValue={member?.title ?? "Тренер"} /></label>
-          <label>Опыт и квалификация<input name="experience" maxLength={160} defaultValue={member?.experience} /></label>
-          <label>Направления<input name="tags" maxLength={300} defaultValue={member?.tags} /></label>
+          <label>Должность на сайте<input name="title" maxLength={160} defaultValue={member?.title ?? "Тренер"} /></label>
+          <label>Опыт и квалификация<input name="experience" maxLength={160} defaultValue={member?.experience} placeholder="Например, 1-й дан" /></label>
+          <label>Направления<input name="tags" maxLength={300} defaultValue={member?.tags} placeholder="Например, ММА и грэпплинг" /></label>
         </>}
-        <label className="admin-editor-wide">О сотруднике<textarea name="about" defaultValue={member?.about} maxLength={4000} rows={4} /></label>
-        <div className="admin-editor-wide admin-staff-photo-row">
-          {photo && <img src={photo} alt="Фото сотрудника" />}
+        <label className="admin-editor-wide">{role === "trainer" ? "Биография для сайта" : "О сотруднике"}<textarea name="about" defaultValue={member?.about} maxLength={4000} rows={4} /></label>
+      </div>
+        <div className="admin-editor-grid admin-staff-photo-panel">
+          {photo ? <img src={photo} alt="Предпросмотр фотографии сотрудника" /> : <div className="admin-photo-empty">Предпросмотр фотографии</div>}
           <label>{member?.photo ? "Заменить фото" : "Загрузить фото"}<input type="file" name="photo" accept="image/*,.heic,.heif" onChange={(event) => {
             setFile(event.currentTarget.files?.[0] ?? null);
             if (event.currentTarget.files?.length) setRemovePhoto(false);
           }} /></label>
+          <p className="admin-hint">До 5 МБ. Квадратное фото лучше подходит для карточки тренера.</p>
           {member?.photo && !file && !removePhoto && <button className="admin-text-button" type="button" onClick={() => setRemovePhoto(true)}>Удалить фото</button>}
           {removePhoto && <button className="admin-text-button" type="button" onClick={() => setRemovePhoto(false)}>Вернуть фото</button>}
         </div>

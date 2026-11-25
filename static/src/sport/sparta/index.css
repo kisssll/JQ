@@ -2202,6 +2202,16 @@ main:has(> .page-title-sr) { padding-top: 66px; }
 .booking-consent { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 9px; font-size: 12px; line-height: 1.5; color: #555; }
 .booking-consent input { flex: 0 0 auto; margin: 2px 0 0; accent-color: #e3170a; }
 .booking-consent a { text-decoration: underline; text-underline-offset: 2px; }
+.sport-booking-form :is(input:not([type="checkbox"]), select) { box-sizing: border-box; }
+.form .booking-consent { display: flex; align-items: flex-start; gap: 9px; }
+.form .booking-consent input[type="checkbox"] {
+  appearance: auto;
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
+  min-height: 0;
+  padding: 0;
+}
 .booking-error { grid-column: 1 / -1; color: #b91c11; font-size: 13px; }
 .booking-success-icon { display: grid; place-items: center; width: 52px; height: 52px; background: #e5f1e8; color: #226b3b; border-radius: 50%; font-size: 25px; margin-bottom: 24px; }
 .account-card form { align-items: stretch; }
