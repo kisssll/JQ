@@ -650,6 +650,10 @@ body:has(.sparta-header) {
     width: min(94%, 1680px);
     margin-inline: auto;
   }
+
+  .sparta-coach-photo {
+    align-self: stretch;
+  }
 }
 
 .sparta-coach:nth-child(even) .sparta-coach-photo {
