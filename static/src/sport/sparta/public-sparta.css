@@ -645,6 +645,13 @@ body:has(.sparta-header) {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+@media (min-width: 761px) {
+  .sparta-coaches-page > section {
+    width: min(94%, 1680px);
+    margin-inline: auto;
+  }
+}
+
 .sparta-coach:nth-child(even) .sparta-coach-photo {
   order: 1;
 }
@@ -661,29 +668,29 @@ body:has(.sparta-header) {
   display: flex;
   flex-direction: column;
   gap: clamp(7px, .8vw, 16px);
-  padding: clamp(20px, 2vw, 48px);
+  padding: clamp(20px, 1.8vw, 36px);
   background: linear-gradient(135deg, #0b0303, #000 65%);
 }
 
 .sparta-coach-copy h2 {
-  font: 900 clamp(32px, 4.05vw, 96px)/.99 var(--cond);
+  font: 900 clamp(29px, 3.4vw, 66px)/1.02 var(--cond);
   overflow-wrap: anywhere;
 }
 
 .sparta-coach-role {
-  font-size: clamp(16px, 1.95vw, 38px);
+  font-size: clamp(16px, 1.55vw, 29px);
   line-height: 1.22;
 }
 
 .sparta-coach-rank {
   border-top: 2px solid var(--red);
   padding-top: .35em;
-  font: 900 clamp(20px, 2.35vw, 48px)/1.1 var(--cond);
+  font: 900 clamp(20px, 1.95vw, 37px)/1.1 var(--cond);
 }
 
 .sparta-coach-bio {
   max-width: 62ch;
-  font-size: clamp(15px, 1.17vw, 23px);
+  font-size: clamp(15px, 1.12vw, 20px);
   line-height: 1.6;
 }
 
