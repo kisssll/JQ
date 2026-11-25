@@ -64,7 +64,6 @@ const shortCoach = (name: string) => {
   const [surname, first] = name.split(" ");
   return `${surname} ${first}`;
 };
-const shortGym = (address: string) => address.length > 22 ? `${address.slice(0, 19)}…` : address;
 
 /* ---------------- ui atoms ---------------- */
 
@@ -446,7 +445,7 @@ export default function App() {
       </header>
 
       {page === "/" && <Home go={go} book={book} organization={organization} gyms={gyms} gallery={gallery} />}
-      {page === "/gyms" && <Gyms book={book} gyms={gyms} city={organization.city} />}
+      {page === "/gyms" && <Gyms book={book} go={go} gyms={gyms} city={organization.city} />}
       {page === "/coaches" && <Coaches book={book} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
       {page === "/disciplines" && <Disciplines book={book} disciplines={disciplines} />}
       {page === "/schedule" && <Schedule book={book} gyms={gyms} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
@@ -576,19 +575,15 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
         ignoreDefault={GYM_SLUG !== "sparta"}
       >
         <p className="tag tag-light">{organization.name} · {organization.city}</p>
-        <h1 className="cover-title">
-          {GYM_SLUG === "sparta" ? "Здесь куют" : "Двигайтесь к"}
-          <br />
-          <span className="red">{GYM_SLUG === "sparta" ? "характер" : "своей цели"}</span>
-        </h1>
+        <h1 className="cover-title">{GYM_SLUG === "sparta" ? "Спарта Плюс" : organization.name}</h1>
         <div className="cover-foot">
           <p>{organization.description}</p>
           <div className="row">
             <button className="btn btn-red" onClick={() => book()}>
               Пробная тренировка <Arrow />
             </button>
-            <button className="btn btn-white-line" onClick={() => go("/prices")}>
-              Цены
+            <button className="btn btn-white-line" onClick={() => go("/schedule")}>
+              Расписание
             </button>
           </div>
         </div>
@@ -597,10 +592,9 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
       <section className="club-overview" aria-labelledby="club-overview-title">
         <div className="club-overview-copy">
           <p className="tag">О клубе / {organization.city}</p>
-          <h2 id="club-overview-title">Твоя команда.<br />Твой характер.</h2>
-          <p>{organization.description}</p>
+          <h2 id="club-overview-title">{GYM_SLUG === "sparta" ? "Томский клуб единоборств с 2002 года" : "О клубе"}</h2>
+          {GYM_SLUG === "sparta" && <p>В «Спарте Плюс» тренируются дети с пяти лет, подростки и взрослые. В 2007 году клуб помог открыть в ТУСУРе школу дзю-дзютцу и студенческую специализацию «Самооборона». Спортсмены клуба выступают за сборную Томской области по грэпплингу и боевому дзю-дзютцу.</p>}
           <p>Можно прийти без опыта. На первой тренировке познакомитесь с тренером, попробуете занятия и вместе подберёте группу.</p>
-          <div className="club-facts"><span><b>{gyms.length}</b>зала клуба</span><span><b>{organization.city}</b>город</span><span><b>Для всех</b>уровней подготовки</span></div>
           <button className="link" onClick={() => go("/coaches")}>Познакомиться с тренерами <Arrow /></button>
         </div>
         <div className="club-start">
@@ -658,111 +652,79 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
         ))}
       </section>
 
-      <Photo id="cta" label="Баннер: ковёр / зал" size="2400 × 1000" className="cover cover-cta" srcOverride={GYM_SLUG === "sparta" ? undefined : gallery[0]?.src} ignoreDefault={GYM_SLUG !== "sparta"}>
-        <h2 className="cover-title cover-title-md">
-          Первая тренировка —<br />
-          <span className="red">начало пути</span>
-        </h2>
+      <section className="club-booking">
+        <h2>Первая тренировка</h2>
         <button className="btn btn-red" onClick={() => book()}>
           Записаться <Arrow />
         </button>
-      </Photo>
+      </section>
     </main>
   );
 }
 
-function PageHead({ title }: { id: string; title: string; text: string }) {
-  return <h1 className="page-title-sr">{title}</h1>;
+function PageHead({ title, text }: { id: string; title: string; text: string }) {
+  return <header className="section-heading public-page-heading"><h1>{title}</h1><p>{text}</p></header>;
 }
 
-function Gyms({ book, gyms, city }: { book: Book; gyms: Gym[]; city: string }) {
-  const [openPhoto, setOpenPhoto] = useState<string | null>(null);
-  const [gymPhoto, setGymPhoto] = useState(2);
-  const movePhoto = (step: number) => setGymPhoto((current) => (current + step + IRKUTSK_GYM_PHOTOS.length) % IRKUTSK_GYM_PHOTOS.length);
+function spartaVenuePhotos(address: string): GalleryPhoto[] {
+  const location = address.includes("Иркутский") ? { prefix: "irk", shots: 5 }
+    : address.includes("Фрунзе") ? { prefix: "fr", shots: 4 }
+    : address.includes("Учебная") ? { prefix: "ssmu", shots: 5 } : null;
+  if (!location) return [];
+  const photos = Array.from({ length: location.shots }, (_, index) => ({
+    src: `/photos/gyms/${location.prefix}-club-${index + 1}.jpg`,
+    alt: `Интерьер зала · ${address}`,
+  }));
+  return [...photos, { src: `/photos/gyms/${location.prefix}-club-exterior.jpg`, alt: `Вход в здание · ${address}` }];
+}
+
+function Gyms({ book, go, gyms, city }: { book: Book; go: (page: Page) => void; gyms: Gym[]; city: string }) {
+  const [openGym, setOpenGym] = useState<Gym | null>(null);
+  const [selected, setSelected] = useState(0);
+  const photosFor = (gym: Gym) => {
+    const photos = GYM_SLUG === "sparta" ? spartaVenuePhotos(gym.address) : [];
+    return photos.length ? photos : gym.photo ? [{ src: gym.photo, alt: gym.name }] : [];
+  };
+  const photos = openGym ? photosFor(openGym) : [];
   return (
-    <main>
-      <PageHead
-        id="gymsHead"
-        title="Залы"
-        text={`${gyms.length} площадки клуба в ${city}.`}
-      />
-      <section className="gyms">
-        {gyms.map((g, i) => (
-          <Photo
-            key={g.id}
-            id={`gym_${g.id}`}
-            label={`${g.name} — фото зала`}
-            size="2000 × 1200"
-            className="cover gym-cover"
-            srcOverride={GYM_SLUG === "sparta" && g.id === "1" ? IRKUTSK_GYM_PHOTOS[gymPhoto].src : g.photo ?? undefined}
-            ignoreDefault={GYM_SLUG !== "sparta"}
-          >
-            <span className="gym-n">0{i + 1} / 0{gyms.length}</span>
-            {GYM_SLUG === "sparta" && g.id === "1" && <div className="gym-cover-arrows" aria-label="Листать фото зала">
-              <button type="button" onClick={() => movePhoto(-1)} aria-label="Предыдущее фото зала"><Chevron previous /></button>
-              <button type="button" onClick={() => movePhoto(1)} aria-label="Следующее фото зала"><Chevron /></button>
-            </div>}
-            <div className="gym-over">
-              <div>
-                <p className="tag tag-light">{g.name}</p>
-                <h2>{g.address}</h2>
-                <p className="gym-note">{g.note}</p>
-              </div>
-              <div className="gym-side">
-                <dl>
-                  <div>
-                    <dt>Режим</dt>
-                    <dd>{g.hours}</dd>
-                  </div>
-                  <div>
-                    <dt>Направления</dt>
-                    <dd>{g.disciplines.join(" · ")}</dd>
-                  </div>
-                </dl>
-                <div className="row">
-                  <button className="btn btn-red" onClick={() => book({ gym: g.address })}>
-                    Записаться <Arrow />
-                  </button>
-                  <a
-                    className="btn btn-white-line"
-                    href={`https://2gis.ru/search/${encodeURIComponent(`${city}, ${g.address}`)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    В 2ГИС
-                  </a>
-                  <button className="btn btn-white-line" onClick={() => setOpenPhoto(g.id)}>Фото зала</button>
+    <main className="venue-page">
+      <PageHead id="gymsHead" title="Залы" text={city ? `Адреса тренировочных площадок · ${city}` : "Адреса тренировочных площадок"} />
+      <section className="venue-list" aria-label="Площадки клуба">
+        {gyms.map((gym) => {
+          const venuePhotos = photosFor(gym);
+          return (
+            <article className="venue-card" key={gym.id}>
+              {venuePhotos[0] && (
+                <button className="venue-photo" type="button" onClick={() => { setSelected(0); setOpenGym(gym); }} aria-label={`Открыть фотографии: ${gym.address}`}>
+                  <img src={venuePhotos[0].src} alt={venuePhotos[0].alt} loading="lazy" decoding="async" />
+                  <span>Фото зала <Arrow /></span>
+                </button>
+              )}
+              <div className="venue-copy">
+                <p className="tag">{gym.name}</p>
+                <h2>{gym.address}</h2>
+                {gym.note && <p>{gym.note}</p>}
+                <div className="venue-actions">
+                  <button className="btn btn-red" onClick={() => book({ gym: gym.address })}>Записаться <Arrow /></button>
+                  <a className="link" href={`https://2gis.ru/search/${encodeURIComponent(`${city}, ${gym.address}`)}`} target="_blank" rel="noreferrer">Маршрут в 2ГИС <Arrow /></a>
                 </div>
               </div>
-            </div>
-          </Photo>
-        ))}
+            </article>
+          );
+        })}
       </section>
-      {openPhoto && (
-        <Modal centered className="gym-modal" onClose={() => setOpenPhoto(null)}>
-          <h2 className="m-title">{gyms.find((g) => g.id === openPhoto)?.name}</h2>
-          {GYM_SLUG === "sparta" && openPhoto === "1" ? (
-            <PhotoGallery selected={gymPhoto} setSelected={setGymPhoto} movePhoto={movePhoto} />
-          ) : (
-            <>
-              <Photo id={`gym_${openPhoto}`} label="Фотография зала" size="2000 × 1200" className="gym-photo-large" srcOverride={gyms.find((item) => item.id === openPhoto)?.photo ?? undefined} ignoreDefault={GYM_SLUG !== "sparta"} />
-              <p className="m-note">Фотографии этого зала пока не добавлены.</p>
-            </>
-          )}
+      <div className="venue-schedule"><button className="btn btn-black" onClick={() => go("/schedule")}>Расписание всех залов <Arrow /></button></div>
+      {openGym && photos.length > 0 && (
+        <Modal centered className="gym-modal" label="Фотографии зала" onClose={() => setOpenGym(null)}>
+          <h2 className="m-title">{openGym.name}</h2>
+          <PhotoGallery photos={photos} caption={openGym.address} selected={selected} setSelected={setSelected}
+            movePhoto={(step) => setSelected((index) => (index + step + photos.length) % photos.length)} />
         </Modal>
       )}
     </main>
   );
 }
-
-const IRKUTSK_GYM_PHOTOS = [
-  { src: "/photos/gyms/irk-01.png", alt: "Вид на входную зону зала на Иркутском тракте" },
-  { src: "/photos/gyms/irk-02.png", alt: "Гардероб зала на Иркутском тракте" },
-  { src: "/photos/gyms/irk-03.png", alt: "Тренировочная зона с татами и грушами" },
-  { src: "/photos/gyms/irk-04.png", alt: "Борцовский зал с жёлто-синим покрытием" },
-];
-
-function PhotoGallery({ selected, setSelected, movePhoto, photos = IRKUTSK_GYM_PHOTOS, caption = "Иркутский тракт, 68" }: { selected: number; setSelected: (index: number) => void; movePhoto: (step: number) => void; photos?: { src: string; alt: string }[]; caption?: string }) {
+function PhotoGallery({ selected, setSelected, movePhoto, photos, caption }: { selected: number; setSelected: (index: number) => void; movePhoto: (step: number) => void; photos: GalleryPhoto[]; caption: string }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft") movePhoto(-1);
@@ -812,10 +774,10 @@ function Coaches({ book, coaches, trainings, exceptions, scheduleLoading, schedu
       />
       {scheduleLoading && <p className="schedule-note" role="status">Загружаем расписание…</p>}
       {scheduleError && <p className="schedule-note" role="alert">{scheduleError}</p>}
-      <section className="coaches">
+      <section className={`coaches ${GYM_SLUG === "sparta" ? "sparta-coaches" : ""}`}>
         {coaches.map((c, i) => (
           <Photo
-            key={c.name}
+            key={c.id}
             id={`coach_${i}`}
             label={`Портрет: ${c.name}`}
             size="1200 × 1600"
@@ -829,7 +791,7 @@ function Coaches({ book, coaches, trainings, exceptions, scheduleLoading, schedu
               {c.tags}
             </p>
             <button className="coach-discover" onClick={() => setSelected(i)} aria-label={`Узнать больше: ${c.name}`}>
-              <span><small>{c.exp || "Тренер клуба"}</small><b>Ознакомиться</b></span><span className="coach-discover-arrow"><Arrow /></span>
+              <span><small>{c.exp || "Тренер клуба"}</small><b>Профиль тренера</b></span><span className="coach-discover-arrow"><Arrow /></span>
             </button>
           </Photo>
         ))}
@@ -889,15 +851,15 @@ function Disciplines({ book, disciplines }: { book: Book; disciplines: Disciplin
 function Prices({ choose, plans }: { choose: (p: Plan) => void; plans: Plan[] }) {
   return (
     <main className="membership-page">
-      <div className="section-heading"><p className="tag">{GYM_SLUG === "sparta" ? "Занятия в Спарте" : `Занятия в ${GYM_NAME}`}</p><h1>Сначала попробуй.<br />Потом выбирай.</h1><p>Первая тренировка — знакомство с клубом. Для регулярных занятий — один абонемент на месяц.</p></div>
+      <div className="section-heading"><p className="tag">{GYM_SLUG === "sparta" ? "Занятия в Спарте" : `Занятия в ${GYM_NAME}`}</p><h1>Цены и абонементы</h1><p>Стоимость пробной, групповых и индивидуальных тренировок.</p></div>
       <section className="membership-options" aria-label="Варианты занятий">
-        {plans.map((plan, index) => <article className={`membership-option ${index === 0 ? "membership-trial" : ""}`} key={plan.id}>
-          <div className="membership-label"><span>{String(index + 1).padStart(2, "0")} / {plan.unit}</span><b>{plan.featured ? "Популярное" : plan.name}</b></div>
+        {plans.map((plan) => <article className={`membership-option ${plan.id === "trial" ? "membership-trial" : ""}`} key={plan.id}>
+          <div className="membership-label"><span>{plan.unit}</span>{plan.featured && <b>Популярное</b>}</div>
           <h2>{plan.name}</h2><p className="membership-value">{plan.price ? rub(plan.price) : /уточня/i.test(plan.unit) ? "Стоимость уточняется" : "Бесплатно"}</p>
-          <p>{plan.items[0] ?? plan.unit}</p>
+
           <ul>{plan.items.map((item) => <li key={item}>{item}</li>)}</ul>
-          <button className={index === 0 ? "btn btn-red" : "btn btn-black"} onClick={() => choose(plan)}>
-            {index === 0 ? "Записаться" : "Выбрать тариф"} <Arrow />
+          <button className={plan.id === "trial" ? "btn btn-red" : "btn btn-black"} onClick={() => choose(plan)}>
+            {plan.id === "trial" ? "Записаться" : "Выбрать тариф"} <Arrow />
           </button>
         </article>)}
       </section>
@@ -906,7 +868,7 @@ function Prices({ choose, plans }: { choose: (p: Plan) => void; plans: Plan[] })
         ["Что взять с собой?", "Удобную спортивную форму и воду. Если понадобится специальная экипировка, тренер расскажет о ней заранее."],
         ["Можно записать ребёнка?", "Да. Выберите «Мой ребёнок» в форме, укажите его имя и возраст, а также свой телефон для связи."],
         ["Можно ли заниматься без подготовки?", "Да, можно начать с нуля. Расскажите администратору о своём опыте — он поможет подобрать группу."],
-        ["Как оплатить абонемент?", "Стоимость и способ оплаты уточнит администратор клуба. После оплаты он отметит ваш абонемент за выбранный месяц."],
+        ["Как оплатить абонемент?", "Стоимость и способ оплаты уточнит администратор клуба. У него можно уточнить срок действия и условия выбранного варианта."],
       ].map(([q, a]) => <details key={q}><summary>{q}<span aria-hidden="true">+</span></summary><p>{a}</p></details>)}</div></section>
     </main>
   );
@@ -928,10 +890,10 @@ function Schedule({ book, gyms, coaches, trainings, exceptions, scheduleLoading,
   const hasResults = dates.some((date) => visibleGyms.some((item) => slotsFor(date, item.address).length > 0));
   return (
     <main className="timetable-page">
-      <div className="section-heading timetable-heading"><div><p className="tag">Расписание{GYM_CITY ? ` / ${GYM_CITY}` : ""}</p><h1>Найди время<br />для себя.</h1><p>Выберите зал и тренировку. Записаться можно прямо из расписания.</p></div><div className="timetable-offer"><span>Первый раз?</span><b>Попробуйте бесплатно.</b><button className="link" onClick={() => book()}>Помогите выбрать <Arrow /></button></div></div>
+      <div className="section-heading timetable-heading"><div><p className="tag">Расписание{GYM_CITY ? ` / ${GYM_CITY}` : ""}</p><h1>Групповые тренировки</h1><p>Выберите зал и тренировку. Записаться можно прямо из расписания.</p></div><div className="timetable-offer"><span>Первый раз?</span><b>Попробуйте бесплатно.</b><button className="link" onClick={() => book()}>Помогите выбрать <Arrow /></button></div></div>
       <section className="timetable-section" aria-label="Расписание тренировок">
-        <div className="timetable-toolbar"><div className="gym-tabs" aria-label="Выбор зала"><button aria-pressed={gym === "all"} onClick={() => setGym("all")}>Все залы</button>{gyms.map((g) => <button key={g.id} aria-pressed={gym === g.address} onClick={() => setGym(g.address)}>{shortGym(g.address)}</button>)}</div><label className="timetable-coach"><span>Тренер</span><select value={coach} onChange={(e) => setCoach(e.target.value)}><option value="all">Все тренеры</option>{coaches.map((c) => <option key={c.id} value={c.name}>{shortCoach(c.name)}</option>)}</select></label></div>
-        <div className="timetable-week"><div><h2>Неделя тренировок</h2><p>Регулярное расписание{GYM_CITY ? ` · ${GYM_CITY}` : ""}</p></div><div className="week-switch"><button aria-label="Предыдущая неделя" onClick={() => setWeek(Math.max(0, week - 1))} disabled={week === 0}><Chevron previous /></button><strong>{dates[0].toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — {dates[6].toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</strong><button aria-label="Следующая неделя" onClick={() => setWeek(week + 1)}><Chevron /></button>{week > 0 && <button className="week-reset" onClick={() => setWeek(0)}>Эта неделя</button>}</div></div>
+        <div className="timetable-toolbar"><div className="gym-tabs" aria-label="Выбор зала"><button aria-pressed={gym === "all"} onClick={() => setGym("all")}>Все залы</button>{gyms.map((g) => <button key={g.id} aria-pressed={gym === g.address} onClick={() => setGym(g.address)}>{g.name}</button>)}</div><label className="timetable-coach"><span>Тренер</span><select value={coach} onChange={(e) => setCoach(e.target.value)}><option value="all">Все тренеры</option>{coaches.map((c) => <option key={c.id} value={c.name}>{shortCoach(c.name)}</option>)}</select></label></div>
+        <div className="timetable-week"><div><h2>Неделя тренировок</h2><p>Занятия по залам</p></div><div className="week-switch"><button aria-label="Предыдущая неделя" onClick={() => setWeek(Math.max(0, week - 1))} disabled={week === 0}><Chevron previous /></button><strong>{dates[0].toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — {dates[6].toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</strong><button aria-label="Следующая неделя" onClick={() => setWeek(week + 1)}><Chevron /></button>{week > 0 && <button className="week-reset" onClick={() => setWeek(0)}>Эта неделя</button>}</div></div>
         {scheduleLoading && <p className="timetable-no-results" role="status">Загружаем расписание…</p>}
         {scheduleError && <p className="timetable-no-results" role="alert">{scheduleError}</p>}
         {!scheduleLoading && !scheduleError && !hasResults && <p className="timetable-no-results">По этим фильтрам занятий нет. Выберите другой зал или тренера.</p>}
@@ -941,7 +903,7 @@ function Schedule({ book, gyms, coaches, trainings, exceptions, scheduleLoading,
           {dates.map((date) => {
             const key = localDate(date);
             const dayEmpty = visibleGyms.every((g) => slotsFor(date, g.address).length === 0);
-            return <tr className={`${key === today() ? "is-today" : ""} ${dayEmpty ? "is-empty-day" : ""}`} key={key}><th scope="row"><b>{date.toLocaleDateString("ru-RU", { weekday: "long" })}</b><span>{date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}{key === today() && <em>Сегодня</em>}</span></th>{visibleGyms.map((g) => { const slots = slotsFor(date, g.address); return <td key={g.id} className={!slots.length ? "is-empty-cell" : ""}><span className="timetable-mobile-gym">{g.name} · {shortGym(g.address)}</span>{slots.length ? slots.map((slot) => {
+            return <tr className={`${key === today() ? "is-today" : ""} ${dayEmpty ? "is-empty-day" : ""}`} key={key}><th scope="row"><b>{date.toLocaleDateString("ru-RU", { weekday: "long" })}</b><span>{date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}{key === today() && <em>Сегодня</em>}</span></th>{visibleGyms.map((g) => { const slots = slotsFor(date, g.address); return <td key={g.id} className={!slots.length ? "is-empty-cell" : ""}><span className="timetable-mobile-gym">{g.address}</span>{slots.length ? slots.map((slot) => {
               const held = exceptions[`${key}:${slot.id}`] !== false;
               const past = key < today();
               return <article className={`timetable-session ${!held ? "is-cancelled" : ""} ${past ? "is-past" : ""}`} key={slot.id}><div><b>{slot.time}<span>–{slot.end}</span></b><p>{shortCoach(slot.coach)}</p>{slot.discipline !== "Направление уточняется" && <small>{slot.discipline}</small>}</div>{!held ? <span className="session-status">Отменена</span> : past ? <span className="session-status">Завершена</span> : <button aria-label={`Записаться: ${fmtDate(key)}, ${slot.time}, ${shortCoach(slot.coach)}, ${g.address}`} onClick={() => book({ sessionId: slot.id, coach: slot.coach, discipline: slot.discipline, gym: slot.gym, date: key, time: slot.time })}>Записаться <Arrow /></button>}</article>;
