@@ -705,11 +705,113 @@ body:has(.sparta-header) {
 }
 
 .sparta-prices .membership-options {
+  max-width: none;
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(min(230px, 100%), 1fr);
   gap: 12px;
+  overflow-x: auto;
+  padding-block: 4px 16px;
+  scroll-padding-inline: var(--px);
+  scroll-snap-type: inline proximity;
 }
 
 .sparta-prices .membership-option {
+  color: #171717;
   padding: clamp(12px, 1.3vw, 22px);
+  scroll-snap-align: start;
+}
+
+.sparta-prices .membership-trial {
+  color: #fff;
+  border-color: #545454;
+}
+
+.sparta-prices .membership-options:focus-visible {
+  outline: 2px solid #ff6258;
+  outline-offset: -2px;
+}
+
+.sparta-prices,
+.sparta-gallery {
+  background: #000;
+  color: #fff;
+}
+
+.sparta-prices .membership-help p,
+.sparta-prices .membership-faq details p,
+.sparta-prices .membership-faq .tag,
+.sparta-gallery .gallery-heading > p {
+  color: #ccc;
+}
+
+.sparta-prices .membership-help,
+.sparta-prices .membership-faq details {
+  border-color: #545454;
+}
+
+.sparta-gallery .modal-box {
+  color: #171717;
+}
+
+.sparta-timetable {
+  background: #f4f4f4;
+  color: #111;
+}
+
+.sparta-timetable .timetable-toolbar {
+  border-color: #999;
+}
+
+.sparta-timetable .timetable thead {
+  background: #000;
+}
+
+.sparta-timetable .timetable thead th:first-child,
+.sparta-timetable .timetable thead th > span {
+  color: #ddd;
+}
+
+.sparta-timetable .gym-tabs button {
+  color: #292929;
+}
+
+.sparta-timetable .gym-tabs button[aria-pressed="true"] {
+  background: #000;
+  color: #fff;
+}
+
+.sparta-timetable .timetable tbody th {
+  background: #dedede;
+}
+
+.sparta-timetable .timetable th,
+.sparta-timetable .timetable td,
+.sparta-timetable .timetable-session + .timetable-session,
+.sparta-timetable .timetable-mobile-gym {
+  border-color: #aaa;
+}
+
+.sparta-timetable .timetable-session b span,
+.sparta-timetable .timetable-session p,
+.sparta-timetable .timetable-session small,
+.sparta-timetable .timetable-mobile-gym,
+.sparta-timetable .timetable tbody th > span,
+.sparta-timetable .session-status {
+  color: #404040;
+}
+
+.sparta-timetable .timetable-session.is-past,
+.sparta-timetable .timetable-session.is-cancelled {
+  opacity: 1;
+}
+
+.sparta-timetable .session-status {
+  font-weight: 600;
+}
+
+.sparta-timetable .is-cancelled .session-status {
+  color: #a31616;
 }
 
 .sparta-prices .membership-option ul {
