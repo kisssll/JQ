@@ -770,3 +770,11 @@ body:has(.sparta-header) {
     margin-top: 6px;
   }
 }
+
+body:has(.sparta-header) .discipline-copy {
+  background: radial-gradient(ellipse at 100% 100%, #1c0808 0%, #000 68%);
+}
+
+body:has(.sparta-header) .discipline-copy h2 {
+  font: 900 clamp(36px, 5.3vw, 92px)/1.02 var(--cond);
+}
