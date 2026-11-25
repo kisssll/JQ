@@ -3,6 +3,7 @@
 }
 
 body:has(.sparta-header) {
+  --sparta-header-height: 66px;
   --cond: "Fira Sans", Inter, Arial, sans-serif;
   --sport-primary: #cf1717;
   --sport-accent-text: #b41414;
@@ -12,14 +13,12 @@ body:has(.sparta-header) {
 }
 
 .sparta-header.hdr {
-  --sparta-header-height: 66px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   height: var(--sparta-header-height);
   padding-inline: clamp(12px, 2vw, 36px);
-  background: #fff;
-  color: #111;
-  border-bottom: 1px solid #e7e7e7;
+  background: #000;
+  color: #fff;
 }
 
 .sparta-header .hdr-brand {
@@ -39,25 +38,6 @@ body:has(.sparta-header) {
   letter-spacing: -.025em;
 }
 
-.sparta-header .direction-switch {
-  border: 0;
-  border-radius: 0;
-  padding: 0;
-  background: transparent;
-}
-
-.sparta-header .direction-switch a {
-  min-height: 44px;
-  padding-inline: 6px;
-  font: 500 12px/1.2 Inter, Arial, sans-serif;
-}
-
-.sparta-header .direction-switch a[aria-current] {
-  background: transparent;
-  color: var(--sport-accent-text);
-}
-
-.sparta-header .direction-switch a:hover,
 .sparta-header .hdr-staff:hover {
   text-decoration: underline;
   text-underline-offset: 4px;
@@ -65,22 +45,26 @@ body:has(.sparta-header) {
 
 .sparta-header .hdr-nav.open {
   inset: var(--sparta-header-height) 0 0;
-  background: #fff;
+  background: #000;
 }
 
 .sparta-header .hdr-nav button,
 .sparta-header .hdr-staff {
-  color: #111;
+  color: #fff;
+}
+
+.sparta-header .hdr-nav button.on {
+  color: #ff6258;
 }
 
 .sparta-header .hdr-burger span,
 .sparta-header .hdr-burger span::before,
 .sparta-header .hdr-burger span::after {
-  background: #111;
+  background: #fff;
 }
 
 .sparta-header .hdr-nav button {
-  border-color: #e7e7e7;
+  border-color: #333;
 }
 
 .sparta-header .hdr-nav button::after {
@@ -138,19 +122,19 @@ body:has(.sparta-header) {
 }
 
 .sparta-home {
-  padding-top: 66px;
+  padding-top: var(--sparta-header-height);
 }
 
 .sparta-home .cover-hero {
   height: auto;
-  min-height: clamp(490px, 43vw, 860px);
+  min-height: calc(100svh - var(--sparta-header-height));
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
 }
 
 .sparta-home .cover-hero .ph-img {
-  object-position: center 92%;
+  object-position: center 75%;
 }
 
 .sparta-home .cover-hero.ph::after {
@@ -194,14 +178,24 @@ body:has(.sparta-header) {
 }
 
 .sparta-home .club-overview {
-  padding-block: clamp(28px, 4vw, 72px);
+  padding: clamp(22px, 2vw, 44px) clamp(20px, 3vw, 66px);
+  gap: 0;
   background: #fff;
 }
 
 .sparta-home .club-overview h2 {
   margin-block: 12px 18px;
-  font-size: clamp(30px, 3.4vw, 62px);
+  font-size: clamp(27px, 3.1vw, 66px);
   text-transform: none;
+}
+
+.sparta-home .club-overview-copy {
+  padding-right: clamp(20px, 4vw, 88px);
+}
+
+.sparta-home .club-overview-copy > p:not(.tag) {
+  max-width: 64ch;
+  font-size: clamp(14px, 1.04vw, 19px);
 }
 
 .sparta-home .club-start {
@@ -211,7 +205,12 @@ body:has(.sparta-header) {
 }
 
 .sparta-home .club-start h3 {
-  margin-block: 12px 16px;
+  margin-block: 4px 16px;
+  font-size: clamp(28px, 3.05vw, 66px);
+}
+
+.sparta-home .club-start ol {
+  margin-block: 0 16px;
 }
 
 .sparta-home .club-start li {
@@ -224,19 +223,74 @@ body:has(.sparta-header) {
   font-weight: 900;
 }
 
-.sparta-home .why-title {
-  margin: 0;
-  font: 900 clamp(30px, 5vw, 86px)/1 var(--cond);
-  letter-spacing: .04em;
-  color: #fff;
+.sparta-home .why-sparta {
+  height: auto;
+  min-height: 0;
 }
 
-.sparta-home .why-reason-copy {
+.sparta-home .why-title {
+  padding: clamp(18px, 2vw, 42px) 12px;
+  background: #000;
+  font: 900 clamp(30px, 4.5vw, 86px)/1 var(--cond);
+  letter-spacing: .04em;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.sparta-home .why-content {
+  display: block;
+  height: auto;
+  padding: 0;
+}
+
+.sparta-home .reasons-over {
+  margin: 0;
+  gap: 0;
+}
+
+.sparta-home .why-reason {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 0;
+  aspect-ratio: 739 / 800;
+  overflow: hidden;
+}
+
+.sparta-home .why-mobile-photo {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 55%;
+}
+
+.sparta-home .why-reason::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, .92), transparent 55%);
+}
+
+.sparta-home .why-reason .why-reason-copy {
+  position: relative;
+  z-index: 1;
   border: 0;
+  margin: 0;
+  padding: clamp(14px, 1.3vw, 28px);
+}
+
+.sparta-home .why-reason-copy b {
+  font-size: clamp(24px, 3vw, 62px);
+  line-height: 1;
 }
 
 .sparta-home .why-reason-copy h3 {
-  font-size: clamp(25px, 2.7vw, 53px);
+  margin-top: 4px;
+  font-size: clamp(22px, 2.35vw, 49px);
+  line-height: 1;
 }
 
 .sparta-home .tiles {
@@ -245,6 +299,13 @@ body:has(.sparta-header) {
 
 .sparta-home .tile-ph {
   aspect-ratio: 739 / 800;
+}
+
+.sparta-home .tile-ph .ph-over {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  padding: clamp(12px, 1.3vw, 28px);
 }
 
 .sparta-home .tile:nth-child(2) .ph-img {
@@ -256,7 +317,7 @@ body:has(.sparta-header) {
 }
 
 .sparta-home .tile-cap h3 {
-  font-size: clamp(25px, 2.9vw, 54px);
+  font-size: clamp(23px, 2.7vw, 57px);
   line-height: 1;
 }
 
@@ -265,14 +326,53 @@ body:has(.sparta-header) {
 }
 
 .sparta-home .club-booking {
+  padding: clamp(22px, 2.7vw, 60px) clamp(20px, 4vw, 88px);
   background: #fff;
   color: var(--sport-accent-text);
 }
 
-.sparta-home .club-booking h2 {
-  max-width: 17ch;
-  font: 900 clamp(26px, 3.5vw, 57px)/1 var(--cond);
+.sparta-home .club-booking p {
+  color: #000;
+  font: 900 clamp(18px, 1.8vw, 40px)/1.15 var(--cond);
   text-transform: uppercase;
+}
+
+.sparta-home .club-booking h2 {
+  font: 900 clamp(25px, 2.85vw, 64px)/1 var(--cond);
+  text-transform: uppercase;
+}
+
+.sparta-home .club-booking .btn {
+  height: auto;
+  min-height: 52px;
+  padding: .55em .7em;
+  font-size: clamp(17px, 2.25vw, 48px);
+  font-weight: 500;
+  text-transform: none;
+}
+
+.sparta-home ~ .mobile-book {
+  display: none;
+}
+
+.sparta-home ~ .ftr {
+  padding: clamp(12px, 1.6vw, 36px) clamp(16px, 1.2vw, 28px);
+  background: #000;
+}
+
+.sparta-home ~ .ftr .ftr-top {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sparta-home ~ .ftr .ftr-big {
+  font-size: clamp(38px, 5.8vw, 130px);
+}
+
+.sparta-home ~ .ftr .ftr-top > .btn,
+.sparta-home ~ .ftr .ftr-cols {
+  display: none;
 }
 
 .sparta-header ~ .ftr .ftr-big {
@@ -286,33 +386,33 @@ body:has(.sparta-header) {
   border-radius: 50%;
 }
 
-@media (min-width: 861px) {
-  .sparta-home .why-sparta {
-    height: auto;
-    min-height: clamp(330px, 36vw, 720px);
-    display: flex;
-  }
-
-  .sparta-home .why-content {
-    width: 100%;
-    height: auto;
-    justify-content: space-between;
-    padding-block: clamp(16px, 1.5vw, 34px);
-  }
-
-  .sparta-home .tile-ph .ph-over {
-    padding: clamp(12px, 1.6vw, 30px);
+@media (min-width: 901px) {
+  .sparta-home .club-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 900px) {
+  .sparta-home .club-overview {
+    row-gap: 24px;
+  }
+
+  .sparta-home .club-overview-copy {
+    padding-right: 0;
+  }
+
   .sparta-home .club-start {
     border-left: 0;
     border-top: 1px solid #dedede;
     padding: 14px 0 0;
   }
 
-  .sparta-home .tile-ph {
+  .sparta-home .reasons-over {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sparta-home .tile-ph,
+  .sparta-home .why-reason {
     aspect-ratio: 5 / 4;
     max-height: 440px;
   }
@@ -325,20 +425,6 @@ body:has(.sparta-header) {
 }
 
 @media (max-width: 640px) {
-  .sparta-home .cover-hero .ph-img {
-    height: auto;
-    mask-image: linear-gradient(to bottom, #000 65%, transparent);
-  }
-
-  .sparta-home .cover-hero.ph::after {
-    background: none;
-  }
-
-  .sparta-home .cover-hero {
-    min-height: max(405px, 88vw);
-    background: #090909;
-  }
-
   .sparta-home .cover-hero .cover-title {
     font-size: clamp(37px, 10.6vw, 66px);
   }
