@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { sportRequest } from "./admin-api";
 
 const ROLE_LABELS = { owner: "Владелец", manager: "Управляющий", admin: "Администратор", trainer: "Тренер" };
@@ -15,6 +15,7 @@ const PERMISSION_LABELS = {
 };
 export type SportPermissions = Partial<Record<keyof typeof PERMISSION_LABELS | "manage_owners", boolean>>;
 const ROLE_PERMISSIONS = { owner: "manage_owners", manager: "manage_managers", admin: "manage_admins", trainer: "manage_coaches" } as const;
+type Credentials = { name: string; login: string; password: string };
 
 export type StaffMember = {
   id: number;
@@ -38,8 +39,11 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
   const [accessEditor, setAccessEditor] = useState<StaffMember | null>(null);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
+  const [credentials, setCredentials] = useState<Credentials | null>(null);
   const orderedTeam = [...team.filter((member) => member.role === "trainer"), ...team.filter((member) => member.role !== "trainer")];
-  const assignableRoles = (["trainer", "admin", "manager"] as const).filter((role) => permissions[ROLE_PERMISSIONS[role]]);
+  const canEdit = (role: StaffMember["role"]) => permissions[ROLE_PERMISSIONS[role]]
+    && (role !== "trainer" || canAssignPermissions);
+  const assignableRoles = (["trainer", "admin", "manager"] as const).filter(canEdit);
   const busy = editor !== null || accessEditor !== null || removing;
 
   async function remove(member: StaffMember) {
@@ -63,7 +67,8 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
     </div>
     {error && <p className="sport-admin-alert" role="alert">{error}</p>}
     {editor && <StaffEditor slug={slug} member={editor === "new" ? null : editor} assignableRoles={assignableRoles} onCancel={() => setEditor(null)}
-      onSave={(member) => { onSaved(member); setEditor(null); }} />}
+      onSave={(member, credentials) => { onSaved(member); setEditor(null); setCredentials(credentials ?? null); }} />}
+    {credentials && <CredentialsDialog slug={slug} credentials={credentials} close={() => setCredentials(null)} />}
     {accessEditor && <AccessEditor slug={slug} member={accessEditor} onCancel={() => setAccessEditor(null)}
       onSave={(member) => { onSaved(member); setAccessEditor(null); }} />}
     <div className="admin-staff-grid">
@@ -77,10 +82,10 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
         {member.tags && <p>{member.tags}</p>}
         {member.about && <p className="admin-staff-about">{member.about}</p>}
         <div className="admin-form-actions">
-          {permissions[ROLE_PERMISSIONS[member.role]] && <button className="admin-secondary" disabled={busy} onClick={() => setEditor(member)}>Изменить</button>}
+          {canEdit(member.role) && <button className="admin-secondary" disabled={busy} onClick={() => setEditor(member)}>Изменить</button>}
           {canAssignPermissions && (member.role === "admin" || member.role === "manager") && !member.isCreator &&
             <button className="admin-secondary" disabled={busy} onClick={() => setAccessEditor(member)}>Права доступа</button>}
-          {member.role !== "owner" && permissions[ROLE_PERMISSIONS[member.role]] && <button className="admin-text-button" disabled={busy} onClick={() => void remove(member)}>Убрать из команды</button>}
+          {member.role !== "owner" && canEdit(member.role) && <button className="admin-text-button" disabled={busy} onClick={() => void remove(member)}>Убрать из команды</button>}
         </div>
       </article>)}
     </div>
@@ -124,8 +129,49 @@ function AccessEditor({ slug, member, onCancel, onSave }: {
   </form>;
 }
 
+function CredentialsDialog({ slug, credentials, close }: { slug: string; credentials: Credentials; close: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const login = new URL("/sport/login", window.location.origin);
+  login.searchParams.set("redirect", `/sport/${encodeURIComponent(slug)}/admin`);
+  const text = `Вход в Руми Спорт\nЛогин (телефон): ${credentials.login}\nВременный пароль: ${credentials.password}\nСайт: ${login}`;
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+  }
+  useEffect(() => {
+    const panel = dialog.current;
+    panel?.showModal();
+    void copy();
+    return () => panel?.close();
+  }, [text]);
+  return <dialog ref={dialog} className="admin-editor-dialog" aria-labelledby="sport-credentials-title" onCancel={(event) => {
+    event.preventDefault();
+    close();
+  }}>
+    <div className="admin-editor">
+      <h2 id="sport-credentials-title" className="adm-sub">Данные для входа</h2>
+      <p>{credentials.name}</p>
+      <div className="admin-editor-grid">
+        <label>Телефон<input readOnly value={credentials.login} /></label>
+        <label>Временный пароль<input readOnly value={credentials.password} /></label>
+      </div>
+      <p className="admin-hint" role="status">{copyState === "copied" ? "Телефон и пароль скопированы."
+        : copyState === "failed" ? "Автокопирование недоступно. Нажмите «Скопировать» или выделите данные вручную." : "Передайте эти данные сотруднику. Пароль показывается один раз."}</p>
+      <div className="admin-form-actions">
+        <button className="btn btn-black" type="button" onClick={() => void copy()}>Скопировать</button>
+        <button className="admin-secondary" type="button" onClick={close}>Готово</button>
+      </div>
+    </div>
+  </dialog>;
+}
+
 function StaffEditor({ slug, member, assignableRoles, onCancel, onSave }: {
-  slug: string; member: StaffMember | null; onCancel: () => void; onSave: (member: StaffMember) => void;
+  slug: string; member: StaffMember | null; onCancel: () => void; onSave: (member: StaffMember, credentials?: Credentials | null) => void;
   assignableRoles: readonly StaffMember["role"][];
 }) {
   const [role, setRole] = useState<StaffMember["role"]>(member?.role ?? assignableRoles[0] ?? "trainer");
@@ -153,8 +199,8 @@ function StaffEditor({ slug, member, assignableRoles, onCancel, onSave }: {
     setError("");
     try {
       const path = member ? `/staff/${member.role}/${member.id}` : "/staff";
-      const result = await sportRequest<{ member: StaffMember }>(slug, path, { method: member ? "PUT" : "POST", body });
-      onSave(result.member);
+      const result = await sportRequest<{ member: StaffMember; credentials?: Credentials | null }>(slug, path, { method: member ? "PUT" : "POST", body });
+      onSave(result.member, result.credentials);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Не удалось сохранить карточку");
     } finally {
@@ -167,25 +213,28 @@ function StaffEditor({ slug, member, assignableRoles, onCancel, onSave }: {
     <h2 className="adm-sub">{member ? `Карточка сотрудника · ${member.name}` : "Новый сотрудник"}</h2>
     {error && <p className="sport-admin-alert" role="alert">{error}</p>}
     <fieldset disabled={saving}>
-      <div className="admin-editor-grid">
-        <label>Имя<input name="name" defaultValue={member?.name} required minLength={2} maxLength={160} autoFocus /></label>
+      <div className="admin-staff-editor-layout">
+      <div className="admin-editor-grid admin-staff-editor-fields">
+        <label>Имя<input name="name" defaultValue={member?.name} required minLength={2} maxLength={160} autoFocus placeholder="Фамилия, имя, отчество" /></label>
         {member ? <label>Контактный телефон<input name="contact_phone" type="tel" maxLength={24} defaultValue={member.phone} /></label>
           : <label>Телефон для входа<input name="phone" type="tel" maxLength={24} placeholder="+7 900 000-00-00" required /></label>}
         {!member && <label>Роль<select name="role" value={role} onChange={(event) => setRole(event.target.value as StaffMember["role"])}>
           {assignableRoles.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
         </select></label>}
         {role === "trainer" && <>
-          <label>Должность<input name="title" maxLength={160} defaultValue={member?.title ?? "Тренер"} /></label>
-          <label>Опыт и квалификация<input name="experience" maxLength={160} defaultValue={member?.experience} /></label>
-          <label>Направления<input name="tags" maxLength={300} defaultValue={member?.tags} /></label>
+          <label>Должность на сайте<input name="title" maxLength={160} defaultValue={member?.title ?? "Тренер"} /></label>
+          <label>Опыт и квалификация<input name="experience" maxLength={160} defaultValue={member?.experience} placeholder="Например, 1-й дан" /></label>
+          <label>Направления<input name="tags" maxLength={300} defaultValue={member?.tags} placeholder="Например, ММА и грэпплинг" /></label>
         </>}
-        <label className="admin-editor-wide">О сотруднике<textarea name="about" defaultValue={member?.about} maxLength={4000} rows={4} /></label>
-        <div className="admin-editor-wide admin-staff-photo-row">
-          {photo && <img src={photo} alt="Фото сотрудника" />}
+        <label className="admin-editor-wide">{role === "trainer" ? "Биография для сайта" : "О сотруднике"}<textarea name="about" defaultValue={member?.about} maxLength={4000} rows={4} /></label>
+      </div>
+        <div className="admin-editor-grid admin-staff-photo-panel">
+          {photo ? <img src={photo} alt="Предпросмотр фотографии сотрудника" /> : <div className="admin-photo-empty">Предпросмотр фотографии</div>}
           <label>{member?.photo ? "Заменить фото" : "Загрузить фото"}<input type="file" name="photo" accept="image/*,.heic,.heif" onChange={(event) => {
             setFile(event.currentTarget.files?.[0] ?? null);
             if (event.currentTarget.files?.length) setRemovePhoto(false);
           }} /></label>
+          <p className="admin-hint">До 5 МБ. Квадратное фото лучше подходит для карточки тренера.</p>
           {member?.photo && !file && !removePhoto && <button className="admin-text-button" type="button" onClick={() => setRemovePhoto(true)}>Удалить фото</button>}
           {removePhoto && <button className="admin-text-button" type="button" onClick={() => setRemovePhoto(false)}>Вернуть фото</button>}
         </div>

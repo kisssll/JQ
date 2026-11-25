@@ -36,6 +36,10 @@ body:has(.sparta-header) {
   font-size: clamp(21px, 2.3vw, 35px);
   line-height: 1;
   letter-spacing: -.025em;
+  max-width: clamp(165px, 18vw, 360px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sparta-header .hdr-staff:hover {
@@ -645,6 +649,18 @@ body:has(.sparta-header) {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+@media (min-width: 761px) {
+  .sparta-coaches-page > section {
+    width: min(94%, 1680px);
+    margin-inline: auto;
+  }
+
+  .sparta-coach-photo {
+    align-self: stretch;
+    width: 100%;
+  }
+}
+
 .sparta-coach:nth-child(even) .sparta-coach-photo {
   order: 1;
 }
@@ -661,29 +677,29 @@ body:has(.sparta-header) {
   display: flex;
   flex-direction: column;
   gap: clamp(7px, .8vw, 16px);
-  padding: clamp(20px, 2vw, 48px);
+  padding: clamp(20px, 1.8vw, 36px);
   background: linear-gradient(135deg, #0b0303, #000 65%);
 }
 
 .sparta-coach-copy h2 {
-  font: 900 clamp(32px, 4.05vw, 96px)/.99 var(--cond);
+  font: 900 clamp(29px, 3.4vw, 66px)/1.02 var(--cond);
   overflow-wrap: anywhere;
 }
 
 .sparta-coach-role {
-  font-size: clamp(16px, 1.95vw, 38px);
+  font-size: clamp(16px, 1.55vw, 29px);
   line-height: 1.22;
 }
 
 .sparta-coach-rank {
   border-top: 2px solid var(--red);
   padding-top: .35em;
-  font: 900 clamp(20px, 2.35vw, 48px)/1.1 var(--cond);
+  font: 900 clamp(20px, 1.95vw, 37px)/1.1 var(--cond);
 }
 
 .sparta-coach-bio {
   max-width: 62ch;
-  font-size: clamp(15px, 1.17vw, 23px);
+  font-size: clamp(15px, 1.12vw, 20px);
   line-height: 1.6;
 }
 
@@ -705,11 +721,113 @@ body:has(.sparta-header) {
 }
 
 .sparta-prices .membership-options {
+  max-width: none;
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(min(230px, 100%), 1fr);
   gap: 12px;
+  overflow-x: auto;
+  padding-block: 4px 16px;
+  scroll-padding-inline: var(--px);
+  scroll-snap-type: inline proximity;
 }
 
 .sparta-prices .membership-option {
+  color: #171717;
   padding: clamp(12px, 1.3vw, 22px);
+  scroll-snap-align: start;
+}
+
+.sparta-prices .membership-trial {
+  color: #fff;
+  border-color: #545454;
+}
+
+.sparta-prices .membership-options:focus-visible {
+  outline: 2px solid #ff6258;
+  outline-offset: -2px;
+}
+
+.sparta-prices,
+.sparta-gallery {
+  background: #000;
+  color: #fff;
+}
+
+.sparta-prices .membership-help p,
+.sparta-prices .membership-faq details p,
+.sparta-prices .membership-faq .tag,
+.sparta-gallery .gallery-heading > p {
+  color: #ccc;
+}
+
+.sparta-prices .membership-help,
+.sparta-prices .membership-faq details {
+  border-color: #545454;
+}
+
+.sparta-gallery .modal-box {
+  color: #171717;
+}
+
+.sparta-timetable {
+  background: #f4f4f4;
+  color: #111;
+}
+
+.sparta-timetable .timetable-toolbar {
+  border-color: #999;
+}
+
+.sparta-timetable .timetable thead {
+  background: #000;
+}
+
+.sparta-timetable .timetable thead th:first-child,
+.sparta-timetable .timetable thead th > span {
+  color: #ddd;
+}
+
+.sparta-timetable .gym-tabs button {
+  color: #292929;
+}
+
+.sparta-timetable .gym-tabs button[aria-pressed="true"] {
+  background: #000;
+  color: #fff;
+}
+
+.sparta-timetable .timetable tbody th {
+  background: #dedede;
+}
+
+.sparta-timetable .timetable th,
+.sparta-timetable .timetable td,
+.sparta-timetable .timetable-session + .timetable-session,
+.sparta-timetable .timetable-mobile-gym {
+  border-color: #aaa;
+}
+
+.sparta-timetable .timetable-session b span,
+.sparta-timetable .timetable-session p,
+.sparta-timetable .timetable-session small,
+.sparta-timetable .timetable-mobile-gym,
+.sparta-timetable .timetable tbody th > span,
+.sparta-timetable .session-status {
+  color: #404040;
+}
+
+.sparta-timetable .timetable-session.is-past,
+.sparta-timetable .timetable-session.is-cancelled {
+  opacity: 1;
+}
+
+.sparta-timetable .session-status {
+  font-weight: 600;
+}
+
+.sparta-timetable .is-cancelled .session-status {
+  color: #a31616;
 }
 
 .sparta-prices .membership-option ul {
@@ -769,4 +887,12 @@ body:has(.sparta-header) {
     align-self: flex-start;
     margin-top: 6px;
   }
+}
+
+body:has(.sparta-header) .discipline-copy {
+  background: radial-gradient(ellipse at 100% 100%, #1c0808 0%, #000 68%);
+}
+
+body:has(.sparta-header) .discipline-copy h2 {
+  font: 900 clamp(36px, 5.3vw, 92px)/1.02 var(--cond);
 }

@@ -97,7 +97,7 @@ def render_sport_gym_template(
     plans: list | None = None,
     gallery: list | None = None,
 ) -> str:
-    if slug == "sparta":
+    if slug == "sparta" and name.casefold() == "спарта плюс":
         name = "СПАРТА"
     safe_slug = html.escape(slug, quote=True)
     safe_name = html.escape(name)

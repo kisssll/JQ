@@ -2,7 +2,53 @@ import { useEffect, useState } from "react";
 import type { Coach } from "./App";
 import { sportRequest } from "./admin-api";
 
-export type ClubProfile = { name: string; city: string; description: string; phone: string; address?: string; email?: string };
+export type ClubProfile = {
+  name: string; city: string; description: string;
+  phone: string | null; address?: string | null; email?: string | null;
+  logo_url?: string | null; cover_url?: string | null;
+  vk_url?: string | null; telegram_url?: string | null;
+};
+
+type SiteItem = {
+  id: number; name?: string; address?: string; description?: string; hours?: string;
+  photo_url?: string | null; level?: string; code?: string; price?: number;
+  unit?: string; items?: string[]; featured?: boolean; alt_text?: string; image_url?: string;
+};
+type SiteSection = "venues" | "disciplines" | "plans" | "gallery";
+export type SiteCatalog = Record<SiteSection, SiteItem[]>;
+export const EMPTY_SITE_CATALOG: SiteCatalog = { venues: [], disciplines: [], plans: [], gallery: [] };
+const SECTION_LABELS: Record<SiteSection, string> = { venues: "Залы", disciplines: "Направления", plans: "Цены и абонементы", gallery: "Галерея" };
+
+async function uploadSitePhoto(slug: string, fields: FormData, name: string): Promise<string | null> {
+  const file = fields.get(`${name}_file`);
+  if (file instanceof File && file.size > 0) {
+    const body = new FormData();
+    body.append("photo", file);
+    return (await sportRequest<{ url: string }>(slug, "/manage/site-photo", { method: "POST", body })).url;
+  }
+  return String(fields.get(name) ?? "").trim() || null;
+}
+
+function SitePhotoField({ name, label, url }: { name: string; label: string; url?: string | null }) {
+  const [value, setValue] = useState(url ?? "");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState("");
+  useEffect(() => {
+    if (!file || !file.type.startsWith("image/")) return;
+    const local = URL.createObjectURL(file);
+    setPreview(local);
+    return () => URL.revokeObjectURL(local);
+  }, [file]);
+  const image = preview || (/^(https?:\/\/|\/(uploads|photos|static)\/)/i.test(value) ? value : "");
+  return <div className="admin-site-photo">
+    <label>{label}<input name={name} value={value} onChange={(event) => setValue(event.target.value)} placeholder="Загрузите файл или вставьте ссылку" maxLength={500} /></label>
+    <label>Выбрать файл<input name={`${name}_file`} type="file" accept="image/*,.heic,.heif" onChange={(event) => {
+      setPreview("");
+      setFile(event.target.files?.[0] ?? null);
+    }} /></label>
+    {image && <img src={image} alt={`Предпросмотр: ${label}`} />}
+  </div>;
+}
 
 function saveJson<T>(slug: string, path: string, body: object) {
   return sportRequest<T>(slug, path, {
@@ -10,19 +56,28 @@ function saveJson<T>(slug: string, path: string, body: object) {
   });
 }
 
-export function ClubSettings({ slug, profile, onSaved }: { slug: string; profile: ClubProfile; onSaved: (value: ClubProfile) => void }) {
+export function ClubSettings({ slug, profile, catalog, onSaved, onCatalogSaved }: {
+  slug: string; profile: ClubProfile; catalog: SiteCatalog; onSaved: (value: ClubProfile) => void; onCatalogSaved: (value: SiteCatalog) => void;
+}) {
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   return <section><h1 className="adm-h">Мой клуб</h1>
-    <form className="admin-editor" onSubmit={async (event) => {
+    <p className="admin-hint">Сохранённые изменения видны на публичной странице клуба.</p>
+    <form className="admin-editor" key={JSON.stringify(profile)} onSubmit={async (event) => {
       event.preventDefault();
       const fields = new FormData(event.currentTarget);
-      const values = Object.fromEntries(fields);
+      const value = (name: string) => String(fields.get(name) ?? "").trim();
       setSaving(true);
       setStatus("");
       try {
+        const [logo_url, cover_url] = await Promise.all([
+          uploadSitePhoto(slug, fields, "logo_url"), uploadSitePhoto(slug, fields, "cover_url"),
+        ]);
         const result = await saveJson<{ organization: ClubProfile }>(slug, "/manage/profile", {
-          ...values, phone: values.phone || undefined, email: values.email || undefined,
+          name: value("name"), description: value("description"), address: value("address"),
+          phone: value("phone") || null, email: value("email") || null,
+          vk_url: value("vk_url") || null, telegram_url: value("telegram_url") || null,
+          logo_url, cover_url,
         });
         onSaved(result.organization);
         setStatus("Настройки клуба сохранены.");
@@ -38,9 +93,102 @@ export function ClubSettings({ slug, profile, onSaved }: { slug: string; profile
         <label>Телефон<input name="phone" type="tel" defaultValue={profile.phone ?? ""} maxLength={24} /></label>
         <label>Электронная почта<input name="email" type="email" defaultValue={profile.email ?? ""} /></label>
         <label className="admin-editor-wide">Описание<textarea name="description" rows={5} maxLength={4000} defaultValue={profile.description} /></label>
+        <label>Сообщество ВКонтакте<input name="vk_url" type="url" defaultValue={profile.vk_url ?? ""} placeholder="https://vk.com/..." maxLength={500} /></label>
+        <label>Канал или группа Telegram<input name="telegram_url" type="url" defaultValue={profile.telegram_url ?? ""} placeholder="https://t.me/..." maxLength={500} /></label>
+        <SitePhotoField name="logo_url" label="Логотип" url={profile.logo_url} />
+        <SitePhotoField name="cover_url" label="Фото на главной" url={profile.cover_url} />
       </div><div className="admin-form-actions"><button className="btn btn-black" type="submit">Сохранить</button></div></fieldset>
       {status && <p role="status">{status}</p>}
     </form>
+    <SiteCatalogEditor slug={slug} catalog={catalog} onSaved={onCatalogSaved} />
+  </section>;
+}
+
+function SiteCatalogEditor({ slug, catalog, onSaved }: { slug: string; catalog: SiteCatalog; onSaved: (value: SiteCatalog) => void }) {
+  const [editor, setEditor] = useState<{ section: SiteSection; item?: SiteItem } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function mutate(path: string, method: string, body?: object) {
+    await sportRequest(slug, `/manage/${path}`, {
+      method,
+      ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
+    });
+    try {
+      onSaved(await sportRequest<SiteCatalog>(slug, "/manage"));
+      return "Изменения сохранены.";
+    } catch {
+      return "Изменения сохранены. Обновите страницу, чтобы увидеть актуальный список.";
+    }
+  }
+
+  async function perform(action: () => Promise<string>) {
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await action();
+      setEditor(null);
+      setMessage(result);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось сохранить изменения.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const field = (name: string, label: string, value?: string, required = false, maxLength = 160) =>
+    <label>{label}<input name={name} required={required} defaultValue={value ?? ""} maxLength={maxLength} /></label>;
+  return <section aria-label="Контент сайта">
+    {message && <p role="status">{message}</p>}
+    {(Object.entries(SECTION_LABELS) as [SiteSection, string][]).map(([section, title]) => <div className="admin-editor" key={section}>
+      <div className="admin-site-item"><h2 className="adm-sub">{title}</h2><button className="admin-secondary" disabled={busy || !!editor} onClick={() => setEditor({ section })}>Добавить</button></div>
+      {catalog[section].map((item) => <div className="admin-site-item" key={item.id}>
+        <span>{item.name || item.alt_text || "Фотография"}</span>
+        <div className="admin-form-actions">
+          <button className="admin-secondary" disabled={busy || !!editor} onClick={() => setEditor({ section, item })}>Изменить</button>
+          <button className="admin-text-button" disabled={busy || !!editor} onClick={() => {
+            if (window.confirm("Убрать эту карточку с сайта?")) void perform(() => mutate(`${section}/${item.id}`, "DELETE"));
+          }}>Убрать с сайта</button>
+        </div>
+      </div>)}
+      {editor?.section === section && <form className="admin-site-item-editor" onSubmit={(event) => {
+        event.preventDefault();
+        const fields = new FormData(event.currentTarget);
+        const value = (name: string) => String(fields.get(name) ?? "").trim();
+        void perform(async () => {
+          const item = editor.item;
+          const body = section === "gallery"
+            ? { image_url: await uploadSitePhoto(slug, fields, "image_url"), alt_text: value("alt_text") }
+            : section === "plans"
+              ? { name: value("name"), price: Number(value("price")), unit: value("unit"), items: value("items").split(/\r?\n/).map(line => line.trim()).filter(Boolean), code: item?.code ?? crypto.randomUUID(), featured: item?.featured ?? false }
+              : { name: value("name"), description: value("description"), photo_url: await uploadSitePhoto(slug, fields, "photo_url"),
+                  ...(section === "venues" ? { address: value("address"), hours: value("hours") } : { level: item?.level ?? "" }) };
+          if (section === "gallery" && !("image_url" in body && body.image_url)) throw new Error("Выберите фотографию или укажите ссылку.");
+          return mutate(item ? `${section}/${item.id}` : section, item ? "PUT" : "POST", body);
+        });
+      }}>
+        <fieldset disabled={busy}>
+          <div className="admin-editor-grid">
+            {section !== "gallery" && field("name", "Название", editor.item?.name, true, section === "venues" ? 160 : 120)}
+            {section === "venues" && <>{field("address", "Адрес", editor.item?.address, true, 300)}{field("hours", "Часы работы", editor.item?.hours)}</>}
+            {(section === "venues" || section === "disciplines") && <>
+              <label>Описание<textarea name="description" rows={3} maxLength={2000} defaultValue={editor.item?.description} /></label>
+              <SitePhotoField name="photo_url" label="Фото карточки" url={editor.item?.photo_url} />
+            </>}
+            {section === "plans" && <>
+              <label>Цена, ₽<input type="number" name="price" min={0} max={2147483647} required defaultValue={editor.item?.price} /></label>
+              {field("unit", "Подпись цены", editor.item?.unit, false, 80)}
+              <label>Условия, по одному на строку<textarea name="items" rows={3} defaultValue={editor.item?.items?.join("\n")} /></label>
+            </>}
+            {section === "gallery" && <>
+              {field("alt_text", "Подпись фотографии", editor.item?.alt_text, false, 200)}
+              <SitePhotoField name="image_url" label="Фото для галереи" url={editor.item?.image_url} />
+            </>}
+          </div>
+          <div className="admin-form-actions"><button className="btn btn-black" type="submit">Сохранить</button><button className="admin-secondary" type="button" onClick={() => setEditor(null)}>Отмена</button></div>
+        </fieldset>
+      </form>}
+    </div>)}
   </section>;
 }
 

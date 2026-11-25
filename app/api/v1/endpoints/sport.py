@@ -6,6 +6,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy import Time, case, cast, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -327,6 +328,9 @@ async def get_sport_catalog(
             "address": organization.address,
             "phone": organization.phone,
             "email": organization.email,
+            "cover_url": organization.cover_url,
+            "vk_url": organization.vk_url,
+            "telegram_url": organization.telegram_url,
         },
         "venues": [
             {"id": str(item.id), "name": item.name, "address": item.address,
@@ -339,7 +343,7 @@ async def get_sport_catalog(
             for item in coaches
         ],
         "disciplines": [
-            {"key": item.name, "name": item.name, "text": item.description, "level": item.level}
+            {"key": item.name, "name": item.name, "text": item.description, "level": item.level, "photo": item.photo_url}
             for item in disciplines
         ],
         "plans": [
@@ -524,6 +528,9 @@ async def get_sport_management(
             "city": organization.city, "address": organization.address, "phone": organization.phone,
             "email": organization.email, "description": organization.description,
             "logo_url": organization.logo_url,
+            "cover_url": organization.cover_url,
+            "vk_url": organization.vk_url,
+            "telegram_url": organization.telegram_url,
             "moderation_status": organization.moderation_status,
         },
         "venues": [
@@ -532,7 +539,7 @@ async def get_sport_management(
             for item in venue_rows
         ],
         "disciplines": [
-            {"id": item.id, "name": item.name, "description": item.description, "level": item.level}
+            {"id": item.id, "name": item.name, "description": item.description, "level": item.level, "photo_url": item.photo_url}
             for item in discipline_rows
         ],
         "plans": [
@@ -982,6 +989,8 @@ async def add_sport_staff(
     user, membership, _ = await _gym_access(request, db, organization.id)
     if role not in {"admin", "manager", "trainer"}:
         raise HTTPException(status_code=400, detail="Допустимые роли: manager, admin или trainer")
+    if role == "trainer" and not _can_assign_sport_permissions(membership):
+        raise HTTPException(403, "Карточки тренеров на сайте редактирует владелец клуба")
     if not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
         raise HTTPException(403, "Нет прав для добавления сотрудника с этой ролью")
     normalized_phone = try_normalize_phone(phone)
@@ -994,17 +1003,20 @@ async def add_sport_staff(
     staff_user = (await db.execute(
         select(User).where(User.phone == normalized_phone)
     )).scalar_one_or_none()
+    credentials = None
     if staff_user is None:
+        password = secrets.token_urlsafe(12)
         staff_user = User(
             phone=normalized_phone,
             full_name=name,
-            hashed_password=get_password_hash(secrets.token_hex(32)),
+            hashed_password=get_password_hash(password),
             role=UserRole.CLIENT,
             is_active=True,
             is_guest=True,
         )
         db.add(staff_user)
         await db.flush()
+        credentials = {"name": name, "login": normalized_phone, "password": password}
     elif staff_user.is_guest and not staff_user.full_name:
         staff_user.full_name = name
 
@@ -1074,7 +1086,10 @@ async def add_sport_staff(
         db, staff, name=name, contact_phone=contact_phone, about=about, title=title,
         experience=experience, tags=tags, photo=photo,
     )
-    return {"ok": True, "role": role, "name": name, "member": _sport_staff_card(staff, staff_user.phone)}
+    return JSONResponse({
+        "ok": True, "role": role, "name": name, "member": _sport_staff_card(staff, staff_user.phone),
+        "credentials": credentials,
+    }, headers={"Cache-Control": "no-store"})
 
 
 @router.put("/organizations/{slug}/staff/{role}/{staff_id}")
@@ -1099,6 +1114,8 @@ async def update_sport_staff(
     _, membership, _ = await _gym_access(request, db, organization.id)
     if role not in _SPORT_STAFF_PERMISSIONS or not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
         raise HTTPException(403, "Нет прав для изменения сотрудника с этой ролью")
+    if role == "trainer" and not _can_assign_sport_permissions(membership):
+        raise HTTPException(403, "Карточки тренеров на сайте редактирует владелец клуба")
     name = name.strip()
     if len(name) < 2:
         raise HTTPException(400, "Укажите имя сотрудника")
@@ -1137,6 +1154,8 @@ async def remove_sport_staff(
     _, membership, _ = await _gym_access(request, db, organization.id)
     if role not in {"admin", "manager", "trainer"} or not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
         raise HTTPException(403, "Нет прав для удаления сотрудника с этой ролью")
+    if role == "trainer" and not _can_assign_sport_permissions(membership):
+        raise HTTPException(403, "Карточки тренеров на сайте редактирует владелец клуба")
     if role in ("admin", "manager"):
         staff = (await db.execute(
             select(SportGymMember).where(
@@ -1158,6 +1177,9 @@ async def remove_sport_staff(
         )).scalar_one_or_none()
         if staff is not None:
             staff.is_active = False
+            await db.execute(update(SportTraining).where(
+                SportTraining.organization_id == organization.id, SportTraining.coach_id == staff.id,
+            ).values(is_active=False))
     else:
         raise HTTPException(status_code=400, detail="Недопустимая роль сотрудника")
     if staff is None:
@@ -1289,7 +1311,7 @@ async def update_sport_profile(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if not _can_sport(membership, "manage_gym"):
+    if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования профиля")
     if data.name is not None:
         name = data.name.strip()
@@ -1300,18 +1322,83 @@ async def update_sport_profile(
         organization.description = data.description.strip()
     if data.address is not None:
         organization.address = data.address.strip()
-    if data.phone is not None:
-        norm = try_normalize_phone(data.phone)
-        if norm is None:
+    if "phone" in data.model_fields_set:
+        norm = try_normalize_phone(data.phone) if data.phone and data.phone.strip() else None
+        if data.phone and data.phone.strip() and norm is None:
             raise HTTPException(status_code=400, detail="Некорректный номер телефона")
         organization.phone = norm
-    if data.email is not None:
-        organization.email = str(data.email).strip() or None
-    if data.logo_url is not None:
-        organization.logo_url = data.logo_url.strip() or None
+    for field in ("email", "logo_url", "cover_url", "vk_url", "telegram_url"):
+        if field in data.model_fields_set:
+            value = getattr(data, field)
+            setattr(organization, field, str(value) if value else None)
     await db.commit()
     await db.refresh(organization)
     return {"ok": True, "organization": _organization_response(organization)}
+
+
+async def _sport_site_owner(request: Request, db: AsyncSession, slug: str) -> SportOrganization:
+    organization = await _organization(db, slug, published_only=False)
+    if organization is None:
+        raise HTTPException(404, "Спортивная организация не найдена")
+    _, membership, _ = await _gym_access(request, db, organization.id)
+    if not _can_assign_sport_permissions(membership):
+        raise HTTPException(403, "Публичный сайт редактирует владелец клуба")
+    return organization
+
+
+@router.post("/organizations/{slug}/manage/site-photo")
+async def upload_sport_site_photo(request: Request, slug: str, photo: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    await _sport_site_owner(request, db, slug)
+    try:
+        return {"url": await save_image(photo, "sport-site")}
+    except UploadError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+async def _sport_site_item(request, db, slug, model, item_id):
+    organization = await _sport_site_owner(request, db, slug)
+    item = await db.scalar(select(model).where(
+        model.id == item_id, model.organization_id == organization.id, model.is_active.is_(True),
+    ).with_for_update())
+    if item is None:
+        raise HTTPException(404, "Запись не найдена")
+    return item
+
+
+async def _save_sport_site_item(db, item, data, *, omit=None):
+    for key, value in data.model_dump(exclude=omit).items():
+        setattr(item, key, value.strip() if isinstance(value, str) else value)
+    await db.commit()
+    return {"ok": True, "id": item.id}
+
+
+@router.put("/organizations/{slug}/manage/venues/{item_id}")
+async def update_sport_venue(request: Request, slug: str, item_id: int, data: SportVenueCreate, db: AsyncSession = Depends(get_db)):
+    item = await _sport_site_item(request, db, slug, SportVenue, item_id)
+    address = data.address.strip()
+    if address != item.address:
+        await db.execute(update(SportTraining).where(
+            SportTraining.organization_id == item.organization_id, SportTraining.gym == item.address,
+        ).values(gym=address))
+    return await _save_sport_site_item(db, item, data)
+
+
+@router.put("/organizations/{slug}/manage/disciplines/{item_id}")
+async def update_sport_discipline(request: Request, slug: str, item_id: int, data: SportDisciplineCreate, db: AsyncSession = Depends(get_db)):
+    item = await _sport_site_item(request, db, slug, SportDiscipline, item_id)
+    return await _save_sport_site_item(db, item, data)
+
+
+@router.put("/organizations/{slug}/manage/plans/{item_id}")
+async def update_sport_plan(request: Request, slug: str, item_id: int, data: SportPlanCreate, db: AsyncSession = Depends(get_db)):
+    item = await _sport_site_item(request, db, slug, SportMembershipPlan, item_id)
+    return await _save_sport_site_item(db, item, data, omit={"code"})
+
+
+@router.put("/organizations/{slug}/manage/gallery/{item_id}")
+async def update_sport_gallery_image(request: Request, slug: str, item_id: int, data: SportGalleryCreate, db: AsyncSession = Depends(get_db)):
+    item = await _sport_site_item(request, db, slug, SportGalleryImage, item_id)
+    return await _save_sport_site_item(db, item, data)
 
 
 @router.post("/organizations/{slug}/manage/venues")
@@ -1325,7 +1412,7 @@ async def create_sport_venue(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if not _can_sport(membership, "manage_gym"):
+    if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления залов")
     venue = SportVenue(
         organization_id=organization.id,
@@ -1352,7 +1439,7 @@ async def delete_sport_venue(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if not _can_sport(membership, "manage_gym"):
+    if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для удаления залов")
     venue = (await db.execute(
         select(SportVenue).where(
@@ -1363,6 +1450,9 @@ async def delete_sport_venue(
     if venue is None:
         raise HTTPException(status_code=404, detail="Зал не найден")
     venue.is_active = False
+    await db.execute(update(SportTraining).where(
+        SportTraining.organization_id == organization.id, SportTraining.gym == venue.address,
+    ).values(is_active=False))
     await db.commit()
     return {"ok": True}
 
@@ -1378,13 +1468,14 @@ async def create_sport_discipline(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if not _can_sport(membership, "manage_coaches"):
+    if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления направлений")
     discipline = SportDiscipline(
         organization_id=organization.id,
         name=data.name.strip(),
         description=data.description.strip(),
         level=data.level.strip(),
+        photo_url=data.photo_url,
     )
     db.add(discipline)
     await db.commit()
@@ -1403,7 +1494,7 @@ async def delete_sport_discipline(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if not _can_sport(membership, "manage_coaches"):
+    if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для удаления направлений")
     discipline = (await db.execute(
         select(SportDiscipline).where(
@@ -1429,7 +1520,7 @@ async def create_sport_plan(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if not _can_sport(membership, "manage_gym"):
+    if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления тарифов")
     plan = SportMembershipPlan(
         organization_id=organization.id,
@@ -1457,7 +1548,7 @@ async def delete_sport_plan(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if not _can_sport(membership, "manage_gym"):
+    if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для удаления тарифов")
     plan = (await db.execute(
         select(SportMembershipPlan).where(
@@ -1483,7 +1574,7 @@ async def create_sport_gallery_image(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if not _can_sport(membership, "manage_gym"):
+    if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления фото")
     image = SportGalleryImage(
         organization_id=organization.id,
@@ -1769,7 +1860,7 @@ async def delete_sport_gallery_image(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if not _can_sport(membership, "manage_gym"):
+    if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для удаления фото")
     image = (await db.execute(
         select(SportGalleryImage).where(
