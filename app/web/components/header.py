@@ -71,14 +71,19 @@ def render_account_tag(user=None, current_page: str = "home") -> str:
             items += _link("/favorites", ICON_HEART, "Избранное")
 
             role = getattr(getattr(user, "role", None), "value", None)
+            has_role_func = getattr(user, "has_role", None)
+            has_admin = user.has_role("admin") if has_role_func else (role == "admin")
+            has_business = user.has_role("business") if has_role_func else (role == "business")
+            has_master = user.has_role("master") if has_role_func else (role == "master")
             panel = ""
             has_salon_panel = (
-                role in ("business", "master")
+                has_business
+                or has_master
                 or getattr(user, "has_salon_access", False)
                 or getattr(user, "has_master_profile", False)
             )
             sport_only_business = (
-                role == "business"
+                has_business
                 and getattr(user, "has_sport_access", False)
                 and not getattr(user, "has_salon_access", False)
                 and not getattr(user, "has_master_profile", False)
@@ -89,7 +94,7 @@ def render_account_tag(user=None, current_page: str = "home") -> str:
                 panel += _link("/sport/business/dashboard", ICON_BRIEFCASE, "Панель спорт-клуба")
             if getattr(user, "is_model", False):
                 panel += _link("/model/dashboard", ICON_MODEL, "Кабинет модели")
-            if role == "admin":
+            if has_admin:
                 panel += _link("/admin", ICON_USER, "Админка")
             if panel:
                 items += '<div class="acct-menu__sep"></div>' + panel

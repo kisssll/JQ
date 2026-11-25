@@ -60,7 +60,7 @@ def require_role(*roles: UserRole):
     async def role_checker(
         current_user: User = Depends(get_current_user)
     ) -> User:
-        if current_user.role not in roles:
+        if not any(current_user.has_role(r) for r in roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Требуется одна из ролей: {[r.value for r in roles]}"
@@ -159,7 +159,7 @@ async def check_salon_permission(
     (например, чтобы достать permissions ещё раз не запрашивая БД).
     Платформенный UserRole.ADMIN (суперадмин) проходит без проверки членства.
     """
-    if user.role == UserRole.ADMIN:
+    if user.has_role(UserRole.ADMIN):
         return None  # суперадмин платформы — членство в конкретном салоне не требуется
 
     membership = await get_salon_membership(db, user.id, salon_id)

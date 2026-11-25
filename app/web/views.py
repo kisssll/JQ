@@ -760,7 +760,7 @@ async def register_salon_page(request: Request, db: AsyncSession = Depends(get_d
     from app.web.pages.register_salon import render_register_salon_page
 
     user = await get_current_user_from_cookie(request, db)
-    if not user or user.role.value != "business":
+    if not user or (not user.has_role("business") and not user.has_role("admin")):
         return RedirectResponse(url="/login?redirect=/business/register-salon", status_code=302)
     return HTMLResponse(content=render_register_salon_page(user))
 
@@ -829,7 +829,7 @@ async def admin_page(request: Request, db: AsyncSession = Depends(get_db)):
     from app.web.pages.admin_panel import render_admin_panel
 
     user = await get_current_user_from_cookie(request, db)
-    if not user or user.role.value != "admin" or not user.is_active:
+    if not user or not user.has_role("admin") or not user.is_active:
         return RedirectResponse(url="/login?redirect=/admin", status_code=302)
 
     return HTMLResponse(content=await render_admin_panel(db, user, request.query_params))

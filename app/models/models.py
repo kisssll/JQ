@@ -1,7 +1,7 @@
 # app/models/models.py
 import enum
 from datetime import datetime, time, date as date_
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, ForeignKey, BigInteger,
@@ -239,6 +239,8 @@ class User(Base):
     is_guest: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
 
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.CLIENT, nullable=False)
+    # Дополнительные роли (позволяют совмещать, например: модератор + владелец бизнеса)
+    additional_roles: Mapped[List[str]] = mapped_column(JSON, default=list, server_default="[]", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Уровень доступа платформенного модератора (role=ADMIN). Базовый
@@ -348,6 +350,34 @@ class User(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    def has_role(self, role: Union[str, UserRole]) -> bool:
+        """Проверяет наличие роли (основной или дополнительной)."""
+        r = role.value if isinstance(role, UserRole) else str(role)
+        if self.role and self.role.value == r:
+            return True
+        if r == "model" and self.is_model:
+            return True
+        extras = self.additional_roles or []
+        return r in extras
+
+    @property
+    def is_admin(self) -> bool:
+        """Пользователь имеет права платформенного администратора/модератора."""
+        return self.has_role(UserRole.ADMIN)
+
+    @property
+    def all_roles(self) -> List[str]:
+        """Все активные роли пользователя без дубликатов."""
+        roles: List[str] = []
+        if self.role and self.role.value not in roles:
+            roles.append(self.role.value)
+        if self.is_model and "model" not in roles:
+            roles.append("model")
+        for r in (self.additional_roles or []):
+            if r not in roles:
+                roles.append(r)
+        return roles
 
 class SalonModerationStatus(str, enum.Enum):
     """Статус заявки салона (модерация регистрации бизнеса).

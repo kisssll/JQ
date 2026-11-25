@@ -6,7 +6,7 @@
 import logging
 import secrets
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ ASSIGNABLE_ROLES = {UserRole.CLIENT, UserRole.BUSINESS, UserRole.ADMIN}
 async def _get_admin(request: Request, db: AsyncSession):
     """Любой модератор (базовый или старший) — доступ к заявкам и жалобам на фото."""
     user = await get_current_user_from_cookie(request, db)
-    if not user or user.role != UserRole.ADMIN or not user.is_active:
+    if not user or not user.has_role(UserRole.ADMIN) or not user.is_active:
         return None
     return user
 
@@ -69,18 +69,13 @@ def _audit(db, actor_id, action, target_type, target_id, detail, salon_id=None):
 
 
 async def _active_admins_excluding(db, exclude_id) -> int:
-    q = select(func.count(User.id)).where(
-        User.role == UserRole.ADMIN, User.is_active == True, User.id != exclude_id
-    )
-    return (await db.execute(q)).scalar() or 0
+    users = (await db.execute(select(User).where(User.is_active == True, User.id != exclude_id))).scalars().all()
+    return sum(1 for u in users if u.has_role(UserRole.ADMIN))
 
 
 async def _active_seniors_excluding(db, exclude_id) -> int:
-    q = select(func.count(User.id)).where(
-        User.role == UserRole.ADMIN, User.is_active == True,
-        User.is_senior_admin == True, User.id != exclude_id,
-    )
-    return (await db.execute(q)).scalar() or 0
+    users = (await db.execute(select(User).where(User.is_active == True, User.is_senior_admin == True, User.id != exclude_id))).scalars().all()
+    return sum(1 for u in users if u.has_role(UserRole.ADMIN))
 
 
 def _back(tab: str, ok: str = "", err: str = "", extra: str = "") -> RedirectResponse:
@@ -120,12 +115,87 @@ async def change_role(uid: int, request: Request, role: str = Form(...), db: Asy
     old = target.role.value
     # Роль ушла с ADMIN — теряется и старшинство, чтобы не оставалось
     # мёртвого senior-флага на пользователе без прав модератора.
-    if new_role != UserRole.ADMIN:
+    if new_role != UserRole.ADMIN and "admin" not in (target.additional_roles or []):
         target.is_senior_admin = False
     target.role = new_role
     _audit(db, admin.id, "change_role", "user", target.id, f"{target.phone}: {old} → {new_role.value}")
     await db.commit()
     return _back("users", ok=f"Роль {target.phone}: {old} → {new_role.value}")
+
+
+@router.post("/users/assign-roles")
+async def assign_user_roles(
+    request: Request,
+    phone: str = Form(""),
+    user_id: Optional[int] = Form(None),
+    roles: List[str] = Form(default=[]),
+    is_senior: Optional[str] = Form(None),
+    return_tab: str = Form("overview"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Назначение нескольких ролей пользователю (например: модератор + владелец бизнеса)."""
+    from app.schemas.user import try_normalize_phone
+
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    target = None
+    if user_id:
+        target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    elif phone:
+        normalized = try_normalize_phone(phone)
+        if normalized:
+            target = (await db.execute(select(User).where(User.phone == normalized))).scalar_one_or_none()
+        if not target:
+            target = (await db.execute(select(User).where(User.phone == phone.strip()))).scalar_one_or_none()
+
+    if not target:
+        return _back(return_tab, err="Пользователь с указанным телефоном не найден")
+
+    if target.id == admin.id:
+        return _back(return_tab, err="Нельзя менять роли самому себе")
+
+    allowed_roles = {"admin", "business", "master", "model", "client"}
+    selected = [r.strip() for r in roles if r.strip() in allowed_roles]
+    if not selected:
+        selected = ["client"]
+
+    has_admin_role = "admin" in selected
+    senior_flag = bool(is_senior and str(is_senior).lower() in ("1", "true", "on"))
+
+    # Защита от разжалования последнего администратора / старшего модератора
+    if target.has_role(UserRole.ADMIN) and not has_admin_role and await _active_admins_excluding(db, target.id) == 0:
+        return _back(return_tab, err="Нельзя разжаловать последнего администратора")
+    if target.has_role(UserRole.ADMIN) and target.is_senior_admin and (not has_admin_role or not senior_flag) and await _active_seniors_excluding(db, target.id) == 0:
+        return _back(return_tab, err="Нельзя разжаловать последнего старшего модератора")
+
+    primary = "client"
+    for r in ["admin", "business", "master", "model", "client"]:
+        if r in selected:
+            primary = r
+            break
+
+    target.role = UserRole(primary)
+    target.additional_roles = [r for r in selected if r != primary]
+    target.is_model = "model" in selected
+    target.is_senior_admin = senior_flag if has_admin_role else False
+
+    role_ru = {
+        "admin": "Модератор",
+        "business": "Бизнес",
+        "master": "Мастер",
+        "model": "Модель",
+        "client": "Клиент",
+    }
+    roles_str = ", ".join(role_ru.get(r, r) for r in selected)
+    if target.is_senior_admin:
+        roles_str += " (старший)"
+
+    _audit(db, admin.id, "assign_roles", "user", target.id, f"{target.phone}: роли → {roles_str}")
+    await db.commit()
+
+    return _back(return_tab, ok=f"Пользователю {target.phone} назначены роли: {roles_str}")
 
 
 @router.post("/salons/{sid}/grant-trial")

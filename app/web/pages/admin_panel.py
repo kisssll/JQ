@@ -302,6 +302,44 @@ async def _overview(db, users, salons_active=None):
         </div>
         <h3 class="adm-section-title">Пользователи по ролям</h3>
         <div class="adm-stats">{roles_cards}</div>
+
+        <h3 class="adm-section-title">{ICON_SHIELD_CHECK} Назначить модератора и роли</h3>
+        <p class="adm-lead">Закрепление нескольких ролей за пользователем (например, модератор платформы и владелец бизнеса одновременно для тестирования).</p>
+        <article class="r-card adm-app adm-assign-card">
+            <div class="adm-app__body">
+                <form method="post" action="/api/v1/admin/users/assign-roles" class="adm-form adm-assign-form">
+                    <input type="hidden" name="return_tab" value="overview">
+                    <label class="adm-field adm-assign-phone">
+                        <span class="adm-field-label">Телефон пользователя</span>
+                        <input name="phone" type="tel" placeholder="+7 999 123-45-67" required class="r-input adm-input" aria-label="Телефон пользователя">
+                    </label>
+                    <div class="adm-field">
+                        <span class="adm-field-label">Роли (выберите одну или несколько)</span>
+                        <div class="adm-assign-roles">
+                            <label class="adm-assign-role-item">
+                                <input type="checkbox" name="roles" value="admin" checked> <strong>Модератор</strong>
+                            </label>
+                            <label class="adm-assign-role-item">
+                                <input type="checkbox" name="is_senior" value="1"> Старший модератор
+                            </label>
+                            <label class="adm-assign-role-item">
+                                <input type="checkbox" name="roles" value="business"> Бизнес (владелец)
+                            </label>
+                            <label class="adm-assign-role-item">
+                                <input type="checkbox" name="roles" value="master"> Мастер
+                            </label>
+                            <label class="adm-assign-role-item">
+                                <input type="checkbox" name="roles" value="model"> Модель
+                            </label>
+                            <label class="adm-assign-role-item">
+                                <input type="checkbox" name="roles" value="client"> Клиент
+                            </label>
+                        </div>
+                    </div>
+                    {_btn(f"{ICON_CHECK} Назначить роли", "primary")}
+                </form>
+            </div>
+        </article>
     </div>
     """
 
@@ -358,6 +396,9 @@ def _users_tab(users, me_id, master_by_uid=None, self_deleted=None):
                 f'{_btn("Снять старшинство" if u.is_senior_admin else "Сделать старшим", disabled=is_self)}</form>'
             )
         senior_badge = _badge("старший", "accent") if u.role.value == "admin" and u.is_senior_admin else ""
+        extra_roles = [r for r in u.all_roles if r != u.role.value]
+        extra_badges = (f'<div class="adm-badges">{"".join(_badge(ROLE_RU.get(r, r), "neutral") for r in extra_roles)}</div>'
+                        if extra_roles else "")
         me_mark = ' <span class="text-muted">(вы)</span>' if is_self else ""
         main_actions = (f'<div class="adm-actions">{trial_form}{senior_toggle}</div>'
                         if trial_form or senior_toggle else "")
@@ -365,7 +406,7 @@ def _users_tab(users, me_id, master_by_uid=None, self_deleted=None):
             <td class="adm-num">{u.id}</td>
             <td class="adm-nowrap">{_esc(u.phone)}{me_mark}</td>
             <td>{_esc(u.full_name) or "—"}</td>
-            <td><div class="adm-stack">{role_form}{senior_badge}</div></td>
+            <td><div class="adm-stack">{role_form}{senior_badge}{extra_badges}</div></td>
             <td>{_user_status(u, master_by_uid.get(u.id), self_deleted)}</td>
             <td>
                 <div class="adm-stack">

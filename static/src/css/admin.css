@@ -355,3 +355,11 @@
 .adm-form-pair { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-8) var(--space-12); }
 
 .adm-salon .adm-danger .adm-actions { align-items: center; }
+
+/* ===== Назначение ролей ===== */
+.adm-assign-card { margin-bottom: var(--space-24); }
+.adm-assign-form { gap: var(--space-16); }
+.adm-assign-phone { min-width: 14rem; }
+.adm-assign-roles { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; min-height: 2.25rem; }
+.adm-assign-role-item { display: inline-flex; align-items: center; gap: var(--space-4); font-size: var(--text-14); cursor: pointer; }
+
