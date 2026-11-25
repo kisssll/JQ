@@ -653,6 +653,7 @@ body:has(.sparta-header) {
 
   .sparta-coach-photo {
     align-self: stretch;
+    width: 100%;
   }
 }
 
