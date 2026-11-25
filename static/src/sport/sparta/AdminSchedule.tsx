@@ -111,7 +111,7 @@ export default function AdminSchedule({ current, role, gyms, coaches, discipline
               <small>{count ? `Записей: ${count}` : "Без записей"}</small>
               {cancelled && <small>Занятие отменено</small>}
               <button disabled={saving} onClick={() => editTraining(item)}>Изменить расписание</button>
-              {day >= current && <button disabled={saving} onClick={() => {
+              {role !== "trainer" && day >= current && <button disabled={saving} onClick={() => {
                 const affected = count ? ` Записей: ${count}. Сообщите об отмене записанным клиентам.` : "";
                 if (!cancelled && !window.confirm(`Вы точно хотите отменить занятие?${affected}`)) return;
                 void persist(() => onException(key, cancelled));
