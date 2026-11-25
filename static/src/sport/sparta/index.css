@@ -2390,9 +2390,6 @@ main:has(> .page-title-sr) { padding-top: 66px; }
   .ftr .btn { max-width: 100%; white-space: normal; }
 }
 main:has(> .public-page-heading), .membership-page, .timetable-page { padding-top: 66px; }
-.sparta-slogan { margin: 0 0 clamp(12px, 2vw, 24px); font-size: clamp(20px, 3.2vw, 46px); font-weight: 800; }
-.cover-hero:has(.sparta-slogan) .cover-title { font-size: clamp(56px, 10vw, 144px); line-height: 1; }
-.cover-hero:has(.sparta-slogan) .ph-over { min-height: 100%; height: auto; }
 .coach-roster {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

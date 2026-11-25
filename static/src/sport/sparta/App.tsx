@@ -4,7 +4,6 @@ import AdminSchedule from "./AdminSchedule";
 import AdminStaff, { type SportPermissions, type StaffMember } from "./AdminStaff";
 import { ClubReviews, ClubSettings, CoachPayroll, type ClubProfile } from "./AdminClubTabs";
 import { sportRequest } from "./admin-api";
-import logo from "./sparta-logo.png";
 
 /* ---------------- data ---------------- */
 
@@ -189,9 +188,11 @@ const NAV: [string, Page][] = [
 const PAGES: Page[] = ["/", "/gyms", "/coaches", "/disciplines", "/schedule", "/prices", "/gallery", "/account", "/admin"];
 const APP_ROOT = document.getElementById("root");
 const GYM_SLUG = APP_ROOT?.dataset.gymSlug ?? "sparta";
-const GYM_NAME = GYM_SLUG === "sparta" ? "СПАРТА" : APP_ROOT?.dataset.gymName ?? "Спортивный клуб";
+const IS_SPARTA = GYM_SLUG === "sparta";
+const SPARTA_HOME_PHOTOS = "/photos/home";
+const GYM_NAME = IS_SPARTA ? "СПАРТА" : APP_ROOT?.dataset.gymName ?? "Спортивный клуб";
 const GYM_CITY = APP_ROOT?.dataset.gymCity ?? "";
-const GYM_LOGO = APP_ROOT?.dataset.gymLogo || (GYM_SLUG === "sparta" ? logo : "");
+const GYM_LOGO = IS_SPARTA ? `${SPARTA_HOME_PHOTOS}/logo.webp` : APP_ROOT?.dataset.gymLogo || "";
 const APP_BASE_PATH = `/sport/${GYM_SLUG}`;
 const currentPage = (): Page =>
   PAGES.includes((location.pathname.slice(APP_BASE_PATH.length) || "/") as Page)
@@ -417,15 +418,17 @@ export default function App() {
 
   return (
     <>
-      <header className={solid || menu || page !== "/" ? "hdr solid" : "hdr"}>
-        <button className="hdr-logo" onClick={() => go("/")}>
-          {GYM_LOGO && <img src={GYM_LOGO} alt="" />}
-          <span>{publicOrganization.name}</span>
-        </button>
-        <nav className="direction-switch" aria-label="Направление Руми">
-          <a href="/directions/beauty">Красота</a>
-          <a href="/sport/" aria-current="true">Спорт</a>
-        </nav>
+      <header className={`hdr${solid || menu || page !== "/" ? " solid" : ""}${IS_SPARTA ? " sparta-header" : ""}`}>
+        <div className="hdr-brand">
+          <button className="hdr-logo" onClick={() => go("/")}>
+            {GYM_LOGO && <img src={GYM_LOGO} alt="" />}
+            <span>{publicOrganization.name}</span>
+          </button>
+          <nav className="direction-switch" aria-label="Направление Руми">
+            <a href="/directions/beauty">Красота</a>
+            <a href="/sport/" aria-current="true">Спорт</a>
+          </nav>
+        </div>
         <nav id="site-navigation" aria-label="Основная навигация" className={menu ? "hdr-nav open" : "hdr-nav"}>
           {NAV.map(([t, p]) => (
             <button key={p} className={page === p ? "on" : ""} aria-current={page === p ? "page" : undefined} onClick={() => go(p)}>
@@ -460,7 +463,10 @@ export default function App() {
 
       <footer className="ftr">
         <div className="ftr-top">
-          <div className="ftr-big">{publicOrganization.name}</div>
+          <div className="ftr-big">
+            {IS_SPARTA && <img src={GYM_LOGO} alt="" loading="lazy" />}
+            {publicOrganization.name}
+          </div>
           <button className="btn btn-red" onClick={() => book()}>
             Записаться на пробное <Arrow />
           </button>
@@ -555,14 +561,14 @@ export default function App() {
 type Book = (b?: Partial<Booking>) => void;
 
 function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void; book: Book; organization: { name: string; city: string; description: string; phone: string }; gyms: Gym[]; gallery: GalleryPhoto[] }) {
-  const reasonPhotos = GYM_SLUG === "sparta"
-    ? ["/photos/club/why-beginner.png", "/photos/club/why-kids.png", "/photos/disciplines/self-defense-02.png"]
+  const reasonPhotos = IS_SPARTA
+    ? ["beginners", "age-groups", "self-defense"].map((name) => `${SPARTA_HOME_PHOTOS}/${name}.webp`)
     : gallery.slice(0, 3).map((photo) => photo.src);
   const reasons = GYM_SLUG === "sparta"
     ? [
         ["01", "Начать можно с нуля", "Новички занимаются в отдельных группах, без давления.", reasonPhotos[0] ?? ""],
         ["02", "Группы по возрасту", "Занятия для детей, подростков и взрослых.", reasonPhotos[1] ?? ""],
-        ["03", "Техника самообороны", "Учимся защищать себя и близких.", reasonPhotos[2] ?? ""],
+        ["03", "Самооборона", "Учимся защищать себя и близких.", reasonPhotos[2] ?? ""],
       ]
     : [
         ["01", "Начать можно с нуля", "Тренер поможет выбрать подходящую группу и нагрузку.", reasonPhotos[0] ?? ""],
@@ -570,20 +576,25 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
         ["03", "Техника и физическая подготовка", "Развивайте навыки и уверенность на тренировках.", reasonPhotos[2] ?? ""],
       ];
   return (
-    <main>
+    <main className={IS_SPARTA ? "sparta-home" : undefined}>
       <Photo
         id="hero"
-        label={GYM_SLUG === "sparta" ? "Главное фото: команда / спарринг" : `Фото клуба ${organization.name}`}
+        label={IS_SPARTA ? "Команда клуба «Спарта»" : `Фото клуба ${organization.name}`}
         size="2400 × 1400"
         className="cover cover-hero"
-        srcOverride={GYM_SLUG === "sparta" ? undefined : gallery[0]?.src}
-        ignoreDefault={GYM_SLUG !== "sparta"}
+        srcOverride={IS_SPARTA ? `${SPARTA_HOME_PHOTOS}/team.webp` : gallery[0]?.src}
+        ignoreDefault
       >
-        <p className="tag tag-light">{organization.city}</p>
-        <h1 className="cover-title">{organization.name}</h1>
-        {GYM_SLUG === "sparta" && <p className="sparta-slogan">Здесь куют характер</p>}
+        {IS_SPARTA ? (
+          <h1 className="cover-title">Здесь куют <span>характер</span></h1>
+        ) : (
+          <>
+            <p className="tag tag-light">{organization.city}</p>
+            <h1 className="cover-title">{organization.name}</h1>
+          </>
+        )}
         <div className="cover-foot">
-          <p>{organization.description}</p>
+          <p>{organization.description || (IS_SPARTA ? "Клуб единоборств в Томске для детей, подростков и взрослых." : "")}</p>
           <div className="row">
             <button className="btn btn-red" onClick={() => book()}>
               Пробная тренировка <Arrow />
@@ -597,7 +608,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
 
       <section className="club-overview" aria-labelledby="club-overview-title">
         <div className="club-overview-copy">
-          <p className="tag">О клубе / {organization.city}</p>
+          <p className="tag">О клубе / {organization.city || GYM_CITY}</p>
           <h2 id="club-overview-title">{GYM_SLUG === "sparta" ? "Томский клуб единоборств с 2002 года" : "О клубе"}</h2>
           {GYM_SLUG === "sparta" && <p>В «Спарте» тренируются дети с пяти лет, подростки и взрослые. В 2007 году клуб помог открыть в ТУСУРе школу дзю-дзютцу и студенческую специализацию «Самооборона». Спортсмены клуба выступают за сборную Томской области по грэпплингу и боевому дзю-дзютцу.</p>}
           <p>Можно прийти без опыта. На первой тренировке познакомитесь с тренером, попробуете занятия и вместе подберёте группу.</p>
@@ -620,7 +631,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
           {reasonPhotos.map((photo) => <img key={photo} src={photo} alt="" loading="lazy" decoding="async" />)}
         </div>
         <div className="why-content">
-          <h2 className="tag tag-light why-title" id="why-gym-title">{GYM_SLUG === "sparta" ? "Почему Спарта" : `Почему ${GYM_NAME}`}</h2>
+          <h2 className="tag tag-light why-title" id="why-gym-title">{IS_SPARTA ? "Почему же Спарта?" : `Почему ${GYM_NAME}`}</h2>
           <div className="reasons-over">
             {reasons.map(([n, h, p, photo]) => (
               <article className="why-reason" key={n}>
@@ -639,14 +650,14 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
       <section className="tiles">
         {(
           [
-            ["Залы", `${gyms.length} ${gyms.length === 1 ? "площадка" : "площадок"}`, "/gyms", "gym_irk"],
-            ["Тренеры", "Команда клуба", "/coaches", "coach_0"],
-            ["Направления", "Чему мы учим", "/disciplines", "disc_0"],
-          ] as [string, string, Page, string][]
-        ).map(([t, s, p, id]) => (
+            ["Залы", `${gyms.length} ${gyms.length === 1 ? "площадка" : "площадок"}`, "/gyms", "gym_irk", "gyms"],
+            ["Тренеры", "Команда клуба", "/coaches", "coach_0", "coaches"],
+            ["Направления", "Чему мы учим", "/disciplines", "disc_0", "disciplines"],
+          ] as [string, string, Page, string, string][]
+        ).map(([t, s, p, id, photo]) => (
           <button key={p} className="tile" onClick={() => go(p)}>
-            <Photo id={id} label={t} size="1200 × 1500" className="tile-ph" ignoreDefault={GYM_SLUG !== "sparta"}>
-              <p className="tag tag-light">{s}</p>
+            <Photo id={id} label={t} size="1200 × 1500" className="tile-ph" srcOverride={IS_SPARTA ? `${SPARTA_HOME_PHOTOS}/${photo}.webp` : undefined} ignoreDefault={!IS_SPARTA}>
+              {!IS_SPARTA && <p className="tag tag-light">{s}</p>}
               <div className="tile-cap">
                 <h3>{t}</h3>
                 <span className="round">
@@ -659,7 +670,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
       </section>
 
       <section className="club-booking">
-        <h2>Первая тренировка</h2>
+        <h2>{IS_SPARTA ? "Запишитесь на пробную тренировку" : "Первая тренировка"}</h2>
         <button className="btn btn-red" onClick={() => book()}>
           Записаться <Arrow />
         </button>
