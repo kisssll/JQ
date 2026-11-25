@@ -7,6 +7,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     JSON,
     String,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Time,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -97,6 +99,10 @@ class SportGymMember(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
+    display_name: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+    contact_phone: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
+    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    photo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     permissions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     is_creator: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
@@ -202,6 +208,7 @@ class SportCoach(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     name: Mapped[str] = mapped_column(String(160), nullable=False)
+    contact_phone: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
     role: Mapped[str] = mapped_column(String(160), nullable=False, default="Тренер")
     tags: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     experience: Mapped[str] = mapped_column(String(160), nullable=False, default="")
@@ -383,6 +390,8 @@ class SportBooking(Base):
             "participant IN ('self', 'child')",
             name="ck_sport_booking_participant",
         ),
+        Index("ix_sport_bookings_attendance_date", "organization_id", "requested_date",
+              postgresql_where=text("status = 'came'")),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

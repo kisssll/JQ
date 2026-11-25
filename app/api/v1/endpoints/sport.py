@@ -1,11 +1,12 @@
 import secrets
 import re
+from calendar import monthrange
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Body, Depends, Form, HTTPException, Query, Request
-from sqlalchemy import or_, select
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from sqlalchemy import Time, case, cast, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -57,6 +58,7 @@ from app.schemas.sport import (
 )
 from app.schemas.user import try_normalize_phone
 from app.services.consent_service import record_consent
+from app.services.uploads import UploadError, delete_stored, save_image
 from app.web.auth import get_current_user_from_cookie
 from app.web.pages.legal import LEGAL_VERSION
 
@@ -65,6 +67,30 @@ router = APIRouter()
 
 def _organization_response(organization: SportOrganization) -> SportOrganizationResponse:
     return SportOrganizationResponse.model_validate(organization, from_attributes=True)
+
+
+def _sport_booking_time(booking: SportBooking, training: SportTraining | None) -> str:
+    if booking.start_time:
+        return booking.start_time.strftime("%H:%M")
+    return training.start_time.strftime("%H:%M") if training else ""
+
+
+def _sport_staff_card(staff: SportCoach | SportGymMember, phone: str | None, name: str | None = None) -> dict:
+    common = {"id": staff.id, "phone": staff.contact_phone or phone or "",
+              "photo": staff.photo_url, "about": staff.bio or ""}
+    if isinstance(staff, SportCoach):
+        return {**common, "name": staff.name, "role": "trainer", "title": staff.role,
+                "experience": staff.experience, "tags": staff.tags}
+    return {**common, "name": staff.display_name or name or phone, "role": staff.role}
+
+
+def _sport_payment_card(payment: SportPayment) -> dict:
+    return {
+        "id": str(payment.id), "name": payment.member_name, "plan": payment.plan_name,
+        "amount": payment.amount, "date": payment.payment_date.isoformat(), "month": payment.month,
+        "paidAt": payment.paid_at.date().isoformat() if payment.paid_at else "",
+        "status": payment.status, "method": payment.method,
+    }
 
 
 async def _organization(db: AsyncSession, slug: str, *, published_only: bool = True):
@@ -324,7 +350,7 @@ async def get_sport_account(
                 "discipline": item.requested_discipline,
                 "gym": item.requested_gym,
                 "date": item.requested_date.isoformat() if item.requested_date else "",
-                "time": training.start_time.strftime("%H:%M") if training else "",
+                "time": _sport_booking_time(item, training),
                 "status": "new" if item.status == "pending" else item.status,
                 "kind": item.kind,
                 "participant": item.participant,
@@ -365,7 +391,7 @@ async def get_sport_management(
         )
         bookings_query = select(SportBooking).where(
             SportBooking.organization_id == organization.id,
-            SportBooking.training_id.in_(training_ids),
+            or_(SportBooking.coach_id == coach.id, SportBooking.training_id.in_(training_ids)),
         )
         payments_query = select(SportPayment).where(False)
 
@@ -406,8 +432,7 @@ async def get_sport_management(
         .where(
             SportCoach.organization_id == organization.id,
             SportCoach.is_active.is_(True),
-            SportCoach.user_id.is_not(None),
-        )
+        ).order_by(SportCoach.sort_order, SportCoach.id)
     )).all()
     exception_rows = (await db.execute(
         select(SportTrainingException, SportTraining.code)
@@ -415,7 +440,7 @@ async def get_sport_management(
         .where(
             SportTraining.organization_id == organization.id,
             SportTrainingException.is_cancelled.is_(True),
-            SportTrainingException.class_date >= datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date(),
+            *((SportTraining.coach_id == coach.id,) if membership is None else ()),
         )
     )).all()
     venue_rows = (await db.execute(
@@ -444,6 +469,7 @@ async def get_sport_management(
     )).scalars().all()
     return {
         "role": membership.role if membership else "trainer",
+        "today": datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date().isoformat(),
         "organization": {
             "id": organization.id, "slug": organization.slug, "name": organization.name,
             "city": organization.city, "address": organization.address, "phone": organization.phone,
@@ -469,11 +495,16 @@ async def get_sport_management(
             {"id": item.id, "image_url": item.image_url, "alt_text": item.alt_text}
             for item in gallery_rows
         ],
+        "coaches": [
+            {"id": item.id, "name": item.name, "role": item.role, "tags": item.tags,
+             "exp": item.experience, "about": item.bio, "photo": item.photo_url}
+            for item, _ in team_coaches
+        ],
         "trainings": [
             {
                 "id": item.code, "days": item.weekdays,
                 "time": item.start_time.strftime("%H:%M"),
-                "end": item.end_time.strftime("%H:%M"), "coach": item.coach,
+                "end": item.end_time.strftime("%H:%M"), "coach": item.coach, "coachId": item.coach_id,
                 "gym": item.gym, "discipline": item.discipline, "active": item.is_active,
             }
             for item in (await db.execute(
@@ -489,7 +520,7 @@ async def get_sport_management(
                 "email": item.contact_email, "experience": item.experience,
                 "discipline": item.requested_discipline, "gym": item.requested_gym,
                 "date": item.requested_date.isoformat() if item.requested_date else "",
-                "time": trainings_by_id[item.training_id].start_time.strftime("%H:%M") if item.training_id in trainings_by_id else "",
+                "time": _sport_booking_time(item, trainings_by_id.get(item.training_id)),
                 "status": "new" if item.status == "pending" else item.status,
                 "kind": item.kind, "participant": item.participant,
                 "childName": item.child_name,
@@ -499,21 +530,12 @@ async def get_sport_management(
             }
             for item in bookings
         ],
-        "payments": [
-            {
-                "id": str(item.id), "name": item.member_name, "plan": item.plan_name,
-                "amount": item.amount, "date": item.payment_date.isoformat(),
-                "month": item.month,
-                "paidAt": item.paid_at.date().isoformat() if item.paid_at else "",
-                "status": item.status, "method": item.method,
-            }
-            for item in payments
-        ],
+        "payments": [_sport_payment_card(item) for item in payments],
         "team": ([
-            {"id": item.id, "name": member.full_name or member.phone, "phone": member.phone, "role": item.role}
+            _sport_staff_card(item, member.phone, member.full_name)
             for item, member in team_members
         ] + [
-            {"id": item.id, "name": item.name, "phone": phone or "", "role": "trainer"}
+            _sport_staff_card(item, phone)
             for item, phone in team_coaches
         ]) if membership is not None else [],
         "exceptions": {
@@ -521,6 +543,136 @@ async def get_sport_management(
             for item, code in exception_rows
         },
         "can_manage": membership is not None,
+    }
+
+
+async def _sport_clients_organization(request: Request, db: AsyncSession, slug: str) -> SportOrganization:
+    organization = await _organization(db, slug, published_only=False)
+    if organization is None:
+        raise HTTPException(404, "Спортивная организация не найдена")
+    _, membership, _ = await _gym_access(request, db, organization.id)
+    if membership is None:
+        raise HTTPException(403, "Нет доступа к клиентам клуба")
+    return organization
+
+
+_SPORT_PARTICIPANT_KEY = case(
+    (SportBooking.participant == "child", func.lower(func.trim(func.coalesce(SportBooking.child_name, "")))),
+    else_="",
+)
+_SPORT_PARTICIPANT_NAME = case(
+    (SportBooking.participant == "child", func.coalesce(func.nullif(SportBooking.child_name, ""), SportBooking.contact_name)),
+    else_=SportBooking.contact_name,
+)
+
+
+@router.get("/organizations/{slug}/manage/clients")
+async def list_sport_clients(
+    request: Request,
+    slug: str,
+    search: str = Query("", max_length=160),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(40, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    organization = await _sport_clients_organization(request, db, slug)
+    participant = (SportBooking.client_id, SportBooking.participant, _SPORT_PARTICIPANT_KEY)
+    directory = select(
+        SportBooking.id.label("id"),
+        _SPORT_PARTICIPANT_NAME.label("name"),
+        SportBooking.contact_name.label("contact"),
+        User.phone.label("phone"),
+        SportBooking.participant.label("participant"),
+        func.count().filter(SportBooking.status == "came").over(partition_by=participant).label("visits"),
+        func.max(SportBooking.requested_date).filter(SportBooking.status == "came")
+        .over(partition_by=participant).label("last_visit"),
+        func.row_number().over(partition_by=participant, order_by=(SportBooking.created_at.desc(), SportBooking.id.desc()))
+        .label("latest"),
+    ).join(User, User.id == SportBooking.client_id).where(
+        SportBooking.organization_id == organization.id
+    ).subquery()
+    query = select(directory).where(directory.c.latest == 1)
+    if term := search.strip():
+        matches = [directory.c.name.icontains(term, autoescape=True), directory.c.contact.icontains(term, autoescape=True)]
+        phone = try_normalize_phone(term)
+        digits = re.sub(r"\D", "", term)
+        if digits:
+            matches.append(directory.c.phone.contains(phone or digits))
+        query = query.where(or_(*matches))
+    rows = (await db.execute(query.order_by(func.lower(directory.c.name), directory.c.id).offset(offset).limit(limit + 1))).mappings().all()
+    return {
+        "clients": [{key: value for key, value in row.items() if key != "latest"} for row in rows[:limit]],
+        "has_more": len(rows) > limit,
+    }
+
+
+@router.get("/organizations/{slug}/manage/visits/calendar")
+async def get_sport_visit_calendar(
+    request: Request,
+    slug: str,
+    month: date,
+    db: AsyncSession = Depends(get_db),
+):
+    organization = await _sport_clients_organization(request, db, slug)
+    start = month.replace(day=1)
+    end = month.replace(day=monthrange(month.year, month.month)[1])
+    rows = (await db.execute(
+        select(SportBooking.requested_date, func.count()).where(
+            SportBooking.organization_id == organization.id,
+            SportBooking.status == "came",
+            SportBooking.requested_date >= start,
+            SportBooking.requested_date <= end,
+        ).group_by(SportBooking.requested_date)
+    )).all()
+    return {"counts": {day.isoformat(): count for day, count in rows}}
+
+
+@router.get("/organizations/{slug}/manage/visits")
+async def list_sport_visits(
+    request: Request,
+    slug: str,
+    day: date | None = None,
+    client: int | None = Query(None, ge=1),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(40, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    organization = await _sport_clients_organization(request, db, slug)
+    if (day is None) == (client is None):
+        raise HTTPException(400, "Выберите дату или клиента")
+    query = select(SportBooking, SportTraining, SportCoach.name).outerjoin(
+        SportTraining, SportTraining.id == SportBooking.training_id
+    ).outerjoin(SportCoach, SportCoach.id == SportBooking.coach_id).where(
+        SportBooking.organization_id == organization.id, SportBooking.status == "came"
+    )
+    if day is not None:
+        query = query.where(SportBooking.requested_date == day).order_by(SportBooking.requested_gym)
+    else:
+        anchor = (await db.execute(
+            select(SportBooking.client_id, SportBooking.participant, _SPORT_PARTICIPANT_KEY).where(
+                SportBooking.id == client, SportBooking.organization_id == organization.id
+            )
+        )).one_or_none()
+        if anchor is None:
+            raise HTTPException(404, "Клиент не найден")
+        query = query.where(
+            SportBooking.client_id == anchor[0],
+            SportBooking.participant == anchor[1],
+            _SPORT_PARTICIPANT_KEY == anchor[2],
+        ).order_by(SportBooking.requested_date.desc().nulls_last())
+    # For older visits the training time is the only available time.
+    visit_time = func.coalesce(cast(SportBooking.start_time, Time), SportTraining.start_time)
+    rows = (await db.execute(query.order_by(visit_time.nulls_last(), SportBooking.id).offset(offset).limit(limit + 1))).all()
+    return {
+        "visits": [
+            {"id": booking.id,
+             "name": (booking.child_name or booking.contact_name) if booking.participant == "child" else booking.contact_name,
+             "date": booking.requested_date, "time": _sport_booking_time(booking, training),
+             "gym": booking.requested_gym, "discipline": booking.requested_discipline,
+             "coach": training.coach if training else coach_name or ""}
+            for booking, training, coach_name in rows[:limit]
+        ],
+        "has_more": len(rows) > limit,
     }
 
 
@@ -545,6 +697,7 @@ async def update_sport_schedule(
         item.code: item
         for item in (await db.execute(
             select(SportTraining).where(SportTraining.organization_id == organization.id)
+            .order_by(SportTraining.id).with_for_update()
         )).scalars().all()
     }
     if coach is not None and membership is None:
@@ -578,8 +731,10 @@ async def update_sport_schedule(
     coaches_by_name = {item.name: item for item in coach_rows}
     disciplines_by_name = {item.name: item for item in discipline_rows}
     changed = {}
+    added_training = False
     for item in data.trainings:
         training = training_by_code.get(item.id)
+        old_coach_name = training.coach if training is not None else ""
         if training is None:
             if coach is not None and membership is None:
                 raise HTTPException(status_code=403, detail="Тренер не может создавать тренировки")
@@ -595,6 +750,7 @@ async def update_sport_schedule(
                 is_active=item.active,
             )
             db.add(training)
+            added_training = True
         training.weekdays = item.days
         training.start_time = item.time
         training.end_time = item.end
@@ -605,12 +761,15 @@ async def update_sport_schedule(
         training.coach_id = (
             coach.id
             if coach is not None and membership is None
-            else coaches_by_name[item.coach].id if item.coach in coaches_by_name else None
+            else coaches_by_name[item.coach].id if item.coach in coaches_by_name
+            else training.coach_id if item.coach == old_coach_name else None
         )
         training.venue_id = venues_by_address[item.gym].id if item.gym in venues_by_address else None
         training.discipline_id = disciplines_by_name[item.discipline].id if item.discipline in disciplines_by_name else None
         changed[item.id] = training
 
+    if added_training and data.exceptions:
+        await db.flush()
     for key, is_active in data.exceptions.items():
         try:
             date_text, code = key.split(":", 1)
@@ -637,8 +796,10 @@ async def update_sport_schedule(
                 class_date=exception_date,
                 is_cancelled=True,
             ))
+        else:
+            exception.is_cancelled = True
     await db.commit()
-    return {"ok": True, "role": role, "name": name}
+    return {"ok": True}
 
 
 @router.post("/organizations/{slug}/bookings/{booking_id}/status")
@@ -666,17 +827,83 @@ async def update_sport_booking_status(
     if booking is None:
         raise HTTPException(status_code=404, detail="Заявка не найдена")
     if membership is None:
-        assigned = booking.training_id is not None and await db.scalar(
+        assigned = booking.coach_id == coach.id or (booking.training_id is not None and await db.scalar(
             select(SportTraining.id).where(
                 SportTraining.id == booking.training_id,
                 SportTraining.coach_id == coach.id,
             )
-        ) is not None
+        ) is not None)
         if not assigned:
             raise HTTPException(status_code=403, detail="Тренер может менять только заявки на свои занятия")
+    if status_value == "came" and booking.start_time is None:
+        training = await db.get(SportTraining, booking.training_id) if booking.training_id else None
+        if booking.requested_date is None:
+            now = datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).replace(tzinfo=None)
+            booking.requested_date = now.date()
+            booking.start_time = now
+        elif training is not None:
+            booking.start_time = datetime.combine(booking.requested_date, training.start_time)
+            booking.end_time = datetime.combine(booking.requested_date, training.end_time)
     booking.status = status_value
     await db.commit()
-    return {"ok": True, "status": status_value}
+    return {"ok": True, "status": status_value,
+            "date": booking.requested_date.isoformat() if booking.requested_date else "",
+            "time": booking.start_time.strftime("%H:%M") if booking.start_time else ""}
+
+
+async def _save_sport_staff_profile(
+    db: AsyncSession,
+    staff: SportCoach | SportGymMember,
+    *,
+    name: str,
+    contact_phone: str | None,
+    about: str | None,
+    title: str | None,
+    experience: str | None,
+    tags: str | None,
+    photo: UploadFile | None,
+    remove_photo: bool = False,
+):
+    if contact_phone is not None:
+        staff.contact_phone = try_normalize_phone(contact_phone) if contact_phone.strip() else None
+        if contact_phone.strip() and staff.contact_phone is None:
+            raise HTTPException(400, "Проверьте контактный телефон")
+    if isinstance(staff, SportCoach):
+        if staff.name != name and staff.id is not None:
+            await db.execute(update(SportTraining).where(
+                SportTraining.organization_id == staff.organization_id,
+                SportTraining.coach_id == staff.id,
+            ).values(coach=name))
+        staff.name = name
+        if title is not None:
+            staff.role = title.strip() or "Тренер"
+        if experience is not None:
+            staff.experience = experience.strip()
+        if tags is not None:
+            staff.tags = tags.strip()
+    else:
+        staff.display_name = name
+    if about is not None:
+        staff.bio = about.strip()
+
+    original_url = staff.photo_url
+    uploaded_url = None
+    if photo is not None:
+        try:
+            uploaded_url = await save_image(photo, "sport-staff")
+        except UploadError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        staff.photo_url = uploaded_url
+    elif remove_photo:
+        staff.photo_url = None
+    try:
+        await db.commit()
+    except Exception:
+        if uploaded_url:
+            delete_stored(uploaded_url)
+        raise
+    if original_url and original_url != staff.photo_url and "/sport-staff/" in original_url:
+        delete_stored(original_url)
 
 
 @router.post("/organizations/{slug}/staff")
@@ -686,6 +913,12 @@ async def add_sport_staff(
     phone: str = Form(...),
     name: str = Form(...),
     role: str = Form(...),
+    contact_phone: str | None = Form(None, max_length=24),
+    about: str | None = Form(None, max_length=4000),
+    title: str | None = Form(None, max_length=160),
+    experience: str | None = Form(None, max_length=160),
+    tags: str | None = Form(None, max_length=300),
+    photo: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
 ):
     organization = await _organization(db, slug, published_only=False)
@@ -731,17 +964,19 @@ async def add_sport_staff(
             raise HTTPException(status_code=409, detail="Сотрудник уже состоит в команде клуба")
         perms = SPORT_MANAGER_PERMISSIONS if role == "manager" else SPORT_ADMIN_PERMISSIONS
         if existing is not None:
-            existing.role = role
-            existing.permissions = perms
-            existing.is_active = True
+            staff = existing
+            staff.role = role
+            staff.permissions = perms
+            staff.is_active = True
         else:
-            db.add(SportGymMember(
+            staff = SportGymMember(
                 organization_id=organization.id,
                 user_id=staff_user.id,
                 role=role,
                 permissions=perms,
                 is_active=True,
-            ))
+            )
+            db.add(staff)
     else:
         existing = await db.scalar(
             select(SportCoach).where(
@@ -752,8 +987,8 @@ async def add_sport_staff(
         if existing is not None and existing.is_active:
             raise HTTPException(status_code=409, detail="Сотрудник уже состоит в команде клуба")
         if existing is not None:
-            existing.name = name
-            existing.is_active = True
+            staff = existing
+            staff.is_active = True
         else:
             unassigned_coach = (await db.execute(
                 select(SportCoach).where(
@@ -761,20 +996,69 @@ async def add_sport_staff(
                     SportCoach.name == name,
                     SportCoach.user_id.is_(None),
                     SportCoach.is_active.is_(True),
-                )
+                ).order_by(SportCoach.id).limit(1).with_for_update()
             )).scalar_one_or_none()
             if unassigned_coach is not None:
-                unassigned_coach.user_id = staff_user.id
+                staff = unassigned_coach
+                staff.user_id = staff_user.id
             else:
-                db.add(SportCoach(
+                staff = SportCoach(
                     organization_id=organization.id,
                     user_id=staff_user.id,
                     name=name,
                     role="Тренер",
                     is_active=True,
-                ))
-    await db.commit()
-    return {"ok": True, "role": role, "name": name}
+                )
+                db.add(staff)
+    await _save_sport_staff_profile(
+        db, staff, name=name, contact_phone=contact_phone, about=about, title=title,
+        experience=experience, tags=tags, photo=photo,
+    )
+    return {"ok": True, "role": role, "name": name, "member": _sport_staff_card(staff, staff_user.phone)}
+
+
+@router.put("/organizations/{slug}/staff/{role}/{staff_id}")
+async def update_sport_staff(
+    request: Request,
+    slug: str,
+    role: str,
+    staff_id: int,
+    name: str = Form(..., min_length=2, max_length=160),
+    contact_phone: str = Form("", max_length=24),
+    about: str = Form("", max_length=4000),
+    title: str = Form("", max_length=160),
+    experience: str = Form("", max_length=160),
+    tags: str = Form("", max_length=300),
+    photo: UploadFile | None = File(None),
+    remove_photo: bool = Form(False),
+    db: AsyncSession = Depends(get_db),
+):
+    organization = await _organization(db, slug, published_only=False)
+    if organization is None:
+        raise HTTPException(404, "Спортивная организация не найдена")
+    _, membership, _ = await _gym_access(request, db, organization.id)
+    if membership is None or membership.role != "owner":
+        raise HTTPException(403, "Управлять составом клуба может владелец")
+    name = name.strip()
+    if len(name) < 2:
+        raise HTTPException(400, "Укажите имя сотрудника")
+    if role == "trainer":
+        query = select(SportCoach).where(SportCoach.id == staff_id, SportCoach.organization_id == organization.id,
+                                         SportCoach.is_active.is_(True))
+    elif role in {"admin", "manager", "owner"}:
+        query = select(SportGymMember).where(SportGymMember.id == staff_id, SportGymMember.organization_id == organization.id,
+                                             SportGymMember.is_active.is_(True), SportGymMember.role == role)
+    else:
+        raise HTTPException(400, "Недопустимая роль сотрудника")
+    staff = await db.scalar(query.with_for_update())
+    if staff is None:
+        raise HTTPException(404, "Сотрудник не найден")
+    account_phone = await db.scalar(select(User.phone).where(User.id == staff.user_id)) if staff.user_id is not None else None
+    await _save_sport_staff_profile(
+        db, staff, name=name, contact_phone=contact_phone, about=about, title=title,
+        experience=experience, tags=tags, photo=photo, remove_photo=remove_photo,
+    )
+    return {"ok": True, "member": _sport_staff_card(staff, account_phone)}
 
 
 @router.delete("/organizations/{slug}/staff/{role}/{staff_id}")
@@ -806,7 +1090,6 @@ async def remove_sport_staff(
             select(SportCoach).where(
                 SportCoach.id == staff_id,
                 SportCoach.organization_id == organization.id,
-                SportCoach.user_id.is_not(None),
             )
         )).scalar_one_or_none()
         if staff is not None:
@@ -847,8 +1130,8 @@ async def create_sport_payment(
         raise HTTPException(status_code=400, detail="Проверьте участника и тариф")
     if month and not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month):
         raise HTTPException(status_code=400, detail="Укажите месяц в формате ГГГГ-ММ")
-    today = date.today()
-    db.add(SportPayment(
+    today = datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date()
+    payment = SportPayment(
         organization_id=organization.id,
         member_name=name,
         plan_id=plan.id,
@@ -858,9 +1141,10 @@ async def create_sport_payment(
         month=month or today.strftime("%Y-%m"),
         status="pending",
         created_by_id=user.id,
-    ))
+    )
+    db.add(payment)
     await db.commit()
-    return {"ok": True, "role": role, "name": name}
+    return {"ok": True, "payment": _sport_payment_card(payment)}
 
 
 @router.post("/organizations/{slug}/payments/{payment_id}/status")
@@ -984,7 +1268,7 @@ async def delete_sport_venue(
         raise HTTPException(status_code=404, detail="Зал не найден")
     venue.is_active = False
     await db.commit()
-    return {"ok": True, "role": role, "name": name}
+    return {"ok": True}
 
 
 @router.post("/organizations/{slug}/manage/disciplines")
@@ -1035,7 +1319,7 @@ async def delete_sport_discipline(
         raise HTTPException(status_code=404, detail="Направление не найдено")
     discipline.is_active = False
     await db.commit()
-    return {"ok": True, "role": role, "name": name}
+    return {"ok": True}
 
 
 @router.post("/organizations/{slug}/manage/plans")
@@ -1089,7 +1373,7 @@ async def delete_sport_plan(
         raise HTTPException(status_code=404, detail="Тариф не найден")
     plan.is_active = False
     await db.commit()
-    return {"ok": True, "role": role, "name": name}
+    return {"ok": True}
 
 
 @router.post("/organizations/{slug}/manage/gallery")
@@ -1458,7 +1742,7 @@ async def delete_sport_closure(
         raise HTTPException(status_code=404, detail="Запись о закрытии не найдена")
     await db.delete(closure)
     await db.commit()
-    return {"ok": True, "role": role, "name": name}
+    return {"ok": True}
 
 
 # ==========================================

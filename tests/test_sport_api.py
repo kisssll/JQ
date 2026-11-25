@@ -1,11 +1,14 @@
 from datetime import datetime, time, timedelta
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import pytest
+from PIL import Image
 from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.core.security import create_access_token
 from app.models.models import ConsentDocument, User, UserConsent, UserRole
 from app.models.sport import (
     SportBooking,
@@ -497,3 +500,131 @@ async def test_sport_management_is_scoped_and_owner_can_add_staff(client, db_ses
     client.cookies.set("access_token", login.json()["access_token"])
     denied = await client.get("/api/v1/sport/organizations/test-sport-club/manage")
     assert denied.status_code == 403
+
+
+async def _sport_owner_panel(client, db_session):
+    await _seed_organization(db_session, _booking_date())
+    async with db_session() as db:
+        organization = await db.scalar(select(SportOrganization).where(SportOrganization.slug == "test-sport-club"))
+        owner = User(phone="+79990001800", full_name="Владелец", hashed_password="unused", role=UserRole.CLIENT)
+        db.add(owner)
+        await db.flush()
+        db.add(SportGymMember(organization_id=organization.id, user_id=owner.id, role="owner"))
+        await db.commit()
+    client.cookies.set("access_token", create_access_token(owner.id))
+    return "/api/v1/sport/organizations/test-sport-club", organization.id
+
+
+async def test_manage_schedule_saves_new_training_and_date_exception(client, db_session):
+    base, _ = await _sport_owner_panel(client, db_session)
+    day = _booking_date()
+    key = f"{day}:new-training"
+    training = {"id": "new-training", "days": [(day.weekday() + 1) % 7], "time": "19:00", "end": "20:00",
+                "coach": "Тренер", "gym": "Тестовый зал", "discipline": "Борьба", "active": True}
+    saved = await client.put(f"{base}/manage/schedule", json={"trainings": [training], "exceptions": {key: False}})
+    assert saved.status_code == 200, saved.text
+    result = (await client.get(f"{base}/manage")).json()
+    assert result["exceptions"][key] is False
+    assert any(item["id"] == "test-session" for item in result["trainings"])
+    restored = await client.put(f"{base}/manage/schedule", json={"trainings": [], "exceptions": {key: True}})
+    assert restored.status_code == 200, restored.text
+    assert key not in (await client.get(f"{base}/manage")).json()["exceptions"]
+
+
+async def test_sport_payment_and_catalog_changes_return_success_after_commit(client, db_session):
+    base, organization_id = await _sport_owner_panel(client, db_session)
+    async with db_session() as db:
+        plan = SportMembershipPlan(organization_id=organization_id, code="base", name="Абонемент", price=2000)
+        discipline = SportDiscipline(organization_id=organization_id, name="Борьба")
+        venue = await db.scalar(select(SportVenue).where(SportVenue.organization_id == organization_id))
+        db.add_all([plan, discipline])
+        await db.commit()
+    payment = await client.post(f"{base}/payments", data={"member_name": "Клиент", "plan_code": "base"})
+    assert payment.status_code == 200, payment.text
+    assert payment.json()["payment"]["amount"] == 2000
+    for path in (f"venues/{venue.id}", f"disciplines/{discipline.id}", f"plans/{plan.id}"):
+        deleted = await client.delete(f"{base}/manage/{path}")
+        assert deleted.status_code == 200, deleted.text
+    closure = await client.post(f"{base}/closures", json={"date": _booking_date().isoformat()})
+    assert closure.status_code == 200, closure.text
+    deleted_closure = await client.delete(f"{base}/closures/{closure.json()['id']}")
+    assert deleted_closure.status_code == 200, deleted_closure.text
+    management = (await client.get(f"{base}/manage")).json()
+    assert management["venues"] == management["disciplines"] == management["plans"] == []
+    assert management["payments"] == [payment.json()["payment"]]
+
+
+async def test_sport_client_history_groups_participants_and_preserves_visit_time(client, db_session):
+    base, organization_id = await _sport_owner_panel(client, db_session)
+    day = _booking_date() - timedelta(days=10)
+    async with db_session() as db:
+        parent = User(phone="+79990001801", full_name="Родитель", hashed_password="unused", role=UserRole.CLIENT)
+        db.add(parent)
+        await db.flush()
+        training = await db.scalar(select(SportTraining).where(SportTraining.organization_id == organization_id))
+        common = dict(organization_id=organization_id, training_id=training.id, client_id=parent.id,
+                      contact_name=parent.full_name, kind="Обычное", requested_date=day,
+                      requested_gym="Тестовый зал", requested_discipline="Борьба")
+        first = SportBooking(**common, participant="child", child_name="Аня", status="pending")
+        second = SportBooking(**common, participant="child", child_name="Аня", status="came")
+        sibling = SportBooking(**common, participant="child", child_name="Коля", status="came")
+        adult = SportBooking(**common, participant="self", status="pending")
+        db.add_all([first, second, sibling, adult])
+        await db.commit()
+    marked = await client.post(f"{base}/bookings/{first.id}/status", data={"status": "came"})
+    assert marked.status_code == 200, marked.text
+    assert marked.json()["time"] == "23:00"
+    async with db_session() as db:
+        training = await db.get(SportTraining, training.id)
+        training.start_time = time(22, 0)
+        await db.commit()
+
+    directory = await client.get(f"{base}/manage/clients", params={"search": "900 01801"})
+    assert directory.status_code == 200, directory.text
+    assert {row["name"]: row["visits"] for row in directory.json()["clients"]} == {"Аня": 2, "Коля": 1, "Родитель": 0}
+    calendar = await client.get(f"{base}/manage/visits/calendar", params={"month": day.isoformat()})
+    assert calendar.json() == {"counts": {day.isoformat(): 3}}
+    by_day = await client.get(f"{base}/manage/visits", params={"day": day.isoformat()})
+    assert {visit["id"] for visit in by_day.json()["visits"]} == {first.id, second.id, sibling.id}
+    history = await client.get(f"{base}/manage/visits", params={"client": second.id, "limit": 1})
+    assert history.json()["has_more"] is True
+    assert history.json()["visits"][0]["id"] == second.id
+    next_page = await client.get(f"{base}/manage/visits", params={"client": second.id, "limit": 1, "offset": 1})
+    assert next_page.json() == {"has_more": False, "visits": [
+        {"id": first.id, "name": "Аня", "date": day.isoformat(), "time": "23:00", "gym": "Тестовый зал",
+         "discipline": "Борьба", "coach": "Тренер"},
+    ]}
+    client.cookies.clear()
+    client.cookies.set("access_token", create_access_token(parent.id))
+    denied = await client.get(f"{base}/manage/visits", params={"client": second.id})
+    assert denied.status_code == 403
+
+
+async def test_sport_staff_edits_unlinked_coach_and_uploads_photo(client, db_session, monkeypatch, tmp_path):
+    base, organization_id = await _sport_owner_panel(client, db_session)
+    monkeypatch.setattr(settings, "UPLOADS_DIR", str(tmp_path))
+    async with db_session() as db:
+        coach = SportCoach(organization_id=organization_id, name="Тренер", bio="Старое описание")
+        db.add(coach)
+        await db.flush()
+        training = await db.scalar(select(SportTraining).where(SportTraining.organization_id == organization_id))
+        training.coach_id = coach.id
+        await db.commit()
+    photo = BytesIO()
+    Image.new("RGB", (20, 20), "blue").save(photo, format="PNG")
+    profile = {"name": "Новый тренер", "contact_phone": "8 (999) 000-18-02", "about": "Ведёт детские группы",
+               "title": "Старший тренер", "experience": "10 лет", "tags": "Борьба"}
+    saved = await client.put(f"{base}/staff/trainer/{coach.id}", data=profile,
+                             files={"photo": ("coach.png", photo.getvalue(), "image/png")})
+    assert saved.status_code == 200, saved.text
+    card = saved.json()["member"]
+    assert card["phone"] == "+79990001802"
+    assert card["about"] == profile["about"]
+    photo_file = tmp_path / card["photo"].split("/uploads/")[1]
+    assert photo_file.is_file()
+    manage = (await client.get(f"{base}/manage")).json()
+    assert card in manage["team"]
+    assert manage["trainings"][0]["coach"] == profile["name"]
+    updated = await client.put(f"{base}/staff/trainer/{coach.id}", data={**profile, "remove_photo": "true"})
+    assert updated.json()["member"]["photo"] is None
+    assert not photo_file.exists()

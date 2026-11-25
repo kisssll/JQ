@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import AdminClients from "./AdminClients";
+import AdminSchedule from "./AdminSchedule";
+import AdminStaff, { type StaffMember } from "./AdminStaff";
+import { sportRequest } from "./admin-api";
 import logo from "./sparta-logo.png";
 
 /* ---------------- data ---------------- */
 
 type Page = "/" | "/gyms" | "/coaches" | "/disciplines" | "/schedule" | "/prices" | "/gallery" | "/account" | "/admin";
 type BookingStatus = "new" | "confirmed" | "came" | "cancelled";
-type Booking = {
+export type Booking = {
   id: string;
   name: string;
   phone: string;
@@ -43,11 +47,11 @@ type Plan = {
   featured?: boolean;
 };
 
-type Gym = { id: string; address: string; name: string; note: string; disciplines: string[]; hours: string; photo?: string | null };
-type Coach = { id: number; name: string; role: string; tags: string; exp: string; about: string; photo?: string | null };
-type Discipline = { key: string; name: string; text: string; level: string };
+export type Gym = { id: string; address: string; name: string; note: string; disciplines: string[]; hours: string; photo?: string | null };
+export type Coach = { id: number; name: string; role: string; tags: string; exp: string; about: string; photo?: string | null };
+export type Discipline = { key: string; name: string; text: string; level: string };
 type GalleryPhoto = { src: string; alt: string; credit?: string };
-type Training = { id: string; days: number[]; time: string; end: string; coach: string; gym: string; discipline: string; active: boolean };
+export type Training = { id: string; days: number[]; time: string; end: string; coach: string; coachId?: number | null; gym: string; discipline: string; active: boolean };
 const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const upcomingSlots = (trainings: Training[] = []) => Array.from({ length: 14 }, (_, offset) => {
   const date = new Date(); date.setDate(date.getDate() + offset);
@@ -55,7 +59,6 @@ const upcomingSlots = (trainings: Training[] = []) => Array.from({ length: 14 },
 }).flat();
 const today = () => localDate(new Date());
 const rub = (n: number) => `${n.toLocaleString("ru-RU")} ₽`;
-const uid = () => Math.random().toString(36).slice(2, 9);
 const fmtDate = (d: string) => new Date(d).toLocaleDateString("ru-RU");
 const shortCoach = (name: string) => {
   const [surname, first] = name.split(" ");
@@ -204,6 +207,7 @@ const currentPage = (): Page =>
 
 export default function App() {
   const [page, setPage] = useState<Page>(currentPage);
+  const isAdmin = page === "/admin";
   const [menu, setMenu] = useState(false);
   const [solid, setSolid] = useState(false);
   useEffect(() => {
@@ -238,8 +242,12 @@ export default function App() {
   const [managementError, setManagementError] = useState("");
   const [managementNeedsLogin, setManagementNeedsLogin] = useState(false);
   const [managementRetry, setManagementRetry] = useState(0);
+  const [managementDate, setManagementDate] = useState(today);
   useEffect(() => {
+    if (isAdmin) return;
     const controller = new AbortController();
+    setScheduleError("");
+    setScheduleLoading(true);
     const loadCatalog = async () => {
       try {
         const response = await fetch(`/api/v1/sport/organizations/${encodeURIComponent(GYM_SLUG)}/catalog`, {
@@ -247,6 +255,7 @@ export default function App() {
         });
         if (!response.ok) throw new Error("Не удалось загрузить данные клуба");
         const data = await response.json();
+        if (controller.signal.aborted) return;
         setOrganization(data.organization);
         setGyms(data.venues.map((item: Gym) => ({ ...item, disciplines: data.disciplines.map((d: Discipline) => d.key) })));
         setCoaches(data.coaches);
@@ -265,25 +274,28 @@ export default function App() {
     };
     void loadCatalog();
     return () => controller.abort();
-  }, []);
+  }, [isAdmin]);
   useEffect(() => {
     if (page !== "/account") return;
+    const controller = new AbortController();
     const loadAccount = async () => {
       try {
-        const response = await fetch(`/api/v1/sport/organizations/${encodeURIComponent(GYM_SLUG)}/account`);
+        const response = await fetch(`/api/v1/sport/organizations/${encodeURIComponent(GYM_SLUG)}/account`, { signal: controller.signal });
         if (response.status === 401) {
           setAccountLoginRequired(true);
           return;
         }
         if (!response.ok) throw new Error("Не удалось загрузить историю заявок");
         const data = await response.json();
+        if (controller.signal.aborted) return;
         setBookings(data.bookings);
         setAccountLoginRequired(false);
       } catch (error) {
-        setScheduleError(error instanceof Error ? error.message : "Не удалось загрузить историю заявок");
+        if (!controller.signal.aborted) setScheduleError(error instanceof Error ? error.message : "Не удалось загрузить историю заявок");
       }
     };
     void loadAccount();
+    return () => controller.abort();
   }, [page]);
   useEffect(() => {
     if (page !== "/admin") return;
@@ -305,15 +317,31 @@ export default function App() {
           throw new Error("У вашего аккаунта нет доступа к панели этого клуба.");
         }
         if (!response.ok) {
-          throw new Error("Не удалось загрузить панель клуба. Попробуйте ещё раз.");
+          const requestId = response.headers.get("X-Request-ID");
+          throw new Error(requestId ? `Не удалось загрузить панель клуба. Код запроса: ${requestId}` : "Не удалось загрузить панель клуба. Попробуйте ещё раз.");
         }
-        const data = await response.json();
+        const data = await response.json() as {
+          bookings: Booking[]; payments: Payment[]; trainings: Training[]; exceptions: Record<string, boolean>;
+          today: string; role: string; team: StaffMember[]; coaches: Coach[]; organization: typeof organization;
+          venues: { id: number; name: string; address: string; description: string; hours: string; photo_url?: string | null }[];
+          disciplines: { name: string; description: string; level: string }[];
+          plans: (Omit<Plan, "id"> & { code: string })[];
+        };
+        if (controller.signal.aborted) return;
         setBookings(data.bookings);
         setPayments(data.payments);
         setTrainings(data.trainings);
         setExceptions(data.exceptions);
         setManagementRole(data.role);
         setManagementTeam(data.team ?? []);
+        setManagementDate(data.today ?? today());
+        setOrganization(data.organization);
+        setCoaches(data.coaches ?? []);
+        const disciplines = data.disciplines.map((item) => ({ key: item.name, name: item.name, text: item.description, level: item.level }));
+        setDisciplines(disciplines);
+        setGyms(data.venues.map((item) => ({ ...item, id: String(item.id), note: item.description,
+          photo: item.photo_url, disciplines: disciplines.map((discipline) => discipline.key) })));
+        setPlans(data.plans.map((item) => ({ ...item, id: item.code })));
         setManagementState("ready");
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -328,7 +356,7 @@ export default function App() {
     return () => controller.abort();
   }, [page, managementRetry]);
   const [managementRole, setManagementRole] = useState("");
-  const [managementTeam, setManagementTeam] = useState<{ id: number; name: string; phone: string; role: string }[]>([]);
+  const [managementTeam, setManagementTeam] = useState<StaffMember[]>([]);
 
   const go = (p: Page) => {
     history.pushState({}, "", `${APP_BASE_PATH}${p === "/" ? "" : p}`);
@@ -379,7 +407,7 @@ export default function App() {
       gyms={gyms} coaches={coaches} disciplines={disciplines} plans={plans}
       setCoaches={setCoaches}
       role={managementRole} slug={GYM_SLUG} team={managementTeam}
-      setTeam={setManagementTeam} organizationName={organization.name} onExit={() => go("/")}
+      setTeam={setManagementTeam} organizationName={organization.name} current={managementDate} onExit={() => go("/")}
     />;
   }
 
@@ -1160,6 +1188,7 @@ function Admin({
   team,
   setTeam,
   organizationName,
+  current,
   onExit,
 }: {
   bookings: Booking[];
@@ -1177,58 +1206,42 @@ function Admin({
   plans: Plan[];
   role: string;
   slug: string;
-  team: { id: number; name: string; phone: string; role: string }[];
-  setTeam: React.Dispatch<React.SetStateAction<{ id: number; name: string; phone: string; role: string }[]>>;
+  team: StaffMember[];
+  setTeam: React.Dispatch<React.SetStateAction<StaffMember[]>>;
   organizationName: string;
+  current: string;
   onExit: () => void;
 }) {
-  const canManage = role === "owner" || role === "admin";
-  const [tab, setTab] = useState<"overview" | "bookings" | "schedule" | "payments" | "team">(role === "trainer" ? "bookings" : "overview");
+  const canManagePayments = role === "owner" || role === "admin";
+  const [tab, setTab] = useState<"overview" | "bookings" | "schedule" | "payments" | "team" | "clients">(role === "trainer" ? "bookings" : "overview");
   const [gym, setGym] = useState("all");
   const [status, setStatus] = useState<"all" | BookingStatus>("all");
   const [search, setSearch] = useState("");
   const [payFilter, setPayFilter] = useState<"all" | "paid" | "pending">("all");
-  const [payMonth, setPayMonth] = useState(today().slice(0, 7));
+  const [payMonth, setPayMonth] = useState(current.slice(0, 7));
   const [newMember, setNewMember] = useState("");
   const [adding, setAdding] = useState(false);
-  const [adminWeek, setAdminWeek] = useState(0);
-  const [editing, setEditing] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
-  const [staffName, setStaffName] = useState("");
-  const [staffPhone, setStaffPhone] = useState("");
-  const [staffRole, setStaffRole] = useState<"admin" | "trainer">("trainer");
-  const scheduleSaveQueue = useRef(Promise.resolve());
+  const openTab = (next: typeof tab) => { setActionError(""); setTab(next); };
 
-  const send = async (path: string, method: string, body: URLSearchParams | Record<string, unknown>) => {
+  const send = async <T,>(path: string, method: string, body: URLSearchParams | Record<string, unknown>) => {
     const form = body instanceof URLSearchParams;
-    const response = await fetch(`/api/v1/sport/organizations/${encodeURIComponent(slug)}${path}`, {
+    return sportRequest<T>(slug, path, {
       method,
       headers: form ? { "Content-Type": "application/x-www-form-urlencoded" } : { "Content-Type": "application/json" },
       body: form ? body : JSON.stringify(body),
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Не удалось сохранить изменения");
-    return data;
   };
-  const saveSchedule = (nextTrainings: Training[], nextExceptions: Record<string, boolean>) => {
-    scheduleSaveQueue.current = scheduleSaveQueue.current.then(async () => {
-      await send("/manage/schedule", "PUT", { trainings: nextTrainings, exceptions: nextExceptions });
-    }).catch((error: unknown) => {
-      setActionError(error instanceof Error ? error.message : "Не удалось сохранить расписание");
-    });
+  const saveTraining = async (item: Training) => {
+    await send("/manage/schedule", "PUT", { trainings: [item], exceptions: {} });
+    const saved = { ...item, coachId: coaches.find((coach) => coach.name === item.coach)?.id ?? item.coachId };
+    setTrainingsState((previous) => previous.some((row) => row.id === saved.id)
+      ? previous.map((row) => row.id === saved.id ? saved : row) : [...previous, saved]);
   };
-  const updateTrainings = (update: React.SetStateAction<Training[]>) => {
-    const next = typeof update === "function" ? update(trainings) : update;
-    setTrainingsState(next);
-    saveSchedule(next, exceptions);
+  const saveException = async (key: string, enabled: boolean) => {
+    await send("/manage/schedule", "PUT", { trainings: [], exceptions: { [key]: enabled } });
+    setExceptionsState((previous) => ({ ...previous, [key]: enabled }));
   };
-  const updateExceptions = (update: React.SetStateAction<Record<string, boolean>>) => {
-    const next = typeof update === "function" ? update(exceptions) : update;
-    setExceptionsState(next);
-    saveSchedule(trainings, next);
-  };
-  const setTrainings = updateTrainings;
-  const setExceptions = updateExceptions;
 
   const filtered = useMemo(
     () =>
@@ -1245,8 +1258,9 @@ function Admin({
 
   const setB = async (id: string, nextStatus: BookingStatus) => {
     try {
-      await send(`/bookings/${encodeURIComponent(id)}/status`, "POST", new URLSearchParams({ status: nextStatus === "new" ? "pending" : nextStatus }));
-      setBookings((list) => list.map((booking) => booking.id === id ? { ...booking, status: nextStatus } : booking));
+      const saved = await send<{ date: string; time: string }>(`/bookings/${encodeURIComponent(id)}/status`, "POST", new URLSearchParams({ status: nextStatus === "new" ? "pending" : nextStatus }));
+      setBookings((list) => list.map((booking) => booking.id === id
+        ? { ...booking, status: nextStatus, date: saved.date || booking.date, time: saved.time || booking.time } : booking));
       setActionError("");
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Не удалось обновить заявку");
@@ -1278,54 +1292,33 @@ function Admin({
       return;
     }
     try {
-      await send("/payments", "POST", new URLSearchParams({ member_name: newMember, plan_code: plan.id, month: payMonth }));
-      const response = await fetch(`/api/v1/sport/organizations/${encodeURIComponent(slug)}/manage`);
-      if (!response.ok) throw new Error("Оплата создана, но список не обновился");
-      const data = await response.json();
-      setPayments(data.payments);
+      const { payment } = await send<{ payment: Payment }>("/payments", "POST", new URLSearchParams({ member_name: newMember, plan_code: plan.id, month: payMonth }));
+      setPayments((previous) => [payment, ...previous]);
       setNewMember("");
       setActionError("");
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Не удалось добавить оплату");
     }
   };
-  const addStaff = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    try {
-      await send("/staff", "POST", new URLSearchParams({ name: staffName, phone: staffPhone, role: staffRole }));
-      const response = await fetch(`/api/v1/sport/organizations/${encodeURIComponent(slug)}/manage`);
-      if (!response.ok) throw new Error("Сотрудник добавлен, но список команды не обновился");
-      const data = await response.json();
-      setTeam(data.team ?? []);
-      const catalogResponse = await fetch(`/api/v1/sport/organizations/${encodeURIComponent(slug)}/catalog`);
-      if (!catalogResponse.ok) throw new Error("Сотрудник добавлен, но данные клуба не обновились");
-      const catalog = await catalogResponse.json();
-      setCoaches(catalog.coaches ?? []);
-      setStaffName("");
-      setStaffPhone("");
-      setActionError("");
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Не удалось добавить сотрудника");
+  const saveStaff = (member: StaffMember) => {
+    setTeam((current) => current.some((item) => item.role === member.role && item.id === member.id)
+      ? current.map((item) => item.role === member.role && item.id === member.id ? member : item)
+      : [...current, member]);
+    if (member.role === "trainer") {
+      const coach = { id: member.id, name: member.name, role: member.title ?? "Тренер", tags: member.tags ?? "",
+        exp: member.experience ?? "", about: member.about, photo: member.photo };
+      setCoaches((current) => current.some((item) => item.id === member.id)
+        ? current.map((item) => item.id === member.id ? coach : item) : [...current, coach]);
+      setTrainingsState((current) => current.map((item) => item.coachId === member.id ? { ...item, coach: member.name } : item));
     }
   };
-  const removeStaff = async (member: { id: number; role: string }) => {
-    try {
-      const response = await fetch(
-        `/api/v1/sport/organizations/${encodeURIComponent(slug)}/staff/${member.role}/${member.id}`,
-        { method: "DELETE" },
-      );
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Не удалось удалить сотрудника");
-      setTeam((list) => list.filter((item) => item.id !== member.id || item.role !== member.role));
-      setActionError("");
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Не удалось удалить сотрудника");
-    }
+  const removeStaff = (member: StaffMember) => {
+    setTeam((current) => current.filter((item) => item.role !== member.role || item.id !== member.id));
+    if (member.role === "trainer") setCoaches((current) => current.filter((item) => item.id !== member.id));
   };
 
   return (
     <div className="adm">
-      <div className="demo-ribbon">Кабинет клуба · изменения сохраняются в базе данных</div>
       <aside className="adm-side">
         <div className="adm-logo">
           {GYM_LOGO && <img src={GYM_LOGO} alt="" />}
@@ -1334,17 +1327,18 @@ function Admin({
           </div>
         </div>
         <nav>
-          <button className={tab === "overview" ? "on" : ""} onClick={() => setTab("overview")}>
+          <button className={tab === "overview" ? "on" : ""} onClick={() => openTab("overview")}>
             Сводка
           </button>
-          <button className={tab === "bookings" ? "on" : ""} onClick={() => setTab("bookings")}>
+          <button className={tab === "bookings" ? "on" : ""} onClick={() => openTab("bookings")}>
             Записи {newCount > 0 && <i>{newCount}</i>}
           </button>
-          <button className={tab === "schedule" ? "on" : ""} onClick={() => setTab("schedule")}>Тренировки и расписание</button>
-          {canManage && <button className={tab === "payments" ? "on" : ""} onClick={() => setTab("payments")}>
+          <button className={tab === "schedule" ? "on" : ""} onClick={() => openTab("schedule")}>Расписание</button>
+          {role !== "trainer" && <button className={tab === "clients" ? "on" : ""} onClick={() => openTab("clients")}>Клиенты</button>}
+          {canManagePayments && <button className={tab === "payments" ? "on" : ""} onClick={() => openTab("payments")}>
             Оплаты {pending.length > 0 && <i>{pending.length}</i>}
           </button>}
-          {role === "owner" && <button className={tab === "team" ? "on" : ""} onClick={() => setTab("team")}>Команда</button>}
+          {role === "owner" && <button className={tab === "team" ? "on" : ""} onClick={() => openTab("team")}>Сотрудники</button>}
         </nav>
         <button className="adm-exit" onClick={onExit}>
           ← На сайт
@@ -1371,7 +1365,7 @@ function Admin({
               <div className="kpi">
                 <span>Записей на сегодня</span>
                 <b>
-                  {bookings.filter((b) => b.date === today() && b.status !== "cancelled").length}
+                  {bookings.filter((b) => b.date === current && b.status !== "cancelled").length}
                 </b>
               </div>
               <div className="kpi">
@@ -1395,7 +1389,7 @@ function Admin({
             <div className="by-gym">
               {gyms.map((g) => {
                 const n = bookings.filter(
-                  (b) => b.gym === g.address && b.date === today() && b.status !== "cancelled",
+                  (b) => b.gym === g.address && b.date === current && b.status !== "cancelled",
                 ).length;
                 return (
                   <div key={g.id}>
@@ -1408,36 +1402,13 @@ function Admin({
           </>
         )}
 
-        {tab === "team" && role === "owner" && (
-          <section>
-            <h1 className="adm-h">Команда клуба</h1>
-            <p className="admin-hint">Добавьте администратора или тренера по номеру телефона. Если аккаунта ещё нет, сотрудник сможет зарегистрироваться с этим номером.</p>
-            <form className="member-add" onSubmit={addStaff}>
-              <input aria-label="Имя сотрудника" placeholder="Имя сотрудника" value={staffName} onChange={(event) => setStaffName(event.target.value)} required minLength={2} />
-              <input aria-label="Телефон сотрудника" placeholder="+7 900 000-00-00" type="tel" value={staffPhone} onChange={(event) => setStaffPhone(event.target.value)} required />
-              <select aria-label="Роль сотрудника" value={staffRole} onChange={(event) => setStaffRole(event.target.value as "admin" | "trainer")}>
-                <option value="trainer">Тренер</option>
-                <option value="admin">Администратор</option>
-              </select>
-              <button className="btn btn-black">Добавить сотрудника</button>
-            </form>
-            <div className="account-records">
-              {team.map((member) => <div key={`${member.role}-${member.id}`}>
-                <b>{member.name}</b>
-                <span>{member.phone}</span>
-                <small>{member.role === "owner" ? "Владелец" : member.role === "admin" ? "Администратор" : "Тренер"}</small>
-                {member.role !== "owner" && <button className="ghost" onClick={() => removeStaff(member)}>Убрать из команды</button>}
-              </div>)}
-            </div>
-          </section>
-        )}
+        {tab === "team" && <AdminStaff slug={slug} team={team} onSaved={saveStaff} onRemoved={removeStaff} />}
 
-        {tab === "schedule" && <>
-          <div className="adm-top"><div><h1 className="adm-h">Тренировки</h1><p className="admin-hint">Редактирование регулярных занятий и отмена конкретной даты.</p></div>{role !== "trainer" && <button className="btn btn-black" onClick={() => setTrainings((list) => [...list, { id: uid(), days: [1], time: "18:00", end: "19:00", coach: coaches[0]?.name ?? "", gym: gyms[0]?.address ?? "", discipline: disciplines[0]?.key ?? "Направление уточняется", active: false }])}>+ Добавить тренировку</button>}</div>
-          <div className="admin-training-list">{trainings.map((item) => <article className="admin-training" key={item.id}><div><b>{item.time}–{item.end}</b><strong>{item.coach}</strong><span>{item.gym} · {item.days.map((day) => ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"][day]).join(", ")}</span><small>{item.discipline}</small></div><div className="admin-training-actions"><button onClick={() => setEditing(editing === item.id ? null : item.id)}>Изменить</button><button onClick={() => setTrainings((list) => list.map((row) => row.id === item.id ? { ...row, active: !row.active } : row))}>{item.active ? "Приостановить" : "Включить"}</button></div>{editing === item.id && <div className="training-editor"><label>Тренер<select value={item.coach} onChange={(e) => setTrainings((list) => list.map((row) => row.id === item.id ? { ...row, coach: e.target.value } : row))}>{coaches.map((c) => <option key={c.id}>{c.name}</option>)}</select></label><label>Зал<select value={item.gym} onChange={(e) => setTrainings((list) => list.map((row) => row.id === item.id ? { ...row, gym: e.target.value } : row))}>{gyms.map((g) => <option key={g.id}>{g.address}</option>)}</select></label><label>Направление<select value={item.discipline} onChange={(e) => setTrainings((list) => list.map((row) => row.id === item.id ? { ...row, discipline: e.target.value } : row))}><option>Направление уточняется</option>{disciplines.map((d) => <option key={d.key}>{d.key}</option>)}</select></label><label>Начало<input type="time" value={item.time} onChange={(e) => setTrainings((list) => list.map((row) => row.id === item.id ? { ...row, time: e.target.value } : row))} /></label><label>Конец<input type="time" value={item.end} onChange={(e) => setTrainings((list) => list.map((row) => row.id === item.id ? { ...row, end: e.target.value } : row))} /></label><div className="day-checks">{[1,2,3,4,5,6,0].map((day) => <label key={day}><input type="checkbox" checked={item.days.includes(day)} onChange={() => setTrainings((list) => list.map((row) => row.id === item.id ? { ...row, days: row.days.includes(day) ? row.days.filter((d) => d !== day) : [...row.days, day] } : row))} />{["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"][day]}</label>)}</div></div>}</article>)}</div>
-          <div className="adm-top admin-calendar-head"><h2 className="adm-sub">Календарь недели</h2><div className="calendar-controls"><button disabled={adminWeek === 0} onClick={() => setAdminWeek(Math.max(0, adminWeek - 1))}>←</button><span>{weekDates(adminWeek)[0].toLocaleDateString("ru-RU")} — {weekDates(adminWeek)[6].toLocaleDateString("ru-RU")}</span><button onClick={() => setAdminWeek(adminWeek + 1)}>→</button></div></div>
-          <div className="week-scroll"><div className="week-grid admin-week">{weekDates(adminWeek).map((date) => { const dateKey = localDate(date); return <div className="week-day" key={dateKey}><div className="week-day-head"><b>{date.toLocaleDateString("ru-RU", { weekday: "short" })}</b><strong>{date.getDate()}</strong></div>{trainings.filter((item) => item.active && item.days.includes(date.getDay())).sort((a,b) => a.time.localeCompare(b.time)).map((item) => { const held = exceptions[`${dateKey}:${item.id}`] !== false; const n = bookings.filter((booking) => booking.sessionId === item.id && booking.date === dateKey && booking.status !== "cancelled").length; return <article className={`week-class ${held ? "" : "week-class-off"}`} key={item.id}><b>{item.time}–{item.end}</b><strong>{item.coach}</strong><span>{item.gym}</span><small>{n} записей · {held ? item.discipline : "отменена"}</small>{!held && n > 0 && <small>Свяжитесь с записанными людьми</small>}<button onClick={() => setExceptions((old) => ({ ...old, [`${dateKey}:${item.id}`]: !held }))}>{held ? "Отменить дату" : "Вернуть занятие"}</button></article>; })}</div>; })}</div></div>
-        </>}
+        {tab === "clients" && <AdminClients slug={slug} current={current} />}
+
+        {tab === "schedule" && <AdminSchedule current={current} role={role} gyms={gyms} coaches={coaches}
+          disciplines={disciplines} bookings={bookings} trainings={trainings} exceptions={exceptions}
+          onTraining={saveTraining} onException={saveException} />}
 
         {tab === "bookings" && (
           <>
@@ -1595,7 +1566,7 @@ function Admin({
           onClose={() => setAdding(false)}
           onSubmit={async (b) => {
             const consentVersion = document.querySelector<HTMLMetaElement>('meta[name="consent-version"]')?.content ?? "";
-            const result = await send("/bookings", "POST", {
+            const result = await send<{ booking_id: number }>("/bookings", "POST", {
               name: b.name,
               phone: b.phone,
               email: b.email || null,
