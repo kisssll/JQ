@@ -21,6 +21,7 @@ export default function AdminStaff({ slug, team, onSaved, onRemoved }: {
   const [editor, setEditor] = useState<StaffMember | "new" | null>(null);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
+  const orderedTeam = [...team.filter((member) => member.role === "trainer"), ...team.filter((member) => member.role !== "trainer")];
 
   async function remove(member: StaffMember) {
     if (!window.confirm(`Убрать сотрудника «${member.name}» из команды клуба?`)) return;
@@ -37,14 +38,15 @@ export default function AdminStaff({ slug, team, onSaved, onRemoved }: {
   }
 
   return <section aria-labelledby="admin-staff-title">
-    <div className="adm-top"><h1 id="admin-staff-title" className="adm-h">Сотрудники</h1>
+    <div className="adm-top"><div><h1 id="admin-staff-title" className="adm-h">Сотрудники</h1>
+      <p className="admin-hint">Здесь можно изменить данные тренеров и фотографии на сайте клуба.</p></div>
       <button className="btn btn-black" disabled={editor !== null || removing} onClick={() => setEditor("new")}>Добавить сотрудника</button>
     </div>
     {error && <p className="sport-admin-alert" role="alert">{error}</p>}
     {editor && <StaffEditor slug={slug} member={editor === "new" ? null : editor} onCancel={() => setEditor(null)}
       onSave={(member) => { onSaved(member); setEditor(null); }} />}
     <div className="admin-staff-grid">
-      {team.map((member) => <article className="admin-staff-card" key={`${member.role}-${member.id}`}>
+      {orderedTeam.map((member) => <article className="admin-staff-card" key={`${member.role}-${member.id}`}>
         <div className="admin-staff-identity">
           {member.photo ? <img src={member.photo} alt="" /> : <span className="admin-staff-placeholder" aria-hidden="true">{member.name.charAt(0)}</span>}
           <div><h2>{member.name}</h2><p>{member.title || ROLE_LABELS[member.role]}</p></div>
@@ -119,7 +121,7 @@ function StaffEditor({ slug, member, onCancel, onSave }: {
         <label className="admin-editor-wide">О сотруднике<textarea name="about" defaultValue={member?.about} maxLength={4000} rows={4} /></label>
         <div className="admin-editor-wide admin-staff-photo-row">
           {photo && <img src={photo} alt="Фото сотрудника" />}
-          <label>Фото<input type="file" name="photo" accept="image/*,.heic,.heif" onChange={(event) => {
+          <label>{member?.photo ? "Заменить фото" : "Загрузить фото"}<input type="file" name="photo" accept="image/*,.heic,.heif" onChange={(event) => {
             setFile(event.currentTarget.files?.[0] ?? null);
             if (event.currentTarget.files?.length) setRemovePhoto(false);
           }} /></label>
