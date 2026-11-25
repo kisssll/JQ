@@ -453,8 +453,8 @@ export default function App() {
       </header>
 
       {page === "/" && <Home go={go} book={book} organization={publicOrganization} gyms={gyms} gallery={gallery} />}
-      {page === "/gyms" && <Gyms book={book} go={go} gyms={gyms} city={organization.city} />}
-      {page === "/coaches" && <Coaches book={book} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
+      {page === "/gyms" && (IS_SPARTA ? <SpartaGyms book={book} gyms={gyms} city={organization.city || GYM_CITY} /> : <Gyms book={book} go={go} gyms={gyms} city={organization.city} />)}
+      {page === "/coaches" && (IS_SPARTA ? <SpartaCoaches coaches={coaches} loading={scheduleLoading} error={scheduleError} /> : <Coaches book={book} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />)}
       {page === "/disciplines" && <Disciplines book={book} disciplines={disciplines} />}
       {page === "/schedule" && <Schedule book={book} gyms={gyms} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
       {page === "/gallery" && <Gallery gallery={publicGallery} organization={publicOrganization.name} />}
@@ -619,10 +619,11 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
           <h3>{IS_SPARTA ? <>Начать проще, чем<br />кажется</> : <>Начать проще,<br />чем кажется.</>}</h3>
           <ol>
             <li><span>01</span><div><b>Выберите удобный зал</b><p>{GYM_SLUG === "sparta" ? "Три площадки и вечерние занятия по расписанию." : `${gyms.length} ${gyms.length === 1 ? "площадка клуба" : "площадок клуба"} с расписанием занятий.`}</p></div></li>
-            <li><span>02</span><div><b>Оставьте имя и телефон</b><p>Администратор свяжется с вами и подтвердит запись.</p></div></li>
+            <li><span>02</span><div><b>Оставьте имя и телефон</b><p>{IS_SPARTA ? "С вами свяжутся для подтверждения записи" : "Администратор свяжется с вами и подтвердит запись."}</p></div></li>
             <li><span>03</span><div><b>Приходите попробовать</b><p>Спортивная форма, вода и желание начать. Пробное занятие бесплатно.</p></div></li>
           </ol>
           <button className="btn btn-red" onClick={() => book()}>Выбрать тренировку <Arrow /></button>
+          {IS_SPARTA && <button className="link sparta-prices-link" onClick={() => go("/prices")}>Цены и абонементы <Arrow /></button>}
         </div>
       </section>
 
@@ -684,6 +685,9 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
 }
 
 function PageHead({ title, text }: { id: string; title: string; text: string }) {
+  if (IS_SPARTA && title !== "Личный кабинет") {
+    return <header className="public-page-heading sparta-page-heading"><h1>{title}</h1></header>;
+  }
   return <header className="section-heading public-page-heading"><h1>{title}</h1><p>{text}</p></header>;
 }
 
@@ -697,6 +701,72 @@ function spartaVenuePhotos(address: string): GalleryPhoto[] {
     alt: `Интерьер зала · ${address}`,
   }));
   return [...photos, { src: `/photos/gyms/${location.prefix}-club-exterior.jpg`, alt: `Вход в здание · ${address}` }];
+}
+
+function VenueMap({ city, address }: { city: string; address: string }) {
+  const query = [city, address.split(" · ")[0]].filter(Boolean).join(", ");
+  return <a className="btn btn-white-line sparta-venue-map" href={`https://2gis.ru/tomsk/search/${encodeURIComponent(query)}`} target="_blank" rel="noreferrer">
+    <svg width="17" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></svg>
+    На карте <Arrow />
+  </a>;
+}
+
+function SpartaVenueCard({ gym, city, open }: { gym: Gym; city: string; open: (index: number) => void }) {
+  const [selected, setSelected] = useState(0);
+  const photos = spartaVenuePhotos(gym.address);
+  const isIrkutsk = gym.address.includes("Иркутский");
+  const first = isIrkutsk ? 2 : gym.address.includes("Учебная") ? 1 : 0;
+  const currentIndex = photos.length ? (selected + first) % photos.length : 0;
+  const photo = photos[currentIndex] ?? (gym.photo ? { src: gym.photo, alt: gym.address } : null);
+  const move = (step: number) => setSelected((index) => (index + step + photos.length) % photos.length);
+  const title = gym.address.split(" · ")[0].replace(/^(пр\.|ул\.)\s*/u, "").replace(",", "");
+  return <article className={`sparta-venue${isIrkutsk ? " sparta-venue-featured" : ""}`}>
+    {photo && <SlidingImage src={photo.src} alt={photo.alt} className="ph-img" />}
+    {photos.length > 1 && <div className="sparta-venue-arrows">
+      <button type="button" aria-label={`Предыдущее фото: ${gym.address}`} onClick={() => move(-1)}><Chevron previous /></button>
+      <button type="button" aria-label={`Следующее фото: ${gym.address}`} onClick={() => move(1)}><Chevron /></button>
+    </div>}
+    <div className="sparta-venue-copy">
+      <h2>{title}</h2>
+      <div>
+        <button type="button" className="btn btn-red" onClick={() => open(isIrkutsk && selected === 0 ? 3 : currentIndex)}>Подробнее</button>
+        <VenueMap city={city} address={gym.address} />
+      </div>
+    </div>
+  </article>;
+}
+
+function SpartaGyms({ book, gyms, city }: { book: Book; gyms: Gym[]; city: string }) {
+  const [openGym, setOpenGym] = useState<Gym | null>(null);
+  const [selected, setSelected] = useState(0);
+  const photos = openGym ? spartaVenuePhotos(openGym.address) : [];
+  if (openGym && photos.length === 0 && openGym.photo) photos.push({ src: openGym.photo, alt: openGym.address });
+  const details = openGym && <div className="sparta-venue-details">
+    <h2>{openGym.address.includes("Иркутский") ? "Что есть в зале" : openGym.name}</h2>
+    <p>{openGym.address}</p>
+    {openGym.address.includes("Иркутский") ? <div className="sparta-venue-equipment">
+      <h3>Три зоны с татами</h3>
+      <ul><li>Мягкое татами для отработки бросков</li><li>Татами для борьбы в партере и стойке</li><li>Зона самообороны</li></ul>
+      <p>Зона с грушами для отработки ударной техники</p>
+      <h3>Инвентарь</h3>
+      <ul><li>Макивары</li><li>Палки для самообороны</li><li>Манекены для отработки бросков</li></ul>
+      <p>Раздевалки и туалет</p>
+    </div> : openGym.note && <p>{openGym.note}</p>}
+    <div className="row">
+      <VenueMap city={city} address={openGym.address} />
+      <button className="btn btn-red" onClick={() => { setOpenGym(null); book({ gym: openGym.address }); }}>Записаться <Arrow /></button>
+    </div>
+  </div>;
+  return <main className="sparta-venues">
+    <PageHead id="gymsHead" title="Залы" text="" />
+    <section className="sparta-venue-grid" aria-label="Площадки клуба">
+      {gyms.map((gym) => <SpartaVenueCard key={gym.id} gym={gym} city={city} open={(index) => { setSelected(index); setOpenGym(gym); }} />)}
+    </section>
+    {openGym && <Modal centered className="gym-modal sparta-venue-modal" label={openGym.address} onClose={() => setOpenGym(null)}>
+      {photos.length > 0 ? <PhotoGallery selected={selected} setSelected={setSelected} photos={photos} details={details}
+        movePhoto={(step) => setSelected((index) => (index + step + photos.length) % photos.length)} /> : details}
+    </Modal>}
+  </main>;
 }
 
 function Gyms({ book, go, gyms, city }: { book: Book; go: (page: Page) => void; gyms: Gym[]; city: string }) {
@@ -745,7 +815,7 @@ function Gyms({ book, go, gyms, city }: { book: Book; go: (page: Page) => void; 
     </main>
   );
 }
-function PhotoGallery({ selected, setSelected, movePhoto, photos, caption }: { selected: number; setSelected: (index: number) => void; movePhoto: (step: number) => void; photos: GalleryPhoto[]; caption: string }) {
+function PhotoGallery({ selected, setSelected, movePhoto, photos, caption, details }: { selected: number; setSelected: (index: number) => void; movePhoto: (step: number) => void; photos: GalleryPhoto[]; caption?: string; details?: React.ReactNode }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft") movePhoto(-1);
@@ -757,12 +827,15 @@ function PhotoGallery({ selected, setSelected, movePhoto, photos, caption }: { s
   const current = photos[selected];
   return (
     <div className="gym-gallery">
-      <p className="m-note">{caption}</p>
+      {caption && <p className="m-note">{caption}</p>}
       <div className="gym-gallery-main">
         <SlidingImage src={current.src} alt={current.alt} />
-        <button className="gym-photo-arrow gym-photo-prev" type="button" onClick={() => movePhoto(-1)} aria-label="Предыдущее фото"><Chevron previous /></button>
-        <button className="gym-photo-arrow gym-photo-next" type="button" onClick={() => movePhoto(1)} aria-label="Следующее фото"><Chevron /></button>
+        {photos.length > 1 && <>
+          <button className="gym-photo-arrow gym-photo-prev" type="button" onClick={() => movePhoto(-1)} aria-label="Предыдущее фото"><Chevron previous /></button>
+          <button className="gym-photo-arrow gym-photo-next" type="button" onClick={() => movePhoto(1)} aria-label="Следующее фото"><Chevron /></button>
+        </>}
       </div>
+      {details}
       <div className="gym-gallery-thumbs" aria-label="Выбор фотографии">
         {photos.map((photo, index) => (
           <button
@@ -784,6 +857,26 @@ function PhotoGallery({ selected, setSelected, movePhoto, photos, caption }: { s
 function coachPhoto(coach: Coach) {
   return GYM_SLUG === "sparta" && coach.photo === "/photos/coaches/dmitry.png"
     ? PHOTOS.coach_0 : coach.photo ?? undefined;
+}
+
+function SpartaCoaches({ coaches, loading, error }: { coaches: Coach[]; loading: boolean; error: string }) {
+  return <main className="sparta-coaches-page">
+    <PageHead id="coachesHead" title="Тренеры" text="" />
+    {loading && <p className="schedule-note" role="status">Загружаем тренеров…</p>}
+    {error && <p className="schedule-note" role="alert">{error}</p>}
+    <section aria-label="Тренеры клуба">
+      {coaches.map((coach, index) => <article className="sparta-coach" key={coach.id}>
+        <Photo id={`coach_${index}`} label={coach.name} size="Квадратный портрет" className="sparta-coach-photo" srcOverride={coachPhoto(coach)} ignoreDefault />
+        <div className="sparta-coach-copy">
+          <h2>{coach.name}</h2>
+          <p className="sparta-coach-role">{coach.role}</p>
+          {coach.exp && <p className="sparta-coach-rank">{coach.exp}</p>}
+          {coach.about && <p className="sparta-coach-bio">{coach.about}</p>}
+          <a className="btn btn-white-line" href={`${APP_BASE_PATH}/schedule?coach=${encodeURIComponent(coach.name)}`}>Расписание</a>
+        </div>
+      </article>)}
+    </section>
+  </main>;
 }
 
 function Coaches({ book, coaches, trainings, exceptions, scheduleLoading, scheduleError }: { book: Book; coaches: Coach[]; trainings: Training[]; exceptions: Record<string, boolean>; scheduleLoading: boolean; scheduleError: string }) {
@@ -826,6 +919,14 @@ function Coaches({ book, coaches, trainings, exceptions, scheduleLoading, schedu
   );
 }
 
+const SPARTA_DISCIPLINE_PHOTOS: Record<string, string> = {
+  "БЖЖ": PHOTOS.disc_0,
+  "Грэпплинг": "/photos/gyms/irk-club-3.jpg",
+  "ММА": "/photos/disciplines/mma-mmasters.webp",
+  "Самооборона": `${SPARTA_HOME_PHOTOS}/self-defense.webp`,
+  "Самбо": `${SPARTA_HOME_PHOTOS}/disciplines.webp`,
+};
+
 function Disciplines({ book, disciplines }: { book: Book; disciplines: Discipline[] }) {
   return (
     <main>
@@ -842,14 +943,14 @@ function Disciplines({ book, disciplines }: { book: Book; disciplines: Disciplin
             label={d.name}
             size="1600 × 1200"
             className="discipline-image"
-            srcOverride={GYM_SLUG === "sparta" && d.key === "Самооборона" ? PHOTOS.disc_3 : undefined}
-            ignoreDefault={GYM_SLUG !== "sparta"}
+            srcOverride={IS_SPARTA ? SPARTA_DISCIPLINE_PHOTOS[d.key] : undefined}
+            ignoreDefault
           />
             <div className="discipline-copy">
-              <p className="tag">{d.level}</p>
+              {!IS_SPARTA && <p className="tag">{d.level}</p>}
               <h2>{d.name}</h2>
               <p>{d.text}</p>
-              {GYM_SLUG === "sparta" && d.key === "Грэпплинг" && <p className="disc-credit">Фото: s.efimov70 · @Officer1Pupsik</p>}
+              {IS_SPARTA && d.key === "ММА" && <p className="disc-credit">Фото: <a href="https://commons.wikimedia.org/wiki/File:ML3,_Lesak_vs._Baryshnikov.jpg" target="_blank" rel="noreferrer">striking.pictures</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a> · уменьшено и кадрировано при показе</p>}
               <button className="btn btn-red" onClick={() => book({ discipline: d.key })}>
                 Записаться <Arrow />
               </button>
@@ -863,8 +964,8 @@ function Disciplines({ book, disciplines }: { book: Book; disciplines: Disciplin
 
 function Prices({ choose, plans }: { choose: (p: Plan) => void; plans: Plan[] }) {
   return (
-    <main className="membership-page">
-      <div className="section-heading"><p className="tag">{GYM_SLUG === "sparta" ? "Занятия в Спарте" : `Занятия в ${GYM_NAME}`}</p><h1>Цены и абонементы</h1><p>Стоимость пробной, групповых и индивидуальных тренировок.</p></div>
+    <main className={IS_SPARTA ? "membership-page sparta-prices" : "membership-page"}>
+      {IS_SPARTA ? <PageHead id="pricesHead" title="Цены и абонементы" text="" /> : <div className="section-heading"><p className="tag">Занятия в {GYM_NAME}</p><h1>Цены и абонементы</h1><p>Стоимость пробной, групповых и индивидуальных тренировок.</p></div>}
       <section className="membership-options" aria-label="Варианты занятий">
         {plans.map((plan) => <article className={`membership-option ${plan.id === "trial" ? "membership-trial" : ""}`} key={plan.id}>
           <div className="membership-label"><span>{plan.unit}</span>{plan.featured && <b>Популярное</b>}</div>
@@ -896,16 +997,17 @@ function weekDates(offset: number) {
 function Schedule({ book, gyms, coaches, trainings, exceptions, scheduleLoading, scheduleError }: { book: Book; gyms: Gym[]; coaches: Coach[]; trainings: Training[]; exceptions: Record<string, boolean>; scheduleLoading: boolean; scheduleError: string }) {
   const [week, setWeek] = useState(0);
   const [gym, setGym] = useState("all");
-  const [coach, setCoach] = useState("all");
+  const [coach, setCoach] = useState(() => IS_SPARTA ? new URLSearchParams(location.search).get("coach") || "all" : "all");
+  const activeCoach = coaches.some((item) => item.name === coach) ? coach : "all";
   const dates = weekDates(week);
   const visibleGyms = gyms.filter((item) => gym === "all" || item.address === gym);
-  const slotsFor = (date: Date, address: string) => trainings.filter((item) => item.active && item.days.includes(date.getDay()) && item.gym === address && (coach === "all" || item.coach === coach)).sort((a, b) => a.time.localeCompare(b.time));
+  const slotsFor = (date: Date, address: string) => trainings.filter((item) => item.active && item.days.includes(date.getDay()) && item.gym === address && (activeCoach === "all" || item.coach === activeCoach)).sort((a, b) => a.time.localeCompare(b.time));
   const hasResults = dates.some((date) => visibleGyms.some((item) => slotsFor(date, item.address).length > 0));
   return (
     <main className="timetable-page">
       <div className="section-heading timetable-heading"><div><p className="tag">Расписание{GYM_CITY ? ` / ${GYM_CITY}` : ""}</p><h1>Групповые тренировки</h1><p>Выберите зал и тренировку. Записаться можно прямо из расписания.</p></div><div className="timetable-offer"><span>Первый раз?</span><b>Попробуйте бесплатно.</b><button className="link" onClick={() => book()}>Помогите выбрать <Arrow /></button></div></div>
       <section className="timetable-section" aria-label="Расписание тренировок">
-        <div className="timetable-toolbar"><div className="gym-tabs" aria-label="Выбор зала"><button aria-pressed={gym === "all"} onClick={() => setGym("all")}>Все залы</button>{gyms.map((g) => <button key={g.id} aria-pressed={gym === g.address} onClick={() => setGym(g.address)}>{g.name}</button>)}</div><label className="timetable-coach"><span>Тренер</span><select value={coach} onChange={(e) => setCoach(e.target.value)}><option value="all">Все тренеры</option>{coaches.map((c) => <option key={c.id} value={c.name}>{shortCoach(c.name)}</option>)}</select></label></div>
+        <div className="timetable-toolbar"><div className="gym-tabs" aria-label="Выбор зала"><button aria-pressed={gym === "all"} onClick={() => setGym("all")}>Все залы</button>{gyms.map((g) => <button key={g.id} aria-pressed={gym === g.address} onClick={() => setGym(g.address)}>{g.name}</button>)}</div><label className="timetable-coach"><span>Тренер</span><select value={activeCoach} onChange={(e) => setCoach(e.target.value)}><option value="all">Все тренеры</option>{coaches.map((c) => <option key={c.id} value={c.name}>{shortCoach(c.name)}</option>)}</select></label></div>
         <div className="timetable-week"><div><h2>Неделя тренировок</h2><p>Занятия по залам</p></div><div className="week-switch"><button aria-label="Предыдущая неделя" onClick={() => setWeek(Math.max(0, week - 1))} disabled={week === 0}><Chevron previous /></button><strong>{dates[0].toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — {dates[6].toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</strong><button aria-label="Следующая неделя" onClick={() => setWeek(week + 1)}><Chevron /></button>{week > 0 && <button className="week-reset" onClick={() => setWeek(0)}>Эта неделя</button>}</div></div>
         {scheduleLoading && <p className="timetable-no-results" role="status">Загружаем расписание…</p>}
         {scheduleError && <p className="timetable-no-results" role="alert">{scheduleError}</p>}
