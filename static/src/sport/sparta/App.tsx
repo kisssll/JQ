@@ -127,14 +127,14 @@ const PHOTOS: Record<string, string> = {
   gym_irk: "/photos/gyms/irk-03.png",
   gym_fr: "/photos/gyms/fr.jpg",
   gym_ssmu: "/photos/gyms/ssmu.jpg",
-  coach_0: "/photos/coaches/dmitry.png",
+  coach_0: "/photos/coaches/dmitry-club.jpg",
   coach_1: "/photos/coaches/akim.png",
   coach_2: "/photos/coaches/bogdan.png",
   coach_3: "",
   disc_0: "/photos/disciplines/bjj.png",
   disc_1: "/photos/disciplines/grappling.png",
   disc_2: "/photos/disciplines/mma.png",
-  disc_3: "/photos/disciplines/self-defense-01.png",
+  disc_3: "/photos/disciplines/self-defense-02.png",
   disc_4: "/photos/disciplines/bjj.png",
   gallery_1: "/photos/gallery/01.jpg", gallery_2: "/photos/gallery/02.jpg", gallery_3: "/photos/gallery/03.jpg", gallery_4: "/photos/gallery/04.jpg", gallery_5: "/photos/gallery/05.jpg", gallery_6: "/photos/gallery/06.jpg",
 };
@@ -145,7 +145,6 @@ function Photo({
   label,
   size,
   className = "",
-  secondarySrc,
   srcOverride,
   ignoreDefault = false,
   children,
@@ -154,7 +153,6 @@ function Photo({
   label: string;
   size: string;
   className?: string;
-  secondarySrc?: string;
   srcOverride?: string;
   ignoreDefault?: boolean;
   children?: React.ReactNode;
@@ -173,9 +171,6 @@ function Photo({
           <em>{size}</em>
         </div>
       )}
-      {src && !failed && secondarySrc && (
-        <img className="ph-img ph-img-secondary" src={secondarySrc} alt="" loading="lazy" decoding="async" />
-      )}
       {children && <div className="ph-over">{children}</div>}
     </div>
   );
@@ -193,7 +188,7 @@ const NAV: [string, Page][] = [
 const PAGES: Page[] = ["/", "/gyms", "/coaches", "/disciplines", "/schedule", "/prices", "/gallery", "/account", "/admin"];
 const APP_ROOT = document.getElementById("root");
 const GYM_SLUG = APP_ROOT?.dataset.gymSlug ?? "sparta";
-const GYM_NAME = APP_ROOT?.dataset.gymName ?? "Спарта Плюс";
+const GYM_NAME = GYM_SLUG === "sparta" ? "СПАРТА" : APP_ROOT?.dataset.gymName ?? "Спортивный клуб";
 const GYM_CITY = APP_ROOT?.dataset.gymCity ?? "";
 const GYM_LOGO = APP_ROOT?.dataset.gymLogo || (GYM_SLUG === "sparta" ? logo : "");
 const APP_BASE_PATH = `/sport/${GYM_SLUG}`;
@@ -371,6 +366,9 @@ export default function App() {
 
   const book = (b: Partial<Booking> = {}) => setBookingFor(b);
   const choosePlan = (plan: Plan) => book({ kind: plan.id === "trial" ? "Пробное" : "Обычное" });
+  const publicOrganization = GYM_SLUG === "sparta" ? { ...organization, name: GYM_NAME } : organization;
+  const publicGallery = GYM_SLUG === "sparta" ? gallery.map((photo) => photo.src === "/photos/disciplines/self-defense-01.png"
+    ? { ...photo, src: "/photos/disciplines/self-defense-02.png" } : photo) : gallery;
 
   if (page === "/admin") {
     if (managementState !== "ready" || !managementRole) {
@@ -414,8 +412,8 @@ export default function App() {
     <>
       <header className={solid || menu || page !== "/" ? "hdr solid" : "hdr"}>
         <button className="hdr-logo" onClick={() => go("/")}>
-          {GYM_LOGO && <img src={GYM_LOGO} alt={organization.name} />}
-          <span>{organization.name}</span>
+          {GYM_LOGO && <img src={GYM_LOGO} alt="" />}
+          <span>{publicOrganization.name}</span>
         </button>
         <nav className="direction-switch" aria-label="Направление Руми">
           <a href="/directions/beauty">Красота</a>
@@ -444,18 +442,18 @@ export default function App() {
         </div>
       </header>
 
-      {page === "/" && <Home go={go} book={book} organization={organization} gyms={gyms} gallery={gallery} />}
+      {page === "/" && <Home go={go} book={book} organization={publicOrganization} gyms={gyms} gallery={gallery} />}
       {page === "/gyms" && <Gyms book={book} go={go} gyms={gyms} city={organization.city} />}
       {page === "/coaches" && <Coaches book={book} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
       {page === "/disciplines" && <Disciplines book={book} disciplines={disciplines} />}
       {page === "/schedule" && <Schedule book={book} gyms={gyms} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
-      {page === "/gallery" && <Gallery gallery={gallery} organization={organization.name} />}
+      {page === "/gallery" && <Gallery gallery={publicGallery} organization={publicOrganization.name} />}
       {page === "/prices" && <Prices choose={choosePlan} plans={plans} />}
       {page === "/account" && <Account bookings={bookings} book={book} loginRequired={accountLoginRequired} error={scheduleError} />}
 
       <footer className="ftr">
         <div className="ftr-top">
-          <div className="ftr-big">{organization.name}</div>
+          <div className="ftr-big">{publicOrganization.name}</div>
           <button className="btn btn-red" onClick={() => book()}>
             Записаться на пробное <Arrow />
           </button>
@@ -551,7 +549,7 @@ type Book = (b?: Partial<Booking>) => void;
 
 function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void; book: Book; organization: { name: string; city: string; description: string; phone: string }; gyms: Gym[]; gallery: GalleryPhoto[] }) {
   const reasonPhotos = GYM_SLUG === "sparta"
-    ? ["/photos/club/why-beginner.png", "/photos/club/why-kids.png", "/photos/disciplines/self-defense-01.png"]
+    ? ["/photos/club/why-beginner.png", "/photos/club/why-kids.png", "/photos/disciplines/self-defense-02.png"]
     : gallery.slice(0, 3).map((photo) => photo.src);
   const reasons = GYM_SLUG === "sparta"
     ? [
@@ -574,8 +572,9 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
         srcOverride={GYM_SLUG === "sparta" ? undefined : gallery[0]?.src}
         ignoreDefault={GYM_SLUG !== "sparta"}
       >
-        <p className="tag tag-light">{organization.name} · {organization.city}</p>
-        <h1 className="cover-title">{GYM_SLUG === "sparta" ? "Спарта Плюс" : organization.name}</h1>
+        <p className="tag tag-light">{organization.city}</p>
+        <h1 className="cover-title">{organization.name}</h1>
+        {GYM_SLUG === "sparta" && <p className="sparta-slogan">Здесь куют характер</p>}
         <div className="cover-foot">
           <p>{organization.description}</p>
           <div className="row">
@@ -593,7 +592,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
         <div className="club-overview-copy">
           <p className="tag">О клубе / {organization.city}</p>
           <h2 id="club-overview-title">{GYM_SLUG === "sparta" ? "Томский клуб единоборств с 2002 года" : "О клубе"}</h2>
-          {GYM_SLUG === "sparta" && <p>В «Спарте Плюс» тренируются дети с пяти лет, подростки и взрослые. В 2007 году клуб помог открыть в ТУСУРе школу дзю-дзютцу и студенческую специализацию «Самооборона». Спортсмены клуба выступают за сборную Томской области по грэпплингу и боевому дзю-дзютцу.</p>}
+          {GYM_SLUG === "sparta" && <p>В «Спарте» тренируются дети с пяти лет, подростки и взрослые. В 2007 году клуб помог открыть в ТУСУРе школу дзю-дзютцу и студенческую специализацию «Самооборона». Спортсмены клуба выступают за сборную Томской области по грэпплингу и боевому дзю-дзютцу.</p>}
           <p>Можно прийти без опыта. На первой тренировке познакомитесь с тренером, попробуете занятия и вместе подберёте группу.</p>
           <button className="link" onClick={() => go("/coaches")}>Познакомиться с тренерами <Arrow /></button>
         </div>
@@ -760,6 +759,11 @@ function PhotoGallery({ selected, setSelected, movePhoto, photos, caption }: { s
   );
 }
 
+function coachPhoto(coach: Coach) {
+  return GYM_SLUG === "sparta" && coach.photo === "/photos/coaches/dmitry.png"
+    ? PHOTOS.coach_0 : coach.photo ?? undefined;
+}
+
 function Coaches({ book, coaches, trainings, exceptions, scheduleLoading, scheduleError }: { book: Book; coaches: Coach[]; trainings: Training[]; exceptions: Record<string, boolean>; scheduleLoading: boolean; scheduleError: string }) {
   const [selected, setSelected] = useState<number | null>(null);
   const coach = selected !== null ? coaches[selected] : null;
@@ -774,30 +778,22 @@ function Coaches({ book, coaches, trainings, exceptions, scheduleLoading, schedu
       />
       {scheduleLoading && <p className="schedule-note" role="status">Загружаем расписание…</p>}
       {scheduleError && <p className="schedule-note" role="alert">{scheduleError}</p>}
-      <section className={`coaches ${GYM_SLUG === "sparta" ? "sparta-coaches" : ""}`}>
+      <section className="coach-roster" aria-label="Тренеры клуба">
         {coaches.map((c, i) => (
-          <Photo
-            key={c.id}
-            id={`coach_${i}`}
-            label={`Портрет: ${c.name}`}
-            size="1200 × 1600"
-            className={`coach-ph coach-ph--${i}`}
-            srcOverride={c.photo ?? undefined}
-            ignoreDefault
-          >
-            <p className="coach-role">{c.role}</p>
-            <h2>{c.name}</h2>
-            <p className="coach-tags">
-              {c.tags}
-            </p>
-            <button className="coach-discover" onClick={() => setSelected(i)} aria-label={`Узнать больше: ${c.name}`}>
-              <span><small>{c.exp || "Тренер клуба"}</small><b>Профиль тренера</b></span><span className="coach-discover-arrow"><Arrow /></span>
-            </button>
-          </Photo>
+          <article className={`coach-card${GYM_SLUG === "sparta" && /руководитель клуба/i.test(c.role) ? " coach-card-lead" : ""}`} key={c.id}>
+            <Photo id={`coach_${i}`} label={`Портрет: ${c.name}`} size="Квадратный портрет"
+              className="coach-square" srcOverride={coachPhoto(c)} ignoreDefault />
+            <div className="coach-card-copy">
+              <p>{c.role}</p>
+              <h2>{c.name}</h2>
+              {c.exp && <p>{c.exp}</p>}
+              <button className="link" onClick={() => setSelected(i)} aria-label={`Профиль тренера: ${c.name}`}>Профиль тренера <Arrow /></button>
+            </div>
+          </article>
         ))}
       </section>
       {coach && profile && selected !== null && <Modal centered className="coach-modal" onClose={() => setSelected(null)}>
-        <div className="coach-profile-photo"><Photo id={`coach_${selected}`} label={coach.name} size="1200 × 1600" className={`coach-profile-image coach-ph--${selected}`} srcOverride={coach.photo ?? undefined} ignoreDefault /></div>
+        <div className="coach-profile-photo"><Photo id={`coach_${selected}`} label={coach.name} size="Квадратный портрет" className="coach-profile-image" srcOverride={coachPhoto(coach)} ignoreDefault /></div>
         <div className="coach-profile-copy"><p className="tag">Команда клуба</p><h2>{coach.name}</h2><p className="coach-profile-role">{coach.role}</p><p>{profile.about}</p>
           {profile.rank && <dl className="coach-credentials"><div><dt>Квалификация / опыт</dt><dd>{profile.rank}</dd></div></dl>}
           <h3>Где и когда тренирует</h3><div className="coach-profile-schedule">{regular.length ? regular.map((item) => <div key={item.id}><b>{item.days.slice().sort((a,b) => ((a + 6) % 7) - ((b + 6) % 7)).map((day) => ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"][day]).join(" · ")}<span>{item.time}–{item.end}</span></b><p>{item.gym}</p></div>) : <p>Время занятий уточнит администратор.</p>}</div>
@@ -823,18 +819,13 @@ function Disciplines({ book, disciplines }: { book: Book; disciplines: Disciplin
             id={`disc_${i}`}
             label={d.name}
             size="1600 × 1200"
-            className={`disc-ph${i === 0 ? " disc-bjj" : ""}${d.key === "Самооборона" ? " disc-self-defense" : ""}${d.key === "Грэпплинг" ? " disc-grappling" : ""}`}
-            secondarySrc={GYM_SLUG === "sparta" && d.key === "Самооборона" ? "/photos/disciplines/self-defense-02.png" : undefined}
+            className="discipline-image"
+            srcOverride={GYM_SLUG === "sparta" && d.key === "Самооборона" ? PHOTOS.disc_3 : undefined}
             ignoreDefault={GYM_SLUG !== "sparta"}
-          >
-            <div className="disc-top">
-              <span>0{i + 1}</span>
-              <span>{d.level}</span>
-            </div>
-            <h2>{d.name}</h2>
-          </Photo>
+          />
             <div className="discipline-copy">
-              <span className="discipline-copy-number">0{i + 1} / 0{disciplines.length}</span>
+              <p className="tag">{d.level}</p>
+              <h2>{d.name}</h2>
               <p>{d.text}</p>
               {GYM_SLUG === "sparta" && d.key === "Грэпплинг" && <p className="disc-credit">Фото: s.efimov70 · @Officer1Pupsik</p>}
               <button className="btn btn-red" onClick={() => book({ discipline: d.key })}>
@@ -1238,6 +1229,7 @@ function Admin({
     }
   };
   const undoPaid = async (id: string) => {
+    if (!window.confirm("Вы точно хотите отменить отметку об оплате?")) return;
     try {
       await send(`/payments/${encodeURIComponent(id)}/status`, "POST", new URLSearchParams({ status: "pending" }));
       setPayments((list) => list.map((payment) => payment.id === id ? { ...payment, status: "pending", method: "", paidAt: "" } : payment));
@@ -1433,7 +1425,9 @@ function Admin({
                     )}
                     {b.status === "new" && <button className="ghost" onClick={() => navigator.clipboard.writeText(`Здравствуйте! Вы записаны на ${b.kind?.toLowerCase() ?? ""} занятие клуба «${organizationName}» ${fmtDate(b.date)} в ${b.time}, зал: ${b.gym}. Подтвердите, пожалуйста, что сможете прийти.`)}>Скопировать сообщение</button>}
                     {(b.status === "new" || b.status === "confirmed") && (
-                      <button className="ghost" onClick={() => setB(b.id, "cancelled")}>
+                      <button className="ghost" onClick={() => {
+                        if (window.confirm("Вы точно хотите отменить запись?")) void setB(b.id, "cancelled");
+                      }}>
                         Отменить
                       </button>
                     )}

@@ -112,7 +112,8 @@ export default function AdminSchedule({ current, role, gyms, coaches, discipline
               {cancelled && <small>Занятие отменено</small>}
               <button disabled={saving} onClick={() => editTraining(item)}>Изменить расписание</button>
               {day >= current && <button disabled={saving} onClick={() => {
-                if (!cancelled && count && !window.confirm(`Отменить занятие? Записей: ${count}. Сообщите об отмене записанным клиентам.`)) return;
+                const affected = count ? ` Записей: ${count}. Сообщите об отмене записанным клиентам.` : "";
+                if (!cancelled && !window.confirm(`Вы точно хотите отменить занятие?${affected}`)) return;
                 void persist(() => onException(key, cancelled));
               }}>{cancelled ? "Вернуть занятие" : "Отменить занятие"}</button>}
             </article>;
@@ -147,7 +148,7 @@ function TrainingEditor({ item, isNew, gyms, coaches, disciplines, readOnlyCoach
   const options = (current: string, values: string[]) => Array.from(new Set([current, ...values])).filter(Boolean);
   return <dialog ref={dialog} className="admin-editor-dialog" aria-labelledby="training-editor-title" onCancel={(event) => {
     event.preventDefault();
-    if (!saving) cancel();
+    if (!saving && window.confirm("Вы точно хотите отменить редактирование? Несохранённые изменения пропадут.")) cancel();
   }}><form className="admin-editor" onSubmit={(event) => {
     event.preventDefault();
     if (saving) return;
@@ -180,7 +181,9 @@ function TrainingEditor({ item, isNew, gyms, coaches, disciplines, readOnlyCoach
         <label className="admin-check"><input type="checkbox" checked={draft.active} onChange={(event) => set("active", event.target.checked)} />Тренировка активна</label>
       </div>
       <div className="admin-form-actions"><button type="submit" className="btn btn-black">{saving ? "Сохраняем…" : "Сохранить"}</button>
-        <button type="button" className="admin-secondary" onClick={cancel}>Отмена</button></div>
+        <button type="button" className="admin-secondary" onClick={() => {
+          if (window.confirm("Вы точно хотите отменить редактирование? Несохранённые изменения пропадут.")) cancel();
+        }}>Отмена</button></div>
     </fieldset>
   </form></dialog>;
 }

@@ -131,7 +131,9 @@ function StaffEditor({ slug, member, onCancel, onSave }: {
       </div>
       <div className="admin-form-actions">
         <button className="btn btn-black" type="submit">{saving ? "Сохраняем…" : "Сохранить"}</button>
-        <button className="admin-secondary" type="button" onClick={onCancel}>Отмена</button>
+        <button className="admin-secondary" type="button" onClick={() => {
+          if (window.confirm("Вы точно хотите отменить редактирование? Несохранённые изменения пропадут.")) onCancel();
+        }}>Отмена</button>
       </div>
     </fieldset>
   </form>;
