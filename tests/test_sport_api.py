@@ -515,6 +515,43 @@ async def _sport_owner_panel(client, db_session):
     return "/api/v1/sport/organizations/test-sport-club", organization.id
 
 
+async def test_sport_owner_can_delegate_and_revoke_staff_permissions(client, db_session):
+    base, organization_id = await _sport_owner_panel(client, db_session)
+    owner_token = client.cookies.get("access_token")
+    added = await client.post(f"{base}/staff", data={
+        "phone": "+79990001809", "name": "Администратор", "role": "admin",
+    })
+    assert added.status_code == 200, added.text
+    staff_id = added.json()["member"]["id"]
+    async with db_session() as db:
+        admin_id = await db.scalar(select(User.id).where(User.phone == "+79990001809"))
+        db.add(SportMembershipPlan(organization_id=organization_id, code="base", name="Абонемент", price=2000))
+        await db.commit()
+
+    endpoint = f"{base}/manage/staff/{staff_id}/permissions"
+    granted = await client.put(endpoint, json={"view_finances": True, "manage_schedule": False, "manage_bookings": False})
+    assert granted.status_code == 200, granted.text
+    client.cookies.set("access_token", create_access_token(admin_id))
+    panel = await client.get(f"{base}/manage")
+    assert panel.status_code == 200, panel.text
+    assert panel.json()["permissions"]["view_finances"] is True
+    assert panel.json()["bookings"] == []
+    payment = await client.post(f"{base}/payments", data={"member_name": "Клиент", "plan_code": "base"})
+    assert payment.status_code == 200, payment.text
+    assert (await client.get(f"{base}/manage/clients")).status_code == 403
+    disabled_schedule = await client.put(f"{base}/manage/schedule", json={"trainings": [], "exceptions": {}})
+    assert disabled_schedule.status_code == 403
+    assert (await client.put(endpoint, json={"manage_schedule": True})).status_code == 403
+
+    client.cookies.set("access_token", owner_token)
+    assert (await client.put(endpoint, json={"view_finances": False, "manage_schedule": True})).status_code == 200
+    client.cookies.set("access_token", create_access_token(admin_id))
+    assert (await client.put(f"{base}/manage/schedule", json={"trainings": [], "exceptions": {}})).status_code == 200
+    assert (await client.get(f"{base}/manage")).json()["payments"] == []
+    denied_payment = await client.post(f"{base}/payments", data={"member_name": "Клиент", "plan_code": "base"})
+    assert denied_payment.status_code == 403
+
+
 async def test_manage_schedule_saves_new_training_and_date_exception(client, db_session):
     base, _ = await _sport_owner_panel(client, db_session)
     day = _booking_date()

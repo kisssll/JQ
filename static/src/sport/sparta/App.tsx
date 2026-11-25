@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminClients from "./AdminClients";
 import AdminSchedule from "./AdminSchedule";
-import AdminStaff, { type StaffMember } from "./AdminStaff";
+import AdminStaff, { type SportPermissions, type StaffMember } from "./AdminStaff";
+import { ClubReviews, ClubSettings, CoachPayroll, type ClubProfile } from "./AdminClubTabs";
 import { sportRequest } from "./admin-api";
 import logo from "./sparta-logo.png";
 
@@ -227,7 +228,7 @@ export default function App() {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [gallery, setGallery] = useState<GalleryPhoto[]>([]);
-  const [organization, setOrganization] = useState({ name: GYM_NAME, city: "", description: "", phone: "" });
+  const [organization, setOrganization] = useState<ClubProfile>({ name: GYM_NAME, city: "", description: "", phone: "" });
   const [accountLoginRequired, setAccountLoginRequired] = useState(false);
   const [exceptions, setExceptions] = useState<Record<string, boolean>>({});
   const [scheduleLoading, setScheduleLoading] = useState(true);
@@ -316,7 +317,8 @@ export default function App() {
         }
         const data = await response.json() as {
           bookings: Booking[]; payments: Payment[]; trainings: Training[]; exceptions: Record<string, boolean>;
-          today: string; role: string; team: StaffMember[]; coaches: Coach[]; organization: typeof organization;
+          today: string; role: string; permissions: SportPermissions; canAssignPermissions: boolean;
+          team: StaffMember[]; coaches: Coach[]; organization: typeof organization;
           venues: { id: number; name: string; address: string; description: string; hours: string; photo_url?: string | null }[];
           disciplines: { name: string; description: string; level: string }[];
           plans: (Omit<Plan, "id"> & { code: string })[];
@@ -327,6 +329,8 @@ export default function App() {
         setTrainings(data.trainings);
         setExceptions(data.exceptions);
         setManagementRole(data.role);
+        setManagementPermissions(data.permissions);
+        setCanAssignPermissions(data.canAssignPermissions);
         setManagementTeam(data.team ?? []);
         setManagementDate(data.today ?? today());
         setOrganization(data.organization);
@@ -350,6 +354,8 @@ export default function App() {
     return () => controller.abort();
   }, [page, managementRetry]);
   const [managementRole, setManagementRole] = useState("");
+  const [managementPermissions, setManagementPermissions] = useState<SportPermissions>({});
+  const [canAssignPermissions, setCanAssignPermissions] = useState(false);
   const [managementTeam, setManagementTeam] = useState<StaffMember[]>([]);
 
   const go = (p: Page) => {
@@ -404,7 +410,8 @@ export default function App() {
       gyms={gyms} coaches={coaches} disciplines={disciplines} plans={plans}
       setCoaches={setCoaches}
       role={managementRole} slug={GYM_SLUG} team={managementTeam}
-      setTeam={setManagementTeam} organizationName={organization.name} current={managementDate} onExit={() => go("/")}
+      permissions={managementPermissions} canAssignPermissions={canAssignPermissions}
+      setTeam={setManagementTeam} organization={organization} onProfileSaved={setOrganization} current={managementDate} onExit={() => go("/")}
     />;
   }
 
@@ -1137,10 +1144,13 @@ function Admin({
   disciplines,
   plans,
   role,
+  permissions,
+  canAssignPermissions,
   slug,
   team,
   setTeam,
-  organizationName,
+  organization,
+  onProfileSaved,
   current,
   onExit,
 }: {
@@ -1158,15 +1168,23 @@ function Admin({
   disciplines: Discipline[];
   plans: Plan[];
   role: string;
+  permissions: SportPermissions;
+  canAssignPermissions: boolean;
   slug: string;
   team: StaffMember[];
   setTeam: React.Dispatch<React.SetStateAction<StaffMember[]>>;
-  organizationName: string;
+  organization: ClubProfile;
+  onProfileSaved: (profile: ClubProfile) => void;
   current: string;
   onExit: () => void;
 }) {
-  const canManagePayments = role === "owner" || role === "admin";
-  const [tab, setTab] = useState<"overview" | "bookings" | "schedule" | "payments" | "team" | "clients">(role === "trainer" ? "bookings" : "overview");
+  const trainer = role === "trainer";
+  const canManagePayments = permissions.view_finances === true;
+  const canManageBookings = permissions.manage_bookings === true;
+  const canManageTeam = canAssignPermissions || permissions.manage_coaches || permissions.manage_admins || permissions.manage_managers || permissions.manage_owners;
+  const canManageSchedule = permissions.manage_schedule === true;
+  const canSeePayroll = permissions.manage_payroll === true || trainer;
+  const [tab, setTab] = useState<"overview" | "bookings" | "schedule" | "payments" | "team" | "clients" | "settings" | "reviews" | "payroll">(trainer ? "schedule" : "overview");
   const [gym, setGym] = useState("all");
   const [status, setStatus] = useState<"all" | BookingStatus>("all");
   const [search, setSearch] = useState("");
@@ -1277,22 +1295,25 @@ function Admin({
         <div className="adm-logo">
           {GYM_LOGO && <img src={GYM_LOGO} alt="" />}
           <div>
-            {organizationName}<small>Панель клуба</small>
+            {organization.name}<small>Панель клуба</small>
           </div>
         </div>
         <nav>
-          <button className={tab === "overview" ? "on" : ""} onClick={() => openTab("overview")}>
+          {!trainer && <button className={tab === "overview" ? "on" : ""} onClick={() => openTab("overview")}>
             Сводка
-          </button>
-          <button className={tab === "bookings" ? "on" : ""} onClick={() => openTab("bookings")}>
+          </button>}
+          {(canManageBookings || trainer) && <button className={tab === "bookings" ? "on" : ""} onClick={() => openTab("bookings")}>
             Записи {newCount > 0 && <i>{newCount}</i>}
-          </button>
-          <button className={tab === "schedule" ? "on" : ""} onClick={() => openTab("schedule")}>Расписание</button>
-          {role !== "trainer" && <button className={tab === "clients" ? "on" : ""} onClick={() => openTab("clients")}>Клиенты</button>}
+          </button>}
+          {(canManageSchedule || trainer) && <button className={tab === "schedule" ? "on" : ""} onClick={() => openTab("schedule")}>{trainer ? "Моё расписание" : "Расписание"}</button>}
+          {canManageBookings && <button className={tab === "clients" ? "on" : ""} onClick={() => openTab("clients")}>Клиенты</button>}
           {canManagePayments && <button className={tab === "payments" ? "on" : ""} onClick={() => openTab("payments")}>
             Оплаты {pending.length > 0 && <i>{pending.length}</i>}
           </button>}
-          {role === "owner" && <button className={tab === "team" ? "on" : ""} onClick={() => openTab("team")}>Сотрудники</button>}
+          {canManageTeam && <button className={tab === "team" ? "on" : ""} onClick={() => openTab("team")}>Сотрудники</button>}
+          {permissions.manage_gym && <button className={tab === "settings" ? "on" : ""} onClick={() => openTab("settings")}>Мой клуб</button>}
+          {permissions.manage_reviews && <button className={tab === "reviews" ? "on" : ""} onClick={() => openTab("reviews")}>Отзывы</button>}
+          {canSeePayroll && <button className={tab === "payroll" ? "on" : ""} onClick={() => openTab("payroll")}>{trainer ? "Моё вознаграждение" : "Вознаграждения"}</button>}
         </nav>
         <button className="adm-exit" onClick={onExit}>
           ← На сайт
@@ -1305,7 +1326,7 @@ function Admin({
           <>
             <h1 className="adm-h">Сводка</h1>
             <div className="kpis">
-              <button
+              {canManageBookings && <><button
                 className="kpi"
                 onClick={() => {
                   setTab("bookings");
@@ -1321,8 +1342,8 @@ function Admin({
                 <b>
                   {bookings.filter((b) => b.date === current && b.status !== "cancelled").length}
                 </b>
-              </div>
-              <div className="kpi">
+              </div></>}
+              {canManagePayments && <><div className="kpi">
                 <span>Оплачено</span>
                 <b>{rub(paidSum)}</b>
               </div>
@@ -1336,9 +1357,10 @@ function Admin({
                 <span>Ждут оплаты</span>
                 <b>{rub(pendingSum)}</b>
                 <em>{pending.length} чел. →</em>
-              </button>
+              </button></>}
             </div>
-            <div className="admin-insights"><div><b>{bookings.filter((b) => b.kind === "Пробное").length}</b><span>пробных заявок</span></div><div><b>{bookings.filter((b) => b.status === "came").length}</b><span>отмечено посещений</span></div><div><b>{trainings.filter((item) => item.active).length}</b><span>активных шаблонов тренировок</span></div></div>
+            <div className="admin-insights">{canManageBookings && <><div><b>{bookings.filter((b) => b.kind === "Пробное").length}</b><span>пробных заявок</span></div><div><b>{bookings.filter((b) => b.status === "came").length}</b><span>отмечено посещений</span></div></>}{canManageSchedule && <div><b>{trainings.filter((item) => item.active).length}</b><span>активных шаблонов тренировок</span></div>}</div>
+            {canManageBookings && <>
             <h2 className="adm-sub">Сегодня по залам</h2>
             <div className="by-gym">
               {gyms.map((g) => {
@@ -1352,25 +1374,28 @@ function Admin({
                   </div>
                 );
               })}
-            </div>
+            </div></>}
           </>
         )}
 
-        {tab === "team" && <AdminStaff slug={slug} team={team} onSaved={saveStaff} onRemoved={removeStaff} />}
+        {tab === "team" && canManageTeam && <AdminStaff slug={slug} team={team} permissions={permissions} canAssignPermissions={canAssignPermissions} onSaved={saveStaff} onRemoved={removeStaff} />}
+        {tab === "settings" && permissions.manage_gym && <ClubSettings slug={slug} profile={organization} onSaved={onProfileSaved} />}
+        {tab === "reviews" && permissions.manage_reviews && <ClubReviews slug={slug} />}
+        {tab === "payroll" && canSeePayroll && <CoachPayroll slug={slug} coaches={coaches} canEdit={permissions.manage_payroll === true} />}
 
-        {tab === "clients" && <AdminClients slug={slug} current={current} />}
+        {tab === "clients" && canManageBookings && <AdminClients slug={slug} current={current} />}
 
-        {tab === "schedule" && <AdminSchedule current={current} role={role} gyms={gyms} coaches={coaches}
+        {tab === "schedule" && (canManageSchedule || trainer) && <AdminSchedule current={current} role={role} gyms={gyms} coaches={coaches}
           disciplines={disciplines} bookings={bookings} trainings={trainings} exceptions={exceptions}
           onTraining={saveTraining} onException={saveException} />}
 
-        {tab === "bookings" && (
+        {tab === "bookings" && (canManageBookings || trainer) && (
           <>
             <div className="adm-top">
               <h1 className="adm-h">Записи</h1>
-              <button className="btn btn-black" onClick={() => setAdding(true)}>
+              {canManageBookings && <button className="btn btn-black" onClick={() => setAdding(true)}>
                 + Новая запись
-              </button>
+              </button>}
             </div>
             <div className="filters">
               <input className="record-search" aria-label="Поиск записи" placeholder="Имя, ребёнок или телефон" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -1438,7 +1463,7 @@ function Admin({
           </>
         )}
 
-        {tab === "payments" && (
+        {tab === "payments" && canManagePayments && (
           <>
             <div className="adm-top"><div><h1 className="adm-h">Абонементы</h1><p className="admin-hint">Безлимит на месяц. Оплата отмечается отдельно за каждый месяц.</p></div><label className="month-picker">Месяц <input type="month" value={payMonth} onChange={(e) => setPayMonth(e.target.value)} /></label></div>
             <form className="member-add" onSubmit={addPayment}><input aria-label="Имя участника" placeholder="ФИО участника" value={newMember} onChange={(e) => setNewMember(e.target.value)} required /><button className="btn btn-black">+ Добавить участника на месяц</button></form>

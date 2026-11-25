@@ -18,6 +18,7 @@ from app.models.sport import (
     SPORT_ADMIN_PERMISSIONS,
     SPORT_MANAGER_PERMISSIONS,
     SPORT_OWNER_PERMISSIONS,
+    SPORT_PERMISSION_KEYS,
     SportBooking,
     SportCoach,
     SportCoachPayroll,
@@ -64,6 +65,45 @@ from app.web.pages.legal import LEGAL_VERSION
 
 router = APIRouter()
 
+_SPORT_ROLE_PERMISSIONS = {
+    "owner": SPORT_OWNER_PERMISSIONS,
+    "manager": SPORT_MANAGER_PERMISSIONS,
+    "admin": SPORT_ADMIN_PERMISSIONS,
+}
+_SPORT_STAFF_PERMISSIONS = {
+    "owner": "manage_owners", "manager": "manage_managers",
+    "admin": "manage_admins", "trainer": "manage_coaches",
+}
+
+
+def _sport_permissions(member: SportGymMember | None) -> dict[str, bool]:
+    if member is None:
+        return dict.fromkeys(SPORT_PERMISSION_KEYS, False)
+    if member.is_creator:
+        return dict(SPORT_OWNER_PERMISSIONS)
+    stored = member.permissions or {}
+    defaults = _SPORT_ROLE_PERMISSIONS[member.role]
+    return {key: stored.get(key, defaults[key]) is True for key in SPORT_PERMISSION_KEYS}
+
+
+def _can_sport(member: SportGymMember | None, key: str) -> bool:
+    return _sport_permissions(member)[key]
+
+
+def _can_assign_sport_permissions(member: SportGymMember | None) -> bool:
+    return member is not None and (member.is_creator or member.role == "owner")
+
+
+def _can_manage_sport_member(actor: SportGymMember, target: SportGymMember) -> bool:
+    if target.is_creator:
+        return actor.id == target.id
+    if _can_assign_sport_permissions(actor):
+        return True
+    actor_permissions = _sport_permissions(actor)
+    return target.role != "owner" and all(
+        not allowed or actor_permissions[key] for key, allowed in _sport_permissions(target).items()
+    )
+
 
 def _organization_response(organization: SportOrganization) -> SportOrganizationResponse:
     return SportOrganizationResponse.model_validate(organization, from_attributes=True)
@@ -81,7 +121,8 @@ def _sport_staff_card(staff: SportCoach | SportGymMember, phone: str | None, nam
     if isinstance(staff, SportCoach):
         return {**common, "name": staff.name, "role": "trainer", "title": staff.role,
                 "experience": staff.experience, "tags": staff.tags}
-    return {**common, "name": staff.display_name or name or phone, "role": staff.role}
+    return {**common, "name": staff.display_name or name or phone, "role": staff.role,
+            "permissions": _sport_permissions(staff), "isCreator": staff.is_creator}
 
 
 def _sport_payment_card(payment: SportPayment) -> dict:
@@ -377,6 +418,8 @@ async def get_sport_management(
     if membership is None and coach is None:
         raise HTTPException(status_code=403, detail="Нет доступа к кабинету этого клуба")
 
+    permissions = _sport_permissions(membership)
+    can_assign_permissions = _can_assign_sport_permissions(membership)
     if membership is not None:
         bookings_query = select(SportBooking).where(
             SportBooking.organization_id == organization.id
@@ -394,6 +437,10 @@ async def get_sport_management(
             or_(SportBooking.coach_id == coach.id, SportBooking.training_id.in_(training_ids)),
         )
         payments_query = select(SportPayment).where(False)
+    if membership is not None and not permissions["manage_bookings"]:
+        bookings_query = bookings_query.where(False)
+    if not permissions["view_finances"]:
+        payments_query = payments_query.where(False)
 
     bookings = (await db.execute(
         bookings_query.order_by(SportBooking.created_at.desc()).limit(500)
@@ -469,6 +516,8 @@ async def get_sport_management(
     )).scalars().all()
     return {
         "role": membership.role if membership else "trainer",
+        "permissions": permissions,
+        "canAssignPermissions": can_assign_permissions,
         "today": datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date().isoformat(),
         "organization": {
             "id": organization.id, "slug": organization.slug, "name": organization.name,
@@ -498,7 +547,7 @@ async def get_sport_management(
         "coaches": [
             {"id": item.id, "name": item.name, "role": item.role, "tags": item.tags,
              "exp": item.experience, "about": item.bio, "photo": item.photo_url}
-            for item, _ in team_coaches
+            for item, _ in team_coaches if membership is not None or item.id == coach.id
         ],
         "trainings": [
             {
@@ -533,10 +582,12 @@ async def get_sport_management(
         "payments": [_sport_payment_card(item) for item in payments],
         "team": ([
             _sport_staff_card(item, member.phone, member.full_name)
-            for item, member in team_members
+            for item, member in team_members if can_assign_permissions or (
+                permissions[_SPORT_STAFF_PERMISSIONS[item.role]] and _can_manage_sport_member(membership, item)
+            )
         ] + [
             _sport_staff_card(item, phone)
-            for item, phone in team_coaches
+            for item, phone in team_coaches if permissions["manage_coaches"]
         ]) if membership is not None else [],
         "exceptions": {
             f"{item.class_date}:{code}": False
@@ -551,7 +602,7 @@ async def _sport_clients_organization(request: Request, db: AsyncSession, slug: 
     if organization is None:
         raise HTTPException(404, "Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None:
+    if not _can_sport(membership, "manage_bookings"):
         raise HTTPException(403, "Нет доступа к клиентам клуба")
     return organization
 
@@ -689,6 +740,10 @@ async def update_sport_schedule(
     _, membership, coach = await _gym_access(request, db, organization.id)
     if membership is None and coach is None:
         raise HTTPException(status_code=403, detail="Нет доступа к расписанию клуба")
+    if membership is not None and not _can_sport(membership, "manage_schedule"):
+        raise HTTPException(403, "Нет прав для изменения расписания")
+    if membership is None and data.exceptions:
+        raise HTTPException(403, "Отменять занятия может сотрудник с доступом к расписанию клуба")
     codes = [item.id for item in data.trainings]
     if len(codes) != len(set(codes)):
         raise HTTPException(status_code=400, detail="Идентификаторы тренировок должны быть уникальными")
@@ -779,8 +834,6 @@ async def update_sport_schedule(
         training = changed.get(code) or training_by_code.get(code)
         if training is None:
             raise HTTPException(status_code=400, detail="Тренировка для отмены не найдена")
-        if coach is not None and membership is None and training.coach_id != coach.id:
-            raise HTTPException(status_code=403, detail="Тренер может менять отмены только своих занятий")
         exception = (await db.execute(
             select(SportTrainingException).where(
                 SportTrainingException.training_id == training.id,
@@ -818,6 +871,8 @@ async def update_sport_booking_status(
     _, membership, coach = await _gym_access(request, db, organization.id)
     if membership is None and coach is None:
         raise HTTPException(status_code=403, detail="Нет доступа к заявкам этого клуба")
+    if membership is not None and not _can_sport(membership, "manage_bookings"):
+        raise HTTPException(403, "Нет прав для изменения заявок")
     booking = (await db.execute(
         select(SportBooking).where(
             SportBooking.id == booking_id,
@@ -925,10 +980,10 @@ async def add_sport_staff(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     user, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role != "owner":
-        raise HTTPException(status_code=403, detail="Добавлять сотрудников может владелец клуба")
     if role not in {"admin", "manager", "trainer"}:
         raise HTTPException(status_code=400, detail="Допустимые роли: manager, admin или trainer")
+    if not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
+        raise HTTPException(403, "Нет прав для добавления сотрудника с этой ролью")
     normalized_phone = try_normalize_phone(phone)
     name = name.strip()
     if normalized_phone is None or len(name) < 2 or len(name) > 160:
@@ -962,7 +1017,12 @@ async def add_sport_staff(
         )
         if existing is not None and existing.is_active:
             raise HTTPException(status_code=409, detail="Сотрудник уже состоит в команде клуба")
+        if existing is not None and (existing.is_creator or existing.role == "owner"):
+            raise HTTPException(403, "Нельзя изменить роль владельца")
         perms = SPORT_MANAGER_PERMISSIONS if role == "manager" else SPORT_ADMIN_PERMISSIONS
+        if membership.role != "owner" and not membership.is_creator:
+            actor_permissions = _sport_permissions(membership)
+            perms = {key: allowed and actor_permissions[key] for key, allowed in perms.items()}
         if existing is not None:
             staff = existing
             staff.role = role
@@ -1037,8 +1097,8 @@ async def update_sport_staff(
     if organization is None:
         raise HTTPException(404, "Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role != "owner":
-        raise HTTPException(403, "Управлять составом клуба может владелец")
+    if role not in _SPORT_STAFF_PERMISSIONS or not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
+        raise HTTPException(403, "Нет прав для изменения сотрудника с этой ролью")
     name = name.strip()
     if len(name) < 2:
         raise HTTPException(400, "Укажите имя сотрудника")
@@ -1053,6 +1113,8 @@ async def update_sport_staff(
     staff = await db.scalar(query.with_for_update())
     if staff is None:
         raise HTTPException(404, "Сотрудник не найден")
+    if isinstance(staff, SportGymMember) and not _can_manage_sport_member(membership, staff):
+        raise HTTPException(403, "Недостаточно прав для изменения этого сотрудника")
     account_phone = await db.scalar(select(User.phone).where(User.id == staff.user_id)) if staff.user_id is not None else None
     await _save_sport_staff_profile(
         db, staff, name=name, contact_phone=contact_phone, about=about, title=title,
@@ -1073,17 +1135,19 @@ async def remove_sport_staff(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role != "owner":
-        raise HTTPException(status_code=403, detail="Управлять составом клуба может владелец")
+    if role not in {"admin", "manager", "trainer"} or not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
+        raise HTTPException(403, "Нет прав для удаления сотрудника с этой ролью")
     if role in ("admin", "manager"):
         staff = (await db.execute(
             select(SportGymMember).where(
                 SportGymMember.id == staff_id,
                 SportGymMember.organization_id == organization.id,
                 SportGymMember.role == role,
-            )
+            ).with_for_update()
         )).scalar_one_or_none()
         if staff is not None:
+            if not _can_manage_sport_member(membership, staff):
+                raise HTTPException(403, "Недостаточно прав для удаления этого сотрудника")
             staff.is_active = False
     elif role == "trainer":
         staff = (await db.execute(
@@ -1103,6 +1167,38 @@ async def remove_sport_staff(
     return {"ok": True, "role": role, "name": staff_name}
 
 
+@router.put("/organizations/{slug}/manage/staff/{staff_id}/permissions")
+async def update_sport_staff_permissions(
+    request: Request,
+    slug: str,
+    staff_id: int,
+    permissions: dict[str, bool] = Body(...),
+    db: AsyncSession = Depends(get_db),
+):
+    organization = await _organization(db, slug, published_only=False)
+    if organization is None:
+        raise HTTPException(404, "Спортивная организация не найдена")
+    _, actor, _ = await _gym_access(request, db, organization.id)
+    if not _can_assign_sport_permissions(actor):
+        raise HTTPException(403, "Распределять права может владелец клуба")
+    if permissions.keys() - (set(SPORT_PERMISSION_KEYS) - {"manage_owners"}):
+        raise HTTPException(422, "Переданы недоступные права")
+    staff = await db.scalar(select(SportGymMember).where(
+        SportGymMember.id == staff_id,
+        SportGymMember.organization_id == organization.id,
+        SportGymMember.is_active.is_(True),
+    ).with_for_update())
+    if staff is None:
+        raise HTTPException(404, "Сотрудник не найден")
+    if staff.is_creator or staff.role == "owner":
+        raise HTTPException(403, "Права владельца защищены")
+    staff.permissions = {**(staff.permissions or {}), **permissions}
+    staff_user = await db.get(User, staff.user_id)
+    result = _sport_staff_card(staff, staff_user.phone, staff_user.full_name)
+    await db.commit()
+    return {"member": result}
+
+
 @router.post("/organizations/{slug}/payments")
 async def create_sport_payment(
     request: Request,
@@ -1116,7 +1212,7 @@ async def create_sport_payment(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     user, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None:
+    if not _can_sport(membership, "view_finances"):
         raise HTTPException(status_code=403, detail="Нет прав для учёта оплат")
     plan = (await db.execute(
         select(SportMembershipPlan).where(
@@ -1162,7 +1258,7 @@ async def update_sport_payment_status(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None:
+    if not _can_sport(membership, "view_finances"):
         raise HTTPException(status_code=403, detail="Нет прав для учёта оплат")
     payment = (await db.execute(
         select(SportPayment).where(
@@ -1193,7 +1289,7 @@ async def update_sport_profile(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "admin"):
+    if not _can_sport(membership, "manage_gym"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования профиля")
     if data.name is not None:
         name = data.name.strip()
@@ -1229,7 +1325,7 @@ async def create_sport_venue(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "admin"):
+    if not _can_sport(membership, "manage_gym"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления залов")
     venue = SportVenue(
         organization_id=organization.id,
@@ -1256,7 +1352,7 @@ async def delete_sport_venue(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "admin"):
+    if not _can_sport(membership, "manage_gym"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для удаления залов")
     venue = (await db.execute(
         select(SportVenue).where(
@@ -1282,7 +1378,7 @@ async def create_sport_discipline(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "admin"):
+    if not _can_sport(membership, "manage_coaches"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления направлений")
     discipline = SportDiscipline(
         organization_id=organization.id,
@@ -1307,7 +1403,7 @@ async def delete_sport_discipline(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "admin"):
+    if not _can_sport(membership, "manage_coaches"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для удаления направлений")
     discipline = (await db.execute(
         select(SportDiscipline).where(
@@ -1333,7 +1429,7 @@ async def create_sport_plan(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "admin"):
+    if not _can_sport(membership, "manage_gym"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления тарифов")
     plan = SportMembershipPlan(
         organization_id=organization.id,
@@ -1361,7 +1457,7 @@ async def delete_sport_plan(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "admin"):
+    if not _can_sport(membership, "manage_gym"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для удаления тарифов")
     plan = (await db.execute(
         select(SportMembershipPlan).where(
@@ -1387,7 +1483,7 @@ async def create_sport_gallery_image(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "admin"):
+    if not _can_sport(membership, "manage_gym"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления фото")
     image = SportGalleryImage(
         organization_id=organization.id,
@@ -1444,10 +1540,15 @@ async def update_coach_schedule(
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     user, membership, coach_profile = await _gym_access(request, db, organization.id)
     # Тренер может настраивать своё расписание, владелец/админ — любого
-    is_self = coach_profile is not None and coach_profile.id == coach_id
-    is_admin = membership is not None and membership.role in ("owner", "admin")
+    is_self = membership is None and coach_profile is not None and coach_profile.id == coach_id
+    is_admin = _can_sport(membership, "manage_schedule")
     if not (is_self or is_admin):
         raise HTTPException(status_code=403, detail="Недостаточно прав для изменения графика тренера")
+    if not await db.scalar(select(SportCoach.id).where(
+        SportCoach.id == coach_id, SportCoach.organization_id == organization.id,
+        SportCoach.is_active.is_(True),
+    )):
+        raise HTTPException(404, "Тренер не найден")
 
     # Деактивируем предыдущие графики тренера
     existing = (
@@ -1509,7 +1610,7 @@ async def create_sport_service(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "admin"):
+    if not _can_sport(membership, "manage_coaches"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления услуг")
 
     service = SportService(
@@ -1668,7 +1769,7 @@ async def delete_sport_gallery_image(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "admin"):
+    if not _can_sport(membership, "manage_gym"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для удаления фото")
     image = (await db.execute(
         select(SportGalleryImage).where(
@@ -1698,11 +1799,17 @@ async def create_sport_closure(
     organization = await _organization(db, slug, published_only=False)
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
-    _, membership, coach_profile = await _gym_access(request, db, organization.id)
-    is_admin = membership is not None and membership.role in ("owner", "manager", "admin")
-    is_self_coach = coach_profile is not None and coach_profile.id == data.coach_id
-    if not (is_admin or is_self_coach):
+    _, membership, _ = await _gym_access(request, db, organization.id)
+    if not _can_sport(membership, "manage_schedule"):
         raise HTTPException(status_code=403, detail="Недостаточно прав для установки закрытых дат")
+    if data.coach_id is not None and not await db.scalar(select(SportCoach.id).where(
+        SportCoach.id == data.coach_id, SportCoach.organization_id == organization.id,
+    )):
+        raise HTTPException(404, "Тренер не найден")
+    if data.venue_id is not None and not await db.scalar(select(SportVenue.id).where(
+        SportVenue.id == data.venue_id, SportVenue.organization_id == organization.id,
+    )):
+        raise HTTPException(404, "Зал не найден")
 
     closure = SportScheduleClosure(
         organization_id=organization.id,
@@ -1729,7 +1836,7 @@ async def delete_sport_closure(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "manager", "admin"):
+    if not _can_sport(membership, "manage_schedule"):
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     closure = (await db.execute(
@@ -1761,9 +1868,7 @@ async def cancel_sport_booking(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
 
-    user = await get_current_user_from_cookie(request, db)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Войдите в аккаунт")
+    user, membership, _ = await _gym_access(request, db, organization.id)
 
     booking = (await db.execute(
         select(SportBooking).where(
@@ -1774,15 +1879,9 @@ async def cancel_sport_booking(
     if booking is None:
         raise HTTPException(status_code=404, detail="Запись не найдена")
 
-    # Клиент может отменить только свою запись, админ/тренер — любую
+    # Клиент может отменить свою запись, сотрудник — запись своего клуба при наличии права.
     is_client = booking.client_id == user.id
-    is_staff = await db.scalar(
-        select(SportGymMember.id).where(
-            SportGymMember.organization_id == organization.id,
-            SportGymMember.user_id == user.id,
-            SportGymMember.is_active.is_(True),
-        )
-    ) is not None
+    is_staff = _can_sport(membership, "manage_bookings")
     if not (is_client or is_staff):
         raise HTTPException(status_code=403, detail="Недостаточно прав для отмены записи")
 
@@ -1806,9 +1905,7 @@ async def reschedule_sport_booking(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
 
-    user = await get_current_user_from_cookie(request, db)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Войдите в аккаунт")
+    user, membership, _ = await _gym_access(request, db, organization.id)
 
     booking = (await db.execute(
         select(SportBooking).where(
@@ -1820,13 +1917,7 @@ async def reschedule_sport_booking(
         raise HTTPException(status_code=404, detail="Запись не найдена")
 
     is_client = booking.client_id == user.id
-    is_staff = await db.scalar(
-        select(SportGymMember.id).where(
-            SportGymMember.organization_id == organization.id,
-            SportGymMember.user_id == user.id,
-            SportGymMember.is_active.is_(True),
-        )
-    ) is not None
+    is_staff = _can_sport(membership, "manage_bookings")
     if not (is_client or is_staff):
         raise HTTPException(status_code=403, detail="Недостаточно прав для переноса")
 
@@ -1941,7 +2032,7 @@ async def reply_sport_review(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "manager", "admin"):
+    if not _can_sport(membership, "manage_reviews"):
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     review = (await db.execute(
@@ -1975,8 +2066,12 @@ async def update_coach_payroll_settings(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if membership is None or membership.role not in ("owner", "manager"):
-        raise HTTPException(status_code=403, detail="Только владелец или управляющий может настраивать зарплаты")
+    if not _can_sport(membership, "manage_payroll"):
+        raise HTTPException(403, "Нет прав для настройки вознаграждений")
+    if not await db.scalar(select(SportCoach.id).where(
+        SportCoach.id == coach_id, SportCoach.organization_id == organization.id,
+    )):
+        raise HTTPException(404, "Тренер не найден")
 
     payroll = (await db.execute(
         select(SportCoachPayroll).where(
@@ -2024,10 +2119,14 @@ async def get_coach_payroll_summary(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     user, membership, coach_profile = await _gym_access(request, db, organization.id)
-    is_mgmt = membership is not None and membership.role in ("owner", "manager")
+    is_mgmt = _can_sport(membership, "manage_payroll")
     is_self = coach_profile is not None and coach_profile.id == coach_id
     if not (is_mgmt or is_self):
         raise HTTPException(status_code=403, detail="Недостаточно прав для просмотра финансовой сводки")
+    if not await db.scalar(select(SportCoach.id).where(
+        SportCoach.id == coach_id, SportCoach.organization_id == organization.id,
+    )):
+        raise HTTPException(404, "Тренер не найден")
 
     payroll = (await db.execute(
         select(SportCoachPayroll).where(
@@ -2063,6 +2162,7 @@ async def get_coach_payroll_summary(
         "base_rate": base_rate,
         "earned_base": earned_base,
         "bonus": bonus,
+        "notes": payroll.notes if payroll else "",
         "total_payout": total_payout,
     }
 
