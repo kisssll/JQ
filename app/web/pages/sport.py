@@ -97,6 +97,8 @@ def render_sport_gym_template(
     plans: list | None = None,
     gallery: list | None = None,
 ) -> str:
+    if slug == "sparta":
+        name = "СПАРТА"
     safe_slug = html.escape(slug, quote=True)
     safe_name = html.escape(name)
     safe_name_attr = html.escape(name, quote=True)
