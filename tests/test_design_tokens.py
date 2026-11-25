@@ -289,15 +289,16 @@ def test_playfair_is_the_display_face_and_manrope_the_text_face():
     assert body == "Manrope", light["--font-body"]
 
 
-def test_prata_and_inter_are_gone():
-    """Prata и Inter — выбор 03.10, отменённый решением 0014. Ни одного
-    объявления шрифта, preload и файла от них не осталось."""
+def test_legacy_fonts_are_absent_outside_sparta():
+    """Inter разрешён в стилях «Спарты». Prata не используется."""
+    sparta_source = ROOT / "static" / "src" / "sport" / "sparta"
     for p in _source_files():
         text = p.read_text(errors="replace")
-        for m in re.finditer(r"font-family[^;{}]*", text):
-            assert not re.search(r"Prata|\"Inter\"|'Inter'", m.group(0)), (
+        fonts = "Prata" if p.is_relative_to(sparta_source) else "Prata|Inter"
+        for m in re.finditer(r"\bfont(?:-family)?\s*:[^;{}]*", text):
+            assert not re.search(rf"\b(?:{fonts})\b", m.group(0), re.IGNORECASE), (
                 f"{p}: {m.group(0)}")
-        assert not re.search(r"(prata|inter)-(cyrillic|latin)\.woff2", text), p
+        assert not re.search(rf"(?:{fonts})-(cyrillic|latin)(?:-ext)?\.woff2", text, re.IGNORECASE), p
     fonts = ROOT / "static" / "fonts" / "rumi"
     assert not list(fonts.glob("prata-*")) and not list(fonts.glob("inter-*"))
 
