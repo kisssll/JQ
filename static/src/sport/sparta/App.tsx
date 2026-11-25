@@ -424,10 +424,10 @@ export default function App() {
             {GYM_LOGO && <img src={GYM_LOGO} alt="" />}
             <span>{publicOrganization.name}</span>
           </button>
-          <nav className="direction-switch" aria-label="Направление Руми">
+          {!IS_SPARTA && <nav className="direction-switch" aria-label="Направление Руми">
             <a href="/directions/beauty">Красота</a>
             <a href="/sport/" aria-current="true">Спорт</a>
-          </nav>
+          </nav>}
         </div>
         <nav id="site-navigation" aria-label="Основная навигация" className={menu ? "hdr-nav open" : "hdr-nav"}>
           {NAV.map(([t, p]) => (
@@ -609,14 +609,14 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
       <section className="club-overview" aria-labelledby="club-overview-title">
         <div className="club-overview-copy">
           <p className="tag">О клубе / {organization.city || GYM_CITY}</p>
-          <h2 id="club-overview-title">{GYM_SLUG === "sparta" ? "Томский клуб единоборств с 2002 года" : "О клубе"}</h2>
+          <h2 id="club-overview-title">{IS_SPARTA ? <>Томский клуб <br />единоборств с 2002 года</> : "О клубе"}</h2>
           {GYM_SLUG === "sparta" && <p>В «Спарте» тренируются дети с пяти лет, подростки и взрослые. В 2007 году клуб помог открыть в ТУСУРе школу дзю-дзютцу и студенческую специализацию «Самооборона». Спортсмены клуба выступают за сборную Томской области по грэпплингу и боевому дзю-дзютцу.</p>}
           <p>Можно прийти без опыта. На первой тренировке познакомитесь с тренером, попробуете занятия и вместе подберёте группу.</p>
           <button className="link" onClick={() => go("/coaches")}>Познакомиться с тренерами <Arrow /></button>
         </div>
         <div className="club-start">
-          <p className="tag">Первая тренировка</p>
-          <h3>Начать проще,<br />чем кажется.</h3>
+          {!IS_SPARTA && <p className="tag">Первая тренировка</p>}
+          <h3>{IS_SPARTA ? <>Начать проще, чем<br />кажется</> : <>Начать проще,<br />чем кажется.</>}</h3>
           <ol>
             <li><span>01</span><div><b>Выберите удобный зал</b><p>{GYM_SLUG === "sparta" ? "Три площадки и вечерние занятия по расписанию." : `${gyms.length} ${gyms.length === 1 ? "площадка клуба" : "площадок клуба"} с расписанием занятий.`}</p></div></li>
             <li><span>02</span><div><b>Оставьте имя и телефон</b><p>Администратор свяжется с вами и подтвердит запись.</p></div></li>
@@ -627,11 +627,12 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
       </section>
 
       <section className="why-sparta" aria-labelledby="why-gym-title">
-        <div className="why-gallery" aria-hidden="true">
+        {IS_SPARTA && <h2 className="why-title" id="why-gym-title">Почему Спарта?</h2>}
+        {!IS_SPARTA && <div className="why-gallery" aria-hidden="true">
           {reasonPhotos.map((photo) => <img key={photo} src={photo} alt="" loading="lazy" decoding="async" />)}
-        </div>
+        </div>}
         <div className="why-content">
-          <h2 className="tag tag-light why-title" id="why-gym-title">{IS_SPARTA ? "Почему же Спарта?" : `Почему ${GYM_NAME}`}</h2>
+          {!IS_SPARTA && <h2 className="tag tag-light why-title" id="why-gym-title">Почему {GYM_NAME}</h2>}
           <div className="reasons-over">
             {reasons.map(([n, h, p, photo]) => (
               <article className="why-reason" key={n}>
@@ -639,7 +640,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
                 <div className="why-reason-copy">
                   <b>{n}</b>
                   <h3>{h}</h3>
-                  <p>{p}</p>
+                  {!IS_SPARTA && <p>{p}</p>}
                 </div>
               </article>
             ))}
@@ -650,7 +651,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
       <section className="tiles">
         {(
           [
-            ["Залы", `${gyms.length} ${gyms.length === 1 ? "площадка" : "площадок"}`, "/gyms", "gym_irk", "gyms"],
+            [IS_SPARTA ? "Наши залы" : "Залы", `${gyms.length} ${gyms.length === 1 ? "площадка" : "площадок"}`, "/gyms", "gym_irk", "gyms"],
             ["Тренеры", "Команда клуба", "/coaches", "coach_0", "coaches"],
             ["Направления", "Чему мы учим", "/disciplines", "disc_0", "disciplines"],
           ] as [string, string, Page, string, string][]
@@ -670,9 +671,12 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
       </section>
 
       <section className="club-booking">
-        <h2>{IS_SPARTA ? "Запишитесь на пробную тренировку" : "Первая тренировка"}</h2>
+        <div>
+          {IS_SPARTA && <p>Заинтересовал клуб?</p>}
+          <h2>{IS_SPARTA ? <>Запишитесь на пробную <br />тренировку</> : "Первая тренировка"}</h2>
+        </div>
         <button className="btn btn-red" onClick={() => book()}>
-          Записаться <Arrow />
+          {IS_SPARTA ? "Пробная тренировка" : "Записаться"} <Arrow />
         </button>
       </section>
     </main>
