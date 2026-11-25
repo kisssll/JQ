@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { sportRequest } from "./admin-api";
 
 const ROLE_LABELS = { owner: "Владелец", manager: "Управляющий", admin: "Администратор", trainer: "Тренер" };
@@ -15,6 +15,7 @@ const PERMISSION_LABELS = {
 };
 export type SportPermissions = Partial<Record<keyof typeof PERMISSION_LABELS | "manage_owners", boolean>>;
 const ROLE_PERMISSIONS = { owner: "manage_owners", manager: "manage_managers", admin: "manage_admins", trainer: "manage_coaches" } as const;
+type Credentials = { name: string; login: string; password: string };
 
 export type StaffMember = {
   id: number;
@@ -38,6 +39,7 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
   const [accessEditor, setAccessEditor] = useState<StaffMember | null>(null);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
+  const [credentials, setCredentials] = useState<Credentials | null>(null);
   const orderedTeam = [...team.filter((member) => member.role === "trainer"), ...team.filter((member) => member.role !== "trainer")];
   const assignableRoles = (["trainer", "admin", "manager"] as const).filter((role) => permissions[ROLE_PERMISSIONS[role]]);
   const busy = editor !== null || accessEditor !== null || removing;
@@ -63,7 +65,8 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
     </div>
     {error && <p className="sport-admin-alert" role="alert">{error}</p>}
     {editor && <StaffEditor slug={slug} member={editor === "new" ? null : editor} assignableRoles={assignableRoles} onCancel={() => setEditor(null)}
-      onSave={(member) => { onSaved(member); setEditor(null); }} />}
+      onSave={(member, credentials) => { onSaved(member); setEditor(null); setCredentials(credentials ?? null); }} />}
+    {credentials && <CredentialsDialog slug={slug} credentials={credentials} close={() => setCredentials(null)} />}
     {accessEditor && <AccessEditor slug={slug} member={accessEditor} onCancel={() => setAccessEditor(null)}
       onSave={(member) => { onSaved(member); setAccessEditor(null); }} />}
     <div className="admin-staff-grid">
@@ -124,8 +127,49 @@ function AccessEditor({ slug, member, onCancel, onSave }: {
   </form>;
 }
 
+function CredentialsDialog({ slug, credentials, close }: { slug: string; credentials: Credentials; close: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const login = new URL("/sport/login", window.location.origin);
+  login.searchParams.set("redirect", `/sport/${encodeURIComponent(slug)}/admin`);
+  const text = `Вход в Руми Спорт\nЛогин (телефон): ${credentials.login}\nВременный пароль: ${credentials.password}\nСайт: ${login}`;
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+  }
+  useEffect(() => {
+    const panel = dialog.current;
+    panel?.showModal();
+    void copy();
+    return () => panel?.close();
+  }, [text]);
+  return <dialog ref={dialog} className="admin-editor-dialog" aria-labelledby="sport-credentials-title" onCancel={(event) => {
+    event.preventDefault();
+    close();
+  }}>
+    <div className="admin-editor">
+      <h2 id="sport-credentials-title" className="adm-sub">Данные для входа</h2>
+      <p>{credentials.name}</p>
+      <div className="admin-editor-grid">
+        <label>Телефон<input readOnly value={credentials.login} /></label>
+        <label>Временный пароль<input readOnly value={credentials.password} /></label>
+      </div>
+      <p className="admin-hint" role="status">{copyState === "copied" ? "Телефон и пароль скопированы."
+        : copyState === "failed" ? "Автокопирование недоступно. Нажмите «Скопировать» или выделите данные вручную." : "Передайте эти данные сотруднику. Пароль показывается один раз."}</p>
+      <div className="admin-form-actions">
+        <button className="btn btn-black" type="button" onClick={() => void copy()}>Скопировать</button>
+        <button className="admin-secondary" type="button" onClick={close}>Готово</button>
+      </div>
+    </div>
+  </dialog>;
+}
+
 function StaffEditor({ slug, member, assignableRoles, onCancel, onSave }: {
-  slug: string; member: StaffMember | null; onCancel: () => void; onSave: (member: StaffMember) => void;
+  slug: string; member: StaffMember | null; onCancel: () => void; onSave: (member: StaffMember, credentials?: Credentials | null) => void;
   assignableRoles: readonly StaffMember["role"][];
 }) {
   const [role, setRole] = useState<StaffMember["role"]>(member?.role ?? assignableRoles[0] ?? "trainer");
@@ -153,8 +197,8 @@ function StaffEditor({ slug, member, assignableRoles, onCancel, onSave }: {
     setError("");
     try {
       const path = member ? `/staff/${member.role}/${member.id}` : "/staff";
-      const result = await sportRequest<{ member: StaffMember }>(slug, path, { method: member ? "PUT" : "POST", body });
-      onSave(result.member);
+      const result = await sportRequest<{ member: StaffMember; credentials?: Credentials | null }>(slug, path, { method: member ? "PUT" : "POST", body });
+      onSave(result.member, result.credentials);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Не удалось сохранить карточку");
     } finally {

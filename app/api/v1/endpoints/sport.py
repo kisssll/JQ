@@ -6,6 +6,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy import Time, case, cast, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -994,17 +995,20 @@ async def add_sport_staff(
     staff_user = (await db.execute(
         select(User).where(User.phone == normalized_phone)
     )).scalar_one_or_none()
+    credentials = None
     if staff_user is None:
+        password = secrets.token_urlsafe(12)
         staff_user = User(
             phone=normalized_phone,
             full_name=name,
-            hashed_password=get_password_hash(secrets.token_hex(32)),
+            hashed_password=get_password_hash(password),
             role=UserRole.CLIENT,
             is_active=True,
             is_guest=True,
         )
         db.add(staff_user)
         await db.flush()
+        credentials = {"name": name, "login": normalized_phone, "password": password}
     elif staff_user.is_guest and not staff_user.full_name:
         staff_user.full_name = name
 
@@ -1074,7 +1078,10 @@ async def add_sport_staff(
         db, staff, name=name, contact_phone=contact_phone, about=about, title=title,
         experience=experience, tags=tags, photo=photo,
     )
-    return {"ok": True, "role": role, "name": name, "member": _sport_staff_card(staff, staff_user.phone)}
+    return JSONResponse({
+        "ok": True, "role": role, "name": name, "member": _sport_staff_card(staff, staff_user.phone),
+        "credentials": credentials,
+    }, headers={"Cache-Control": "no-store"})
 
 
 @router.put("/organizations/{slug}/staff/{role}/{staff_id}")

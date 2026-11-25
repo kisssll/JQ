@@ -455,6 +455,20 @@ async def test_sport_management_is_scoped_and_owner_can_add_staff(client, db_ses
         data={"phone": "+79990001003", "name": "Администратор", "role": "admin"},
     )
     assert response.status_code == 200, response.text
+    credentials = response.json()["credentials"]
+    assert credentials["login"] == "+79990001003"
+    assert response.headers["Cache-Control"] == "no-store"
+    owner_token = client.cookies.get("access_token")
+    client.cookies.clear()
+    staff_login = await client.post("/api/v1/auth/login-web", data={
+        "phone": credentials["login"], "password": credentials["password"],
+        "auth_variant": "sport", "redirect": "/sport/test-sport-club/admin",
+    }, follow_redirects=False)
+    assert staff_login.headers["Location"] == "/sport/test-sport-club/admin"
+    staff_panel = await client.get("/api/v1/sport/organizations/test-sport-club/manage")
+    assert staff_panel.json()["role"] == "admin"
+    client.cookies.clear()
+    client.cookies.set("access_token", owner_token)
     async with db_session() as db:
         staff_user = (
             await db.execute(select(User).where(User.phone == "+79990001003"))
@@ -477,6 +491,7 @@ async def test_sport_management_is_scoped_and_owner_can_add_staff(client, db_ses
         data={"phone": "+79990001003", "name": "Администратор", "role": "admin"},
     )
     assert readded.status_code == 200, readded.text
+    assert readded.json()["credentials"] is None
     client.cookies.clear()
     await register_user(client, "+79990001003", full_name="Администратор")
     async with db_session() as db:
