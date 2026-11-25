@@ -63,62 +63,10 @@ body.sport-directory .sport-home__business-link {
 }
 
 body.sport-directory .sport-home__art {
-    position: relative;
-    display: none;
-    width: min(100%, 22rem);
-    aspect-ratio: 4 / 5;
+    display: block;
+    width: min(100%, 18rem);
+    height: auto;
     justify-self: center;
-    overflow: hidden;
-    border: 1px solid var(--color-border);
-    border-radius: 50% 50% var(--radius-16) var(--radius-16);
-    background:
-        radial-gradient(circle at 50% 42%, var(--color-surface) 0 23%, transparent 23.3%),
-        var(--color-secondary);
-}
-
-body.sport-directory .sport-home__art::before,
-body.sport-directory .sport-home__art::after {
-    position: absolute;
-    inset: 12% 9%;
-    border: 1px solid var(--color-accent);
-    border-radius: 50% 50% 45% 45%;
-    content: "";
-    opacity: 0.34;
-    transform: rotate(-18deg);
-}
-
-body.sport-directory .sport-home__art::after {
-    inset: 19% 15%;
-    opacity: 0.48;
-    transform: rotate(-18deg);
-}
-
-body.sport-directory .sport-home__art-label {
-    position: absolute;
-    z-index: 1;
-    top: 38%;
-    left: 50%;
-    color: var(--color-heading);
-    font-family: var(--font-heading);
-    font-size: clamp(2.5rem, 5vw, 4rem);
-    font-weight: var(--weight-heading);
-    letter-spacing: -0.07em;
-    line-height: 0.88;
-    text-align: center;
-    transform: translate(-50%, -50%);
-}
-
-body.sport-directory .sport-home__art-caption {
-    position: absolute;
-    right: 1rem;
-    bottom: 1.25rem;
-    left: 1rem;
-    color: var(--color-muted);
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-align: center;
-    text-transform: uppercase;
 }
 
 body.sport-directory .sport-home__features,
@@ -317,7 +265,7 @@ body.sport-directory .sport-home__faq-list details > p a {
     }
 
     body.sport-directory .sport-home__art {
-        display: block;
+        width: min(100%, 25rem);
     }
 
     body.sport-directory .sport-home__clubs-layout {
