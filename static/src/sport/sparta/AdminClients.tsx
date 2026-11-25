@@ -115,7 +115,7 @@ export default function AdminClients({ slug, current }: { slug: string; current:
       </div>
       <section className="admin-data-panel" aria-label={client ? "История посещений клиента" : day ? "Посещения за день" : "Список клиентов"}>
         <div className="admin-data-head">
-          {(day || client) && <button className="admin-text-button" onClick={() => { setDay(""); setClient(null); setOffset(0); }}>Все клиенты</button>}
+          {(day || client) && <button className="admin-text-button" onClick={() => { setDay(""); setClient(null); setOffset(0); }}><span aria-hidden="true">← </span>К полному списку клиентов</button>}
           {client && day && <button className="admin-text-button" onClick={() => { setClient(null); setOffset(0); }}>К посещениям {shortDate(day)}</button>}
           <h2 className="adm-sub">{client?.name ?? (day ? `Посещения ${shortDate(day)}` : "Все клиенты")}</h2>
           {client && <p className="admin-hint">История посещений клуба</p>}

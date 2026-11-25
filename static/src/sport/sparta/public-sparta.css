@@ -36,6 +36,10 @@ body:has(.sparta-header) {
   font-size: clamp(21px, 2.3vw, 35px);
   line-height: 1;
   letter-spacing: -.025em;
+  max-width: clamp(165px, 18vw, 360px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sparta-header .hdr-staff:hover {
