@@ -1076,15 +1076,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-surface-alt);
+    background: #fefefe;
     border-radius: var(--radius-8);
     margin-bottom: 0.45rem;
     overflow: hidden;
 }
 .hair-card-btn__img {
-    max-height: 100px;
-    max-width: 90%;
-    width: auto;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
     transition: transform 0.18s ease;
 }
@@ -1183,15 +1182,14 @@
     align-items: center;
     justify-content: center;
     min-height: 180px;
-    background: var(--color-surface-alt);
+    background: #fefefe;
     border-radius: var(--radius-8);
     border: 1px solid var(--color-border);
-    padding: 0.5rem;
     overflow: hidden;
 }
 .hair-dynamic-img {
-    max-height: 170px;
-    width: auto;
+    width: 100%;
+    height: 180px;
     object-fit: contain;
     margin: 0 auto;
     display: block;
