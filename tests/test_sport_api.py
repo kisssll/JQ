@@ -676,8 +676,22 @@ async def test_sport_staff_edits_unlinked_coach_and_uploads_photo(client, db_ses
     saved = await client.put(f"{base}/staff/trainer/{coach.id}", data=profile,
                              files={"photo": ("coach.png", photo.getvalue(), "image/png")})
     assert saved.status_code == 200, saved.text
+    assert saved.headers["Cache-Control"] == "no-store"
     card = saved.json()["member"]
     assert card["phone"] == "+79990001802"
+    assert card["hasAccount"] is True
+    credentials = saved.json()["credentials"]
+    assert credentials["login"] == "+79990001802"
+    owner_token = client.cookies.get("access_token")
+    client.cookies.clear()
+    staff_login = await client.post("/api/v1/auth/login-web", data={
+        "phone": credentials["login"], "password": credentials["password"],
+        "auth_variant": "sport", "redirect": "/sport/test-sport-club/admin",
+    }, follow_redirects=False)
+    assert staff_login.headers["Location"] == "/sport/test-sport-club/admin"
+    assert (await client.get(f"{base}/manage")).json()["role"] == "trainer"
+    client.cookies.clear()
+    client.cookies.set("access_token", owner_token)
     assert card["about"] == profile["about"]
     photo_file = tmp_path / card["photo"].split("/uploads/")[1]
     assert photo_file.is_file()
@@ -686,4 +700,5 @@ async def test_sport_staff_edits_unlinked_coach_and_uploads_photo(client, db_ses
     assert manage["trainings"][0]["coach"] == profile["name"]
     updated = await client.put(f"{base}/staff/trainer/{coach.id}", data={**profile, "remove_photo": "true"})
     assert updated.json()["member"]["photo"] is None
+    assert updated.json()["credentials"] is None
     assert not photo_file.exists()

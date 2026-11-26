@@ -118,6 +118,7 @@ def _sport_booking_time(booking: SportBooking, training: SportTraining | None) -
 
 def _sport_staff_card(staff: SportCoach | SportGymMember, phone: str | None, name: str | None = None) -> dict:
     common = {"id": staff.id, "phone": staff.contact_phone or phone or "",
+              "hasAccount": staff.user_id is not None,
               "photo": staff.photo_url, "about": staff.bio or ""}
     if isinstance(staff, SportCoach):
         return {**common, "name": staff.name, "role": "trainer", "title": staff.role,
@@ -1111,7 +1112,7 @@ async def update_sport_staff(
     organization = await _organization(db, slug, published_only=False)
     if organization is None:
         raise HTTPException(404, "Спортивная организация не найдена")
-    _, membership, _ = await _gym_access(request, db, organization.id)
+    user, membership, _ = await _gym_access(request, db, organization.id)
     if role not in _SPORT_STAFF_PERMISSIONS or not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
         raise HTTPException(403, "Нет прав для изменения сотрудника с этой ролью")
     if role == "trainer" and not _can_assign_sport_permissions(membership):
@@ -1132,12 +1133,48 @@ async def update_sport_staff(
         raise HTTPException(404, "Сотрудник не найден")
     if isinstance(staff, SportGymMember) and not _can_manage_sport_member(membership, staff):
         raise HTTPException(403, "Недостаточно прав для изменения этого сотрудника")
+    credentials = None
+    if isinstance(staff, SportCoach) and staff.user_id is None and contact_phone.strip():
+        normalized_phone = try_normalize_phone(contact_phone)
+        if normalized_phone is None:
+            raise HTTPException(400, "Проверьте номер телефона для входа")
+        if normalized_phone == user.phone:
+            raise HTTPException(400, "Нельзя назначить свой аккаунт тренеру")
+        staff_user = await db.scalar(select(User).where(User.phone == normalized_phone).with_for_update())
+        if staff_user is not None and not staff_user.is_active:
+            raise HTTPException(409, "Аккаунт с этим номером неактивен")
+        if staff_user is not None:
+            already_linked = await db.scalar(select(SportCoach.id).where(
+                SportCoach.organization_id == organization.id,
+                SportCoach.user_id == staff_user.id,
+                SportCoach.is_active.is_(True),
+                SportCoach.id != staff.id,
+            ))
+            if already_linked is not None:
+                raise HTTPException(409, "Этот номер уже привязан к другому тренеру клуба")
+        else:
+            password = secrets.token_urlsafe(12)
+            staff_user = User(
+                phone=normalized_phone,
+                full_name=name,
+                hashed_password=get_password_hash(password),
+                role=UserRole.CLIENT,
+                is_active=True,
+                is_guest=True,
+            )
+            db.add(staff_user)
+            await db.flush()
+            credentials = {"name": name, "login": normalized_phone, "password": password}
+        staff.user_id = staff_user.id
     account_phone = await db.scalar(select(User.phone).where(User.id == staff.user_id)) if staff.user_id is not None else None
     await _save_sport_staff_profile(
         db, staff, name=name, contact_phone=contact_phone, about=about, title=title,
         experience=experience, tags=tags, photo=photo, remove_photo=remove_photo,
     )
-    return {"ok": True, "member": _sport_staff_card(staff, account_phone)}
+    return JSONResponse({
+        "ok": True, "member": _sport_staff_card(staff, account_phone),
+        "credentials": credentials,
+    }, headers={"Cache-Control": "no-store"})
 
 
 @router.delete("/organizations/{slug}/staff/{role}/{staff_id}")
