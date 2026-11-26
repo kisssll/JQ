@@ -32,6 +32,8 @@ class SportOrganization(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     cover_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    site_documents: Mapped[Optional[list[dict]]] = mapped_column(JSON, nullable=True)
+    training_agreements: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     vk_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     telegram_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     address: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
@@ -389,6 +391,7 @@ class SportService(Base):
 
 class SportBooking(Base):
     __tablename__ = "sport_bookings"
+    training_agreement: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     __table_args__ = (
         CheckConstraint(
             "participant IN ('self', 'child')",

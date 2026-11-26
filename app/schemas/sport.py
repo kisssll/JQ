@@ -85,6 +85,7 @@ class SportBookingCreate(BaseModel):
     discipline: str = Field(min_length=2, max_length=120)
     pd_consent: bool
     statement_consent: bool = False
+    statement_version: Optional[str] = Field(default=None, max_length=64)
     consent_version: str = Field(min_length=1, max_length=32)
 
     @field_validator("name", "gym", "discipline", mode="before")

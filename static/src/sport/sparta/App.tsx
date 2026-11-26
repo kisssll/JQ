@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import AdminClients from "./AdminClients";
+import AdminDocuments, { type ClubDocument, type TrainingAgreements } from "./AdminDocuments";
 import AdminSchedule from "./AdminSchedule";
 import AdminStaff, { type SportPermissions, type StaffMember } from "./AdminStaff";
 import { ClubReviews, ClubSettings, CoachPayroll, EMPTY_SITE_CATALOG, type ClubProfile, type SiteCatalog } from "./AdminClubTabs";
@@ -232,6 +233,8 @@ export default function App() {
   const [gallery, setGallery] = useState<GalleryPhoto[]>([]);
   const [organization, setOrganization] = useState<ClubProfile>({ name: GYM_NAME, city: "", description: "", phone: "" });
   const [siteCatalog, setSiteCatalog] = useState<SiteCatalog>(EMPTY_SITE_CATALOG);
+  const [documents, setDocuments] = useState<ClubDocument[]>([]);
+  const [agreements, setAgreements] = useState<TrainingAgreements | null>(null);
   const [accountLoginRequired, setAccountLoginRequired] = useState(false);
   const [exceptions, setExceptions] = useState<Record<string, boolean>>({});
   const [scheduleLoading, setScheduleLoading] = useState(true);
@@ -260,6 +263,8 @@ export default function App() {
         setDisciplines(data.disciplines);
         setPlans(data.plans);
         setGallery(data.gallery);
+        setDocuments(data.documents ?? []);
+        setAgreements(data.agreements ?? null);
         setTrainings(data.trainings);
         setExceptions(data.exceptions);
       } catch (error) {
@@ -321,6 +326,7 @@ export default function App() {
         const data = await response.json() as SiteCatalog & {
           bookings: Booking[]; payments: Payment[]; trainings: Training[]; exceptions: Record<string, boolean>;
           today: string; role: string; permissions: SportPermissions; canAssignPermissions: boolean;
+          agreements?: TrainingAgreements | null;
           team: StaffMember[]; coaches: Coach[]; organization: typeof organization;
           venues: { id: number; name: string; address: string; description: string; hours: string; photo_url?: string | null }[];
           disciplines: { name: string; description: string; level: string; photo_url?: string | null }[];
@@ -335,6 +341,7 @@ export default function App() {
         setManagementPermissions(data.permissions);
         setCanAssignPermissions(data.canAssignPermissions);
         setManagementTeam(data.team ?? []);
+        setAgreements(data.agreements ?? null);
         setManagementDate(data.today ?? today());
         setOrganization(data.organization);
         setSiteCatalog({ venues: data.venues, disciplines: data.disciplines, plans: data.plans, gallery: data.gallery });
@@ -420,6 +427,7 @@ export default function App() {
       role={managementRole} slug={GYM_SLUG} team={managementTeam}
       permissions={managementPermissions} canAssignPermissions={canAssignPermissions}
       setTeam={setManagementTeam} organization={organization} clubLogo={clubLogo} onProfileSaved={setOrganization}
+      agreements={agreements} onAgreementsSaved={setAgreements}
       siteCatalog={siteCatalog} onSiteSaved={(catalog) => {
         setSiteCatalog({ venues: catalog.venues, disciplines: catalog.disciplines, plans: catalog.plans, gallery: catalog.gallery });
         const updated = catalog.disciplines.map((item) => ({ key: item.name ?? "", name: item.name ?? "", text: item.description ?? "", level: item.level ?? "", photo: item.photo_url }));
@@ -473,7 +481,7 @@ export default function App() {
       {page === "/disciplines" && <Disciplines book={book} disciplines={disciplines} />}
       {page === "/schedule" && <Schedule book={book} gyms={gyms} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
       {page === "/gallery" && <Gallery gallery={publicGallery} organization={publicOrganization.name} />}
-      {page === "/documents" && IS_SPARTA && <SpartaDocuments />}
+      {page === "/documents" && IS_SPARTA && <SpartaDocuments documents={documents} />}
       {page === "/prices" && <Prices choose={choosePlan} plans={plans} />}
       {page === "/account" && <Account bookings={bookings} book={book} loginRequired={accountLoginRequired} error={scheduleError} />}
 
@@ -516,6 +524,7 @@ export default function App() {
             <button onClick={() => go("/account")}>Мой кабинет</button>
           </div>
         </div>
+        {IS_SPARTA && <p className="sparta-platform-credit">Сайт создан на платформе <a href="https://rrumi.ru/sport/" target="_blank" rel="noopener noreferrer">Руми Спорт</a></p>}
       </footer>
 
       {!bookingFor && !menu && page !== "/account" && <div className="mobile-book"><span>Первое занятие<b>Бесплатно</b></span><button className="btn btn-red" onClick={() => book()}>Записаться <Arrow /></button></div>}
@@ -523,6 +532,7 @@ export default function App() {
       {bookingFor && (
         <BookingModal
           initial={bookingFor}
+          agreements={agreements}
           trainings={trainings}
           gyms={gyms}
           exceptions={exceptions}
@@ -547,6 +557,7 @@ export default function App() {
                 discipline: b.discipline,
                 pd_consent: b.pdConsent,
                 statement_consent: IS_SPARTA ? b.statementConsent : true,
+                statement_version: b.statementVersion,
                 consent_version: consentVersion,
               }),
             });
@@ -889,7 +900,7 @@ function SpartaCoaches({ coaches, loading, error }: { coaches: Coach[]; loading:
     {error && <p className="schedule-note" role="alert">{error}</p>}
     <section aria-label="Тренеры клуба">
       {coaches.map((coach, index) => <article className="sparta-coach" key={coach.id}>
-        <Photo id={`coach_${index}`} label={coach.name} size="Квадратный портрет" className="sparta-coach-photo" srcOverride={coachPhoto(coach)} ignoreDefault />
+        <Photo id={`coach_${index}`} label={coach.name} size="Квадратный портрет" className={`sparta-coach-photo${coach.name === "Давыдов Дмитрий Михайлович" ? " sparta-coach-photo-full" : ""}`} srcOverride={coachPhoto(coach)} ignoreDefault />
         <div className="sparta-coach-copy">
           <h2>{coach.name}</h2>
           <p className="sparta-coach-role">{coach.role}</p>
@@ -943,11 +954,11 @@ function Coaches({ book, coaches, trainings, exceptions, scheduleLoading, schedu
 }
 
 const SPARTA_DISCIPLINE_PHOTOS: Record<string, string> = {
-  "БЖЖ": PHOTOS.disc_0,
+  "Джиу-джитсу (CJJIF)": "/photos/disciplines/jiu-jitsu-club.webp",
   "Грэпплинг": "/photos/gyms/irk-club-3.jpg",
   "ММА": "/photos/disciplines/mma-mmasters.webp",
   "Самооборона": `${SPARTA_HOME_PHOTOS}/self-defense.webp`,
-  "Самбо": `${SPARTA_HOME_PHOTOS}/disciplines.webp`,
+  "Самбо": "/photos/disciplines/sambo-club.webp",
 };
 
 function Disciplines({ book, disciplines }: { book: Book; disciplines: Discipline[] }) {
@@ -965,7 +976,7 @@ function Disciplines({ book, disciplines }: { book: Book; disciplines: Disciplin
             id={`disc_${i}`}
             label={d.name}
             size="1600 × 1200"
-            className="discipline-image"
+            className={`discipline-image${IS_SPARTA && ["Джиу-джитсу (CJJIF)", "Самбо"].includes(d.key) ? " discipline-image-full" : ""}`}
             srcOverride={d.photo || (IS_SPARTA ? SPARTA_DISCIPLINE_PHOTOS[d.key] : undefined)}
             ignoreDefault
           />
@@ -1084,24 +1095,13 @@ function Gallery({ gallery, organization }: { gallery: GalleryPhoto[]; organizat
   </main>;
 }
 
-const SPARTA_DOCUMENTS = [
-  ["Анкета спортсмена", "anketa_sportsmena.docx"],
-  ["Договор пожертвования", "dogovor_pozhertvovania.doc"],
-  ["Положение о партнёрах клуба", "polozhenie_o_partnerakh_kluba.docx"],
-  ["Согласие на обработку персональных данных", "soglasie_na_obrabotku_dannykh.doc"],
-  ["Заявление", "zayavlenie.doc"],
-  ["Заявление для юношей", "zayavlenie_dlya_yunoshey.doc"],
-  ["Свидетельство ИНН", "svidetelstvo_inn.jpg"],
-  ["Свидетельство ОГРН", "svidetelstvo_ogrn.jpg"],
-  ["Свидетельство о регистрации НКО", "svidetelstvo_nko.jpg"],
-] as const;
-
-function SpartaDocuments() {
+function SpartaDocuments({ documents }: { documents: ClubDocument[] }) {
   return <main className="sparta-documents">
-    <h1>Документы клуба</h1>
-    <div className="sparta-document-grid">{SPARTA_DOCUMENTS.map(([title, file]) =>
-      <a key={file} href={`/static/sport/sparta/documents/${file}`} target="_blank" rel="noopener noreferrer">
-        <span>{title}</span><span aria-hidden="true">↗</span>
+    <h1>Учредительные документы Федерации боевого джиу-джитсу</h1>
+    {!documents.length && <p>Документы пока не опубликованы.</p>}
+    <div className="sparta-document-grid">{documents.map((document) =>
+      <a key={document.id} href={document.url} target="_blank" rel="noopener noreferrer">
+        <span>{document.title}</span><span aria-hidden="true">↗</span>
       </a>
     )}</div>
   </main>;
@@ -1131,35 +1131,6 @@ function Account({ bookings, book, loginRequired, error }: { bookings: Booking[]
 }
 
 /* ---------------- modals ---------------- */
-
-const PARTICIPATION_AGREEMENTS = {
-  adult: {
-    title: "Согласие с заявлением для совершеннолетних участников",
-    documentTitle: "РАСПИСКА (для совершеннолетних участников)",
-    paragraphs: [
-      "Настоящей распиской уведомляю, что с Положением, Правилами и условиями проведения данного спортивного мероприятия ознакомлен, согласен и обязуюсь их выполнять. Считаю, что я физически и технически подготовлен для выступления в данных соревнованиях.",
-      "При возникновении несчастного случая в ходе соревнований (травма, увечье), при получении различных травм и даже летального исхода ни я, ни мои родственники, а также мои доверенные лица претензий к организаторам, судьям и другим лицам, имеющих отношения к проведению соревнований, иметь не будут.",
-      "Я даю свое согласие на оказание мне в случае необходимости медицинской помощи.",
-      "Я согласен с тем, что выступление и интервью со мной может быть записано и показано в средствах массовой информации, а также записано и показано в целях рекламы без ограничений по времени и формату; я отказываюсь от компенсации в отношении этих материалов.",
-      "С правилами электронного оформления данной расписки на сайте федерации ознакомлен и согласен.",
-    ],
-  },
-  minor: {
-    title: "Согласие с заявлением для несовершеннолетних участников",
-    documentTitle: "ЗАЯВЛЕНИЕ (для несовершеннолетних участников)",
-    paragraphs: [
-      "Данным заявлением я уведомляю, что разрешаю своему несовершеннолетнему ребенку принимать участие в данном спортивном мероприятии. Считаю, что он физически подготовлен для выступления в данных соревнованиях. С правилами и условиями проведения данного спортивного мероприятия ознакомлен.",
-      "Я принимаю всю ответственность за любую травму, полученную мной и/или моим ребенком (опекаемым) по ходу Соревнований, и не имею права требовать какой-либо компенсации за нанесение ущерба от Организаторов Соревнований.",
-      "В случае если во время соревнований с ребенком произойдет несчастный случай, прошу сообщить об этом мне по телефону, указанному мной при регистрации.",
-      "Я обязуюсь, что я и мой ребенок (опекаемый) будем следовать всем требованиям организаторов соревнований, связанным с вопросами безопасности.",
-      "Я и мой ребенок (опекаемый) самостоятельно несем ответственность за личное имущество, оставленное на месте проведения соревнований, и в случае его утери я отказываюсь от права требовать компенсации.",
-      "Я даю свое согласие на оказание в случае необходимости медицинской помощи моему ребенку (опекаемому).",
-      "С Положением о проведении соревнований ознакомлен.",
-      "Я согласен с тем, что выступление моего ребенка (опекаемого) и интервью с ним и/или со мной может быть записано и показано в средствах массовой информации, а также записано и показано в целях рекламы без ограничений по времени и формату; я отказываюсь от компенсации в отношении этих материалов.",
-      "С правилами электронного оформления данного заявления на сайте федерации ознакомлен и согласен.",
-    ],
-  },
-} as const;
 
 function Modal({ onClose, children, centered = false, className = "", label = "Информация клуба" }: { onClose: () => void; children: React.ReactNode; centered?: boolean; className?: string; label?: string }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -1197,6 +1168,7 @@ function Modal({ onClose, children, centered = false, className = "", label = "�
 
 function BookingModal({
   initial,
+  agreements,
   trainings,
   gyms,
   exceptions,
@@ -1205,11 +1177,12 @@ function BookingModal({
   centered = false,
 }: {
   initial: Partial<Booking>;
+  agreements: TrainingAgreements | null;
   trainings: Training[];
   gyms: Gym[];
   exceptions: Record<string, boolean>;
   onClose: () => void;
-  onSubmit: (b: Omit<Booking, "id" | "status"> & { pdConsent: boolean; statementConsent: boolean }) => void | Promise<void>;
+  onSubmit: (b: Omit<Booking, "id" | "status"> & { pdConsent: boolean; statementConsent: boolean; statementVersion?: string }) => void | Promise<void>;
   centered?: boolean;
 }) {
   const now = new Date();
@@ -1237,9 +1210,10 @@ function BookingModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [pdConsent, setPdConsent] = useState(false);
-  const [statementConsent, setStatementConsent] = useState(false);
+  const [acceptedStatementVersion, setAcceptedStatementVersion] = useState("");
   const [agreementOpen, setAgreementOpen] = useState(false);
-  const agreement = f.participant === "child" ? PARTICIPATION_AGREEMENTS.minor : PARTICIPATION_AGREEMENTS.adult;
+  const agreement = agreements?.[f.participant === "child" ? "minor" : "adult"];
+  const statementConsent = !!agreement && acceptedStatementVersion === agreement.version;
   const available = options.filter((slot) => slot.gym === f.gym && slot.date === f.date)
     .sort((a, b) => a.time.localeCompare(b.time));
   const resetSelection = (gym: string, date: string) => setF((current) => ({
@@ -1262,13 +1236,11 @@ function BookingModal({
       </Modal>
     );
   return (
-    <Modal centered={centered} className={IS_SPARTA ? "sparta-booking-modal" : ""} label={IS_SPARTA && agreementOpen ? agreement.title : "Запись на тренировку"} onClose={onClose}>
-      {IS_SPARTA && agreementOpen ? <>
-        <p className="tag booking-eyebrow">Условия участия</p>
+    <Modal centered={centered} className={IS_SPARTA ? "sparta-booking-modal" : ""} label={IS_SPARTA && agreementOpen && agreement ? agreement.title : "Запись на тренировку"} onClose={onClose}>
+      {IS_SPARTA && agreementOpen && agreement ? <>
         <h2 className="m-title">{agreement.title}</h2>
-        <h3 className="booking-agreement-title">{agreement.documentTitle}</h3>
         <div className="booking-agreement-text">
-          {agreement.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+          {agreement.text.split(/\r?\n\s*\r?\n/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
         </div>
         <button type="button" className="btn btn-black" onClick={() => setAgreementOpen(false)}>Вернуться к заявке</button>
       </> : <>
@@ -1281,11 +1253,11 @@ function BookingModal({
           e.preventDefault();
           if (!f.sessionId) return;
           if (f.participant === "child" && (!f.childName.trim() || !f.childAge.trim())) return;
-          if (!f.name.trim() || (IS_SPARTA && !statementConsent)) return;
+          if (!f.name.trim() || (IS_SPARTA && (!statementConsent || !agreement))) return;
           setSaving(true);
           setError("");
           try {
-            await onSubmit({ ...f, name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(), pdConsent, statementConsent });
+            await onSubmit({ ...f, name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(), pdConsent, statementConsent, statementVersion: agreement?.version });
             setDone(true);
           } catch (submitError) {
             setError(submitError instanceof Error ? submitError.message : "Не удалось отправить заявку. Попробуйте ещё раз.");
@@ -1302,7 +1274,7 @@ function BookingModal({
         </label>
         <label>
           Участник
-          <select value={f.participant} onChange={set("participant")}>
+          <select value={f.participant} onChange={(event) => { setAcceptedStatementVersion(""); set("participant")(event); }}>
             <option value="self">Я сам(а)</option><option value="child">Мой ребёнок</option>
           </select>
         </label>
@@ -1341,21 +1313,22 @@ function BookingModal({
               </button>)}</div>}
         </fieldset>
         {f.sessionId && <div className="booking-selected"><b>{fmtDate(f.date)} · {f.time}</b><span>{shortCoach(f.coach)}</span><span>{f.gym}</span><span>{f.discipline}</span></div>}
-        {IS_SPARTA && <div className="booking-legal-agreement full">
+        {IS_SPARTA && agreement && <div className="booking-legal-agreement full" key={agreement.version}>
           <label className="booking-consent">
-            <input type="checkbox" required checked={statementConsent} onChange={(event) => setStatementConsent(event.target.checked)} />
-            <span>Подтверждаю, что ознакомлен(а) и согласен(на) с заявлением участника.</span>
+            <input type="checkbox" required checked={statementConsent} onChange={(event) => setAcceptedStatementVersion(event.target.checked ? agreement.version : "")} />
+            <span>Подтверждаю, что прочитал(а) и принимаю согласие на посещение тренировок.</span>
           </label>
           <button type="button" className="booking-agreement-open" onClick={() => setAgreementOpen(true)}>
-            Ознакомиться: {agreement.documentTitle}
+            Ознакомиться: {agreement.title}
           </button>
         </div>}
         <label className="booking-consent">
           <input type="checkbox" required checked={pdConsent} onChange={(event) => setPdConsent(event.target.checked)} />
-          <span>Я даю согласие на обработку персональных данных на условиях <a href={IS_SPARTA ? "/static/sport/sparta/documents/soglasie_na_obrabotku_dannykh.doc" : "/sport/legal/consent"} target="_blank" rel="noopener noreferrer">Согласия</a>.</span>
+          <span>Я даю согласие на обработку персональных данных на условиях <a href="/sport/legal/consent" target="_blank" rel="noopener noreferrer">Согласия</a>.</span>
         </label>
         {error && <p className="booking-error" role="alert">{error}</p>}
-        <button className="btn btn-red wide" disabled={!f.sessionId || saving}>
+        {IS_SPARTA && !agreement && <p className="booking-error" role="status">Текст согласия недоступен. Обновите страницу, чтобы продолжить запись.</p>}
+        <button className="btn btn-red wide" disabled={!f.sessionId || saving || (IS_SPARTA && !agreement)}>
           {saving ? "Отправляем…" : IS_SPARTA ? "Записаться" : "Отправить заявку"} <Arrow />
         </button>
         <p className="m-note">{IS_SPARTA ? "Заявка сохранится в базе клуба. Запись подтвердит администратор." : "Заявка сохранится в базе Руми. Запись подтвердит администратор клуба."}</p>
@@ -1399,6 +1372,8 @@ function Admin({
   onProfileSaved,
   siteCatalog,
   onSiteSaved,
+  agreements,
+  onAgreementsSaved,
   current,
   onExit,
 }: {
@@ -1425,6 +1400,8 @@ function Admin({
   onProfileSaved: (profile: ClubProfile) => void;
   clubLogo: string;
   siteCatalog: SiteCatalog;
+  agreements: TrainingAgreements | null;
+  onAgreementsSaved: (value: TrainingAgreements) => void;
   onSiteSaved: (catalog: SiteCatalog) => void;
   current: string;
   onExit: () => void;
@@ -1435,7 +1412,7 @@ function Admin({
   const canManageTeam = canAssignPermissions || permissions.manage_coaches || permissions.manage_admins || permissions.manage_managers || permissions.manage_owners;
   const canManageSchedule = permissions.manage_schedule === true;
   const canSeePayroll = permissions.manage_payroll === true || trainer;
-  const [tab, setTab] = useState<"overview" | "bookings" | "schedule" | "payments" | "team" | "clients" | "settings" | "reviews" | "payroll">(trainer ? "schedule" : "overview");
+  const [tab, setTab] = useState<"overview" | "bookings" | "schedule" | "payments" | "team" | "clients" | "settings" | "documents" | "reviews" | "payroll">(trainer ? "schedule" : "overview");
   const [gym, setGym] = useState("all");
   const [status, setStatus] = useState<"all" | BookingStatus>("all");
   const [search, setSearch] = useState("");
@@ -1563,6 +1540,7 @@ function Admin({
           </button>}
           {canManageTeam && <button className={tab === "team" ? "on" : ""} onClick={() => openTab("team")}>Сотрудники</button>}
           {canAssignPermissions && <button className={tab === "settings" ? "on" : ""} onClick={() => openTab("settings")}>Мой клуб</button>}
+          {IS_SPARTA && canAssignPermissions && <button className={tab === "documents" ? "on" : ""} onClick={() => openTab("documents")}>Документы</button>}
           {permissions.manage_reviews && <button className={tab === "reviews" ? "on" : ""} onClick={() => openTab("reviews")}>Отзывы</button>}
           {canSeePayroll && <button className={tab === "payroll" ? "on" : ""} onClick={() => openTab("payroll")}>{trainer ? "Моё вознаграждение" : "Вознаграждения"}</button>}
         </nav>
@@ -1631,6 +1609,7 @@ function Admin({
 
         {tab === "team" && canManageTeam && <AdminStaff slug={slug} team={team} permissions={permissions} canAssignPermissions={canAssignPermissions} onSaved={saveStaff} onRemoved={removeStaff} />}
         {tab === "settings" && canAssignPermissions && <ClubSettings slug={slug} profile={organization} catalog={siteCatalog} onSaved={onProfileSaved} onCatalogSaved={onSiteSaved} />}
+        {tab === "documents" && IS_SPARTA && canAssignPermissions && <AdminDocuments slug={slug} onSaved={onAgreementsSaved} />}
         {tab === "reviews" && permissions.manage_reviews && <ClubReviews slug={slug} />}
         {tab === "payroll" && canSeePayroll && <CoachPayroll slug={slug} coaches={coaches} canEdit={permissions.manage_payroll === true} />}
 
@@ -1797,6 +1776,7 @@ function Admin({
       {adding && (
         <BookingModal
           initial={{}}
+          agreements={agreements}
           centered
           trainings={trainings}
           gyms={gyms}
@@ -1819,6 +1799,8 @@ function Admin({
               discipline: b.discipline,
               pd_consent: b.pdConsent,
               consent_version: consentVersion,
+              statement_consent: b.statementConsent,
+              statement_version: b.statementVersion,
             });
             if (typeof result.booking_id !== "number") throw new Error("Сервер не подтвердил запись");
             setBookings((list) => [{ ...b, id: String(result.booking_id), status: "new" }, ...list]);

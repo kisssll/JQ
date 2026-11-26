@@ -978,6 +978,20 @@ body:has(.sparta-header) .discipline-copy h2 {
   text-transform: uppercase;
 }
 
+.sparta-coach-photo-full .ph-img,
+.discipline-image-full .ph-img {
+  object-fit: contain;
+  object-position: center;
+}
+
+.sparta-platform-credit {
+  margin: 16px 0 0;
+  color: inherit;
+  font-size: 13px;
+}
+
+.sparta-platform-credit a { text-decoration: underline; }
+
 .sparta-documents {
   min-height: 65svh;
   padding: calc(var(--sparta-header-height) + 40px) var(--px) 80px;

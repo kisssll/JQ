@@ -99,18 +99,18 @@ def _public_url(key: str) -> str:
     return f"{settings.S3_PUBLIC_URL_BASE.rstrip('/')}/{key}"
 
 
-def _store(content: bytes, kind: str) -> str:
+def _store(content: bytes, kind: str, *, extension: str = "jpg", content_type: str = "image/jpeg") -> str:
     """Кладёт готовый JPEG в хранилище, возвращает публичный URL.
 
     S3-режим (задан S3_MEDIA_BUCKET): грузим в публичный бакет, в БД — полный
     S3-URL. Иначе — локальный volume (fallback: тесты/локалка).
     """
-    name = f"{uuid.uuid4()}.jpg"
+    name = f"{uuid.uuid4()}.{extension}"
     if _s3_enabled():
         key = _media_key(kind, name)
         _s3().put_object(
             Bucket=settings.S3_MEDIA_BUCKET, Key=key, Body=content,
-            ContentType="image/jpeg",
+            ContentType=content_type,
         )
         return _public_url(key)
     directory = Path(settings.UPLOADS_DIR) / kind
@@ -123,6 +123,18 @@ async def save_image(file: UploadFile, kind: str) -> str:
     """Полный цикл: прочитать (с лимитом), обеззаразить, сохранить. → URL."""
     data = await file.read(MAX_UPLOAD_BYTES + 1)
     return _store(process_image(data, kind), kind)
+
+
+async def save_sport_document(file: UploadFile) -> str:
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise UploadError("Файл больше 5 МБ")
+    if data.startswith(b"%PDF-") and data.rstrip().endswith(b"%%EOF"):
+        return _store(data, "sport-documents", extension="pdf", content_type="application/pdf")
+    try:
+        return _store(process_image(data, "sport-documents"), "sport-documents")
+    except UploadError as exc:
+        raise UploadError("Загрузите PDF или изображение") from exc
 
 
 def delete_stored(url: str) -> None:

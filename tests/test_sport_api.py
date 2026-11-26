@@ -159,11 +159,33 @@ async def test_sport_booking_requires_participation_statement_consent(client, db
     )
 
     assert response.status_code == 400
-    assert "Необходимо согласие с заявлением участника" in response.text
+    assert "Подтвердите согласие на посещение тренировок" in response.text
     async with db_session() as db:
         assert (
             await db.execute(select(User).where(User.phone == "+79990001122"))
         ).scalar_one_or_none() is None
+
+
+async def test_sparta_booking_saves_the_accepted_agreement_version(client, db_session):
+    booking_date = _booking_date()
+    await _seed_organization(db_session, booking_date, slug="sparta")
+    base = "/api/v1/sport/organizations/sparta"
+    catalog = await client.get(f"{base}/catalog")
+    agreements = catalog.json()["agreements"]
+    payload = _booking_payload(booking_date, statement_consent=True,
+                               statement_version=agreements["minor"]["version"])
+    assert (await client.post(f"{base}/bookings", json=payload)).status_code == 409
+
+    agreement = agreements["adult"]
+    payload["statement_version"] = agreement["version"]
+    response = await client.post(f"{base}/bookings", json=payload)
+    assert response.status_code == 201, response.text
+    async with db_session() as db:
+        booking = await db.get(SportBooking, response.json()["booking_id"])
+        assert booking.training_agreement == {
+            **agreement, "audience": "adult", "accepted_at": booking.training_agreement["accepted_at"],
+        }
+        assert booking.training_agreement["accepted_at"]
 
 
 async def test_sport_booking_can_request_a_time_before_schedule_is_published(client, db_session):
@@ -541,17 +563,44 @@ async def test_sport_management_is_scoped_and_owner_can_add_staff(client, db_ses
     assert denied.status_code == 403
 
 
-async def _sport_owner_panel(client, db_session):
-    await _seed_organization(db_session, _booking_date())
+async def _sport_owner_panel(client, db_session, slug="test-sport-club"):
+    await _seed_organization(db_session, _booking_date(), slug=slug)
     async with db_session() as db:
-        organization = await db.scalar(select(SportOrganization).where(SportOrganization.slug == "test-sport-club"))
+        organization = await db.scalar(select(SportOrganization).where(SportOrganization.slug == slug))
         owner = User(phone="+79990001800", full_name="Владелец", hashed_password="unused", role=UserRole.CLIENT)
         db.add(owner)
         await db.flush()
         db.add(SportGymMember(organization_id=organization.id, user_id=owner.id, role="owner"))
         await db.commit()
     client.cookies.set("access_token", create_access_token(owner.id))
-    return "/api/v1/sport/organizations/test-sport-club", organization.id
+    return f"/api/v1/sport/organizations/{slug}", organization.id
+
+
+async def test_sparta_owner_manages_public_documents_and_agreements(client, db_session):
+    base, _ = await _sport_owner_panel(client, db_session, slug="sparta")
+    endpoint = f"{base}/manage/documents"
+    pdf = ("charter.pdf", b"%PDF-1.4\n%%EOF\n", "application/pdf")
+    added = await client.post(endpoint, data={"title": "Устав"}, files={"file": pdf})
+    assert added.status_code == 200, added.text
+    document, = added.json()["documents"]
+    assert (await client.get(f"{base}/catalog")).json()["documents"] == [document]
+
+    item = f"{endpoint}/{document['id']}"
+    renamed = await client.put(item, data={"title": "Новый устав"})
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["documents"] == [{**document, "title": "Новый устав"}]
+    assert (await client.delete(item)).json()["documents"] == []
+
+    adult = added.json()["agreements"]["adult"]
+    changed = await client.put(f"{base}/manage/agreements/adult",
+                               data={"title": adult["title"], "text": "Новый текст согласия"})
+    assert changed.status_code == 200, changed.text
+    agreements = (await client.get(f"{base}/catalog")).json()["agreements"]
+    assert agreements["adult"]["version"] != adult["version"]
+    assert agreements["minor"] == added.json()["agreements"]["minor"]
+
+    client.cookies.clear()
+    assert (await client.post(endpoint, data={"title": "Устав"}, files={"file": pdf})).status_code in (401, 403)
 
 
 async def test_sport_owner_can_delegate_and_revoke_staff_permissions(client, db_session):

@@ -2,7 +2,7 @@ import secrets
 import re
 from calendar import monthrange
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Optional
+from typing import Literal, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
@@ -60,7 +60,8 @@ from app.schemas.sport import (
 )
 from app.schemas.user import try_normalize_phone
 from app.services.consent_service import record_consent
-from app.services.uploads import UploadError, delete_stored, save_image
+from app.services.sparta_documents import training_agreements
+from app.services.uploads import UploadError, delete_stored, save_image, save_sport_document
 from app.web.auth import get_current_user_from_cookie
 from app.web.pages.legal import LEGAL_VERSION
 
@@ -320,6 +321,8 @@ async def get_sport_catalog(
     )).scalars().all()
     schedule = await get_sport_schedule(slug, request, db)
     return {
+        "documents": organization.site_documents or [],
+        "agreements": training_agreements(organization.training_agreements) if slug == "sparta" else None,
         "organization": {
             "slug": organization.slug,
             "name": organization.name,
@@ -523,6 +526,7 @@ async def get_sport_management(
         "role": membership.role if membership else "trainer",
         "permissions": permissions,
         "canAssignPermissions": can_assign_permissions,
+        "agreements": training_agreements(organization.training_agreements) if slug == "sparta" else None,
         "today": datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date().isoformat(),
         "organization": {
             "id": organization.id, "slug": organization.slug, "name": organization.name,
@@ -1381,6 +1385,109 @@ async def _sport_site_owner(request: Request, db: AsyncSession, slug: str) -> Sp
     if not _can_assign_sport_permissions(membership):
         raise HTTPException(403, "Публичный сайт редактирует владелец клуба")
     return organization
+
+
+def _sparta_document_data(organization: SportOrganization) -> dict:
+    return {
+        "documents": organization.site_documents or [],
+        "agreements": training_agreements(organization.training_agreements),
+    }
+
+
+async def _sparta_document_owner(request: Request, db: AsyncSession, slug: str, *, lock: bool = False) -> SportOrganization:
+    if slug != "sparta":
+        raise HTTPException(404, "Раздел документов не найден")
+    organization = await _sport_site_owner(request, db, slug)
+    if lock:
+        organization = (await db.execute(
+            select(SportOrganization).where(SportOrganization.id == organization.id)
+            .with_for_update().execution_options(populate_existing=True)
+        )).scalar_one()
+    return organization
+
+
+@router.get("/organizations/{slug}/manage/documents")
+async def get_sparta_documents(request: Request, slug: str, db: AsyncSession = Depends(get_db)):
+    return _sparta_document_data(await _sparta_document_owner(request, db, slug))
+
+
+@router.put("/organizations/{slug}/manage/agreements/{audience}")
+async def save_sparta_agreement(
+    request: Request, slug: str, audience: Literal["adult", "minor"],
+    title: str = Form(..., min_length=1, max_length=200),
+    text: str = Form(..., min_length=1, max_length=20000),
+    db: AsyncSession = Depends(get_db),
+):
+    org = await _sparta_document_owner(request, db, slug, lock=True)
+    if not title.strip() or not text.strip():
+        raise HTTPException(400, "Введите название и текст согласия")
+    org.training_agreements = {**(org.training_agreements or {}), audience: {"title": title.strip(), "text": text.strip()}}
+    await db.commit()
+    return _sparta_document_data(org)
+
+
+async def _save_sparta_document(org, db, document_id, title, file):
+    rows = list(org.site_documents or [])
+    previous = next((row for row in rows if row["id"] == document_id), None) if document_id else None
+    if document_id and previous is None:
+        raise HTTPException(404, "Документ не найден")
+    if not title.strip() or (previous is None and file is None):
+        raise HTTPException(400, "Укажите название и добавьте файл")
+    if previous is None and len(rows) >= 50:
+        raise HTTPException(400, "В списке уже 50 документов")
+    uploaded = None
+    if file is not None:
+        try:
+            uploaded = await save_sport_document(file)
+        except UploadError as exc:
+            raise HTTPException(400, str(exc)) from exc
+    row = {"id": document_id or secrets.token_hex(12), "title": title.strip(),
+           "url": uploaded or previous["url"]}
+    if previous:
+        rows[rows.index(previous)] = row
+    else:
+        rows.append(row)
+    org.site_documents = rows
+    try:
+        await db.commit()
+    except Exception:
+        if uploaded:
+            delete_stored(uploaded)
+        raise
+    if uploaded and previous:
+        delete_stored(previous["url"])
+    return _sparta_document_data(org)
+
+
+@router.post("/organizations/{slug}/manage/documents")
+async def create_sparta_document(
+    request: Request, slug: str, title: str = Form(..., max_length=200),
+    file: UploadFile = File(...), db: AsyncSession = Depends(get_db),
+):
+    org = await _sparta_document_owner(request, db, slug, lock=True)
+    return await _save_sparta_document(org, db, None, title, file)
+
+
+@router.put("/organizations/{slug}/manage/documents/{document_id}")
+async def update_sparta_document(
+    request: Request, slug: str, document_id: str, title: str = Form(..., max_length=200),
+    file: UploadFile | None = File(None), db: AsyncSession = Depends(get_db),
+):
+    org = await _sparta_document_owner(request, db, slug, lock=True)
+    return await _save_sparta_document(org, db, document_id, title, file)
+
+
+@router.delete("/organizations/{slug}/manage/documents/{document_id}")
+async def delete_sparta_document(request: Request, slug: str, document_id: str, db: AsyncSession = Depends(get_db)):
+    org = await _sparta_document_owner(request, db, slug, lock=True)
+    rows = org.site_documents or []
+    previous = next((row for row in rows if row["id"] == document_id), None)
+    if previous is None:
+        raise HTTPException(404, "Документ не найден")
+    org.site_documents = [row for row in rows if row["id"] != document_id]
+    await db.commit()
+    delete_stored(previous["url"])
+    return _sparta_document_data(org)
 
 
 @router.post("/organizations/{slug}/manage/site-photo")
@@ -2322,8 +2429,15 @@ async def create_sport_booking(
     ).scalar_one_or_none()
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
-    if organization.slug == "sparta" and not data.statement_consent:
-        raise HTTPException(status_code=400, detail="Необходимо согласие с заявлением участника")
+    accepted_agreement = None
+    if organization.slug == "sparta":
+        if not data.statement_consent:
+            raise HTTPException(400, "Подтвердите согласие на посещение тренировок")
+        audience = "minor" if data.participant == "child" else "adult"
+        agreement = training_agreements(organization.training_agreements)[audience]
+        if data.statement_version != agreement["version"]:
+            raise HTTPException(409, "Согласие изменилось. Обновите страницу и прочитайте новый текст.")
+        accepted_agreement = {**agreement, "audience": audience, "accepted_at": datetime.now(timezone.utc).isoformat()}
 
     training = None
     if data.training_id:
@@ -2401,6 +2515,7 @@ async def create_sport_booking(
         child_name=data.child_name,
         child_age=data.child_age,
         contact_email=str(data.email) if data.email else None,
+        training_agreement=accepted_agreement,
         experience=data.experience,
         kind=data.kind,
         requested_date=data.booking_date,
