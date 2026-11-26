@@ -437,10 +437,28 @@ def _now_utc():
     return datetime.now(timezone.utc)
 
 
-def _sport_organizations_tab(organizations, owner_phone_by_id):
+def _sport_organizations_tab(organizations, owner_phone_by_id, sport_owners_by_org=None):
     cards = ""
     for organization in organizations:
-        owner = owner_phone_by_id.get(organization.creator_id, "—") if organization.creator_id else "нет"
+        owners_list = (sport_owners_by_org or {}).get(organization.id, [])
+        if owners_list:
+            owners_chips = []
+            for sm in owners_list:
+                phone_str = owner_phone_by_id.get(sm.user_id, f"ID {sm.user_id}")
+                creator_tag = " (создатель)" if sm.is_creator else " (совладелец)"
+                owners_chips.append(
+                    f'<span class="adm-org-owner-chip">'
+                    f'{_esc(phone_str)}{creator_tag}'
+                    f'<form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/remove-owner" class="adm-org-owner-remove">'
+                    f'<input type="hidden" name="user_id" value="{sm.user_id}">'
+                    f'<button type="submit" class="adm-org-owner-remove-btn" title="Снять владельца">✕</button>'
+                    f'</form></span>'
+                )
+            owners_display = "".join(owners_chips)
+        else:
+            owner = owner_phone_by_id.get(organization.creator_id, "—") if organization.creator_id else "нет"
+            owners_display = _esc(owner)
+
         published = _badge("в каталоге", "success") if organization.is_published else _badge("не опубликован", "neutral")
         status = {
             "pending": ("на модерации", "warning"),
@@ -465,20 +483,31 @@ def _sport_organizations_tab(organizations, owner_phone_by_id):
                 </div>
                 <p class="adm-meta text-muted">
                     #{organization.id} · {_esc(organization.city)} · {_esc(organization.address or "")}
-                    · Владелец: <strong>{_esc(owner)}</strong> · Доступ: <strong>до {sub_expires}</strong>
+                    · Доступ: <strong>до {sub_expires}</strong>
                 </p>
+                <div class="adm-org-owners">
+                    Владельцы: {owners_display}
+                </div>
                 <p class="adm-small">Страница: <a href="/sport/{_esc(organization.slug)}" target="_blank" rel="noopener">/sport/{_esc(organization.slug)}</a></p>
 
                 <div class="adm-org-management">
                     <div class="adm-org-management__column">
-                        <h4 class="adm-group-title adm-org-management__title">Владелец клуба</h4>
-                        <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/owner" class="adm-form">
+                        <h4 class="adm-group-title adm-org-management__title">Владельцы клуба</h4>
+                        <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/add-owner" class="adm-form adm-form--add-owner">
                             <label class="adm-field">
-                                <span class="adm-field-label">Назначить по телефону</span>
+                                <span class="adm-field-label">Добавить совладельца по телефону</span>
                                 <input name="owner_phone" placeholder="+7 999 123-45-67"
                                        class="r-input adm-input" aria-label="Телефон владельца спортивного клуба">
                             </label>
-                            {_btn("Назначить")}
+                            {_btn("+ Добавить")}
+                        </form>
+                        <form method="post" action="/api/v1/admin/sport/organizations/{organization.id}/owner" class="adm-form">
+                            <label class="adm-field">
+                                <span class="adm-field-label">Сменить создателя / очистить</span>
+                                <input name="owner_phone" placeholder="Телефон или пусто"
+                                       class="r-input adm-input" aria-label="Телефон нового главного создателя">
+                            </label>
+                            {_btn("Сменить")}
                         </form>
                     </div>
 
@@ -1011,7 +1040,7 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     master_name_by_id = {m.id: name_by_uid.get(m.user_id, "Мастер") for m in masters}
 
     pending = [s for s in salons if s.moderation_status == SalonModerationStatus.PENDING]
-    from app.models.sport import SportOrganization
+    from app.models.sport import SportGymMember, SportOrganization
     sport_pending = (await db.execute(
         select(SportOrganization)
         .where(SportOrganization.moderation_status == "pending")
@@ -1083,14 +1112,26 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
 
     # Вкладки «Пользователи/Салоны/Отзывы/Аудит/Обзор» — только старшему
     # модератору: базовый модератор видит и решает только заявки и жалобы.
+    sport_organizations = (await db.execute(
+        select(SportOrganization).order_by(SportOrganization.name, SportOrganization.id)
+    )).scalars().all()
+    sport_members = (await db.execute(
+        select(SportGymMember).where(
+            SportGymMember.role == "owner",
+            SportGymMember.is_active.is_(True),
+        )
+    )).scalars().all()
+    sport_owners_by_org = {}
+    for sm in sport_members:
+        sport_owners_by_org.setdefault(sm.organization_id, []).append(sm)
+    sport_organizations_tab = _sport_organizations_tab(sport_organizations, phone_by_id, sport_owners_by_org)
+
+    # Вкладки «Пользователи/Салоны/Отзывы/Аудит/Обзор» — только старшему
+    # модератору: базовый модератор видит и решает только заявки, жалобы и спорт-клубы.
     overview = users_tab = salons_tab = reviews_tab = audit_tab = ""
-    sport_organizations_tab = ""
     if is_senior:
         reviews = (await db.execute(select(Review).order_by(Review.created_at.desc()).limit(200))).scalars().all()
         audits = (await db.execute(select(AdminAudit).order_by(AdminAudit.created_at.desc()).limit(100))).scalars().all()
-        sport_organizations = (await db.execute(
-            select(SportOrganization).order_by(SportOrganization.name, SportOrganization.id)
-        )).scalars().all()
         # «Живой» салон и «принимающая» карточка — по тем же правилам, что
         # каталог (решение 0016, п. 4): иначе админка показывала «активный»
         # салон у человека, удалившего аккаунт.
@@ -1109,14 +1150,13 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         overview = await _overview(db, users, salons_active)
         users_tab = _users_tab(users, user.id, master_by_uid, self_deleted)
         salons_tab = _salons_tab(salons, phone_by_id, live_salon_ids)
-        sport_organizations_tab = _sport_organizations_tab(sport_organizations, phone_by_id)
         reviews_tab = _reviews_tab(reviews, phone_by_id, master_name_by_id, salon_name_by_id)
         audit_tab = _audit_tab(audits, phone_by_id)
 
     allowed_tabs = (
         {"overview", "users", "applications", "models", "reports", "salons", "sport",
          "reviews", "audit", "support", "contest"}
-        if is_senior else {"applications", "models", "reports", "support", "contest"}
+        if is_senior else {"applications", "models", "reports", "sport", "support", "contest"}
     )
     default_tab = "overview" if is_senior else "applications"
     _tab = q.get("tab", default_tab)
@@ -1136,9 +1176,9 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
     tab_nav += f'<button class="tab-btn" data-tab="reports" onclick="switchTab(\'reports\')">{ICON_FLAG} Жалобы{reports_badge}</button>'
     tab_nav += f'<button class="tab-btn" data-tab="support" onclick="switchTab(\'support\')">{ICON_MESSAGE_CIRCLE} Обращения{support_badge}</button>'
     tab_nav += f'<button class="tab-btn" data-tab="contest" onclick="switchTab(\'contest\')">{ICON_FILE_TEXT} Конкурс{contest_badge}</button>'
+    tab_nav += f'<button class="tab-btn" data-tab="sport" onclick="switchTab(\'sport\')">{ICON_BUILDING2} Спорт-клубы</button>'
     if is_senior:
         tab_nav += f'<button class="tab-btn" data-tab="salons" onclick="switchTab(\'salons\')">{ICON_BUILDING2} Салоны</button>'
-        tab_nav += f'<button class="tab-btn" data-tab="sport" onclick="switchTab(\'sport\')">{ICON_BUILDING2} Спорт-клубы</button>'
         tab_nav += f'<button class="tab-btn" data-tab="reviews" onclick="switchTab(\'reviews\')">{ICON_MESSAGE_CIRCLE} Отзывы</button>'
         tab_nav += f'<button class="tab-btn" data-tab="audit" onclick="switchTab(\'audit\')">{ICON_FILE_TEXT} Аудит</button>'
 

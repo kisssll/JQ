@@ -167,6 +167,15 @@ async def _gym_access(request: Request, db: AsyncSession, organization_id: int):
             )
         )
     ).scalar_one_or_none()
+    if membership is None and coach is None and (user.has_role(UserRole.ADMIN) or getattr(user, "is_admin", False)):
+        membership = SportGymMember(
+            organization_id=organization_id,
+            user_id=user.id,
+            role="owner",
+            permissions=dict(SPORT_OWNER_PERMISSIONS),
+            is_creator=True,
+            is_active=True,
+        )
     return user, membership, coach
 
 
@@ -1005,8 +1014,8 @@ async def add_sport_staff(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     user, membership, _ = await _gym_access(request, db, organization.id)
-    if role not in {"admin", "manager", "trainer"}:
-        raise HTTPException(status_code=400, detail="Допустимые роли: manager, admin или trainer")
+    if role not in {"admin", "manager", "trainer", "owner"}:
+        raise HTTPException(status_code=400, detail="Допустимые роли: owner, manager, admin или trainer")
     if role == "trainer" and not _can_assign_sport_permissions(membership):
         raise HTTPException(403, "Карточки тренеров на сайте редактирует владелец клуба")
     if not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
@@ -1038,7 +1047,7 @@ async def add_sport_staff(
     elif staff_user.is_guest and not staff_user.full_name:
         staff_user.full_name = name
 
-    if role in ("admin", "manager"):
+    if role in ("admin", "manager", "owner"):
         existing = await db.scalar(
             select(SportGymMember).where(
                 SportGymMember.organization_id == organization.id,
@@ -1047,10 +1056,15 @@ async def add_sport_staff(
         )
         if existing is not None and existing.is_active:
             raise HTTPException(status_code=409, detail="Сотрудник уже состоит в команде клуба")
-        if existing is not None and (existing.is_creator or existing.role == "owner"):
-            raise HTTPException(403, "Нельзя изменить роль владельца")
-        perms = SPORT_MANAGER_PERMISSIONS if role == "manager" else SPORT_ADMIN_PERMISSIONS
-        if membership.role != "owner" and not membership.is_creator:
+        if existing is not None and existing.is_creator and role != "owner":
+            raise HTTPException(403, "Нельзя изменить роль создателя")
+        if role == "owner":
+            perms = dict(SPORT_OWNER_PERMISSIONS)
+        elif role == "manager":
+            perms = dict(SPORT_MANAGER_PERMISSIONS)
+        else:
+            perms = dict(SPORT_ADMIN_PERMISSIONS)
+        if membership and membership.role != "owner" and not membership.is_creator:
             actor_permissions = _sport_permissions(membership)
             perms = {key: allowed and actor_permissions[key] for key, allowed in perms.items()}
         if existing is not None:
@@ -1065,8 +1079,11 @@ async def add_sport_staff(
                 role=role,
                 permissions=perms,
                 is_active=True,
+                is_creator=False,
             )
             db.add(staff)
+        if role == "owner" and staff_user.role == UserRole.CLIENT:
+            staff_user.role = UserRole.BUSINESS
     else:
         existing = await db.scalar(
             select(SportCoach).where(
@@ -1206,11 +1223,11 @@ async def remove_sport_staff(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if role not in {"admin", "manager", "trainer"} or not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
+    if role not in {"admin", "manager", "trainer", "owner"} or not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
         raise HTTPException(403, "Нет прав для удаления сотрудника с этой ролью")
     if role == "trainer" and not _can_assign_sport_permissions(membership):
         raise HTTPException(403, "Карточки тренеров на сайте редактирует владелец клуба")
-    if role in ("admin", "manager"):
+    if role in ("admin", "manager", "owner"):
         staff = (await db.execute(
             select(SportGymMember).where(
                 SportGymMember.id == staff_id,
@@ -2400,6 +2417,8 @@ async def create_sport_booking(
     ).scalar_one_or_none()
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
+    if organization.slug == "sparta" and not data.statement_consent:
+        raise HTTPException(status_code=400, detail="Необходимо согласие с заявлением участника")
 
     training = None
     if data.training_id:

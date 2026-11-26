@@ -190,6 +190,7 @@ const PAGES: Page[] = ["/", "/gyms", "/coaches", "/disciplines", "/schedule", "/
 const APP_ROOT = document.getElementById("root");
 const GYM_SLUG = APP_ROOT?.dataset.gymSlug ?? "sparta";
 const IS_SPARTA = GYM_SLUG === "sparta";
+const CLUB_NAV: [string, Page][] = IS_SPARTA ? [...NAV, ["Документы", "/documents"]] : NAV;
 const SPARTA_HOME_PHOTOS = "/photos/home";
 const GYM_NAME = IS_SPARTA ? "СПАРТА" : APP_ROOT?.dataset.gymName ?? "Спортивный клуб";
 const GYM_CITY = APP_ROOT?.dataset.gymCity ?? "";
@@ -445,7 +446,7 @@ export default function App() {
           </nav>}
         </div>
         <nav id="site-navigation" aria-label="Основная навигация" className={menu ? "hdr-nav open" : "hdr-nav"}>
-          {NAV.map(([t, p]) => (
+          {CLUB_NAV.map(([t, p]) => (
             <button key={p} className={page === p ? "on" : ""} aria-current={page === p ? "page" : undefined} onClick={() => go(p)}>
               {t}
             </button>
@@ -473,7 +474,7 @@ export default function App() {
       {page === "/disciplines" && <Disciplines book={book} disciplines={disciplines} />}
       {page === "/schedule" && <Schedule book={book} gyms={gyms} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
       {page === "/gallery" && <Gallery gallery={publicGallery} organization={publicOrganization.name} />}
-      {page === "/documents" && <Documents />}
+      {page === "/documents" && IS_SPARTA && <SpartaDocuments />}
       {page === "/prices" && <Prices choose={choosePlan} plans={plans} />}
       {page === "/account" && <Account bookings={bookings} book={book} loginRequired={accountLoginRequired} error={scheduleError} />}
 
@@ -484,7 +485,7 @@ export default function App() {
             {publicOrganization.name}
           </div>
           <button className="btn btn-red" onClick={() => book()}>
-            Записаться на пробное <Arrow />
+            Запись на тренировку <Arrow />
           </button>
         </div>
         <div className="ftr-cols">
@@ -496,7 +497,7 @@ export default function App() {
           </div>
           <div>
             <b>Разделы</b>
-            {NAV.map(([t, p]) => (
+            {CLUB_NAV.map(([t, p]) => (
               <button key={p} onClick={() => go(p)}>
                 {t}
               </button>
@@ -546,6 +547,7 @@ export default function App() {
                 gym: b.gym,
                 discipline: b.discipline,
                 pd_consent: b.pdConsent,
+                statement_consent: IS_SPARTA ? b.statementConsent : true,
                 consent_version: consentVersion,
               }),
             });
@@ -646,7 +648,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
         </div>
       </section>
 
-      <section className="why-sparta" aria-labelledby="why-gym-title">
+      <section className={`why-sparta${IS_SPARTA ? " why-sparta-brand" : ""}`} aria-labelledby="why-gym-title">
         {IS_SPARTA && <h2 className="why-title" id="why-gym-title">Почему Спарта?</h2>}
         {!IS_SPARTA && <div className="why-gallery" aria-hidden="true">
           {reasonPhotos.map((photo) => <img key={photo} src={photo} alt="" loading="lazy" decoding="async" />)}
@@ -660,7 +662,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
                 <div className="why-reason-copy">
                   <b>{n}</b>
                   <h3>{h}</h3>
-                  {!IS_SPARTA && <p>{p}</p>}
+                  <p>{p}</p>
                 </div>
               </article>
             ))}
@@ -694,10 +696,10 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
       <section className="club-booking">
         <div>
           {IS_SPARTA && <p>Заинтересовал клуб?</p>}
-          <h2>{IS_SPARTA ? <>Запишись на <br />тренировку</> : "Первая тренировка"}</h2>
+          <h2>{IS_SPARTA ? "Запись на тренировку" : "Первая тренировка"}</h2>
         </div>
         <button className="btn btn-red" onClick={() => book()}>
-          {IS_SPARTA ? "Пробная тренировка" : "Записаться"} <Arrow />
+          Записаться <Arrow />
         </button>
       </section>
     </main>
@@ -1061,7 +1063,29 @@ function Gallery({ gallery, organization }: { gallery: GalleryPhoto[]; organizat
   const [selected, setSelected] = useState<number | null>(null);
   const movePhoto = (step: number) => setSelected((current) => ((current ?? 0) + step + gallery.length) % gallery.length);
   const photo = selected === null ? null : gallery[selected];
-  return <main className={IS_SPARTA ? "sparta-gallery" : undefined}><PageHead id="story" title="Галерея" text={`Фотографии ${organization}.`} /><section className="gallery-page"><div className="gallery-heading"><h2>Тренировки и жизнь клуба.</h2></div><div className="gallery-grid">{gallery.map((item, i) => <button className="gallery-open" key={item.src} onClick={() => setSelected(i)} aria-label={`Открыть фото: ${item.alt}`}><Photo id={`club_gallery_${i}`} srcOverride={item.src} label={item.alt} size="1600 × 1200" className="gallery-tile"><span>{item.alt}</span><span className="gallery-expand" aria-hidden="true">↗</span></Photo></button>)}</div>{gallery.length === 0 && <p>Фотографии пока не добавлены.</p>}</section>{photo && <Modal centered className="gym-modal" label="Фотографии клуба" onClose={() => setSelected(null)}><h2 className="m-title">{photo.alt}</h2><PhotoGallery photos={gallery} caption={organization} selected={selected!} setSelected={setSelected} movePhoto={movePhoto} /></Modal>}</main>;
+  const albumNames = ["Команда клуба", "Детские тренировки", "Тренировки в зале", "Соревнования", "Грэпплинг", "Самооборона"];
+  const albumTitle = (item: GalleryPhoto, index: number) => item.alt.trim() || albumNames[index] || `Жизнь клуба · ${index + 1}`;
+  return <main className={IS_SPARTA ? "sparta-gallery" : undefined}>
+    {!IS_SPARTA && <PageHead id="story" title="Галерея" text={`Фотографии ${organization}.`} />}
+    <section className="gallery-page">
+      <div className="gallery-heading">
+        {!IS_SPARTA && <p className="tag">Клуб в кадре</p>}
+        <h1>Тренировки и жизнь клуба</h1>
+        {!IS_SPARTA && <p>Нажмите на фото, чтобы рассмотреть его ближе.</p>}
+      </div>
+      <div className="gallery-grid">{gallery.map((item, i) => <button className="gallery-open" key={item.src} onClick={() => setSelected(i)} aria-label={`Открыть альбом: ${albumTitle(item, i)}`}>
+        <Photo id={`club_gallery_${i}`} srcOverride={item.src} label={albumTitle(item, i)} size="1600 × 1200" className="gallery-tile">
+          <span className="gallery-album-caption"><small>Фотоальбом {String(i + 1).padStart(2, "0")}</small><strong>{albumTitle(item, i)}</strong></span>
+          <span className="gallery-expand" aria-hidden="true">↗</span>
+        </Photo>
+      </button>)}</div>
+      {gallery.length === 0 && <p>Фотографии пока не добавлены.</p>}
+    </section>
+    {photo && <Modal centered className="gym-modal" label="Фотографии клуба" onClose={() => setSelected(null)}>
+      <h2 className="m-title">{albumTitle(photo, selected!)}</h2>
+      <PhotoGallery photos={gallery} caption={organization} selected={selected!} setSelected={setSelected} movePhoto={movePhoto} />
+    </Modal>}
+  </main>;
 }
 
 const SPARTA_DOCUMENTS = [
@@ -1076,7 +1100,7 @@ const SPARTA_DOCUMENTS = [
   { title: "Свидетельство о государственной регистрации НКО", file: "svidetelstvo_nko.jpg", group: "Регистрация федерации" },
 ];
 
-function Documents() {
+function SpartaDocuments() {
   const root = "/static/sport/sparta/documents/";
   return <main className="sparta-documents">
     <h1>Документы</h1>
@@ -1115,6 +1139,35 @@ function Account({ bookings, book, loginRequired, error }: { bookings: Booking[]
 }
 
 /* ---------------- modals ---------------- */
+
+const PARTICIPATION_AGREEMENTS = {
+  adult: {
+    title: "Согласие с заявлением для совершеннолетних участников",
+    documentTitle: "РАСПИСКА (для совершеннолетних участников)",
+    paragraphs: [
+      "Настоящей распиской уведомляю, что с Положением, Правилами и условиями проведения данного спортивного мероприятия ознакомлен, согласен и обязуюсь их выполнять. Считаю, что я физически и технически подготовлен для выступления в данных соревнованиях.",
+      "При возникновении несчастного случая в ходе соревнований (травма, увечье), при получении различных травм и даже летального исхода ни я, ни мои родственники, а также мои доверенные лица претензий к организаторам, судьям и другим лицам, имеющих отношения к проведению соревнований, иметь не будут.",
+      "Я даю свое согласие на оказание мне в случае необходимости медицинской помощи.",
+      "Я согласен с тем, что выступление и интервью со мной может быть записано и показано в средствах массовой информации, а также записано и показано в целях рекламы без ограничений по времени и формату; я отказываюсь от компенсации в отношении этих материалов.",
+      "С правилами электронного оформления данной расписки на сайте федерации ознакомлен и согласен.",
+    ],
+  },
+  minor: {
+    title: "Согласие с заявлением для несовершеннолетних участников",
+    documentTitle: "ЗАЯВЛЕНИЕ (для несовершеннолетних участников)",
+    paragraphs: [
+      "Данным заявлением я уведомляю, что разрешаю своему несовершеннолетнему ребенку принимать участие в данном спортивном мероприятии. Считаю, что он физически подготовлен для выступления в данных соревнованиях. С правилами и условиями проведения данного спортивного мероприятия ознакомлен.",
+      "Я принимаю всю ответственность за любую травму, полученную мной и/или моим ребенком (опекаемым) по ходу Соревнований, и не имею права требовать какой-либо компенсации за нанесение ущерба от Организаторов Соревнований.",
+      "В случае если во время соревнований с ребенком произойдет несчастный случай, прошу сообщить об этом мне по телефону, указанному мной при регистрации.",
+      "Я обязуюсь, что я и мой ребенок (опекаемый) будем следовать всем требованиям организаторов соревнований, связанным с вопросами безопасности.",
+      "Я и мой ребенок (опекаемый) самостоятельно несем ответственность за личное имущество, оставленное на месте проведения соревнований, и в случае его утери я отказываюсь от права требовать компенсации.",
+      "Я даю свое согласие на оказание в случае необходимости медицинской помощи моему ребенку (опекаемому).",
+      "С Положением о проведении соревнований ознакомлен.",
+      "Я согласен с тем, что выступление моего ребенка (опекаемого) и интервью с ним и/или со мной может быть записано и показано в средствах массовой информации, а также записано и показано в целях рекламы без ограничений по времени и формату; я отказываюсь от компенсации в отношении этих материалов.",
+      "С правилами электронного оформления данного заявления на сайте федерации ознакомлен и согласен.",
+    ],
+  },
+} as const;
 
 function Modal({ onClose, children, centered = false, className = "", label = "Информация клуба" }: { onClose: () => void; children: React.ReactNode; centered?: boolean; className?: string; label?: string }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -1164,7 +1217,7 @@ function BookingModal({
   gyms: Gym[];
   exceptions: Record<string, boolean>;
   onClose: () => void;
-  onSubmit: (b: Omit<Booking, "id" | "status"> & { pdConsent: boolean }) => void | Promise<void>;
+  onSubmit: (b: Omit<Booking, "id" | "status"> & { pdConsent: boolean; statementConsent: boolean }) => void | Promise<void>;
   centered?: boolean;
 }) {
   const now = new Date();
@@ -1193,6 +1246,9 @@ function BookingModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [pdConsent, setPdConsent] = useState(false);
+  const [statementConsent, setStatementConsent] = useState(false);
+  const [agreementOpen, setAgreementOpen] = useState(false);
+  const agreement = f.participant === "child" ? PARTICIPATION_AGREEMENTS.minor : PARTICIPATION_AGREEMENTS.adult;
   const available = options.filter((slot) => slot.gym === f.gym && slot.date === f.date)
     .sort((a, b) => a.time.localeCompare(b.time));
   const resetSelection = (gym: string, date: string) => setF((current) => ({
@@ -1215,20 +1271,30 @@ function BookingModal({
       </Modal>
     );
   return (
-    <Modal centered={centered} label="Запись на тренировку" onClose={onClose}>
-      <p className="tag booking-eyebrow">Первый шаг на татами</p>
+    <Modal centered={centered} className={IS_SPARTA ? "sparta-booking-modal" : ""} label={IS_SPARTA && agreementOpen ? agreement.title : "Запись на тренировку"} onClose={onClose}>
+      {IS_SPARTA && agreementOpen ? <>
+        <p className="tag booking-eyebrow">Условия участия</p>
+        <h2 className="m-title">{agreement.title}</h2>
+        <h3 className="booking-agreement-title">{agreement.documentTitle}</h3>
+        <div className="booking-agreement-text">
+          {agreement.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+        </div>
+        <button type="button" className="btn btn-black" onClick={() => setAgreementOpen(false)}>Вернуться к заявке</button>
+      </> : <>
+      {!IS_SPARTA && <p className="tag booking-eyebrow">Первый шаг на татами</p>}
       <h2 className="m-title">Запись на тренировку</h2>
-
+      {!IS_SPARTA && <p className="booking-intro">Выберите занятие и оставьте контакт для подтверждения. Можно записать себя или ребёнка.</p>}
       <form
         className="form sport-booking-form"
         onSubmit={async (e) => {
           e.preventDefault();
+          if (!f.sessionId) return;
           if (f.participant === "child" && (!f.childName.trim() || !f.childAge.trim())) return;
-          if (!f.name.trim()) return;
+          if (!f.name.trim() || (IS_SPARTA && !statementConsent)) return;
           setSaving(true);
           setError("");
           try {
-            await onSubmit({ ...f, name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(), pdConsent });
+            await onSubmit({ ...f, name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(), pdConsent, statementConsent });
             setDone(true);
           } catch (submitError) {
             setError(submitError instanceof Error ? submitError.message : "Не удалось отправить заявку. Попробуйте ещё раз.");
@@ -1265,37 +1331,45 @@ function BookingModal({
           <label>Почта · необязательно<input type="email" autoComplete="email" placeholder="name@example.ru" value={f.email} onChange={set("email")} /></label>
           <label>Опыт занятий · необязательно<select value={f.experience} onChange={set("experience")}><option value="">Не указывать</option><option>Нет, начинаю с нуля</option><option>Да, раньше занимался(лась)</option><option>Да, занимаюсь сейчас</option></select></label>
         </div></details>
-        <label className="full">Зал
-          <select required value={f.gym} onChange={(e) => resetSelection(e.target.value, "")}>
-            <option value="">Выберите зал</option>
-            {gyms.map((gym) => <option key={gym.id} value={gym.address}>{gym.address}</option>)}
-          </select>
-        </label>
+        <fieldset className="booking-choice full"><legend>Зал</legend>
+          <div className="booking-chips">{gyms.map((gym) => <button type="button" key={gym.id}
+            className="booking-chip" aria-pressed={f.gym === gym.address}
+            onClick={() => resetSelection(gym.address, "")}>{gym.name || gym.address}<small>{gym.address}</small></button>)}</div>
+        </fieldset>
         <label className="full">Дата тренировки
           <input type="date" min={localDate(now)} max={localDate(lastDate)} value={f.date}
             disabled={!f.gym} onChange={(e) => resetSelection(f.gym, e.target.value)} />
         </label>
-        <label className="full">Время и тренер
-          <select disabled={!f.gym || !f.date} value={f.sessionId} onChange={(e) => {
-            const selected = available.find((slot) => slot.id === e.target.value);
-            if (selected) setF({ ...f, sessionId: selected.id, date: selected.date, time: selected.time, coach: selected.coach, gym: selected.gym, discipline: selected.discipline });
-            else resetSelection(f.gym, f.date);
-          }}>
-            <option value="">{f.date ? "Подобрать время с администратором" : "Сначала выберите зал и дату"}</option>
-            {available.map((slot) => <option key={slot.id} value={slot.id}>{slot.time}–{slot.end} · {shortCoach(slot.coach)} · {slot.discipline}</option>)}
-          </select>
-        </label>
-        <div className="booking-selected"><b>{f.sessionId ? `${fmtDate(f.date)} · ${f.time}` : "Подберём удобное время"}</b><span>{f.sessionId ? shortCoach(f.coach) : "Администратор поможет выбрать тренера"}</span><span>{f.gym}</span>{f.discipline !== "Направление уточняется" && <span>{f.discipline}</span>}</div>
+        <fieldset className="booking-choice full"><legend>Время и тренер</legend>
+          {!f.gym || !f.date ? <p className="booking-choice-note">Сначала выберите зал и дату</p>
+            : available.length === 0 ? <p className="booking-choice-note">На эту дату свободных занятий нет. Выберите другой день.</p>
+              : <div className="booking-chips">{available.map((slot) => <button type="button" key={slot.id}
+                className="booking-chip booking-chip-session" aria-pressed={f.sessionId === slot.id}
+                onClick={() => setF({ ...f, sessionId: slot.id, date: slot.date, time: slot.time, coach: slot.coach, gym: slot.gym, discipline: slot.discipline })}>
+                <strong>{slot.time}–{slot.end}</strong><span>{shortCoach(slot.coach)}</span><small>{slot.discipline}</small>
+              </button>)}</div>}
+        </fieldset>
+        {f.sessionId && <div className="booking-selected"><b>{fmtDate(f.date)} · {f.time}</b><span>{shortCoach(f.coach)}</span><span>{f.gym}</span><span>{f.discipline}</span></div>}
+        {IS_SPARTA && <div className="booking-legal-agreement full">
+          <label className="booking-consent">
+            <input type="checkbox" required checked={statementConsent} onChange={(event) => setStatementConsent(event.target.checked)} />
+            <span>Подтверждаю, что ознакомлен(а) и согласен(на) с заявлением участника.</span>
+          </label>
+          <button type="button" className="booking-agreement-open" onClick={() => setAgreementOpen(true)}>
+            Ознакомиться: {agreement.documentTitle}
+          </button>
+        </div>}
         <label className="booking-consent">
           <input type="checkbox" required checked={pdConsent} onChange={(event) => setPdConsent(event.target.checked)} />
-          <span>Я даю согласие на обработку персональных данных на условиях <a href="/sport/legal/consent" target="_blank" rel="noopener noreferrer">Согласия</a>.</span>
+          <span>Я даю согласие на обработку персональных данных на условиях <a href={IS_SPARTA ? "/static/sport/sparta/documents/soglasie_na_obrabotku_dannykh.doc" : "/sport/legal/consent"} target="_blank" rel="noopener noreferrer">Согласия</a>.</span>
         </label>
         {error && <p className="booking-error" role="alert">{error}</p>}
-        <button className="btn btn-red wide" disabled={!f.time || saving}>
-          {saving ? "Отправляем…" : "Отправить заявку"} <Arrow />
+        <button className="btn btn-red wide" disabled={!f.sessionId || saving}>
+          {saving ? "Отправляем…" : IS_SPARTA ? "Записаться" : "Отправить заявку"} <Arrow />
         </button>
-
+        <p className="m-note">{IS_SPARTA ? "Заявка сохранится в базе клуба. Запись подтвердит администратор." : "Заявка сохранится в базе Руми. Запись подтвердит администратор клуба."}</p>
       </form>
+      </>}
     </Modal>
   );
 }

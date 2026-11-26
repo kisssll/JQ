@@ -363,3 +363,11 @@
 .adm-assign-roles { display: flex; flex-wrap: wrap; gap: var(--space-12); align-items: center; min-height: 2.25rem; }
 .adm-assign-role-item { display: inline-flex; align-items: center; gap: var(--space-4); font-size: var(--text-14); cursor: pointer; }
 
+/* Совладельцы спортивной организации */
+.adm-org-owners { margin: var(--space-4) 0 var(--space-8); font-size: var(--text-14); }
+.adm-org-owner-chip { display: inline-flex; align-items: center; gap: var(--space-4); padding: 2px var(--space-8); background: var(--color-surface-alt); border-radius: var(--radius-pill); font-size: var(--text-12); margin: 2px; }
+.adm-org-owner-remove { display: inline; margin-left: var(--space-4); }
+.adm-org-owner-remove-btn { background: none; border: none; cursor: pointer; color: var(--color-danger); font-weight: 700; padding: 0 2px; }
+.adm-form--add-owner { margin-bottom: var(--space-8); }
+
+

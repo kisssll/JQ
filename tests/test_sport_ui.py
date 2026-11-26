@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 from starlette.requests import Request
 
+from app.models.models import UserRole
 from app.models.sport import SportOrganization
 from app.web.components.footer import render_footer
 from app.web.pages.login import render_login_page
@@ -87,6 +88,7 @@ def test_sport_auth_routes_precede_the_organization_slug_route():
     assert paths.index("/sport/login") < paths.index("/sport/{slug}")
     assert paths.index("/sport/register") < paths.index("/sport/{slug}")
     assert paths.index("/sport/logout") < paths.index("/sport/{slug}")
+    assert paths.index("/sport/admin") < paths.index("/sport/{slug}")
     assert paths.index("/sport/forgot-password") < paths.index("/sport/{slug}")
     assert paths.index("/sport/reset-password") < paths.index("/sport/{slug}")
     assert paths.index("/sport/legal") < paths.index("/sport/{slug}")
@@ -120,6 +122,22 @@ def test_sport_account_menu_stays_inside_sport():
     assert 'href="/sport/logout"' in menu
     assert 'href="/logout"' not in menu
     assert 'href="/profile"' not in menu
+    assert 'href="/sport/admin"' not in menu
+
+
+def test_sport_account_menu_shows_admin_link_for_admin():
+    admin_user = SimpleNamespace(
+        full_name="Администратор",
+        phone="+79991112233",
+        has_sport_access=False,
+        role=UserRole.ADMIN,
+        has_role=lambda r: r == "admin",
+    )
+    menu = render_account_tag(admin_user, "sport")
+
+    assert 'href="/sport/admin"' in menu
+    assert 'href="/sport/profile"' in menu
+    assert 'href="/sport/logout"' in menu
 
 
 def test_sport_footer_and_documents_use_sport_routes():

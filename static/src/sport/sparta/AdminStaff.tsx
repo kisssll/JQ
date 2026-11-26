@@ -44,7 +44,7 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
   const orderedTeam = [...team.filter((member) => member.role === "trainer"), ...team.filter((member) => member.role !== "trainer")];
   const canEdit = (role: StaffMember["role"]) => permissions[ROLE_PERMISSIONS[role]]
     && (role !== "trainer" || canAssignPermissions);
-  const assignableRoles = (["trainer", "admin", "manager"] as const).filter(canEdit);
+  const assignableRoles = (["trainer", "admin", "manager", "owner"] as const).filter(canEdit);
   const busy = editor !== null || accessEditor !== null || removing;
 
   async function remove(member: StaffMember) {
@@ -87,7 +87,7 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
           {canEdit(member.role) && <button className="admin-secondary" disabled={busy} onClick={() => setEditor(member)}>Изменить</button>}
           {canAssignPermissions && (member.role === "admin" || member.role === "manager") && !member.isCreator &&
             <button className="admin-secondary" disabled={busy} onClick={() => setAccessEditor(member)}>Права доступа</button>}
-          {member.role !== "owner" && canEdit(member.role) && <button className="admin-text-button" disabled={busy} onClick={() => void remove(member)}>Убрать из команды</button>}
+          {!member.isCreator && canEdit(member.role) && <button className="admin-text-button" disabled={busy} onClick={() => void remove(member)}>Убрать из команды</button>}
         </div>
       </article>)}
     </div>

@@ -26,11 +26,11 @@ from app.web.pages.legal import LEGAL_VERSION
 from tests.conftest import register_user
 
 
-async def _seed_organization(db_session, booking_date):
+async def _seed_organization(db_session, booking_date, slug="test-sport-club"):
     weekday = (booking_date.weekday() + 1) % 7
     async with db_session() as db:
         organization = SportOrganization(
-            slug="test-sport-club",
+            slug=slug,
             name="Тестовый клуб",
             city="Томск",
             description="",
@@ -89,6 +89,7 @@ def _booking_payload(default_booking_date, **overrides):
         "gym": "Тестовый зал",
         "discipline": "Дзю-дзютцу",
         "pd_consent": True,
+        "statement_consent": True,
         "consent_version": LEGAL_VERSION,
     }
     payload.update(overrides)
@@ -142,7 +143,23 @@ async def test_sport_booking_rejects_stale_consent_without_creating_user(client,
         json=_booking_payload(booking_date, consent_version="outdated"),
     )
     assert response.status_code == 400
+    async with db_session() as db:
+        assert (
+            await db.execute(select(User).where(User.phone == "+79990001122"))
+        ).scalar_one_or_none() is None
 
+
+async def test_sport_booking_requires_participation_statement_consent(client, db_session):
+    booking_date = _booking_date()
+    await _seed_organization(db_session, booking_date, slug="sparta")
+
+    response = await client.post(
+        "/api/v1/sport/organizations/sparta/bookings",
+        json=_booking_payload(booking_date, statement_consent=False),
+    )
+
+    assert response.status_code == 400
+    assert "Необходимо согласие с заявлением участника" in response.text
     async with db_session() as db:
         assert (
             await db.execute(select(User).where(User.phone == "+79990001122"))
@@ -531,7 +548,8 @@ async def _sport_owner_panel(client, db_session):
         owner = User(phone="+79990001800", full_name="Владелец", hashed_password="unused", role=UserRole.CLIENT)
         db.add(owner)
         await db.flush()
-        db.add(SportGymMember(organization_id=organization.id, user_id=owner.id, role="owner"))
+        organization.creator_id = owner.id
+        db.add(SportGymMember(organization_id=organization.id, user_id=owner.id, role="owner", is_creator=True))
         await db.commit()
     client.cookies.set("access_token", create_access_token(owner.id))
     return "/api/v1/sport/organizations/test-sport-club", organization.id
@@ -732,3 +750,81 @@ async def test_sport_staff_edits_unlinked_coach_and_uploads_photo(client, db_ses
     assert updated.json()["member"]["photo"] is None
     assert updated.json()["credentials"] is None
     assert not photo_file.exists()
+
+
+async def test_sport_multiple_owners_support_and_moderator_assignment(client, db_session):
+    base, organization_id = await _sport_owner_panel(client, db_session)
+    owner_token = client.cookies.get("access_token")
+
+    # 1. Owner can add another owner (co-owner) via staff endpoint
+    add_owner_resp = await client.post(f"{base}/staff", data={
+        "phone": "+79990001811", "name": "Второй владелец", "role": "owner",
+    })
+    assert add_owner_resp.status_code == 200, add_owner_resp.text
+    co_owner_data = add_owner_resp.json()["member"]
+    assert co_owner_data["role"] == "owner"
+    assert co_owner_data["isCreator"] is False
+    co_owner_id = co_owner_data["id"]
+
+    # 2. Moderator can add another owner via admin add-owner endpoint
+    async with db_session() as db:
+        admin = User(
+            phone="+79990001899",
+            full_name="Модератор платформы",
+            hashed_password="unused",
+            role=UserRole.ADMIN,
+        )
+        db.add(admin)
+        await db.commit()
+    client.cookies.set("access_token", create_access_token(admin.id))
+
+    mod_add_resp = await client.post(
+        f"/api/v1/admin/sport/organizations/{organization_id}/add-owner",
+        data={"owner_phone": "+79990001822", "owner_name": "Третий владелец"},
+    )
+    assert mod_add_resp.status_code == 302, mod_add_resp.text
+    assert "tab=sport" in mod_add_resp.headers["location"]
+
+    async with db_session() as db:
+        third_owner = await db.scalar(select(User).where(User.phone == "+79990001822"))
+        assert third_owner is not None
+        assert third_owner.role == UserRole.BUSINESS
+        third_member = await db.scalar(
+            select(SportGymMember).where(
+                SportGymMember.organization_id == organization_id,
+                SportGymMember.user_id == third_owner.id,
+                SportGymMember.is_active.is_(True),
+            )
+        )
+        assert third_member is not None
+        assert third_member.role == "owner"
+        assert third_member.is_creator is False
+
+    # 3. Moderator can remove an owner
+    mod_remove_resp = await client.post(
+        f"/api/v1/admin/sport/organizations/{organization_id}/remove-owner",
+        data={"user_id": third_owner.id},
+    )
+    assert mod_remove_resp.status_code == 302
+    async with db_session() as db:
+        third_member_after = await db.scalar(
+            select(SportGymMember).where(
+                SportGymMember.organization_id == organization_id,
+                SportGymMember.user_id == third_owner.id,
+            )
+        )
+        assert third_member_after.is_active is False
+
+    # 4. Primary owner can remove non-creator co-owner via staff endpoint
+    client.cookies.set("access_token", owner_token)
+    delete_resp = await client.delete(f"{base}/staff/owner/{co_owner_id}")
+    assert delete_resp.status_code == 200, delete_resp.text
+    async with db_session() as db:
+        co_owner_member = await db.get(SportGymMember, co_owner_id)
+        assert co_owner_member.is_active is False
+
+    # 5. /sport/admin redirect test
+    sport_admin_resp = await client.get("/sport/admin", follow_redirects=False)
+    assert sport_admin_resp.status_code == 302
+    assert sport_admin_resp.headers["location"] == "/admin"
+

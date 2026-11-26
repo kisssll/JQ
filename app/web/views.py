@@ -228,6 +228,13 @@ async def sport_favorites_page(request: Request, db: AsyncSession = Depends(get_
     return HTMLResponse(content=await render_favorites_page(db, user, notice=notice, sport=True))
 
 
+@router.get("/sport/admin", include_in_schema=False)
+@router.get("/sport/admin/", include_in_schema=False)
+async def sport_admin_redirect():
+    """Единая админка: перенаправляет в общую панель модератора."""
+    return RedirectResponse(url="/admin", status_code=302)
+
+
 @router.get("/sport/business/dashboard", response_class=HTMLResponse, include_in_schema=False)
 async def sport_business_dashboard_page(
     request: Request,

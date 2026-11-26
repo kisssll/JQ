@@ -55,6 +55,9 @@ def render_account_tag(user=None, current_page: str = "home") -> str:
         name = (user.full_name or "").strip() or getattr(user, "phone", "") or "Пользователь"
         label = e(name.split()[0])
         items = f'<div class="acct-menu__who">{e(name)}</div>'
+        role = getattr(getattr(user, "role", None), "value", None)
+        has_role_func = getattr(user, "has_role", None)
+        has_admin = user.has_role("admin") if has_role_func else (role == "admin")
         if sport_flow:
             items += _link("/sport/profile", ICON_USER, "Мой профиль")
             items += _link("/sport/bookings", ICON_CALENDAR_DAYS_SIDEBAR, "Мои записи")
@@ -66,6 +69,8 @@ def render_account_tag(user=None, current_page: str = "home") -> str:
                     ICON_BRIEFCASE,
                     "Панель спорт-клуба",
                 )
+            if has_admin:
+                items += _link("/sport/admin", ICON_USER, "Админка")
             items += '<div class="acct-menu__sep"></div>'
             items += _link("/sport/logout", ICON_LOGOUT, "Выйти", "acct-menu__link--out")
         else:
@@ -73,9 +78,6 @@ def render_account_tag(user=None, current_page: str = "home") -> str:
             items += _link("/bookings", ICON_CALENDAR_DAYS_SIDEBAR, "Мои записи")
             items += _link("/favorites", ICON_HEART, "Избранное")
 
-            role = getattr(getattr(user, "role", None), "value", None)
-            has_role_func = getattr(user, "has_role", None)
-            has_admin = user.has_role("admin") if has_role_func else (role == "admin")
             has_business = user.has_role("business") if has_role_func else (role == "business")
             has_master = user.has_role("master") if has_role_func else (role == "master")
             panel = ""

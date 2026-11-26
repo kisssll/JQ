@@ -86,6 +86,7 @@ class SportBookingCreate(BaseModel):
     gym: str = Field(min_length=2, max_length=200)
     discipline: str = Field(min_length=2, max_length=120)
     pd_consent: bool
+    statement_consent: bool = False
     consent_version: str = Field(min_length=1, max_length=32)
 
     @field_validator("name", "gym", "discipline", mode="before")
@@ -231,7 +232,7 @@ class SportCoachBookingCreate(BaseModel):
 class SportStaffInvite(BaseModel):
     phone: str = Field(min_length=6, max_length=24)
     full_name: str = Field(min_length=2, max_length=100)
-    role: Literal["manager", "admin", "trainer"] = "admin"
+    role: Literal["owner", "manager", "admin", "trainer"] = "admin"
     permissions: dict[str, bool] = Field(default_factory=dict)
 
 

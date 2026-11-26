@@ -743,6 +743,142 @@ async def sport_organization_owner(
     return _back("sport", ok=f"«{organization.name}»: владелец → {normalized_phone}")
 
 
+@router.post("/sport/organizations/{organization_id}/add-owner")
+async def sport_organization_add_owner(
+    organization_id: int,
+    request: Request,
+    owner_phone: str = Form(""),
+    owner_name: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Назначить совладельца спортивного клуба (доступно любому модератору)."""
+    admin = await _get_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    organization = await db.scalar(
+        select(SportOrganization).where(SportOrganization.id == organization_id)
+    )
+    if not organization:
+        return _back("sport", err="Спортивный клуб не найден")
+
+    from app.models.sport import SPORT_OWNER_PERMISSIONS
+    from app.schemas.user import try_normalize_phone
+
+    owner_phone = owner_phone.strip()
+    if not owner_phone:
+        return _back("sport", err="Укажите номер телефона владельца")
+
+    normalized_phone = try_normalize_phone(owner_phone)
+    if normalized_phone is None:
+        return _back("sport", err="Проверьте номер телефона владельца")
+
+    owner = await db.scalar(select(User).where(User.phone == normalized_phone))
+    if owner is None:
+        import secrets
+        from app.core.security import get_password_hash
+        display_name = (owner_name or "").strip() or "Владелец"
+        owner = User(
+            phone=normalized_phone,
+            full_name=display_name,
+            hashed_password=get_password_hash(secrets.token_urlsafe(12)),
+            role=UserRole.BUSINESS,
+            is_active=True,
+            is_guest=False,
+        )
+        db.add(owner)
+        await db.flush()
+
+    membership = await db.scalar(
+        select(SportGymMember).where(
+            SportGymMember.organization_id == organization.id,
+            SportGymMember.user_id == owner.id,
+        ).with_for_update()
+    )
+
+    is_first = organization.creator_id is None
+    if membership is None:
+        membership = SportGymMember(
+            organization_id=organization.id,
+            user_id=owner.id,
+            role="owner",
+            permissions=dict(SPORT_OWNER_PERMISSIONS),
+            is_creator=is_first,
+            is_active=True,
+        )
+        db.add(membership)
+    else:
+        membership.role = "owner"
+        membership.permissions = dict(SPORT_OWNER_PERMISSIONS)
+        membership.is_active = True
+        if is_first:
+            membership.is_creator = True
+
+    if is_first:
+        organization.creator_id = owner.id
+    if owner.role != UserRole.ADMIN:
+        owner.role = UserRole.BUSINESS
+
+    _audit(
+        db, admin.id, "sport_organization_add_owner", "sport_organization",
+        organization.id, f"{organization.name}: добавлен владелец → {normalized_phone}",
+    )
+    await db.commit()
+    return _back("sport", ok=f"«{organization.name}»: добавлен владелец → {normalized_phone}")
+
+
+@router.post("/sport/organizations/{organization_id}/remove-owner")
+async def sport_organization_remove_owner(
+    organization_id: int,
+    request: Request,
+    user_id: int = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Снять владельца спортивного клуба (доступно любому модератору)."""
+    admin = await _get_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    organization = await db.scalar(
+        select(SportOrganization).where(SportOrganization.id == organization_id)
+    )
+    if not organization:
+        return _back("sport", err="Спортивный клуб не найден")
+
+    membership = await db.scalar(
+        select(SportGymMember).where(
+            SportGymMember.organization_id == organization.id,
+            SportGymMember.user_id == user_id,
+            SportGymMember.is_active.is_(True),
+        ).with_for_update()
+    )
+    if not membership:
+        return _back("sport", err="Владелец не найден")
+
+    membership.is_active = False
+    if membership.is_creator:
+        membership.is_creator = False
+        organization.creator_id = None
+        other = await db.scalar(
+            select(SportGymMember).where(
+                SportGymMember.organization_id == organization.id,
+                SportGymMember.user_id != user_id,
+                SportGymMember.role == "owner",
+                SportGymMember.is_active.is_(True),
+            )
+        )
+        if other:
+            other.is_creator = True
+            organization.creator_id = other.user_id
+
+    _audit(
+        db, admin.id, "sport_organization_remove_owner", "sport_organization",
+        organization.id, f"{organization.name}: снят владелец id={user_id}",
+    )
+    await db.commit()
+    return _back("sport", ok=f"«{organization.name}»: владелец снят")
+
+
 @router.post("/sport/organizations/{organization_id}/approve")
 async def sport_organization_approve(
     organization_id: int,
