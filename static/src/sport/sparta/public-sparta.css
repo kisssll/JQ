@@ -413,12 +413,23 @@ body:has(.sparta-header) {
   display: flex;
   align-items: center;
   gap: .2em;
+  font-size: clamp(48px, 8vw, 135px);
 }
 
 .sparta-header ~ .ftr .ftr-big img {
   width: .85em;
   border-radius: 50%;
 }
+
+.sparta-documents { min-height: 60vh; padding: clamp(90px, 12vw, 170px) 4vw 100px; background: #0a0a0a; color: #fff; }
+.sparta-documents h1 { font: 900 clamp(48px, 8vw, 112px)/.9 var(--cond); text-transform: uppercase; }
+.sparta-documents a { display: inline-block; margin-top: 2rem; padding: 1rem 1.4rem; background: #c72527; color: #fff; text-decoration: none; }
+.sparta-gallery .gallery-heading h2 { font-size: clamp(36px, 5vw, 68px); line-height: 1; margin-bottom: 1.5rem; }
+.sparta-gallery .gallery-tile .ph-over > span:first-child { font-size: clamp(16px, 1.8vw, 26px); overflow-wrap: anywhere; }
+.sparta-gallery .gallery-grid { align-items: start; }
+.sparta-gallery .gallery-tile { aspect-ratio: 4/3; }
+.sparta-gallery .gallery-tile .ph-over { overflow: hidden; }
+.sparta-home .why-cta .btn-red, .sparta-home .why-cta .btn { background: #c72527; color: #fff; }
 
 @media (min-width: 901px) {
   .sparta-home .club-overview {

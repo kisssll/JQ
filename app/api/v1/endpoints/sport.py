@@ -255,6 +255,17 @@ async def get_sport_schedule(
             )
         )
     ).all()
+    closures = (await db.execute(select(SportScheduleClosure).where(
+        SportScheduleClosure.organization_id == organization.id,
+        SportScheduleClosure.date >= today,
+        SportScheduleClosure.date <= today + timedelta(days=14),
+    ))).scalars().all()
+    closed_slots = {
+        f"{closed.date}:{training.code}": False
+        for closed in closures for training in trainings
+        if (closed.coach_id is None or closed.coach_id == training.coach_id)
+        and (closed.venue_id is None or closed.venue_id == training.venue_id)
+    }
     return SportScheduleResponse(
         organization=_organization_response(organization),
         trainings=[
@@ -267,13 +278,14 @@ async def get_sport_schedule(
                 gym=item.gym,
                 discipline=item.discipline,
                 active=item.is_active,
+                color=item.color,
             )
             for item in trainings
         ],
-        exceptions={
+        exceptions={**closed_slots, **{
             f"{item.class_date}:{code}": False
             for item, code in exceptions
-        },
+        }},
     )
 
 
@@ -810,6 +822,7 @@ async def update_sport_schedule(
                 gym=item.gym,
                 discipline=item.discipline,
                 is_active=item.active,
+                color=item.color,
             )
             db.add(training)
             added_training = True
@@ -820,6 +833,7 @@ async def update_sport_schedule(
         training.gym = item.gym
         training.discipline = item.discipline
         training.is_active = item.active
+        training.color = item.color
         training.coach_id = (
             coach.id
             if coach is not None and membership is None
@@ -1576,6 +1590,12 @@ async def create_sport_gallery_image(
     _, membership, _ = await _gym_access(request, db, organization.id)
     if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления фото")
+    photo_count = await db.scalar(select(func.count(SportGalleryImage.id)).where(
+        SportGalleryImage.organization_id == organization.id,
+        SportGalleryImage.is_active.is_(True),
+    ))
+    if photo_count >= 16:
+        raise HTTPException(status_code=400, detail="В галерее может быть не более 16 фотографий")
     image = SportGalleryImage(
         organization_id=organization.id,
         image_url=data.image_url.strip(),
@@ -1879,6 +1899,24 @@ async def delete_sport_gallery_image(
 # 1. ЗАКРЫТИЯ КАЛЕНДАРЯ / ВЫХОДНЫЕ ТРЕНЕРОВ
 # ==========================================
 
+@router.get("/organizations/{slug}/closures")
+async def list_sport_closures(request: Request, slug: str, db: AsyncSession = Depends(get_db)):
+    organization = await _organization(db, slug, published_only=False)
+    if organization is None:
+        raise HTTPException(404, "Спортивная организация не найдена")
+    _, membership, coach = await _gym_access(request, db, organization.id)
+    if not _can_sport(membership, "manage_schedule") and coach is None:
+        raise HTTPException(403, "Недостаточно прав")
+    query = select(SportScheduleClosure).where(
+        SportScheduleClosure.organization_id == organization.id,
+        SportScheduleClosure.date >= datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date(),
+    ).order_by(SportScheduleClosure.date).limit(500)
+    if membership is None:
+        query = query.where(SportScheduleClosure.coach_id == coach.id)
+    rows = (await db.execute(query)).scalars().all()
+    return [{"id": row.id, "coach_id": row.coach_id, "venue_id": row.venue_id,
+             "date": row.date.isoformat(), "reason": row.reason} for row in rows]
+
 @router.post("/organizations/{slug}/closures")
 async def create_sport_closure(
     request: Request,
@@ -1902,17 +1940,38 @@ async def create_sport_closure(
     )):
         raise HTTPException(404, "Зал не найден")
 
-    closure = SportScheduleClosure(
-        organization_id=organization.id,
-        coach_id=data.coach_id,
-        venue_id=data.venue_id,
-        date=data.date,
-        reason=data.reason.strip(),
+    last = data.date_to or data.date
+    if last < data.date or (last - data.date).days > 90:
+        raise HTTPException(400, "Период должен быть от 1 до 91 дня")
+    existing = set((await db.scalars(select(SportScheduleClosure.date).where(
+        SportScheduleClosure.organization_id == organization.id,
+        SportScheduleClosure.coach_id == data.coach_id,
+        SportScheduleClosure.venue_id == data.venue_id,
+        SportScheduleClosure.date >= data.date,
+        SportScheduleClosure.date <= last,
+    ))).all())
+    for offset in range((last - data.date).days + 1):
+        closed_date = data.date + timedelta(days=offset)
+        if closed_date not in existing:
+            db.add(SportScheduleClosure(
+                organization_id=organization.id, coach_id=data.coach_id,
+                venue_id=data.venue_id, date=closed_date, reason=data.reason.strip(),
+            ))
+    affected_trainings = select(SportTraining.id).where(
+        SportTraining.organization_id == organization.id,
+        *((SportTraining.coach_id == data.coach_id,) if data.coach_id is not None else ()),
+        *((SportTraining.venue_id == data.venue_id,) if data.venue_id is not None else ()),
     )
-    db.add(closure)
+    cancelled_bookings = await db.execute(update(SportBooking).where(
+        SportBooking.organization_id == organization.id,
+        SportBooking.training_id.in_(affected_trainings),
+        SportBooking.requested_date >= data.date,
+        SportBooking.requested_date <= last,
+        SportBooking.status.in_(["pending", "new", "confirmed"]),
+    ).values(status="cancelled"))
     await db.commit()
-    await db.refresh(closure)
-    return {"ok": True, "id": closure.id, "date": closure.date.isoformat(), "reason": closure.reason}
+    return {"ok": True, "date": data.date.isoformat(), "date_to": last.isoformat(),
+            "reason": data.reason.strip(), "cancelled_bookings": cancelled_bookings.rowcount}
 
 
 @router.delete("/organizations/{slug}/closures/{closure_id}")
@@ -2320,6 +2379,14 @@ async def create_sport_booking(
         )
         if cancelled is not None:
             raise HTTPException(status_code=409, detail="Эта тренировка отменена")
+        closed = await db.scalar(select(SportScheduleClosure.id).where(
+            SportScheduleClosure.organization_id == organization.id,
+            SportScheduleClosure.date == data.booking_date,
+            (SportScheduleClosure.coach_id.is_(None) | (SportScheduleClosure.coach_id == training.coach_id)),
+            (SportScheduleClosure.venue_id.is_(None) | (SportScheduleClosure.venue_id == training.venue_id)),
+        ))
+        if closed is not None:
+            raise HTTPException(status_code=409, detail="Тренировка отменена на эту дату")
     else:
         today = datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date()
         if data.booking_date is not None and data.booking_date < today:

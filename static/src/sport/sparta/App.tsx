@@ -7,7 +7,7 @@ import { sportRequest } from "./admin-api";
 
 /* ---------------- data ---------------- */
 
-type Page = "/" | "/gyms" | "/coaches" | "/disciplines" | "/schedule" | "/prices" | "/gallery" | "/account" | "/admin";
+type Page = "/" | "/gyms" | "/coaches" | "/disciplines" | "/schedule" | "/prices" | "/gallery" | "/documents" | "/account" | "/admin";
 type BookingStatus = "new" | "confirmed" | "came" | "cancelled";
 export type Booking = {
   id: string;
@@ -51,7 +51,7 @@ export type Gym = { id: string; address: string; name: string; note: string; dis
 export type Coach = { id: number; name: string; role: string; tags: string; exp: string; about: string; photo?: string | null };
 export type Discipline = { key: string; name: string; text: string; level: string; photo?: string | null };
 type GalleryPhoto = { src: string; alt: string; credit?: string };
-export type Training = { id: string; days: number[]; time: string; end: string; coach: string; coachId?: number | null; gym: string; discipline: string; active: boolean };
+export type Training = { id: string; days: number[]; time: string; end: string; coach: string; coachId?: number | null; gym: string; discipline: string; active: boolean; color?: string };
 const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const upcomingSlots = (trainings: Training[] = []) => Array.from({ length: 15 }, (_, offset) => {
   const date = new Date(); date.setDate(date.getDate() + offset);
@@ -183,9 +183,10 @@ const NAV: [string, Page][] = [
   ["Направления", "/disciplines"],
   ["Расписание", "/schedule"],
   ["Галерея", "/gallery"],
+  ["Документы", "/documents"],
   ["Цены", "/prices"],
 ];
-const PAGES: Page[] = ["/", "/gyms", "/coaches", "/disciplines", "/schedule", "/prices", "/gallery", "/account", "/admin"];
+const PAGES: Page[] = ["/", "/gyms", "/coaches", "/disciplines", "/schedule", "/prices", "/gallery", "/documents", "/account", "/admin"];
 const APP_ROOT = document.getElementById("root");
 const GYM_SLUG = APP_ROOT?.dataset.gymSlug ?? "sparta";
 const IS_SPARTA = GYM_SLUG === "sparta";
@@ -472,6 +473,7 @@ export default function App() {
       {page === "/disciplines" && <Disciplines book={book} disciplines={disciplines} />}
       {page === "/schedule" && <Schedule book={book} gyms={gyms} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
       {page === "/gallery" && <Gallery gallery={publicGallery} organization={publicOrganization.name} />}
+      {page === "/documents" && <main className="sparta-documents"><h1>Документы</h1><p>Документы Федерации боевого дзю-дзютцу Томской области</p><a href="https://fcjj.tomsk.ru/federation/documentation/" target="_blank" rel="noopener noreferrer">Открыть документы федерации ↗</a></main>}
       {page === "/prices" && <Prices choose={choosePlan} plans={plans} />}
       {page === "/account" && <Account bookings={bookings} book={book} loginRequired={accountLoginRequired} error={scheduleError} />}
 
@@ -941,10 +943,10 @@ function Coaches({ book, coaches, trainings, exceptions, scheduleLoading, schedu
 
 const SPARTA_DISCIPLINE_PHOTOS: Record<string, string> = {
   "БЖЖ": PHOTOS.disc_0,
-  "Грэпплинг": "/photos/gyms/irk-club-3.jpg",
+  "Грэпплинг": PHOTOS.disc_1,
   "ММА": "/photos/disciplines/mma-mmasters.webp",
   "Самооборона": `${SPARTA_HOME_PHOTOS}/self-defense.webp`,
-  "Самбо": `${SPARTA_HOME_PHOTOS}/disciplines.webp`,
+  "Самбо": "https://commons.wikimedia.org/wiki/Special:FilePath/Sheikh-Mansur_Khabibulaev_Vs_Pavel_Panteleev.jpg?width=960",
 };
 
 function Disciplines({ book, disciplines }: { book: Book; disciplines: Discipline[] }) {
@@ -970,6 +972,8 @@ function Disciplines({ book, disciplines }: { book: Book; disciplines: Disciplin
               {!IS_SPARTA && <p className="tag">{d.level}</p>}
               <h2>{d.name}</h2>
               <p>{d.text}</p>
+              {IS_SPARTA && d.key === "Грэпплинг" && !d.photo && <p className="disc-credit">Фото: s.efimov70 · @Officer1Pupsik</p>}
+              {IS_SPARTA && d.key === "Самбо" && !d.photo && <p className="disc-credit">Фото: <a href="https://commons.wikimedia.org/wiki/File:Sheikh-Mansur_Khabibulaev_Vs_Pavel_Panteleev.jpg" target="_blank" rel="noreferrer">Добрый молодец</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a> · кадрировано при показе</p>}
               {IS_SPARTA && d.key === "ММА" && !d.photo && <p className="disc-credit">Фото: <a href="https://commons.wikimedia.org/wiki/File:ML3,_Lesak_vs._Baryshnikov.jpg" target="_blank" rel="noreferrer">striking.pictures</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a> · уменьшено и кадрировано при показе</p>}
               <button className="btn btn-red" onClick={() => book({ discipline: d.key })}>
                 Записаться <Arrow />
@@ -1040,8 +1044,9 @@ function Schedule({ book, gyms, coaches, trainings, exceptions, scheduleLoading,
             const dayEmpty = visibleGyms.every((g) => slotsFor(date, g.address).length === 0);
             return <tr className={`${key === today() ? "is-today" : ""} ${dayEmpty ? "is-empty-day" : ""}`} key={key}><th scope="row"><b>{date.toLocaleDateString("ru-RU", { weekday: "long" })}</b><span>{date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}{key === today() && <em>Сегодня</em>}</span></th>{visibleGyms.map((g) => { const slots = slotsFor(date, g.address); return <td key={g.id} className={!slots.length ? "is-empty-cell" : ""}><span className="timetable-mobile-gym">{g.address}</span>{slots.length ? slots.map((slot) => {
               const held = exceptions[`${key}:${slot.id}`] !== false;
-              const past = key < today();
-              return <article className={`timetable-session ${!held ? "is-cancelled" : ""} ${past ? "is-past" : ""}`} key={slot.id}><div><b>{slot.time}<span>–{slot.end}</span></b><p>{shortCoach(slot.coach)}</p>{slot.discipline !== "Направление уточняется" && <small>{slot.discipline}</small>}</div>{!held ? <span className="session-status">Отменена</span> : past ? <span className="session-status">Завершена</span> : <button aria-label={`Записаться: ${fmtDate(key)}, ${slot.time}, ${shortCoach(slot.coach)}, ${g.address}`} onClick={() => book({ sessionId: slot.id, coach: slot.coach, discipline: slot.discipline, gym: slot.gym, date: key, time: slot.time })}>Записаться <Arrow /></button>}</article>;
+              const past = key < today() || (key === today() && slot.time <= new Date().toTimeString().slice(0, 5));
+              const outsideBookingWindow = key > localDate(new Date(Date.now() + 14 * 86400000));
+              return <article className={`timetable-session ${!held ? "is-cancelled" : ""} ${past ? "is-past" : ""}`} style={{ borderLeft: `4px solid ${slot.color || "#c72527"}` }} key={slot.id}><div><b>{slot.time}<span>–{slot.end}</span></b><p>{shortCoach(slot.coach)}</p>{slot.discipline !== "Направление уточняется" && <small>{slot.discipline}</small>}</div>{!held ? <span className="session-status">Отменена</span> : past ? <span className="session-status">Завершена</span> : outsideBookingWindow ? <span className="session-status">Запись откроется позже</span> : <button aria-label={`Записаться: ${fmtDate(key)}, ${slot.time}, ${shortCoach(slot.coach)}, ${g.address}`} onClick={() => book({ sessionId: slot.id, coach: slot.coach, discipline: slot.discipline, gym: slot.gym, date: key, time: slot.time })}>Записаться <Arrow /></button>}</article>;
             }) : <span className="timetable-dash" aria-label="Нет занятий">—</span>}</td>; })}</tr>;
           })}
           </tbody>
@@ -1056,7 +1061,7 @@ function Gallery({ gallery, organization }: { gallery: GalleryPhoto[]; organizat
   const [selected, setSelected] = useState<number | null>(null);
   const movePhoto = (step: number) => setSelected((current) => ((current ?? 0) + step + gallery.length) % gallery.length);
   const photo = selected === null ? null : gallery[selected];
-  return <main className={IS_SPARTA ? "sparta-gallery" : undefined}><PageHead id="story" title="Галерея" text={`Фотографии ${organization}.`} /><section className="gallery-page"><div className="gallery-heading"><p className="tag">Клуб в кадре</p><h2>Тренировки и жизнь клуба.</h2><p>Нажмите на фото, чтобы рассмотреть его ближе.</p></div><div className="gallery-grid">{gallery.map((item, i) => <button className="gallery-open" key={item.src} onClick={() => setSelected(i)} aria-label={`Открыть фото: ${item.alt}`}><Photo id={`club_gallery_${i}`} srcOverride={item.src} label={item.alt} size="1600 × 1200" className="gallery-tile"><span>{item.alt}</span><span className="gallery-expand" aria-hidden="true">↗</span></Photo></button>)}</div>{gallery.length === 0 && <p>Фотографии пока не добавлены.</p>}</section>{photo && <Modal centered className="gym-modal" label="Фотографии клуба" onClose={() => setSelected(null)}><h2 className="m-title">{photo.alt}</h2><PhotoGallery photos={gallery} caption={organization} selected={selected!} setSelected={setSelected} movePhoto={movePhoto} /></Modal>}</main>;
+  return <main className={IS_SPARTA ? "sparta-gallery" : undefined}><PageHead id="story" title="Галерея" text={`Фотографии ${organization}.`} /><section className="gallery-page"><div className="gallery-heading"><h2>Тренировки и жизнь клуба.</h2></div><div className="gallery-grid">{gallery.map((item, i) => <button className="gallery-open" key={item.src} onClick={() => setSelected(i)} aria-label={`Открыть фото: ${item.alt}`}><Photo id={`club_gallery_${i}`} srcOverride={item.src} label={item.alt} size="1600 × 1200" className="gallery-tile"><span>{item.alt}</span><span className="gallery-expand" aria-hidden="true">↗</span></Photo></button>)}</div>{gallery.length === 0 && <p>Фотографии пока не добавлены.</p>}</section>{photo && <Modal centered className="gym-modal" label="Фотографии клуба" onClose={() => setSelected(null)}><h2 className="m-title">{photo.alt}</h2><PhotoGallery photos={gallery} caption={organization} selected={selected!} setSelected={setSelected} movePhoto={movePhoto} /></Modal>}</main>;
 }
 
 function Account({ bookings, book, loginRequired, error }: { bookings: Booking[]; book: Book; loginRequired: boolean; error: string }) {
@@ -1139,7 +1144,8 @@ function BookingModal({
   const lastDate = new Date(now);
   lastDate.setDate(now.getDate() + 14);
   const options = upcomingSlots(trainings).filter((slot) => exceptions[`${slot.date}:${slot.id}`] !== false);
-  const initialSlot = options.find((slot) => slot.id === initial.sessionId && slot.date === initial.date);
+  const initialSlot = options.find((slot) => slot.id === initial.sessionId && slot.date === initial.date)
+    ?? (!initial.date ? options.find((slot) => slot.id === initial.sessionId) : undefined);
   const [f, setF] = useState({
     name: "",
     phone: "",
@@ -1153,7 +1159,7 @@ function BookingModal({
     gym: initialSlot?.gym ?? initial.gym ?? "",
     coach: initialSlot?.coach ?? "",
     sessionId: initialSlot?.id ?? "",
-    date: initialSlot?.date ?? "",
+    date: initialSlot?.date ?? initial.date ?? "",
     time: initialSlot?.time ?? "По согласованию",
   });
   const [done, setDone] = useState(false);
@@ -1185,7 +1191,7 @@ function BookingModal({
     <Modal centered={centered} label="Запись на тренировку" onClose={onClose}>
       <p className="tag booking-eyebrow">Первый шаг на татами</p>
       <h2 className="m-title">Запись на тренировку</h2>
-      <p className="booking-intro">Выберите занятие и оставьте контакт для подтверждения. Можно записать себя или ребёнка.</p>
+
       <form
         className="form sport-booking-form"
         onSubmit={async (e) => {
@@ -1261,7 +1267,7 @@ function BookingModal({
         <button className="btn btn-red wide" disabled={!f.time || saving}>
           {saving ? "Отправляем…" : "Отправить заявку"} <Arrow />
         </button>
-        <p className="m-note">Заявка сохранится в базе Руми. Запись подтвердит администратор клуба.</p>
+
       </form>
     </Modal>
   );
@@ -1538,7 +1544,7 @@ function Admin({
 
         {tab === "clients" && canManageBookings && <AdminClients slug={slug} current={current} />}
 
-        {tab === "schedule" && (canManageSchedule || trainer) && <AdminSchedule current={current} role={role} gyms={gyms} coaches={coaches}
+        {tab === "schedule" && (canManageSchedule || trainer) && <AdminSchedule slug={slug} current={current} role={role} gyms={gyms} coaches={coaches}
           disciplines={disciplines} bookings={bookings} trainings={trainings} exceptions={exceptions}
           onTraining={saveTraining} onException={saveException} />}
 
