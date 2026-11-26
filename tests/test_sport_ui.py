@@ -113,8 +113,11 @@ def test_sport_account_menu_stays_inside_sport():
     )
     menu = render_account_tag(user, "sport")
 
-    assert 'href="/sport/logout"' in menu
+    assert 'href="/sport/profile"' in menu
+    assert 'href="/sport/bookings"' in menu
+    assert 'href="/sport/favorites"' in menu
     assert 'href="/sport/clubs"' in menu
+    assert 'href="/sport/logout"' in menu
     assert 'href="/logout"' not in menu
     assert 'href="/profile"' not in menu
 
@@ -197,3 +200,40 @@ def test_sport_business_dashboard_renders_status_and_role_cards():
     assert "Опубликован" in page
     assert "Владелец" in page
     assert 'href="/sport/club-test/admin"' in page
+
+
+def test_sport_manifest_page_renders_sport_design():
+    from app.web.pages.sport_about import render_sport_about_page
+    page = render_sport_about_page()
+
+    assert '<body class="sport-directory sport-about">' in page
+    assert "Манифест | Руми Спорт" in page
+    assert "Мы убрали из спорта всё лишнее. Остались <em>вы и тренер</em>." in page
+    assert 'href="/sport/clubs"' in page
+    assert "Найти клуб" in page
+    assert "Мы стали партнёрами Т-Банка" in page
+
+
+def test_sport_profile_has_no_modeling():
+    from app.web.pages.profile import render_profile_page
+    user = SimpleNamespace(
+        id=1,
+        full_name="Спорт Клиент",
+        phone="+79991112233",
+        email="sport@client.ru",
+        city="Москва",
+        avatar_url="",
+        role=SimpleNamespace(value="client"),
+        created_at=None,
+        is_model=True,
+    )
+    page = render_profile_page(user, sport=True)
+
+    assert '<body class="page-body sport-directory">' in page
+    assert "Мой профиль — Руми Спорт" in page
+    assert 'href="/sport/profile"' in page
+    assert 'href="/sport/bookings"' in page
+    assert 'href="/sport/favorites"' in page
+    assert "Статус «Модель»" not in page
+    assert "Стать моделью" not in page
+

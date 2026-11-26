@@ -25,6 +25,7 @@ SPORT_PUBLIC_NAV = (
     ("sport", "/sport/", "Главная"),
     ("sport_clubs", "/sport/clubs", "Все клубы"),
     ("sport_business", "/sport/business", "Для клубов"),
+    ("sport_manifest", "/sport/about", "Манифест"),
     ("sport_tariffs", "/sport/tariffs", "Тарифы"),
 )
 
@@ -56,6 +57,9 @@ def render_account_tag(user=None, current_page: str = "home") -> str:
         label = e(name.split()[0])
         items = f'<div class="acct-menu__who">{e(name)}</div>'
         if sport_flow:
+            items += _link("/sport/profile", ICON_USER, "Мой профиль")
+            items += _link("/sport/bookings", ICON_CALENDAR_DAYS_SIDEBAR, "Мои записи")
+            items += _link("/sport/favorites", ICON_HEART, "Избранное")
             items += _link("/sport/clubs", ICON_CALENDAR_DAYS_SIDEBAR, "Все клубы")
             if getattr(user, "has_sport_access", False):
                 items += _link(

@@ -89,7 +89,10 @@ def render_footer(user=None, vk_audience: str = "client", sport: bool = False) -
         business_links = [("Подключить клуб", "/sport/business")]
         if getattr(user, "has_sport_access", False):
             business_links.insert(0, ("Панель спорт-клуба", "/sport/business/dashboard"))
-        about_links = [("Главная Руми Спорт", "/sport/")]
+        about_links = [
+            ("Главная Руми Спорт", "/sport/"),
+            ("Манифест", "/sport/about"),
+        ]
         document_links = [
             ("Пользовательское соглашение", "/sport/legal/terms"),
             ("Политика обработки ПДн", "/sport/legal/privacy"),

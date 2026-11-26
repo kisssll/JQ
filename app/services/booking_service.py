@@ -186,6 +186,7 @@ class BookingService:
         *,
         intervals: Optional[list] = None,
         exclude_booking_id: Optional[int] = None,
+        extra_duration: int = 0,
     ) -> tuple[list[str], int, int]:
         """Свободные окна мастера на день: (окна «ГГГГ-ММ-ДДTЧЧ:ММ», перерыв, шаг).
 
@@ -193,6 +194,7 @@ class BookingService:
         считал окна по-своему, человек видел бы при переносе время, которого
         нет при записи, или наоборот. exclude_booking_id — переносимая запись:
         её нынешнее время для неё самой не занято (см. is_slot_available).
+        extra_duration — добавочное время из интерактивной анкеты параметров волос.
         """
         if intervals is None:
             intervals = await get_effective_work_intervals(db, salon, master_id, target_date)
@@ -209,9 +211,10 @@ class BookingService:
         #:   fit_span — сколько нужно до конца смены: только услуга. Раньше здесь
         #:          требовался и перерыв, и запись в конец смены пряталась, хотя
         #:          проверка (BookingService.is_slot_available) её принимает.
-        step = service.duration_minutes + gap
-        busy_span = service.duration_minutes + gap
-        fit_span = service.duration_minutes
+        eff_duration = service.duration_minutes + max(0, extra_duration)
+        step = eff_duration + gap
+        busy_span = eff_duration + gap
+        fit_span = eff_duration
         if not intervals:
             return [], gap, step
 

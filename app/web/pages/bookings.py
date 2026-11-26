@@ -285,8 +285,10 @@ def _render_card(b: Booking, ctx: dict, *, upcoming: bool) -> str:
     )
 
 
-async def render_bookings_page(db: AsyncSession, user, notice: str = "") -> str:
-    """Страница «Мои записи» для клиента."""
+async def render_bookings_page(db: AsyncSession, user, notice: str = "", sport: bool = False) -> str:
+    """Страница «Мои записи» для клиента (бьюти или спорт)."""
+    if sport:
+        return await _render_sport_bookings_page(db, user, notice=notice)
     bookings, ctx = await _load(db, user)
     now = datetime.now()
 
@@ -426,3 +428,170 @@ async def render_bookings_page(db: AsyncSession, user, notice: str = "") -> str:
         element_id="reviewSheet", title="Отзыв о визите")}
 </body>
 </html>"""
+
+
+async def _render_sport_bookings_page(db: AsyncSession, user, notice: str = "") -> str:
+    from app.models.sport import SportBooking, SportOrganization, SportTraining, SportCoach, SportService
+    bookings = (await db.execute(
+        select(SportBooking)
+        .where(SportBooking.client_id == user.id)
+        .order_by(SportBooking.start_time.desc().nulls_last(), SportBooking.created_at.desc())
+    )).scalars().all()
+
+    now = datetime.now()
+    upcoming, past = [], []
+    for b in bookings:
+        is_upcoming = (
+            b.status in ("pending", "confirmed") and
+            (b.start_time is None or b.start_time > now)
+        )
+        if is_upcoming:
+            upcoming.append(b)
+        else:
+            past.append(b)
+    upcoming.reverse()
+
+    org_ids = {b.organization_id for b in bookings}
+    orgs = {}
+    if org_ids:
+        orgs = {o.id: o for o in (await db.execute(
+            select(SportOrganization).where(SportOrganization.id.in_(org_ids))
+        )).scalars().all()}
+
+    training_ids = {b.training_id for b in bookings if b.training_id}
+    trainings = {}
+    if training_ids:
+        trainings = {t.id: t for t in (await db.execute(
+            select(SportTraining).where(SportTraining.id.in_(training_ids))
+        )).scalars().all()}
+
+    coach_ids = {b.coach_id for b in bookings if b.coach_id}
+    coaches = {}
+    if coach_ids:
+        coaches = {c.id: c for c in (await db.execute(
+            select(SportCoach).where(SportCoach.id.in_(coach_ids))
+        )).scalars().all()}
+
+    service_ids = {b.service_id for b in bookings if b.service_id}
+    services = {}
+    if service_ids:
+        services = {s.id: s for s in (await db.execute(
+            select(SportService).where(SportService.id.in_(service_ids))
+        )).scalars().all()}
+
+    def _render_sport_card(b):
+        org = orgs.get(b.organization_id)
+        org_name = org.name if org else "Спортивный клуб"
+        org_link = f"/sport/{org.slug}" if org and org.slug else "/sport/clubs"
+        tr = trainings.get(b.training_id)
+        srv = services.get(b.service_id)
+        title = tr.name if tr else (srv.name if srv else b.requested_discipline)
+        coach = coaches.get(b.coach_id)
+        coach_name = coach.name if coach else ""
+
+        status_map = {
+            "pending": ui.status("Заявка на рассмотрении", "warning"),
+            "confirmed": ui.status("Запись подтверждена", "success"),
+            "came": ui.status("Посещено", "neutral"),
+            "cancelled": ui.status("Отменено", "danger"),
+        }
+        status_badge = status_map.get(b.status, ui.status(b.status, "neutral"))
+
+        date_str = ""
+        if b.start_time:
+            date_str = b.start_time.strftime("%d.%m.%Y в %H:%M")
+        elif b.requested_date:
+            date_str = b.requested_date.strftime("%d.%m.%Y")
+
+        facts = [
+            ("Клуб", f'<a href="{org_link}">{e(org_name)}</a>'),
+            ("Направление", e(b.requested_discipline)),
+        ]
+        if date_str:
+            facts.append(("Время", date_str))
+        if coach_name:
+            facts.append(("Тренер", e(coach_name)))
+        if b.requested_gym:
+            facts.append(("Зал", e(b.requested_gym)))
+        if b.price:
+            facts.append(("Стоимость", f"{b.price:,}".replace(",", " ") + " ₽"))
+
+        return (
+            '<article class="booking-card">'
+            '<header class="booking-card__head">'
+            f'<span class="booking-card__time">{e(date_str or "Дата уточняется")}</span>'
+            f'<span class="booking-card__status">{status_badge}</span>'
+            '</header>'
+            '<div class="booking-card__body">'
+            f'<h2 class="booking-card__service">{e(title)}</h2>'
+            f'<p class="booking-card__salon"><a href="{org_link}">{e(org_name)}</a></p>'
+            + (f'<p class="booking-card__master">Тренер: {e(coach_name)}</p>' if coach_name else '')
+            + '</div>'
+            + f'{ui.facts(tuple(facts))}'
+            '</article>'
+        )
+
+    to_catalog = ui.empty_state(
+        "Предстоящих тренировок нет",
+        text="Выберите спортивный клуб, направление и время — запись появится здесь.",
+        action_label="Каталог клубов",
+        action_href="/sport/clubs",
+    )
+
+    if not bookings:
+        body = ui.empty_state(
+            "Записей на тренировки пока нет",
+            text="Здесь будут ваши визиты: предстоящие тренировки и прошедшие занятия.",
+            action_label="Найти клуб",
+            action_href="/sport/clubs",
+        )
+    else:
+        upcoming_html = "".join(_render_sport_card(b) for b in upcoming) if upcoming else to_catalog
+        sections = [
+            '<section class="bookings-group">'
+            + ui.section_head("Предстоящие")
+            + f'<div class="bookings-list">{upcoming_html}</div>'
+            + "</section>"
+        ]
+        if past:
+            sections.append(
+                '<section class="bookings-group">'
+                + ui.section_head("Прошедшие")
+                + '<div class="bookings-list">'
+                + "".join(_render_sport_card(b) for b in past)
+                + "</div></section>"
+            )
+        body = "".join(sections)
+
+    from app.services.cabinet_badge import load_badges
+    badges = await load_badges(db, user)
+    stats = ([("%d" % len(upcoming), plural(len(upcoming), "предстоящая", "предстоящие", "предстоящих")),
+              ("%d" % len(past), "в истории")] if bookings else None)
+
+    return f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Мои записи — Руми Спорт</title>
+    <meta name="robots" content="noindex, nofollow">
+    {get_base_styles()}
+</head>
+<body class="page-body sport-directory">
+    {render_header("sport_bookings", user)}
+
+    <main class="main-content cabinet-main">
+        {render_cabinet(
+            user, "bookings", "Мои записи",
+            "Предстоящие тренировки и история посещений клубов.",
+            body,
+            action=("Новая запись", "/sport/clubs"),
+            stats=stats,
+            badge=badges,
+            sport=True,
+        )}
+        {render_footer(user, sport=True)}
+    </main>
+</body>
+</html>"""
+

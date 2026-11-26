@@ -55,6 +55,7 @@ from app.web.pages.business.tabs.cost import render_cost_tab
 from app.web.pages.business.tabs.promo_models import render_promo_models_tab
 from app.web.pages.business.tabs.my_salon import render_my_salon_tab
 from app.web.pages.business.tabs.billing import render_billing_tab
+from app.web.pages.business.tabs.interactive import render_interactive_tab
 from app.web.pages.business.tabs.instructions import render_instructions_tab
 from app.web.components.panel_tour import (
     render_tour_bar, render_tour_invite,
@@ -269,6 +270,9 @@ async def render_dashboard_tab(
     if tab_name == "crm":
         return await render_crm_tab(db, salon, masters, master_ids)
 
+    if tab_name == "interactive":
+        return await render_interactive_tab(db, salon, masters, user, membership, perms, qp)
+
     if tab_name == "edit":
         return await render_my_salon_tab(
             db, salon, user, query_params,
@@ -405,7 +409,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         'schedule': ICON_CLOCK, 'employees': ICON_USERS, 'services': ICON_USER_CHECK,
         'payroll': ICON_WALLET, 'cost': ICON_PACKAGE, 'records': ICON_CALENDAR_DAYS,
         'warehouse': ICON_PACKAGE, 'models': ICON_HEART, 'promos': ICON_SPARKLES,
-        'reviews': ICON_STAR_FILLED, 'crm': ICON_USER_CHECK, 'billing': ICON_CREDIT_CARD,
+        'reviews': ICON_STAR_FILLED, 'crm': ICON_USER_CHECK, 'interactive': ICON_SLIDERS, 'billing': ICON_CREDIT_CARD,
         'edit': ICON_SETTINGS_GEAR_SMALL, 'instructions': ICON_MESSAGE_CIRCLE,
     }
     _perm_of = {
@@ -414,6 +418,7 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
         'cost': perms["view_finances"],
         'warehouse': perms["manage_inventory"],
         'models': perms["manage_masters"],
+        'interactive': perms["manage_salon"] or perms["manage_masters"],
         'billing': perms["manage_tariff"],
     }
     _counts = {'promos': promos_count, 'reviews': reviews_count}

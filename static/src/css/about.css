@@ -338,3 +338,49 @@
         padding: var(--space-24) var(--space-16);
     }
 }
+
+/* ===== Стили Манифеста для Руми Спорт ===== */
+body.sport-directory .about-main {
+    background: var(--sport-background, #fff8e7);
+}
+body.sport-directory .about-hero {
+    background:
+        radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--sport-accent, #0055a0) 80%, transparent), transparent 45%),
+        radial-gradient(circle at 10% 90%, color-mix(in srgb, var(--sport-sky, #8cc1e9) 35%, transparent), transparent 40%),
+        var(--sport-dark, #12284b);
+    color: #ffffff;
+}
+body.sport-directory .about-kicker {
+    color: var(--sport-sky, #8cc1e9);
+}
+body.sport-directory .about-title {
+    color: #ffffff;
+}
+body.sport-directory .about-title em {
+    color: var(--sport-sky, #8cc1e9);
+}
+body.sport-directory .about-cols {
+    color: var(--sport-body, #344963);
+}
+body.sport-directory .about-cols b {
+    color: var(--sport-heading, #12284b);
+}
+body.sport-directory .about-drop::first-letter {
+    color: var(--sport-primary, #0055a0);
+}
+body.sport-directory .about-removed-title {
+    color: var(--sport-heading, #12284b);
+}
+body.sport-directory .about-removed-title em {
+    color: var(--sport-primary, #0055a0);
+}
+body.sport-directory .about-removed li {
+    background: var(--sport-surface, #ffffff);
+    border-color: var(--sport-border, #d6dcd9);
+    color: var(--sport-muted, #526478);
+    text-decoration-color: var(--sport-primary, #0055a0);
+}
+body.sport-directory .about-quote {
+    color: var(--sport-heading, #12284b);
+}
+

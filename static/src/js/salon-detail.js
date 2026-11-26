@@ -98,7 +98,8 @@ document.addEventListener('DOMContentLoaded', function () {
             hairType: "Прямые, гладкие",
             densityId: "medium",
             hairDensity: "Средняя густота",
-            tags: []
+            tags: [],
+            customAnswers: {},
         }
     };
 
@@ -113,20 +114,27 @@ document.addEventListener('DOMContentLoaded', function () {
     ];
 
     const TYPE_OPTIONS = [
-        { id: 'straight', title: 'Прямые, гладкие', desc: 'Ровные, легко укладываются' },
-        { id: 'wavy', title: 'Легкая волна', desc: 'Пушатся во влажную погоду' },
-        { id: 'curly', title: 'Кудрявые / вьющиеся', desc: 'Четкий упругий завиток' },
-        { id: 'coarse', title: 'Жесткие, стекловидные', desc: 'Плохо поддаются укладке' }
+        { id: 'straight', title: 'Прямые, гладкие', desc: 'Ровные, легко укладываются', img: '/static/images/hair/hair_type_straight.webp' },
+        { id: 'wavy', title: 'Легкая волна', desc: 'Пушатся во влажную погоду', img: '/static/images/hair/hair_type_wavy.webp' },
+        { id: 'curly', title: 'Кудрявые / вьющиеся', desc: 'Четкий завиток', img: '/static/images/hair/hair_type_curly.webp' },
+        { id: 'coarse', title: 'Жесткие, стекловидные', desc: 'Плохо поддаются укладке', img: '/static/images/hair/hair_type_coarse.webp' }
     ];
 
     const DENSITY_OPTIONS = [
-        { id: 'thin', title: 'Не густые', desc: 'Тонкий хвост' },
-        { id: 'medium', title: 'Средняя густота', desc: 'Стандартная' },
-        { id: 'thick', title: 'Очень густые', desc: 'Объемный хвост' }
+        { id: 'thin', title: 'Не густые', desc: 'Тонкий хвост', img: '/static/images/hair/hair_density_thin.webp' },
+        { id: 'medium', title: 'Средняя густота', desc: 'Стандартная', img: '/static/images/hair/hair_density_medium.webp' },
+        { id: 'thick', title: 'Очень густые', desc: 'Объемный хвост', img: '/static/images/hair/hair_density_thick.webp' }
     ];
 
     function hasHairSurvey() {
-        return Boolean(state.master && state.master.hair_survey && state.master.hair_survey.enabled);
+        if (!state.master || !state.master.hair_survey || !state.master.hair_survey.enabled) return false;
+        const s = getSurveySettings();
+        const hasStd = (s.q_length_enabled !== false) ||
+                       (s.q_density_enabled !== false) ||
+                       (s.q_type_enabled !== false) ||
+                       (s.q_tags_enabled !== false);
+        const hasCq = Array.isArray(s.custom_questions) && s.custom_questions.some(function (q) { return q.enabled !== false; });
+        return Boolean(hasStd || hasCq);
     }
 
     function currentSteps() {
@@ -213,107 +221,369 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ---------- Анкета волос ----------
+    function getSurveySettings() {
+        return (state.master && state.master.hair_survey && state.master.hair_survey.settings) || {};
+    }
+
+    function calcSurveyDeltas() {
+        const settings = getSurveySettings();
+        let addPrice = 0;
+        let addDur = 0;
+
+        // 1. Длина
+        let lenPrice = 0;
+        let lenDur = 0;
+        if (settings.q_length_enabled !== false) {
+            const lenRules = settings.length_rules || {};
+            const curLenRule = lenRules[String(state.hairSurvey.lengthId)] || {};
+            lenPrice = parseInt(curLenRule.price, 10) || 0;
+            lenDur = parseInt(curLenRule.duration, 10) || 0;
+            addPrice += lenPrice;
+            addDur += lenDur;
+        }
+
+        // 2. Тип
+        let typePrice = 0;
+        let typeDur = 0;
+        if (settings.q_type_enabled !== false) {
+            const typeRules = settings.type_rules || {};
+            const curTypeRule = typeRules[state.hairSurvey.typeId] || {};
+            typePrice = parseInt(curTypeRule.price, 10) || 0;
+            typeDur = parseInt(curTypeRule.duration, 10) || 0;
+            addPrice += typePrice;
+            addDur += typeDur;
+        }
+
+        // 3. Густота
+        let densPrice = 0;
+        let densDur = 0;
+        if (settings.q_density_enabled !== false) {
+            const densRules = settings.density_rules || {};
+            const curDensRule = densRules[state.hairSurvey.densityId] || {};
+            densPrice = parseInt(curDensRule.price, 10) || 0;
+            densDur = parseInt(curDensRule.duration, 10) || 0;
+            addPrice += densPrice;
+            addDur += densDur;
+        }
+
+        // 4. Теги / особенности
+        if (settings.q_tags_enabled !== false) {
+            const customTags = settings.custom_tags || [];
+            const tagMap = {};
+            customTags.forEach(function (t) {
+                if (typeof t === 'object' && t.name) tagMap[t.name] = t;
+            });
+            (state.hairSurvey.tags || []).forEach(function (tName) {
+                const tObj = tagMap[tName];
+                if (tObj) {
+                    addPrice += parseInt(tObj.price, 10) || 0;
+                    addDur += parseInt(tObj.duration, 10) || 0;
+                }
+            });
+        }
+
+        // 5. Произвольные вопросы конструктора Google Forms
+        if (state.hairSurvey.customAnswers) {
+            Object.values(state.hairSurvey.customAnswers).forEach(function (ans) {
+                if (ans) {
+                    addPrice += parseInt(ans.addPrice, 10) || 0;
+                    addDur += parseInt(ans.addDur, 10) || 0;
+                }
+            });
+        }
+
+        state.hairSurvey.extraPrice = addPrice;
+        state.hairSurvey.extraDuration = addDur;
+
+        return {
+            addPrice: addPrice,
+            addDur: addDur,
+            lenPrice: lenPrice,
+            lenDur: lenDur,
+            typePrice: typePrice,
+            typeDur: typeDur,
+            densPrice: densPrice,
+            densDur: densDur,
+        };
+    }
+
+    function formatDelta(price, dur) {
+        if (!price && !dur) return '';
+        const parts = [];
+        if (price > 0) parts.push(`+${price.toLocaleString('ru-RU')} ₽`);
+        if (dur > 0) parts.push(`+${dur} мин`);
+        return parts.join(' · ');
+    }
+
+    function updateSurveySummaryView() {
+        const deltas = calcSurveyDeltas();
+        const extraVal = document.getElementById('hairSurveyExtraVal');
+        const totalVal = document.getElementById('hairSurveyTotalVal');
+        const lenDeltaEl = document.getElementById('hairLengthDelta');
+
+        if (lenDeltaEl) {
+            const lText = formatDelta(deltas.lenPrice, deltas.lenDur);
+            lenDeltaEl.textContent = lText ? `Коррекция за длину: ${lText}` : 'Базовая длина без надбавки';
+        }
+
+        if (state.service) {
+            const basePrice = state.service.price || 0;
+            const baseDur = state.service.duration || 0;
+            const totalPrice = basePrice + deltas.addPrice;
+            const totalDur = baseDur + deltas.addDur;
+
+            if (extraVal) {
+                extraVal.textContent = deltas.addPrice || deltas.addDur
+                    ? `+${deltas.addPrice.toLocaleString('ru-RU')} ₽ · +${deltas.addDur} мин`
+                    : 'Без изменений (+0 ₽, +0 мин)';
+            }
+            if (totalVal) {
+                totalVal.textContent = `${totalPrice.toLocaleString('ru-RU')} ₽ · ${totalDur} мин`;
+            }
+        }
+    }
+
     function renderHairSurvey() {
-        const customTags = (state.master && state.master.hair_survey && state.master.hair_survey.settings && state.master.hair_survey.settings.custom_tags) || DEFAULT_HAIR_TAGS;
+        const settings = getSurveySettings();
+        const customTags = settings.custom_tags || settings.tags || DEFAULT_HAIR_TAGS;
         const curLength = LENGTH_OPTIONS.find(function (x) { return x.id === state.hairSurvey.lengthId; }) || LENGTH_OPTIONS[3];
+        const deltas = calcSurveyDeltas();
 
-        const typeCardsHtml = TYPE_OPTIONS.map(function (opt) {
-            const active = state.hairSurvey.typeId === opt.id ? ' is-active' : '';
-            return `
-                <button type="button" class="hair-card-btn${active}" data-hair-type="${esc(opt.id)}">
-                    <span class="hair-card-btn__title">${esc(opt.title)}</span>
-                    <span class="hair-card-btn__desc">${esc(opt.desc)}</span>
-                </button>
-            `;
-        }).join('');
+        let qCounter = 1;
+        const sectionsHtml = [];
 
-        const densityCardsHtml = DENSITY_OPTIONS.map(function (opt) {
-            const active = state.hairSurvey.densityId === opt.id ? ' is-active' : '';
-            return `
-                <button type="button" class="hair-card-btn${active}" data-hair-density="${esc(opt.id)}">
-                    <span class="hair-card-btn__title">${esc(opt.title)}</span>
-                    <span class="hair-card-btn__desc">${esc(opt.desc)}</span>
-                </button>
-            `;
-        }).join('');
-
-        const tagsHtml = customTags.map(function (t) {
-            const active = state.hairSurvey.tags.includes(t) ? ' is-active' : '';
-            return `
-                <button type="button" class="hair-tag-pill${active}" data-hair-tag="${esc(t)}">
-                    <span class="hair-tag-check">✓</span>
-                    <span>${esc(t)}</span>
-                </button>
-            `;
-        }).join('');
-
-        body.innerHTML = `
-            <div class="hair-survey" role="region" aria-label="Консультация мастера">
-                <p class="r-text r-muted" style="margin-bottom: var(--space-12);">
-                    Мастер просит уточнить параметры волос, чтобы точно рассчитать время и расход материалов.
-                </p>
-
-                <!-- 1. Длина волос со шкалой и подсказкой в см -->
+        // 1. Длина
+        if (settings.q_length_enabled !== false) {
+            const lenDeltaStr = formatDelta(deltas.lenPrice, deltas.lenDur);
+            sectionsHtml.push(`
                 <div class="hair-survey__section">
                     <div class="hair-survey__section-head">
-                        <span class="hair-survey__label">1. Длина волос</span>
+                        <span class="hair-survey__label">${qCounter++}. Длина волос (шкала с ползунком)</span>
                         <span class="hair-survey__badge" id="hairLengthCm">${esc(curLength.cm)}</span>
                     </div>
-                    <div class="hair-survey__guide">
-                        <img src="/static/images/hair/hair_lengths_guide.webp" alt="Шкала длины волос" class="hair-survey__guide-img" loading="lazy">
-                    </div>
-                    <div class="hair-length-info">
-                        Выбрано: <strong id="hairLengthTitle">${esc(curLength.title)} (${esc(curLength.sub)})</strong>
-                    </div>
-                    <div class="hair-slider-wrap">
-                        <input type="range" min="1" max="7" step="1" value="${curLength.id}"
-                               class="hair-range" id="hairLengthRange" aria-label="Длина волос">
-                        <div class="hair-slider-labels">
-                            <span>Пикси</span>
-                            <span>До плеч</span>
-                            <span>До талии</span>
-                            <span>80+ см</span>
+
+                    <div class="hair-len-stage">
+                        <div class="hair-len-figure-wrap">
+                            <img id="hairLengthDynamicImg" src="/static/images/hair/hair_len_${curLength.id}.webp" class="hair-dynamic-img" alt="${esc(curLength.title)}">
+                        </div>
+                        <div class="hair-len-desc">
+                            <div class="hair-len-title-row">
+                                <strong id="hairLengthTitle" style="font-size:1rem;color:var(--color-heading);">${esc(curLength.title)} (${esc(curLength.sub)})</strong>
+                            </div>
+                            <div class="hair-len-delta" id="hairLengthDelta">
+                                ${lenDeltaStr ? `Коррекция за длину: ${esc(lenDeltaStr)}` : 'Базовая длина без надбавки'}
+                            </div>
+                        </div>
+
+                        <div class="hair-slider-wrap">
+                            <input type="range" min="1" max="7" step="1" value="${curLength.id}"
+                                   class="hair-range" id="hairLengthRange" aria-label="Длина волос">
+                            <div class="hair-slider-labels">
+                                <span>Пикси</span>
+                                <span>До плеч</span>
+                                <span>До талии</span>
+                                <span>80+ см</span>
+                            </div>
+                        </div>
+
+                        <!-- Иллюстрация со всеми вариантами длины под шкалой -->
+                        <div class="hair-strip-overview">
+                            <div class="hair-strip-overview__label">Все варианты длины со шкалой:</div>
+                            <img src="/static/images/hair/hair_lengths_full.webp" class="hair-strip-img" alt="Все длины волос" loading="lazy">
                         </div>
                     </div>
                 </div>
+            `);
+        }
 
-                <!-- 2. Тип / текстура волос -->
+        // 2. Густота карточки
+        if (settings.q_density_enabled !== false) {
+            const densRules = settings.density_rules || {};
+            const densityCardsHtml = DENSITY_OPTIONS.map(function (opt) {
+                const active = state.hairSurvey.densityId === opt.id ? ' is-active' : '';
+                const rule = densRules[opt.id] || {};
+                const dStr = formatDelta(parseInt(rule.price, 10) || 0, parseInt(rule.duration, 10) || 0);
+                const deltaBadge = dStr ? `<span class="hair-card-btn__delta">${esc(dStr)}</span>` : '';
+                return `
+                    <button type="button" class="hair-card-btn${active}" data-hair-density="${esc(opt.id)}" aria-label="${esc(opt.title)}">
+                        <span class="hair-card-btn__check" aria-hidden="true">✓</span>
+                        <span class="hair-card-btn__thumb">
+                            <img src="${opt.img}" class="hair-card-btn__img" alt="${esc(opt.title)}" loading="lazy">
+                        </span>
+                        <span class="hair-card-btn__title">${esc(opt.title)}</span>
+                        <span class="hair-card-btn__desc">${esc(opt.desc)}</span>
+                        ${deltaBadge}
+                    </button>
+                `;
+            }).join('');
+
+            sectionsHtml.push(`
                 <div class="hair-survey__section">
                     <div class="hair-survey__section-head">
-                        <span class="hair-survey__label">2. Тип и текстура волос</span>
-                    </div>
-                    <div class="hair-survey__guide">
-                        <img src="/static/images/hair/hair_types.jpg" alt="Типы волос" class="hair-survey__guide-img" loading="lazy">
-                    </div>
-                    <div class="hair-grid hair-grid--types">
-                        ${typeCardsHtml}
-                    </div>
-                </div>
-
-                <!-- 3. Густота волос -->
-                <div class="hair-survey__section">
-                    <div class="hair-survey__section-head">
-                        <span class="hair-survey__label">3. Густота волос</span>
-                    </div>
-                    <div class="hair-survey__guide">
-                        <img src="/static/images/hair/hair_density.webp" alt="Густота волос" class="hair-survey__guide-img" loading="lazy">
+                        <span class="hair-survey__label">${qCounter++}. Густота волос</span>
                     </div>
                     <div class="hair-grid hair-grid--density">
                         ${densityCardsHtml}
                     </div>
                 </div>
+            `);
+        }
 
-                <!-- 4. Особенности и история -->
+        // 3. Тип карточки
+        if (settings.q_type_enabled !== false) {
+            const typeRules = settings.type_rules || {};
+            const typeCardsHtml = TYPE_OPTIONS.map(function (opt) {
+                const active = state.hairSurvey.typeId === opt.id ? ' is-active' : '';
+                const rule = typeRules[opt.id] || {};
+                const dStr = formatDelta(parseInt(rule.price, 10) || 0, parseInt(rule.duration, 10) || 0);
+                const deltaBadge = dStr ? `<span class="hair-card-btn__delta">${esc(dStr)}</span>` : '';
+                return `
+                    <button type="button" class="hair-card-btn${active}" data-hair-type="${esc(opt.id)}" aria-label="${esc(opt.title)}">
+                        <span class="hair-card-btn__check" aria-hidden="true">✓</span>
+                        <span class="hair-card-btn__thumb">
+                            <img src="${opt.img}" class="hair-card-btn__img" alt="${esc(opt.title)}" loading="lazy">
+                        </span>
+                        <span class="hair-card-btn__title">${esc(opt.title)}</span>
+                        <span class="hair-card-btn__desc">${esc(opt.desc)}</span>
+                        ${deltaBadge}
+                    </button>
+                `;
+            }).join('');
+
+            sectionsHtml.push(`
                 <div class="hair-survey__section">
                     <div class="hair-survey__section-head">
-                        <span class="hair-survey__label">4. Особенности (отметьте подходящее)</span>
+                        <span class="hair-survey__label">${qCounter++}. Тип и структура волос</span>
+                    </div>
+                    <div class="hair-grid hair-grid--types">
+                        ${typeCardsHtml}
+                    </div>
+                </div>
+            `);
+        }
+
+        // 4. Особенности / теги
+        if (settings.q_tags_enabled !== false) {
+            const tagsHtml = customTags.map(function (t) {
+                const tName = typeof t === 'object' ? t.name : t;
+                const tPrice = typeof t === 'object' ? (parseInt(t.price, 10) || 0) : 0;
+                const tDur = typeof t === 'object' ? (parseInt(t.duration, 10) || 0) : 0;
+                const active = state.hairSurvey.tags.includes(tName) ? ' is-active' : '';
+                const dStr = formatDelta(tPrice, tDur);
+                const deltaBadge = dStr ? `<span class="hair-tag-delta">(${esc(dStr)})</span>` : '';
+                return `
+                    <button type="button" class="hair-tag-pill${active}" data-hair-tag="${esc(tName)}">
+                        <span class="hair-tag-check">✓</span>
+                        <span>${esc(tName)}</span>
+                        ${deltaBadge}
+                    </button>
+                `;
+            }).join('');
+
+            sectionsHtml.push(`
+                <div class="hair-survey__section">
+                    <div class="hair-survey__section-head">
+                        <span class="hair-survey__label">${qCounter++}. Особенности волос (отметьте подходящее)</span>
                     </div>
                     <div class="hair-tags">
                         ${tagsHtml}
                     </div>
                 </div>
+            `);
+        }
 
-                <div style="margin-top: var(--space-16);">
+        // 5. Конструкторские вопросы (Google Forms)
+        const customQuestions = settings.custom_questions || [];
+        customQuestions.forEach(function (q) {
+            if (q.enabled === false) return;
+            const qid = String(q.id);
+            const currentAns = (state.hairSurvey.customAnswers && state.hairSurvey.customAnswers[qid]) || {};
+            const qTitle = q.title || 'Вопрос';
+            const qDesc = q.desc ? `<p style="margin:0 0 0.5rem;font-size:0.8125rem;color:var(--color-muted);">${esc(q.desc)}</p>` : '';
+            const isReq = q.required ? '<span style="color:var(--color-accent, #e11d48);margin-left:3px;" title="Обязательный">*</span>' : '';
+
+            let contentHtml = '';
+            if (q.type === 'single') {
+                const optHtml = (q.options || []).map(function (opt) {
+                    const sel = (currentAns.option_ids || []).includes(opt.id) ? ' is-active' : '';
+                    const dStr = formatDelta(parseInt(opt.price, 10) || 0, parseInt(opt.duration, 10) || 0);
+                    const deltaBadge = dStr ? `<span class="hair-card-btn__delta">${esc(dStr)}</span>` : '';
+                    return `
+                        <button type="button" class="hair-card-btn${sel}" data-cq-single="${esc(qid)}" data-cq-opt="${esc(opt.id)}" style="padding:0.6rem 0.8rem;text-align:left;align-items:flex-start;">
+                            <span class="hair-card-btn__check" aria-hidden="true">✓</span>
+                            <span class="hair-card-btn__title">${esc(opt.title)}</span>
+                            ${deltaBadge}
+                        </button>
+                    `;
+                }).join('');
+                contentHtml = `<div class="hair-grid" style="grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:0.5rem;">${optHtml}</div>`;
+            } else if (q.type === 'multiple') {
+                const optHtml = (q.options || []).map(function (opt) {
+                    const sel = (currentAns.option_ids || []).includes(opt.id) ? ' is-active' : '';
+                    const dStr = formatDelta(parseInt(opt.price, 10) || 0, parseInt(opt.duration, 10) || 0);
+                    const deltaBadge = dStr ? `<span class="hair-tag-delta">(${esc(dStr)})</span>` : '';
+                    return `
+                        <button type="button" class="hair-tag-pill${sel}" data-cq-multi="${esc(qid)}" data-cq-opt="${esc(opt.id)}">
+                            <span class="hair-tag-check">✓</span>
+                            <span>${esc(opt.title)}</span>
+                            ${deltaBadge}
+                        </button>
+                    `;
+                }).join('');
+                contentHtml = `<div class="hair-tags">${optHtml}</div>`;
+            } else if (q.type === 'text') {
+                contentHtml = `
+                    <div>
+                        <input type="text" class="r-input" data-cq-text="${esc(qid)}"
+                               value="${esc(currentAns.text || '')}"
+                               placeholder="Введите ваш ответ..." style="width:100%;font-size:0.875rem;padding:0.45rem 0.75rem;">
+                    </div>
+                `;
+            }
+
+            sectionsHtml.push(`
+                <div class="hair-survey__section">
+                    <div class="hair-survey__section-head">
+                        <span class="hair-survey__label">${qCounter++}. ${esc(qTitle)}${isReq}</span>
+                    </div>
+                    ${qDesc}
+                    ${contentHtml}
+                </div>
+            `);
+        });
+
+        const basePrice = state.service ? (state.service.price || 0) : 0;
+        const baseDur = state.service ? (state.service.duration || 0) : 0;
+        const totalPrice = basePrice + deltas.addPrice;
+        const totalDur = baseDur + deltas.addDur;
+
+        body.innerHTML = `
+            <div class="hair-survey" role="region" aria-label="Консультация мастера">
+                <div class="hair-survey__intro">
+                    <p class="hair-survey__hint">
+                        Перед выбором времени укажите параметры и особенности волос. Мы сразу рассчитаем точную стоимость и длительность процедуры для идеального результата.
+                    </p>
+                </div>
+
+                ${sectionsHtml.join('')}
+
+                <!-- Итоговый блок стоимости и тайминга -->
+                <div class="hair-survey-summary">
+                    <div class="hair-survey-summary__row">
+                        <span>Базовая услуга:</span>
+                        <span>${state.service ? esc(money(state.service)) : ''} (${baseDur} мин)</span>
+                    </div>
+                    <div class="hair-survey-summary__row hair-survey-summary__row--extra" id="hairSurveyExtraRow">
+                        <span>Надбавка за параметры волос:</span>
+                        <span id="hairSurveyExtraVal">${deltas.addPrice || deltas.addDur ? `+${deltas.addPrice.toLocaleString('ru-RU')} ₽ · +${deltas.addDur} мин` : 'Без изменений (+0 ₽, +0 мин)'}</span>
+                    </div>
+                    <div class="hair-survey-summary__total">
+                        <span>Итоговая цена и время:</span>
+                        <strong id="hairSurveyTotalVal">${totalPrice.toLocaleString('ru-RU')} ₽ · ${totalDur} мин</strong>
+                    </div>
+                </div>
+
+                <div style="margin-top: var(--space-12);">
                     <button type="button" class="r-btn r-btn--primary r-btn--block" id="hairSurveyNext">
                         <span class="r-btn__label">Перейти к выбору времени</span>
                     </button>
@@ -356,8 +626,9 @@ document.addEventListener('DOMContentLoaded', function () {
         // Быстро перещёлкивая дни, можно получить ответы не по порядку — рисуем
         // только ответ на ПОСЛЕДНИЙ выбор.
         const id = ++slotsRequest;
+        const extraDur = (state.hairSurvey && state.hairSurvey.extraDuration) || 0;
         fetch(`/api/v1/bookings/available/${state.master.id}` +
-              `?date=${state.date}&service_id=${state.service.id}`)
+              `?date=${state.date}&service_id=${state.service.id}&extra_duration=${extraDur}`)
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (id !== slotsRequest) return;
@@ -391,20 +662,56 @@ document.addEventListener('DOMContentLoaded', function () {
               `${userData.phone ? ' · ' + esc(userData.phone) : ''}</dd></div>`
             : '';
         let surveyRow = '';
+        let priceDisplay = money(s);
+        let durationDisplay = `${s.duration} мин`;
+
         if (hasHairSurvey() && state.hairSurvey) {
-            const tagsText = state.hairSurvey.tags.length
-                ? ` · ${state.hairSurvey.tags.join(', ')}`
-                : '';
-            surveyRow = `
-                <div class="book__row book__row--survey"><dt>Волосы</dt>
-                    <dd>${esc(state.hairSurvey.lengthTitle)} (${esc(state.hairSurvey.lengthCm)}) · ${esc(state.hairSurvey.hairType)} · ${esc(state.hairSurvey.hairDensity)}${esc(tagsText)}</dd></div>`;
+            const deltas = calcSurveyDeltas();
+            const settings = getSurveySettings();
+            const parts = [];
+            if (settings.q_length_enabled !== false) {
+                parts.push(`${state.hairSurvey.lengthTitle} (${state.hairSurvey.lengthCm})`);
+            }
+            if (settings.q_type_enabled !== false) {
+                parts.push(state.hairSurvey.hairType);
+            }
+            if (settings.q_density_enabled !== false) {
+                parts.push(state.hairSurvey.hairDensity);
+            }
+            if (settings.q_tags_enabled !== false && state.hairSurvey.tags && state.hairSurvey.tags.length) {
+                parts.push(state.hairSurvey.tags.join(', '));
+            }
+            if (state.hairSurvey.customAnswers) {
+                Object.values(state.hairSurvey.customAnswers).forEach(function (ans) {
+                    if (!ans) return;
+                    if (ans.type === 'single' || ans.type === 'multiple') {
+                        if (ans.option_titles && ans.option_titles.length) {
+                            parts.push(`${ans.question_title}: ${ans.option_titles.join(', ')}`);
+                        }
+                    } else if (ans.type === 'text' && ans.text) {
+                        parts.push(`${ans.question_title}: ${ans.text}`);
+                    }
+                });
+            }
+            if (parts.length) {
+                surveyRow = `
+                    <div class="book__row book__row--survey"><dt>Волосы</dt>
+                        <dd>${esc(parts.join(' · '))}</dd></div>`;
+            }
+
+            if (deltas.addPrice > 0 || deltas.addDur > 0) {
+                const totalP = (s.price || 0) + deltas.addPrice;
+                const totalD = (s.duration || 0) + deltas.addDur;
+                priceDisplay = `${totalP.toLocaleString('ru-RU')} ₽ (базовая ${s.price} ₽ + ${deltas.addPrice} ₽ за параметры)`;
+                durationDisplay = `${totalD} мин (${s.duration} + ${deltas.addDur} мин)`;
+            }
         }
         body.innerHTML = `
             <dl class="book__sum">
                 <div class="book__row"><dt>Мастер</dt><dd>${esc(m.name)}</dd></div>
                 <div class="book__row"><dt>Услуга</dt>
-                    <dd>${esc(s.name)} · ${esc(String(s.duration))} мин</dd></div>
-                <div class="book__row"><dt>Цена</dt><dd class="tabular-nums">${esc(money(s))}</dd></div>
+                    <dd>${esc(s.name)} · ${esc(durationDisplay)}</dd></div>
+                <div class="book__row"><dt>Цена</dt><dd class="tabular-nums">${esc(priceDisplay)}</dd></div>
                 <div class="book__row"><dt>Когда</dt><dd class="tabular-nums">${esc(when)}</dd></div>
                 ${surveyRow}
                 ${who}
@@ -438,21 +745,26 @@ document.addEventListener('DOMContentLoaded', function () {
                 start_time: state.time,
             };
             if (hasHairSurvey()) {
+                const deltas = calcSurveyDeltas();
+                const settings = getSurveySettings();
                 payload.hair_survey = {
-                    length: {
+                    length: (settings.q_length_enabled !== false) ? {
                         id: state.hairSurvey.lengthId,
                         title: state.hairSurvey.lengthTitle,
                         cm: state.hairSurvey.lengthCm,
-                    },
-                    type: {
+                    } : null,
+                    type: (settings.q_type_enabled !== false) ? {
                         id: state.hairSurvey.typeId,
                         title: state.hairSurvey.hairType,
-                    },
-                    density: {
+                    } : null,
+                    density: (settings.q_density_enabled !== false) ? {
                         id: state.hairSurvey.densityId,
                         title: state.hairSurvey.hairDensity,
-                    },
-                    features: state.hairSurvey.tags,
+                    } : null,
+                    features: (settings.q_tags_enabled !== false) ? state.hairSurvey.tags : [],
+                    custom_answers: Object.values(state.hairSurvey.customAnswers || {}),
+                    extra_price: deltas.addPrice,
+                    extra_duration: deltas.addDur,
                 };
             }
             const res = await fetch('/api/v1/bookings', {
@@ -486,9 +798,22 @@ document.addEventListener('DOMContentLoaded', function () {
         back.hidden = true;
         let surveyDoneRow = '';
         if (hasHairSurvey() && state.hairSurvey) {
-            surveyDoneRow = `
-                <div class="book__row"><dt>Волосы</dt>
-                    <dd>${esc(state.hairSurvey.lengthTitle)} (${esc(state.hairSurvey.lengthCm)})</dd></div>`;
+            const settings = getSurveySettings();
+            const parts = [];
+            if (settings.q_length_enabled !== false) {
+                parts.push(`${state.hairSurvey.lengthTitle} (${state.hairSurvey.lengthCm})`);
+            }
+            if (settings.q_type_enabled !== false) {
+                parts.push(state.hairSurvey.hairType);
+            }
+            if (settings.q_density_enabled !== false) {
+                parts.push(state.hairSurvey.hairDensity);
+            }
+            if (parts.length) {
+                surveyDoneRow = `
+                    <div class="book__row"><dt>Волосы</dt>
+                        <dd>${esc(parts.join(' · '))}</dd></div>`;
+            }
         }
         body.innerHTML = `
             <p class="book__done-title">Заявка отправлена</p>
@@ -537,6 +862,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 widget.querySelectorAll('[data-hair-type]').forEach(function (btn) {
                     btn.classList.toggle('is-active', btn.dataset.hairType === tid);
                 });
+                updateSurveySummaryView();
             }
             return;
         }
@@ -550,6 +876,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 widget.querySelectorAll('[data-hair-density]').forEach(function (btn) {
                     btn.classList.toggle('is-active', btn.dataset.hairDensity === did);
                 });
+                updateSurveySummaryView();
             }
             return;
         }
@@ -564,10 +891,94 @@ document.addEventListener('DOMContentLoaded', function () {
                 state.hairSurvey.tags.push(tag);
                 hairTagBtn.classList.add('is-active');
             }
+            updateSurveySummaryView();
+            return;
+        }
+        const cqSingleBtn = ev.target.closest('[data-cq-single]');
+        if (cqSingleBtn) {
+            const qid = cqSingleBtn.dataset.cqSingle;
+            const oid = cqSingleBtn.dataset.cqOpt;
+            const settings = getSurveySettings();
+            const qDef = (settings.custom_questions || []).find(function (q) { return String(q.id) === qid; });
+            if (qDef) {
+                const opt = (qDef.options || []).find(function (o) { return String(o.id) === oid; });
+                if (opt) {
+                    state.hairSurvey.customAnswers[qid] = {
+                        question_id: qid,
+                        question_title: qDef.title,
+                        type: 'single',
+                        option_ids: [opt.id],
+                        option_titles: [opt.title],
+                        addPrice: parseInt(opt.price, 10) || 0,
+                        addDur: parseInt(opt.duration, 10) || 0,
+                    };
+                    widget.querySelectorAll(`[data-cq-single="${qid}"]`).forEach(function (btn) {
+                        btn.classList.toggle('is-active', btn.dataset.cqOpt === oid);
+                    });
+                    updateSurveySummaryView();
+                }
+            }
+            return;
+        }
+        const cqMultiBtn = ev.target.closest('[data-cq-multi]');
+        if (cqMultiBtn) {
+            const qid = cqMultiBtn.dataset.cqMulti;
+            const oid = cqMultiBtn.dataset.cqOpt;
+            const settings = getSurveySettings();
+            const qDef = (settings.custom_questions || []).find(function (q) { return String(q.id) === qid; });
+            if (qDef) {
+                let ans = state.hairSurvey.customAnswers[qid];
+                if (!ans || !Array.isArray(ans.option_ids)) {
+                    ans = {
+                        question_id: qid,
+                        question_title: qDef.title,
+                        type: 'multiple',
+                        option_ids: [],
+                        option_titles: [],
+                        addPrice: 0,
+                        addDur: 0,
+                    };
+                    state.hairSurvey.customAnswers[qid] = ans;
+                }
+                const opt = (qDef.options || []).find(function (o) { return String(o.id) === oid; });
+                const idx = ans.option_ids.indexOf(oid);
+                if (idx >= 0) {
+                    ans.option_ids.splice(idx, 1);
+                    if (opt) {
+                        const tIdx = ans.option_titles.indexOf(opt.title);
+                        if (tIdx >= 0) ans.option_titles.splice(tIdx, 1);
+                        ans.addPrice -= (parseInt(opt.price, 10) || 0);
+                        ans.addDur -= (parseInt(opt.duration, 10) || 0);
+                    }
+                    cqMultiBtn.classList.remove('is-active');
+                } else {
+                    ans.option_ids.push(oid);
+                    if (opt) {
+                        ans.option_titles.push(opt.title);
+                        ans.addPrice += (parseInt(opt.price, 10) || 0);
+                        ans.addDur += (parseInt(opt.duration, 10) || 0);
+                    }
+                    cqMultiBtn.classList.add('is-active');
+                }
+                updateSurveySummaryView();
+            }
             return;
         }
         const hairNextBtn = ev.target.closest('#hairSurveyNext');
         if (hairNextBtn) {
+            const settings = getSurveySettings();
+            const customQuestions = settings.custom_questions || [];
+            for (let i = 0; i < customQuestions.length; i++) {
+                const q = customQuestions[i];
+                if (q.enabled !== false && q.required) {
+                    const ans = state.hairSurvey.customAnswers[String(q.id)];
+                    const answered = ans && ((ans.option_ids && ans.option_ids.length > 0) || (ans.text && ans.text.trim().length > 0));
+                    if (!answered) {
+                        alert('Пожалуйста, ответьте на обязательный вопрос: ' + (q.title || ''));
+                        return;
+                    }
+                }
+            }
             go('time');
             return;
         }
@@ -598,10 +1009,30 @@ document.addEventListener('DOMContentLoaded', function () {
             state.hairSurvey.lengthId = opt.id;
             state.hairSurvey.lengthTitle = opt.title;
             state.hairSurvey.lengthCm = opt.cm;
+
+            const imgEl = document.getElementById('hairLengthDynamicImg');
+            if (imgEl) imgEl.src = `/static/images/hair/hair_len_${opt.id}.webp`;
+
             const titleEl = document.getElementById('hairLengthTitle');
             const cmEl = document.getElementById('hairLengthCm');
             if (titleEl) titleEl.textContent = `${opt.title} (${opt.sub})`;
             if (cmEl) cmEl.textContent = opt.cm;
+
+            updateSurveySummaryView();
+            return;
+        }
+        if (ev.target && ev.target.dataset && ev.target.dataset.cqText) {
+            const qid = ev.target.dataset.cqText;
+            const settings = getSurveySettings();
+            const qDef = (settings.custom_questions || []).find(function (q) { return String(q.id) === qid; });
+            state.hairSurvey.customAnswers[qid] = {
+                question_id: qid,
+                question_title: qDef ? qDef.title : '',
+                type: 'text',
+                text: ev.target.value.trim(),
+                addPrice: 0,
+                addDur: 0,
+            };
         }
     });
 

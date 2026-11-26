@@ -280,3 +280,206 @@ async def test_hair_survey_rendering_in_schedule_and_records(db_session):
         )
         assert "Волосы" in client_bookings_html
         assert "Средние (до лопаток)" in client_bookings_html
+
+
+@pytest.mark.asyncio
+async def test_interactive_tab_and_price_duration_calculation(client, db_session):
+    """Проверка вкладки «Интерактивная запись» и автоматического пересчета цены и длительности."""
+    from app.web.pages.business.tabs.interactive import render_interactive_tab
+
+    owner, client_user, salon, master, service = await _create_test_environment(db_session)
+    owner_token = create_access_token(subject=owner.id)
+    client_token = create_access_token(subject=client_user.id)
+
+    # 1. Проверяем рендер вкладки интерактивной записи
+    async with db_session() as db:
+        tab_html = await render_interactive_tab(
+            db=db,
+            salon=salon,
+            masters=[master],
+            user=owner,
+            membership=None,
+            perms={"can_edit_salon": True},
+            query_params={},
+        )
+        assert "Интерактивная запись" in tab_html
+        assert "Длина волос (интерактивная шкала с ползунком)" in tab_html
+        assert "hair_lengths_strip.webp" in tab_html
+        assert "hair_len_4.webp" in tab_html
+        assert "Тип и структура волос" in tab_html
+        assert "Густота волос" in tab_html
+
+    # 2. Настраиваем правила надбавок мастера
+    rules_payload = {
+        "enabled": True,
+        "length_rules": {
+            "5": {"price": 1000, "duration": 30},
+        },
+        "density_rules": {
+            "thick": {"price": 500, "duration": 30},
+        },
+        "custom_tags": [
+            {"name": "Наращенные волосы", "price": 500, "duration": 30},
+            {"name": "Окрашенные", "price": 0, "duration": 0},
+        ],
+    }
+    resp = await client.post(
+        f"/api/v1/masters/{master.id}/hair-survey",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json=rules_payload,
+    )
+    assert resp.status_code == 200, resp.text
+
+    # 3. Создаем запись клиента с параметрами (Длинные + Очень густые + Наращенные волосы)
+    # Базовая услуга: 4500 ₽, 120 мин
+    # Надбавки: Длина 5 (+1000 ₽, +30 мин), Густота thick (+500 ₽, +30 мин), Наращенные (+500 ₽, +30 мин)
+    # Итого: 6500 ₽, 210 мин
+    start_time = (datetime.now() + timedelta(days=3)).replace(hour=10, minute=0, second=0, microsecond=0)
+    survey_payload = {
+        "length": {"id": 5, "title": "Длинные (до талии)", "cm": "~55–60 см"},
+        "type": {"id": "straight", "title": "Прямые, гладкие"},
+        "density": {"id": "thick", "title": "Очень густые"},
+        "features": ["Наращенные волосы"],
+    }
+    booking_req = {
+        "master_id": master.id,
+        "service_id": service.id,
+        "start_time": start_time.strftime("%Y-%m-%dT%H:%M"),
+        "hair_survey": survey_payload,
+    }
+    b_resp = await client.post(
+        "/api/v1/bookings",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json=booking_req,
+    )
+    assert b_resp.status_code in (200, 201), b_resp.text
+    booking_data = b_resp.json()
+
+    assert booking_data["final_price"] == 6500
+
+    async with db_session() as db:
+        b = await db.get(Booking, booking_data["id"])
+        assert b.final_price == 6500
+        # Длительность: 120 + 30 + 30 + 30 = 210 минут
+        assert (b.end_time - b.start_time) == timedelta(minutes=210)
+
+
+@pytest.mark.asyncio
+async def test_survey_not_in_master_card_tab(db_session):
+    """Проверка того, что опрос убран из вкладки «Моя карточка мастера»."""
+    from app.web.pages.business.tabs.my_salon import render_solo_settings_groups
+
+    owner, _, salon, master, _ = await _create_test_environment(db_session)
+    async with db_session() as db:
+        public_html, work_html = await render_solo_settings_groups(
+            db=db,
+            salon=salon,
+            can_manage_salon=True,
+            is_creator=True,
+        )
+        assert "hairSurveySettingsCard" not in work_html
+        assert "hairSurveySettingsCard" not in public_html
+        assert "Опрос клиентов перед записью (параметры волос)" not in work_html
+
+
+@pytest.mark.asyncio
+async def test_question_toggles_and_custom_google_forms_survey(client, db_session):
+    """Проверка отключения вопросов (густота выключена) и конструктора в стиле Google Forms."""
+    from app.web.pages.business.tabs.interactive import render_interactive_tab
+
+    owner, client_user, salon, master, service = await _create_test_environment(db_session)
+    owner_token = create_access_token(subject=owner.id)
+    client_token = create_access_token(subject=client_user.id)
+
+    # 1. Проверяем наличие чекбоксов включения вопросов и конструктора Google Forms в HTML
+    async with db_session() as db:
+        tab_html = await render_interactive_tab(
+            db=db,
+            salon=salon,
+            masters=[master],
+            user=owner,
+            membership=None,
+            perms={"can_edit_salon": True},
+            query_params={},
+        )
+        assert 'name="q_length_enabled"' in tab_html
+        assert 'name="q_density_enabled"' in tab_html
+        assert 'name="q_type_enabled"' in tab_html
+        assert 'name="q_tags_enabled"' in tab_html
+        assert 'name="custom_questions_json"' in tab_html
+        assert "googleQuestionsList" in tab_html
+        assert "Конструктор вопросов и вариантов ответов (как в Google Формах)" in tab_html
+
+    # 2. Мастер отключает густоту (q_density_enabled=False) и добавляет вопрос Google Forms
+    cq_payload = {
+        "enabled": True,
+        "q_length_enabled": True,
+        "q_type_enabled": True,
+        "q_density_enabled": False,  # Густоту отключили!
+        "q_tags_enabled": True,
+        "length_rules": {
+            "4": {"price": 500, "duration": 15},
+        },
+        "density_rules": {
+            "thick": {"price": 1000, "duration": 45},  # Было дорогое правило, но вопрос отключен
+        },
+        "custom_questions": [
+            {
+                "id": "cq_bleach",
+                "title": "Было ли окрашивание хной или басмой?",
+                "type": "single",
+                "enabled": True,
+                "required": True,
+                "options": [
+                    {"id": "opt_no", "title": "Нет", "price": 0, "duration": 0},
+                    {"id": "opt_yes", "title": "Да, было", "price": 600, "duration": 30},
+                ],
+            }
+        ],
+    }
+    resp = await client.post(
+        f"/api/v1/masters/{master.id}/hair-survey",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json=cq_payload,
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["settings"]
+    assert data["q_density_enabled"] is False
+    assert len(data["custom_questions"]) == 1
+
+    # 3. Клиент бронирует: выбирает Длину 4 (+500 ₽, +15 мин), Густоту thick (НО ОНА ВЫКЛЮЧЕНА, 0 ₽),
+    # и кастомный ответ «Да, было» (+600 ₽, +30 мин)
+    # Базовая цена: 4500 ₽, 120 мин
+    # Итого: 4500 + 500 + 0 + 600 = 5600 ₽, 120 + 15 + 0 + 30 = 165 мин
+    start_time = (datetime.now() + timedelta(days=4)).replace(hour=12, minute=0, second=0, microsecond=0)
+    survey_payload = {
+        "length": {"id": 4, "title": "Средние", "cm": "~40–45 см"},
+        "density": {"id": "thick", "title": "Очень густые"},
+        "custom_answers": [
+            {
+                "question_id": "cq_bleach",
+                "option_ids": ["opt_yes"],
+                "text": "",
+            }
+        ],
+    }
+    booking_req = {
+        "master_id": master.id,
+        "service_id": service.id,
+        "start_time": start_time.strftime("%Y-%m-%dT%H:%M"),
+        "hair_survey": survey_payload,
+    }
+    b_resp = await client.post(
+        "/api/v1/bookings",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json=booking_req,
+    )
+    assert b_resp.status_code in (200, 201), b_resp.text
+    b_data = b_resp.json()
+    assert b_data["final_price"] == 5600
+
+    async with db_session() as db:
+        b = await db.get(Booking, b_data["id"])
+        assert b.final_price == 5600
+        assert (b.end_time - b.start_time) == timedelta(minutes=165)
+

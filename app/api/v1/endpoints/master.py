@@ -372,34 +372,120 @@ async def update_master_hair_survey(
 
     is_json = request.headers.get("content-type", "").startswith("application/json")
     return_url = None
+    length_rules = {}
+    type_rules = {}
+    density_rules = {}
+    custom_tags = []
+
+    q_length_enabled = True
+    q_type_enabled = True
+    q_density_enabled = True
+    q_tags_enabled = True
+    custom_questions = []
+
     if is_json:
         body = await request.json()
         enabled = bool(body.get("enabled", False))
-        tags = body.get("tags")
-        if tags is None:
-            tags = body.get("custom_tags")
-        if tags is None:
-            tags = list(DEFAULT_HAIR_SURVEY_TAGS)
+        q_length_enabled = bool(body.get("q_length_enabled", True))
+        q_type_enabled = bool(body.get("q_type_enabled", True))
+        q_density_enabled = bool(body.get("q_density_enabled", True))
+        q_tags_enabled = bool(body.get("q_tags_enabled", True))
+        custom_questions = body.get("custom_questions") or []
+        length_rules = body.get("length_rules") or {}
+        type_rules = body.get("type_rules") or {}
+        density_rules = body.get("density_rules") or {}
+        custom_tags = body.get("custom_tags") or body.get("tags")
+        if custom_tags is None:
+            custom_tags = list(DEFAULT_HAIR_SURVEY_TAGS)
     else:
         form = await request.form()
         enabled = form.get("enabled") in ("1", "true", "on")
-        raw_tags = form.getlist("tags")
-        if not raw_tags:
-            custom_tags_str = form.get("custom_tags", "")
-            if custom_tags_str:
-                raw_tags = [t.strip() for t in custom_tags_str.split(",") if t.strip()]
-            else:
-                raw_tags = list(DEFAULT_HAIR_SURVEY_TAGS)
-        tags = raw_tags
         return_url = form.get("return_url")
+
+        q_length_enabled = form.get("q_length_enabled") in ("1", "true", "on")
+        q_type_enabled = form.get("q_type_enabled") in ("1", "true", "on")
+        q_density_enabled = form.get("q_density_enabled") in ("1", "true", "on")
+        q_tags_enabled = form.get("q_tags_enabled") in ("1", "true", "on")
+
+        cq_json = form.get("custom_questions_json")
+        if cq_json:
+            try:
+                parsed_cq = json.loads(cq_json)
+                if isinstance(parsed_cq, list):
+                    custom_questions = parsed_cq
+            except Exception:
+                custom_questions = []
+
+        # Парсинг правил длины
+        for i in range(1, 8):
+            lp = form.get(f"len_price_{i}")
+            ld = form.get(f"len_duration_{i}")
+            if lp is not None or ld is not None:
+                length_rules[str(i)] = {
+                    "price": int(lp) if lp and str(lp).isdigit() else 0,
+                    "duration": int(ld) if ld and str(ld).isdigit() else 0,
+                }
+
+        # Парсинг правил типов
+        for tid in ("straight", "wavy", "curly", "coarse"):
+            tp = form.get(f"type_price_{tid}")
+            td = form.get(f"type_duration_{tid}")
+            if tp is not None or td is not None:
+                type_rules[tid] = {
+                    "price": int(tp) if tp and str(tp).isdigit() else 0,
+                    "duration": int(td) if td and str(td).isdigit() else 0,
+                }
+
+        # Парсинг правил густоты
+        for did in ("thin", "medium", "thick"):
+            dp = form.get(f"density_price_{did}")
+            dd = form.get(f"density_duration_{did}")
+            if dp is not None or dd is not None:
+                density_rules[did] = {
+                    "price": int(dp) if dp and str(dp).isdigit() else 0,
+                    "duration": int(dd) if dd and str(dd).isdigit() else 0,
+                }
+
+        # Парсинг вопросов анкеты с доплатами и добавочным временем
+        tag_names = form.getlist("tag_name")
+        tag_prices = form.getlist("tag_price")
+        tag_durations = form.getlist("tag_duration")
+        if tag_names:
+            for idx, name in enumerate(tag_names):
+                name = name.strip()
+                if not name:
+                    continue
+                p = int(tag_prices[idx]) if idx < len(tag_prices) and str(tag_prices[idx]).isdigit() else 0
+                d = int(tag_durations[idx]) if idx < len(tag_durations) and str(tag_durations[idx]).isdigit() else 0
+                custom_tags.append({"name": name, "price": p, "duration": d})
+        else:
+            raw_tags = form.getlist("tags")
+            if not raw_tags:
+                custom_tags_str = form.get("custom_tags", "")
+                if custom_tags_str:
+                    raw_tags = [t.strip() for t in custom_tags_str.split(",") if t.strip()]
+            if raw_tags:
+                custom_tags = [t if isinstance(t, dict) else {"name": str(t), "price": 0, "duration": 0} for t in raw_tags]
+            else:
+                custom_tags = list(DEFAULT_HAIR_SURVEY_TAGS)
+
+    simple_tag_names = [t["name"] if isinstance(t, dict) else str(t) for t in custom_tags]
 
     master.hair_survey_enabled = enabled
     master.hair_survey_settings = {
-        "tags": tags,
-        "custom_tags": tags,
-        "require_length": True,
-        "require_type": True,
-        "require_density": True,
+        "q_length_enabled": q_length_enabled,
+        "q_type_enabled": q_type_enabled,
+        "q_density_enabled": q_density_enabled,
+        "q_tags_enabled": q_tags_enabled,
+        "custom_questions": custom_questions,
+        "tags": simple_tag_names,
+        "custom_tags": custom_tags,
+        "length_rules": length_rules,
+        "type_rules": type_rules,
+        "density_rules": density_rules,
+        "require_length": q_length_enabled,
+        "require_type": q_type_enabled,
+        "require_density": q_density_enabled,
     }
     await db.commit()
 
@@ -410,6 +496,6 @@ async def update_master_hair_survey(
             "settings": master.hair_survey_settings,
         }
     return RedirectResponse(
-        url=return_url or f"/business/dashboard?salon_id={master.salon_id}&tab=employees&ok=survey_saved",
+        url=return_url or f"/business/dashboard?salon_id={master.salon_id}&tab=interactive&ok=survey_saved",
         status_code=302,
     )
