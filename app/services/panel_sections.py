@@ -24,7 +24,7 @@ from app.models.models import SalonPanelMode
 ALL_KEYS: tuple = (
     "overview", "analytics", "schedule", "employees", "services", "payroll",
     "cost", "records", "warehouse", "models", "promos", "reviews", "crm",
-    "interactive", "billing", "edit", "instructions",
+    "billing", "edit", "instructions",
 )
 
 # Базовые подписи (без счётчиков — их дописывает панель).
@@ -42,7 +42,6 @@ LABELS = {
     "promos": "Акции",
     "reviews": "Отзывы",
     "crm": "Клиенты",
-    "interactive": "Интерактивная запись",
     "billing": "Тариф",
     "edit": "Редактировать салон",
     "instructions": "Инструкция",

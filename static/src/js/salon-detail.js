@@ -500,7 +500,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const currentAns = (state.hairSurvey.customAnswers && state.hairSurvey.customAnswers[qid]) || {};
             const qTitle = q.title || 'Вопрос';
             const qDesc = q.desc ? `<p style="margin:0 0 0.5rem;font-size:0.8125rem;color:var(--color-muted);">${esc(q.desc)}</p>` : '';
-            const isReq = q.required ? '<span style="color:var(--color-accent, #e11d48);margin-left:3px;" title="Обязательный">*</span>' : '';
+            const isReq = q.required ? '<span style="color:var(--color-accent-text);margin-left:3px;" title="Обязательный">*</span>' : '';
 
             let contentHtml = '';
             if (q.type === 'single') {

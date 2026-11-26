@@ -25,7 +25,6 @@ SPORT_PUBLIC_NAV = (
     ("sport", "/sport/", "Главная"),
     ("sport_clubs", "/sport/clubs", "Все клубы"),
     ("sport_business", "/sport/business", "Для клубов"),
-    ("sport_manifest", "/sport/about", "Манифест"),
     ("sport_tariffs", "/sport/tariffs", "Тарифы"),
 )
 

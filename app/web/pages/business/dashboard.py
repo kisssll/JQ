@@ -456,7 +456,8 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
 
     # Выключенный раздел не открывается и по прямой ссылке — проверка стоит ДО
     # рендера вкладки, поэтому и ?tab=, и ?tab=&partial=1 уходят в «Обзор».
-    if active_tab not in visible_slugs:
+    # Специальная вкладка «Интерактивная запись» доступна тем, кто управляет салоном или мастерами.
+    if active_tab not in visible_slugs and not (active_tab == "interactive" and _permitted("interactive")):
         active_tab = "overview"
 
     # ----- Знакомство с панелью (тур, решение 0008) -----

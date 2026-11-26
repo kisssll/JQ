@@ -1033,22 +1033,22 @@
     text-align: center;
     align-items: center;
     padding: 0.6rem 0.5rem 0.75rem;
-    border: 1.5px solid var(--color-border, #e2e8f0);
-    border-radius: var(--radius-12, 12px);
-    background: var(--color-surface, #ffffff);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-16);
+    background: var(--color-surface);
     cursor: pointer;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
     transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 .hair-card-btn:hover {
-    border-color: var(--color-accent, #e11d48);
-    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.1);
+    border-color: var(--color-accent);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     transform: translateY(-2px);
 }
 .hair-card-btn.is-active {
-    border-color: var(--color-accent, #e11d48);
-    background: var(--color-accent-light, #fffbfa);
-    box-shadow: 0 0 0 1.5px var(--color-accent, #e11d48), 0 4px 12px rgba(225, 29, 72, 0.12);
+    border-color: var(--color-accent);
+    background: var(--color-accent-light);
+    box-shadow: 0 0 0 1.5px var(--color-accent);
 }
 .hair-card-btn__check {
     position: absolute;
@@ -1057,8 +1057,8 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: var(--color-accent, #e11d48);
-    color: #ffffff;
+    background: var(--color-accent);
+    color: var(--color-btn-text);
     font-size: 11px;
     font-weight: 700;
     display: none;
@@ -1076,8 +1076,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at center, #fff0f3 0%, #f8fafc 85%);
-    border-radius: 8px;
+    background: var(--color-surface-alt);
+    border-radius: var(--radius-8);
     margin-bottom: 0.45rem;
     overflow: hidden;
 }
@@ -1095,12 +1095,12 @@
     font-weight: 600;
     font-size: var(--text-13, 0.8125rem);
     line-height: 1.25;
-    color: var(--color-heading, #0f172a);
+    color: var(--color-heading);
 }
 .hair-card-btn__desc {
     font-size: 11px;
     line-height: 1.25;
-    color: var(--color-muted, #64748b);
+    color: var(--color-muted);
     margin-top: 3px;
 }
 .hair-card-btn__delta {
@@ -1108,11 +1108,11 @@
     margin-top: 4px;
     font-size: 11px;
     font-weight: 600;
-    color: var(--color-accent-text, #e11d48);
-    background: #ffffff;
-    border: 1px solid rgba(225, 29, 72, 0.25);
+    color: var(--color-accent-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     padding: 1px 6px;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
 }
 .hair-tags {
     display: flex;
@@ -1173,9 +1173,9 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-8, 0.5rem);
-    background: var(--color-surface, #ffffff);
-    border: 1px solid var(--color-border, #e2e8f0);
-    border-radius: var(--radius-12, 12px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-16);
     padding: var(--space-12, 0.75rem);
 }
 .hair-len-figure-wrap {
@@ -1183,9 +1183,9 @@
     align-items: center;
     justify-content: center;
     min-height: 180px;
-    background: radial-gradient(circle at center, #fff0f3 0%, #ffffff 70%);
-    border-radius: var(--radius-8, 8px);
-    border: 1px solid var(--color-border-subtle, #f1f5f9);
+    background: var(--color-surface-alt);
+    border-radius: var(--radius-8);
+    border: 1px solid var(--color-border);
     padding: 0.5rem;
     overflow: hidden;
 }
@@ -1213,13 +1213,13 @@
     font-size: 0.8125rem;
     font-weight: 700;
     padding: 0.15rem 0.6rem;
-    border-radius: var(--radius-pill, 9999px);
-    background: var(--color-accent-light, #ffe4e6);
-    color: var(--color-accent-text, #e11d48);
+    border-radius: var(--radius-pill);
+    background: var(--color-accent-light);
+    color: var(--color-accent-text);
 }
 .hair-len-delta {
     font-size: 0.8125rem;
-    color: var(--color-muted, #64748b);
+    color: var(--color-muted);
 }
 .hair-strip-overview {
     margin-top: 0.5rem;
@@ -1227,21 +1227,21 @@
 }
 .hair-strip-overview__label {
     font-size: 0.75rem;
-    color: var(--color-muted, #64748b);
+    color: var(--color-muted);
     margin-bottom: 4px;
 }
 .hair-strip-img {
     max-width: 100%;
     height: auto;
-    border-radius: var(--radius-6, 6px);
-    border: 1px solid var(--color-border, #e2e8f0);
+    border-radius: var(--radius-8);
+    border: 1px solid var(--color-border);
 }
 
 /* Итоговый расчет стоимости и времени */
 .hair-survey-summary {
-    background: var(--color-surface-alt, #f8fafc);
-    border: 1px solid var(--color-border, #e2e8f0);
-    border-radius: var(--radius-8, 8px);
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-8);
     padding: var(--space-12, 0.75rem);
     margin-top: var(--space-8, 0.5rem);
     display: flex;
@@ -1253,20 +1253,20 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: var(--color-muted, #64748b);
+    color: var(--color-muted);
 }
 .hair-survey-summary__row--extra {
-    color: var(--color-accent-text, #e11d48);
+    color: var(--color-accent-text);
     font-weight: 500;
 }
 .hair-survey-summary__total {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-top: 1px dashed var(--color-border, #cbd5e1);
+    border-top: 1px dashed var(--color-border);
     padding-top: 6px;
     font-size: 0.95rem;
-    color: var(--color-heading, #0f172a);
+    color: var(--color-heading);
 }
 
 

@@ -178,7 +178,7 @@ async def render_interactive_tab(
     ok_banner = ""
     if query_params.get("ok"):
         ok_banner = """
-        <div class="r-alert r-alert--success" style="padding:0.75rem 1rem;background:var(--color-accent-light, #e0f2fe);color:var(--color-primary, #0369a1);border-radius:var(--radius-8);margin-bottom:1.25rem;">
+        <div class="r-alert r-alert--success" style="padding:0.75rem 1rem;background:var(--color-accent-light);color:var(--color-accent-text);border-radius:var(--radius-8);margin-bottom:1.25rem;">
             ✓ Настройки интерактивной записи успешно сохранены!
         </div>
         """
@@ -188,7 +188,7 @@ async def render_interactive_tab(
         f"""
         <tr data-len-id="{r['id']}">
             <td style="padding:0.6rem 0.75rem;font-weight:600;">
-                <span class="len-step-badge" style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;background:var(--color-bg-subtle, #f1f5f9);font-size:12px;margin-right:6px;">{r['id']}</span>
+                <span class="len-step-badge" style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;background:var(--color-surface-alt);font-size:12px;margin-right:6px;">{r['id']}</span>
                 {e(r['title'])}
             </td>
             <td style="padding:0.6rem 0.75rem;color:var(--color-muted);">{e(r['cm'])}</td>
@@ -296,7 +296,7 @@ async def render_interactive_tab(
                 </div>
             </td>
             <td style="padding:0.5rem 0.75rem;text-align:center;">
-                <button type="button" class="btn-outline" onclick="removeTagRow(this)" style="padding:0.25rem 0.6rem;color:var(--color-danger, #ef4444);border-color:var(--color-danger, #ef4444);">
+                <button type="button" class="btn-outline" onclick="removeTagRow(this)" style="padding:0.25rem 0.6rem;color:var(--color-danger);border-color:var(--color-danger);">
                     ×
                 </button>
             </td>
@@ -342,7 +342,7 @@ async def render_interactive_tab(
 
                 <!-- 1. Длина волос -->
                 <div class="card" style="padding:1.25rem;margin-bottom:1.5rem;">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--color-border, #e2e8f0);">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--color-border);">
                         <div>
                             <h3 style="margin:0 0 0.25rem;font-size:1.15rem;">
                                 1. Длина волос (интерактивная шкала с ползунком)
@@ -351,7 +351,7 @@ async def render_interactive_tab(
                                 Клиент перемещает ползунок по шкале, и в реальном времени сменяется иллюстрация длины.
                             </p>
                         </div>
-                        <label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem;background:var(--color-bg-subtle, #f8fafc);padding:0.4rem 0.75rem;border-radius:var(--radius-8);border:1px solid var(--color-border, #cbd5e1);">
+                        <label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem;background:var(--color-surface-alt);padding:0.4rem 0.75rem;border-radius:var(--radius-8);border:1px solid var(--color-border);">
                             <input type="checkbox" name="q_length_enabled" id="qLengthToggle" value="1"
                                    {"checked" if q_length_enabled else ""}
                                    onchange="toggleQuestionBlock('qLengthBody', this.checked);"
@@ -362,18 +362,18 @@ async def render_interactive_tab(
 
                     <div id="qLengthBody" style="opacity:{'1' if q_length_enabled else '0.35'};pointer-events:{'auto' if q_length_enabled else 'none'};transition:opacity 0.2s ease;">
                         <!-- Интерактивное превью шкалы в настройках -->
-                        <div style="background:var(--color-bg-subtle, #f8fafc);border:1px solid var(--color-border, #e2e8f0);border-radius:var(--radius-12);padding:1rem;margin-bottom:1.25rem;">
+                        <div style="background:var(--color-surface-alt);border:1px solid var(--color-border);border-radius:var(--radius-16);padding:1rem;margin-bottom:1.25rem;">
                             <div style="font-size:0.8rem;font-weight:700;color:var(--color-muted);text-transform:uppercase;margin-bottom:0.75rem;">
                                 Интерактивное превью виджета клиента:
                             </div>
                             <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:1.5rem;margin-bottom:1rem;">
-                                <div style="width:130px;height:130px;border-radius:12px;overflow:hidden;background:radial-gradient(circle at center, #fff0f3 0%, #ffffff 75%);border:1px solid var(--color-border, #e2e8f0);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                                <div style="width:130px;height:130px;border-radius:var(--radius-16);overflow:hidden;background:var(--color-surface-alt);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
                                     <img id="adminLengthPreviewImg" src="/static/images/hair/hair_len_4.webp" alt="Иллюстрация длины" style="max-width:115px;max-height:115px;object-fit:contain;display:block;margin:0 auto;">
                                 </div>
                                 <div style="flex:1;min-width:240px;max-width:460px;">
                                     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.5rem;">
                                         <strong id="adminLengthPreviewTitle" style="font-size:1rem;color:var(--color-heading);">Средние (до лопаток)</strong>
-                                        <span id="adminLengthPreviewCm" style="font-size:0.85rem;color:var(--color-accent-text, #e11d48);font-weight:600;">~40–45 см</span>
+                                        <span id="adminLengthPreviewCm" style="font-size:0.85rem;color:var(--color-accent-text);font-weight:600;">~40–45 см</span>
                                     </div>
                                     <input type="range" min="1" max="7" step="1" value="4" id="adminLengthSlider"
                                            class="hair-range" style="width:100%;cursor:pointer;"
@@ -390,7 +390,7 @@ async def render_interactive_tab(
                             <!-- Полоса со всеми вариантами длины -->
                             <div style="text-align:center;">
                                 <div style="font-size:0.75rem;color:var(--color-muted);margin-bottom:4px;">Все варианты длины волос (иллюстрация со шкалой):</div>
-                                <img src="/static/images/hair/hair_lengths_strip.webp" alt="Все длины волос" style="max-width:100%;height:auto;border-radius:6px;border:1px solid var(--color-border, #e2e8f0);">
+                                <img src="/static/images/hair/hair_lengths_strip.webp" alt="Все длины волос" style="max-width:100%;height:auto;border-radius:var(--radius-8);border:1px solid var(--color-border);">
                             </div>
                         </div>
 
@@ -398,7 +398,7 @@ async def render_interactive_tab(
                         <div style="overflow-x:auto;">
                             <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
                                 <thead>
-                                    <tr style="border-bottom:2px solid var(--color-border, #e2e8f0);text-align:left;color:var(--color-muted);font-size:0.8rem;text-transform:uppercase;">
+                                    <tr style="border-bottom:2px solid var(--color-border);text-align:left;color:var(--color-muted);font-size:0.8rem;text-transform:uppercase;">
                                         <th style="padding:0.5rem 0.75rem;">Длина волос</th>
                                         <th style="padding:0.5rem 0.75rem;">Диапазон</th>
                                         <th style="padding:0.5rem 0.75rem;">Доплата к услуге</th>
@@ -415,7 +415,7 @@ async def render_interactive_tab(
 
                 <!-- 2. Густота волос (плитка) -->
                 <div class="card" style="padding:1.25rem;margin-bottom:1.5rem;">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--color-border, #e2e8f0);">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--color-border);">
                         <div>
                             <h3 style="margin:0 0 0.25rem;font-size:1.15rem;">
                                 2. Густота волос (плитка выбора вариантов)
@@ -424,7 +424,7 @@ async def render_interactive_tab(
                                 Клиент видит каждый вариант в виде наглядной плитки с отдельной иллюстрацией.
                             </p>
                         </div>
-                        <label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem;background:var(--color-bg-subtle, #f8fafc);padding:0.4rem 0.75rem;border-radius:var(--radius-8);border:1px solid var(--color-border, #cbd5e1);">
+                        <label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem;background:var(--color-surface-alt);padding:0.4rem 0.75rem;border-radius:var(--radius-8);border:1px solid var(--color-border);">
                             <input type="checkbox" name="q_density_enabled" id="qDensityToggle" value="1"
                                    {"checked" if q_density_enabled else ""}
                                    onchange="toggleQuestionBlock('qDensityBody', this.checked);"
@@ -435,27 +435,27 @@ async def render_interactive_tab(
 
                     <div id="qDensityBody" style="opacity:{'1' if q_density_enabled else '0.35'};pointer-events:{'auto' if q_density_enabled else 'none'};transition:opacity 0.2s ease;">
                         <!-- Превью плиток густоты -->
-                        <div style="background:var(--color-bg-subtle, #f8fafc);border:1px solid var(--color-border, #e2e8f0);border-radius:var(--radius-12);padding:1rem;margin-bottom:1.25rem;">
+                        <div style="background:var(--color-surface-alt);border:1px solid var(--color-border);border-radius:var(--radius-16);padding:1rem;margin-bottom:1.25rem;">
                             <div style="font-size:0.8rem;font-weight:700;color:var(--color-muted);text-transform:uppercase;margin-bottom:0.75rem;">
                                 Превью плиток клиента:
                             </div>
                             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.75rem;max-width:560px;">
-                                <div style="border:1.5px solid var(--color-border, #e2e8f0);border-radius:10px;padding:0.5rem;text-align:center;background:#fff;">
-                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:#fff0f3;border-radius:6px;margin-bottom:0.35rem;">
+                                <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
+                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:var(--color-surface-alt);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_density_thin.webp" alt="Не густые" style="max-height:80px;max-width:90%;object-fit:contain;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Не густые</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Тонкий хвост</small>
                                 </div>
-                                <div style="border:1.5px solid var(--color-accent, #e11d48);border-radius:10px;padding:0.5rem;text-align:center;background:#fffbfa;box-shadow:0 0 0 1px var(--color-accent, #e11d48);">
-                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:#fff0f3;border-radius:6px;margin-bottom:0.35rem;">
+                                <div style="border:1.5px solid var(--color-accent);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-accent-light);box-shadow:0 0 0 1px var(--color-accent);">
+                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:var(--color-surface-alt);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_density_medium.webp" alt="Средняя густота" style="max-height:80px;max-width:90%;object-fit:contain;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Средняя густота</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Стандартная</small>
                                 </div>
-                                <div style="border:1.5px solid var(--color-border, #e2e8f0);border-radius:10px;padding:0.5rem;text-align:center;background:#fff;">
-                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:#fff0f3;border-radius:6px;margin-bottom:0.35rem;">
+                                <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
+                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:var(--color-surface-alt);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_density_thick.webp" alt="Очень густые" style="max-height:80px;max-width:90%;object-fit:contain;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Очень густые</strong>
@@ -467,7 +467,7 @@ async def render_interactive_tab(
                         <div style="overflow-x:auto;">
                             <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
                                 <thead>
-                                    <tr style="border-bottom:2px solid var(--color-border, #e2e8f0);text-align:left;color:var(--color-muted);font-size:0.8rem;text-transform:uppercase;">
+                                    <tr style="border-bottom:2px solid var(--color-border);text-align:left;color:var(--color-muted);font-size:0.8rem;text-transform:uppercase;">
                                         <th style="padding:0.5rem 0.75rem;">Густота</th>
                                         <th style="padding:0.5rem 0.75rem;">Доплата к услуге</th>
                                         <th style="padding:0.5rem 0.75rem;">Добавочное время</th>
@@ -483,7 +483,7 @@ async def render_interactive_tab(
 
                 <!-- 3. Тип и структура волос (плитка) -->
                 <div class="card" style="padding:1.25rem;margin-bottom:1.5rem;">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--color-border, #e2e8f0);">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--color-border);">
                         <div>
                             <h3 style="margin:0 0 0.25rem;font-size:1.15rem;">
                                 3. Тип и структура волос (плитка выбора вариантов)
@@ -492,7 +492,7 @@ async def render_interactive_tab(
                                 Позволяет клиенту выбрать структуру волос плиткой с иллюстрацией.
                             </p>
                         </div>
-                        <label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem;background:var(--color-bg-subtle, #f8fafc);padding:0.4rem 0.75rem;border-radius:var(--radius-8);border:1px solid var(--color-border, #cbd5e1);">
+                        <label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem;background:var(--color-surface-alt);padding:0.4rem 0.75rem;border-radius:var(--radius-8);border:1px solid var(--color-border);">
                             <input type="checkbox" name="q_type_enabled" id="qTypeToggle" value="1"
                                    {"checked" if q_type_enabled else ""}
                                    onchange="toggleQuestionBlock('qTypeBody', this.checked);"
@@ -503,34 +503,34 @@ async def render_interactive_tab(
 
                     <div id="qTypeBody" style="opacity:{'1' if q_type_enabled else '0.35'};pointer-events:{'auto' if q_type_enabled else 'none'};transition:opacity 0.2s ease;">
                         <!-- Превью плиток типов волос -->
-                        <div style="background:var(--color-bg-subtle, #f8fafc);border:1px solid var(--color-border, #e2e8f0);border-radius:var(--radius-12);padding:1rem;margin-bottom:1.25rem;">
+                        <div style="background:var(--color-surface-alt);border:1px solid var(--color-border);border-radius:var(--radius-16);padding:1rem;margin-bottom:1.25rem;">
                             <div style="font-size:0.8rem;font-weight:700;color:var(--color-muted);text-transform:uppercase;margin-bottom:0.75rem;">
                                 Превью плиток клиента:
                             </div>
                             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.75rem;max-width:720px;">
-                                <div style="border:1.5px solid var(--color-accent, #e11d48);border-radius:10px;padding:0.5rem;text-align:center;background:#fffbfa;box-shadow:0 0 0 1px var(--color-accent, #e11d48);">
-                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:#fff0f3;border-radius:6px;margin-bottom:0.35rem;">
+                                <div style="border:1.5px solid var(--color-accent);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-accent-light);box-shadow:0 0 0 1px var(--color-accent);">
+                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:var(--color-surface-alt);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_type_straight.webp" alt="Прямые" style="max-height:80px;max-width:90%;object-fit:contain;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Прямые</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Гладкие</small>
                                 </div>
-                                <div style="border:1.5px solid var(--color-border, #e2e8f0);border-radius:10px;padding:0.5rem;text-align:center;background:#fff;">
-                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:#fff0f3;border-radius:6px;margin-bottom:0.35rem;">
+                                <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
+                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:var(--color-surface-alt);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_type_wavy.webp" alt="Легкая волна" style="max-height:80px;max-width:90%;object-fit:contain;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Легкая волна</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Пушатся</small>
                                 </div>
-                                <div style="border:1.5px solid var(--color-border, #e2e8f0);border-radius:10px;padding:0.5rem;text-align:center;background:#fff;">
-                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:#fff0f3;border-radius:6px;margin-bottom:0.35rem;">
+                                <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
+                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:var(--color-surface-alt);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_type_curly.webp" alt="Кудрявые" style="max-height:80px;max-width:90%;object-fit:contain;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Кудрявые</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Четкий завиток</small>
                                 </div>
-                                <div style="border:1.5px solid var(--color-border, #e2e8f0);border-radius:10px;padding:0.5rem;text-align:center;background:#fff;">
-                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:#fff0f3;border-radius:6px;margin-bottom:0.35rem;">
+                                <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
+                                    <div style="height:90px;display:flex;align-items:center;justify-content:center;background:var(--color-surface-alt);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_type_coarse.webp" alt="Стекловидные" style="max-height:80px;max-width:90%;object-fit:contain;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Жесткие</strong>
@@ -542,7 +542,7 @@ async def render_interactive_tab(
                         <div style="overflow-x:auto;">
                             <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
                                 <thead>
-                                    <tr style="border-bottom:2px solid var(--color-border, #e2e8f0);text-align:left;color:var(--color-muted);font-size:0.8rem;text-transform:uppercase;">
+                                    <tr style="border-bottom:2px solid var(--color-border);text-align:left;color:var(--color-muted);font-size:0.8rem;text-transform:uppercase;">
                                         <th style="padding:0.5rem 0.75rem;">Тип волос</th>
                                         <th style="padding:0.5rem 0.75rem;">Доплата к услуге</th>
                                         <th style="padding:0.5rem 0.75rem;">Добавочное время</th>
@@ -558,7 +558,7 @@ async def render_interactive_tab(
 
                 <!-- 4. Вопросы анкеты / особенности и история волос -->
                 <div class="card" style="padding:1.25rem;margin-bottom:1.5rem;">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--color-border, #e2e8f0);">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--color-border);">
                         <div>
                             <h3 style="margin:0 0 0.25rem;font-size:1.15rem;">
                                 4. Особенности и история волос (быстрые теги галочками)
@@ -567,7 +567,7 @@ async def render_interactive_tab(
                                 Клиент отмечает подходящие пункты из списка особенностей.
                             </p>
                         </div>
-                        <label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem;background:var(--color-bg-subtle, #f8fafc);padding:0.4rem 0.75rem;border-radius:var(--radius-8);border:1px solid var(--color-border, #cbd5e1);">
+                        <label style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;font-size:0.9rem;background:var(--color-surface-alt);padding:0.4rem 0.75rem;border-radius:var(--radius-8);border:1px solid var(--color-border);">
                             <input type="checkbox" name="q_tags_enabled" id="qTagsToggle" value="1"
                                    {"checked" if q_tags_enabled else ""}
                                    onchange="toggleQuestionBlock('qTagsBody', this.checked);"
@@ -580,7 +580,7 @@ async def render_interactive_tab(
                         <div style="overflow-x:auto;margin-bottom:1rem;">
                             <table style="width:100%;border-collapse:collapse;font-size:0.875rem;" id="customTagsTable">
                                 <thead>
-                                    <tr style="border-bottom:2px solid var(--color-border, #e2e8f0);text-align:left;color:var(--color-muted);font-size:0.8rem;text-transform:uppercase;">
+                                    <tr style="border-bottom:2px solid var(--color-border);text-align:left;color:var(--color-muted);font-size:0.8rem;text-transform:uppercase;">
                                         <th style="padding:0.5rem 0.75rem;">Пункт анкеты (особенность / история)</th>
                                         <th style="padding:0.5rem 0.75rem;">Доплата</th>
                                         <th style="padding:0.5rem 0.75rem;">Добавочное время</th>
@@ -594,7 +594,7 @@ async def render_interactive_tab(
                         </div>
 
                         <!-- Форма добавления нового тега -->
-                        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;background:var(--color-bg-subtle, #f8fafc);padding:0.75rem;border-radius:var(--radius-8);border:1px dashed var(--color-border, #cbd5e1);">
+                        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;background:var(--color-surface-alt);padding:0.75rem;border-radius:var(--radius-8);border:1px dashed var(--color-border);">
                             <input type="text" id="newQuestionName" placeholder="Новый тег (напр. «Была хна»)..."
                                    class="r-input" style="flex:1;min-width:200px;padding:0.4rem 0.6rem;font-size:0.875rem;">
                             <div style="display:inline-flex;align-items:center;gap:4px;">
@@ -617,7 +617,7 @@ async def render_interactive_tab(
                 </div>
 
                 <!-- 5. Конструктор произвольных вопросов (как в Google Формах) -->
-                <div class="card" style="padding:1.25rem;margin-bottom:1.5rem;background:#fafbfc;border:1.5px solid var(--color-border, #cbd5e1);">
+                <div class="card" style="padding:1.25rem;margin-bottom:1.5rem;background:var(--color-surface-alt);border:1.5px solid var(--color-border);">
                     <div style="margin-bottom:1.25rem;">
                         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
                             <h3 style="margin:0 0 0.25rem;font-size:1.2rem;display:flex;align-items:center;gap:0.5rem;">
@@ -637,7 +637,7 @@ async def render_interactive_tab(
                         <!-- Карточки вопросов будут генерироваться скриптом -->
                     </div>
 
-                    <div style="text-align:center;padding:1rem;background:#ffffff;border:2px dashed var(--color-border, #cbd5e1);border-radius:var(--radius-12);">
+                    <div style="text-align:center;padding:1rem;background:var(--color-surface);border:2px dashed var(--color-border);border-radius:var(--radius-16);">
                         <button type="button" class="btn-outline" onclick="addGoogleQuestion();" style="font-weight:600;padding:0.5rem 1.25rem;">
                             + Добавить ещё один вопрос в опрос
                         </button>
@@ -723,7 +723,7 @@ async def render_interactive_tab(
                     </div>
                 </td>
                 <td style="padding:0.5rem 0.75rem;text-align:center;">
-                    <button type="button" class="btn-outline" onclick="removeTagRow(this)" style="padding:0.25rem 0.6rem;color:var(--color-danger, #ef4444);border-color:var(--color-danger, #ef4444);">
+                    <button type="button" class="btn-outline" onclick="removeTagRow(this)" style="padding:0.25rem 0.6rem;color:var(--color-danger);border-color:var(--color-danger);">
                         ×
                     </button>
                 </td>
@@ -751,7 +751,7 @@ async def render_interactive_tab(
             if (!list) return;
             if (googleQuestions.length === 0) {{
                 list.innerHTML = `
-                    <div style="text-align:center;padding:1.5rem;color:var(--color-muted);background:#fff;border-radius:8px;border:1px dashed var(--color-border, #cbd5e1);">
+                    <div style="text-align:center;padding:1.5rem;color:var(--color-muted);background:var(--color-surface);border-radius:var(--radius-8);border:1px dashed var(--color-border);">
                         Пока нет созданных вопросов. Нажмите «+ Добавить вопрос», чтобы добавить опрос о предыдущих окрашиваниях, аллергии или желаемом результате.
                     </div>
                 `;
@@ -778,7 +778,7 @@ async def render_interactive_tab(
                             </div>
                             ${{options.map(function (opt, oIdx) {{
                                 return `
-                                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;background:#f8fafc;padding:0.4rem 0.6rem;border-radius:6px;border:1px solid #e2e8f0;">
+                                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;background:var(--color-surface-alt);padding:0.4rem 0.6rem;border-radius:var(--radius-8);border:1px solid var(--color-border);">
                                         <span style="opacity:0.6;font-size:12px;">${{icon}}</span>
                                         <input type="text" value="${{(opt.title || '').replace(/"/g, '&quot;')}}"
                                                placeholder="Вариант ответа..."
@@ -802,7 +802,7 @@ async def render_interactive_tab(
                                         </div>
                                         <button type="button" class="btn-outline" onclick="deleteOption(${{qIdx}}, ${{oIdx}});"
                                                 title="Удалить вариант"
-                                                style="padding:0.25rem 0.55rem;color:var(--color-danger, #ef4444);border-color:var(--color-danger, #ef4444);font-size:14px;line-height:1;">
+                                                style="padding:0.25rem 0.55rem;color:var(--color-danger);border-color:var(--color-danger);font-size:14px;line-height:1;">
                                             ×
                                         </button>
                                     </div>
@@ -818,17 +818,17 @@ async def render_interactive_tab(
                     `;
                 }} else {{
                     optionsHtml = `
-                        <div style="margin-top:0.75rem;padding:0.6rem 0.75rem;background:#f8fafc;border-radius:6px;border:1px dashed #cbd5e1;color:var(--color-muted);font-size:0.85rem;">
+                        <div style="margin-top:0.75rem;padding:0.6rem 0.75rem;background:var(--color-surface-alt);border-radius:var(--radius-8);border:1px dashed var(--color-border);color:var(--color-muted);font-size:0.85rem;">
                             Клиент сможет ввести произвольный краткий текстовый ответ на этот вопрос.
                         </div>
                     `;
                 }}
 
                 return `
-                    <div class="card" style="padding:1.1rem;background:#ffffff;border:1.5px solid ${{enabled ? 'var(--color-border, #cbd5e1)' : '#e2e8f0'}};box-shadow:0 1px 3px rgba(0,0,0,0.04);position:relative;">
+                    <div class="card" style="padding:1.1rem;background:var(--color-surface);border:1.5px solid var(--color-border);box-shadow:0 1px 3px rgba(0,0,0,0.04);position:relative;">
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;gap:0.5rem;flex-wrap:wrap;">
                             <div style="display:flex;align-items:center;gap:0.5rem;">
-                                <span style="font-weight:700;font-size:0.875rem;background:var(--color-bg-subtle, #f1f5f9);padding:0.2rem 0.5rem;border-radius:6px;color:var(--color-heading);">
+                                <span style="font-weight:700;font-size:0.875rem;background:var(--color-surface-alt);padding:0.2rem 0.5rem;border-radius:var(--radius-8);color:var(--color-heading);">
                                     Вопрос #${{qIdx + 1}}
                                 </span>
                             </div>
@@ -845,7 +845,7 @@ async def render_interactive_tab(
                                 </label>
                                 <button type="button" onclick="deleteGoogleQuestion(${{qIdx}});"
                                         title="Удалить вопрос"
-                                        style="background:none;border:none;cursor:pointer;color:var(--color-danger, #ef4444);font-size:1.1rem;padding:0.2rem;"
+                                        style="background:none;border:none;cursor:pointer;color:var(--color-danger);font-size:1.1rem;padding:0.2rem;"
                                         aria-label="Удалить вопрос">
                                     🗑️
                                 </button>
