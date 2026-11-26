@@ -19,7 +19,7 @@ def _sport_redirect(request: Request, sport: bool) -> str:
 
 
 def _shell(title: str, body: str, *, sport: bool = False, redirect: str = "") -> str:
-    body_class = "auth-page sport-directory" if sport else "auth-page"
+    body_class = "auth-page sport-directory rumi-sport" if sport else "auth-page"
     login_href = "/sport/login" if sport else "/login"
     home_href = "/sport/" if sport else "/"
     if sport:

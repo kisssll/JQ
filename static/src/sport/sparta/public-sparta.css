@@ -4,6 +4,8 @@
 
 body:has(.sparta-header) {
   --sparta-header-height: 66px;
+  --sparta-heading-padding: clamp(9px, 1vw, 22px);
+  --sparta-heading-size: clamp(18px, 4vw, 86px);
   --cond: "Fira Sans", Inter, Arial, sans-serif;
   --sport-primary: #cf1717;
   --sport-accent-text: #b41414;
@@ -257,12 +259,15 @@ body:has(.sparta-header) {
   min-height: 0;
 }
 
-.sparta-home .why-title {
-  padding: clamp(7px, .55vw, 13px) 12px;
+.sparta-home .why-title,
+.sparta-home-strip {
+  margin: 0;
+  padding: clamp(7px, .55vw, 13px) clamp(16px, 1.45vw, 34px);
   background: #000;
   font: 900 clamp(30px, 4.5vw, 86px)/1 var(--cond);
   letter-spacing: .04em;
   color: #fff;
+  text-align: left;
   text-transform: uppercase;
 }
 
@@ -369,6 +374,7 @@ body:has(.sparta-header) {
 .sparta-home .club-booking h2 {
   font: 900 clamp(25px, 2.85vw, 64px)/1 var(--cond);
   text-transform: uppercase;
+  color: #c72527;
 }
 
 .sparta-home .club-booking .btn {
@@ -408,12 +414,29 @@ body:has(.sparta-header) {
   display: flex;
   align-items: center;
   gap: .2em;
+  font-size: clamp(48px, 8vw, 135px);
 }
 
 .sparta-header ~ .ftr .ftr-big img {
   width: .85em;
   border-radius: 50%;
 }
+
+.sparta-documents { min-height: 60vh; padding: clamp(90px, 12vw, 170px) 4vw 100px; background: #0a0a0a; color: #fff; }
+.sparta-documents h1 { font: 900 clamp(48px, 8vw, 112px)/.9 var(--cond); text-transform: uppercase; }
+.sparta-documents a { display: inline-block; margin-top: 2rem; padding: 1rem 1.4rem; background: #c72527; color: #fff; text-decoration: none; }
+.sparta-documents > p { max-width: 55ch; color: #c8c8c8; }
+.sparta-documents section { margin-top: clamp(40px, 5vw, 80px); }
+.sparta-documents h2 { font: 900 clamp(28px, 3vw, 44px)/1 var(--cond); text-transform: uppercase; }
+.sparta-document-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; margin-top: 20px; }
+.sparta-documents .sparta-document { display: flex; flex-direction: column; gap: 12px; min-height: 125px; margin: 0; padding: 18px; border: 1px solid #555; background: #171717; }
+.sparta-documents .sparta-document:hover { border-color: #c72527; }
+.sparta-document img { width: 100%; height: 180px; object-fit: contain; background: #fff; }
+.sparta-document span { font-weight: 700; }
+.sparta-document small { margin-top: auto; color: #bbb; }
+.sparta-gallery .gallery-heading h2 { font-size: clamp(36px, 5vw, 68px); line-height: 1; margin-bottom: 1.5rem; }
+.sparta-gallery .gallery-tile .ph-over > span:first-child { font-size: clamp(16px, 1.8vw, 26px); overflow-wrap: anywhere; }
+.sparta-gallery .gallery-tile .ph-over { overflow: hidden; }
 
 @media (min-width: 901px) {
   .sparta-home .club-overview {
@@ -460,13 +483,13 @@ body:has(.sparta-header) {
 }
 
 .sparta-page-heading {
-  padding: clamp(9px, 1vw, 22px) clamp(16px, 1.45vw, 34px);
+  padding: var(--sparta-heading-padding) clamp(16px, 1.45vw, 34px);
   background: #000 url("./title-stroke.svg") left center / auto 100% no-repeat;
   color: #fff;
 }
 
 .sparta-page-heading h1 {
-  font: 900 clamp(18px, 4vw, 86px)/1 var(--cond);
+  font: 900 var(--sparta-heading-size)/1 var(--cond);
   text-transform: uppercase;
   letter-spacing: -.02em;
 }
@@ -478,9 +501,10 @@ body:has(.sparta-header) {
 }
 
 .sparta-venue-grid {
+  --venue-grid-height: calc(100svh - var(--sparta-header-height) - var(--sparta-heading-size) - 2 * var(--sparta-heading-padding));
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: clamp(280px, 31vw, 740px);
+  grid-auto-rows: clamp(210px, calc(var(--venue-grid-height) / 2), 460px);
 }
 
 .sparta-venue {
@@ -517,7 +541,7 @@ body:has(.sparta-header) {
 }
 
 .sparta-venue-copy h2 {
-  font: 900 clamp(27px, 4.9vw, 114px)/.95 var(--cond);
+  font: 900 clamp(26px, 3.8vw, 86px)/.98 var(--cond);
   text-transform: uppercase;
   overflow-wrap: anywhere;
 }
@@ -646,18 +670,23 @@ body:has(.sparta-header) {
 
 .sparta-coach {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: min(36%, 440px) minmax(0, 1fr);
+  gap: clamp(12px, 2vw, 30px);
+  padding-block: clamp(16px, 2vw, 30px);
+}
+
+.sparta-coaches-page > section {
+  width: min(92%, 1380px);
+  margin-inline: auto;
+}
+
+.sparta-coach + .sparta-coach {
+  border-top: 1px solid #383838;
 }
 
 @media (min-width: 761px) {
-  .sparta-coaches-page > section {
-    width: min(94%, 1680px);
-    margin-inline: auto;
-  }
-
-  .sparta-coach-photo {
-    align-self: stretch;
-    width: 100%;
+  .sparta-coach:nth-child(even) {
+    grid-template-columns: minmax(0, 1fr) min(36%, 440px);
   }
 }
 
@@ -667,6 +696,9 @@ body:has(.sparta-header) {
 
 .sparta-coach-photo {
   aspect-ratio: 1;
+  align-self: start;
+  width: min(100%, 440px);
+  justify-self: center;
 }
 
 .sparta-coach-photo .ph-img {
@@ -682,7 +714,7 @@ body:has(.sparta-header) {
 }
 
 .sparta-coach-copy h2 {
-  font: 900 clamp(29px, 3.4vw, 66px)/1.02 var(--cond);
+  font: 900 clamp(29px, 3.4vw, 54px)/1.02 var(--cond);
   overflow-wrap: anywhere;
 }
 

@@ -1,5 +1,12 @@
 export const ADMIN_PAGE_SIZE = 40;
 
+export class SportRequestError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "SportRequestError";
+  }
+}
+
 export async function sportRequest<T>(slug: string, path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1/sport/organizations/${encodeURIComponent(slug)}${path}`, options);
   const data = await response.json().catch(() => null);
@@ -10,7 +17,7 @@ export async function sportRequest<T>(slug: string, path: string, options?: Requ
     const message = response.status >= 500 && requestId
       ? `Ошибка сервера. Код запроса: ${requestId}`
       : typeof detail === "string" ? detail : validation || "Не удалось выполнить запрос. Попробуйте ещё раз.";
-    throw new Error(message);
+    throw new SportRequestError(message, response.status);
   }
   return data;
 }

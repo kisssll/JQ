@@ -590,6 +590,36 @@ async def test_manage_schedule_saves_new_training_and_date_exception(client, db_
     assert key not in (await client.get(f"{base}/manage")).json()["exceptions"]
 
 
+async def test_trainer_vacation_cancels_existing_booking_and_blocks_new_one(client, db_session):
+    base, organization_id = await _sport_owner_panel(client, db_session)
+    day = _booking_date()
+    async with db_session() as db:
+        coach = SportCoach(organization_id=organization_id, name="Тренер", role="Тренер")
+        customer = User(phone="+79990001820", full_name="Ученик", hashed_password="unused", role=UserRole.CLIENT)
+        db.add_all([coach, customer])
+        await db.flush()
+        training = await db.scalar(select(SportTraining).where(SportTraining.organization_id == organization_id))
+        training.coach_id = coach.id
+        db.add(SportBooking(organization_id=organization_id, training_id=training.id,
+                            client_id=customer.id, contact_name="Ученик", participant="self",
+                            kind="Пробное", requested_date=day, requested_gym="Тестовый зал",
+                            requested_discipline="Дзю-дзютцу", status="confirmed"))
+        await db.commit()
+        coach_id = coach.id
+    closed = await client.post(f"{base}/closures", json={
+        "coach_id": coach_id, "date": day.isoformat(),
+        "date_to": (day + timedelta(days=1)).isoformat(), "reason": "Отпуск",
+    })
+    assert closed.status_code == 200, closed.text
+    assert closed.json()["cancelled_bookings"] == 1
+    assert (await client.get(f"{base}/schedule")).json()["exceptions"][f"{day}:test-session"] is False
+    async with db_session() as db:
+        booking = await db.scalar(select(SportBooking).where(SportBooking.organization_id == organization_id))
+        assert booking.status == "cancelled"
+    blocked = await client.post(f"{base}/bookings", json=_booking_payload(day))
+    assert blocked.status_code == 409
+
+
 async def test_sport_payment_and_catalog_changes_return_success_after_commit(client, db_session):
     base, organization_id = await _sport_owner_panel(client, db_session)
     async with db_session() as db:
@@ -676,8 +706,22 @@ async def test_sport_staff_edits_unlinked_coach_and_uploads_photo(client, db_ses
     saved = await client.put(f"{base}/staff/trainer/{coach.id}", data=profile,
                              files={"photo": ("coach.png", photo.getvalue(), "image/png")})
     assert saved.status_code == 200, saved.text
+    assert saved.headers["Cache-Control"] == "no-store"
     card = saved.json()["member"]
     assert card["phone"] == "+79990001802"
+    assert card["hasAccount"] is True
+    credentials = saved.json()["credentials"]
+    assert credentials["login"] == "+79990001802"
+    owner_token = client.cookies.get("access_token")
+    client.cookies.clear()
+    staff_login = await client.post("/api/v1/auth/login-web", data={
+        "phone": credentials["login"], "password": credentials["password"],
+        "auth_variant": "sport", "redirect": "/sport/test-sport-club/admin",
+    }, follow_redirects=False)
+    assert staff_login.headers["Location"] == "/sport/test-sport-club/admin"
+    assert (await client.get(f"{base}/manage")).json()["role"] == "trainer"
+    client.cookies.clear()
+    client.cookies.set("access_token", owner_token)
     assert card["about"] == profile["about"]
     photo_file = tmp_path / card["photo"].split("/uploads/")[1]
     assert photo_file.is_file()
@@ -686,4 +730,5 @@ async def test_sport_staff_edits_unlinked_coach_and_uploads_photo(client, db_ses
     assert manage["trainings"][0]["coach"] == profile["name"]
     updated = await client.put(f"{base}/staff/trainer/{coach.id}", data={**profile, "remove_photo": "true"})
     assert updated.json()["member"]["photo"] is None
+    assert updated.json()["credentials"] is None
     assert not photo_file.exists()

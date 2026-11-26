@@ -25,12 +25,6 @@ _FEATURES = (
     ),
 )
 
-_STEPS = (
-    ("Найдите", "Выберите клуб или секцию в каталоге."),
-    ("Выберите", "Откройте страницу клуба и посмотрите занятия."),
-    ("Запишитесь", "Отправьте заявку и дождитесь подтверждения клуба."),
-)
-
 _FAQ = (
     (
         "Как найти клуб?",
@@ -79,13 +73,6 @@ def render_sport_home_page(user=None) -> str:
         </article>"""
         for index, (title, text) in enumerate(_FEATURES, start=1)
     )
-    steps = "".join(
-        f"""<li class="sport-home__step">
-            <span>{index:02}</span>
-            <div><h3>{title}</h3><p>{text}</p></div>
-        </li>"""
-        for index, (title, text) in enumerate(_STEPS, start=1)
-    )
     faq = "".join(
         f"<details><summary>{question}</summary><p>{answer}</p></details>"
         for question, answer in _FAQ
@@ -102,14 +89,14 @@ def render_sport_home_page(user=None) -> str:
     {schema}
     {get_base_styles()}
 </head>
-<body class="sport-directory sport-home">
+<body class="sport-directory sport-home rumi-sport">
     {render_header("sport", user)}
     <main id="main" class="sport-home__main">
         <section class="sport-home__hero">
             <div class="section-container sport-home__hero-grid">
                 <div class="sport-home__intro">
                     <p class="sport-home__eyebrow">Клубы и тренировки на Руми</p>
-                    <h1 class="r-display sport-home__title">Найдите свой клуб.<br><em>Начните тренироваться.</em></h1>
+                    <h1 class="r-display sport-home__title">Найдите свой клуб</h1>
                     <p class="r-text r-muted sport-home__lead">
                         Выберите спортивную организацию, изучите занятия и абонементы,
                         а затем отправьте заявку на тренировку.
@@ -125,19 +112,27 @@ def render_sport_home_page(user=None) -> str:
                         <a class="sport-home__business-link" href="/sport/business">Для клубов</a>
                     </div>
                 </div>
-                <img class="sport-home__art" src="/static/sport/rumi-sport-hero.png"
-                     width="481" height="520" alt="" fetchpriority="high">
             </div>
         </section>
 
+        <section class="sport-home__spotlight" aria-label="Клуб на Руми Спорт">
+            <div class="section-container">
+                <a class="sport-home__spotlight-card" href="/sport/sparta">
+                    <span class="sport-home__spotlight-kicker">Клуб на Руми Спорт</span>
+                    <strong>СПАРТА</strong>
+                    <span>Единоборства для детей и взрослых · Томск</span>
+                    <span class="sport-home__spotlight-action">Открыть клуб →</span>
+                </a>
+            </div>
+        </section>
         <section class="sport-home__features" id="how">
             <div class="section-container">
                 <div class="sport-home__section-head">
                     <p class="sport-home__eyebrow">От поиска до тренировки</p>
-                    <h2 class="r-title">Начать заниматься —<br><em>просто.</em></h2>
+                    <h2 class="r-title">Как начать тренироваться</h2>
                 </div>
                 <div class="sport-home__feature-grid">{features}</div>
-                <ol class="sport-home__steps">{steps}</ol>
+
             </div>
         </section>
 
@@ -145,7 +140,7 @@ def render_sport_home_page(user=None) -> str:
             <div class="section-container sport-home__clubs-layout">
                 <div>
                     <p class="sport-home__eyebrow">Для владельцев и команд</p>
-                    <h2 class="r-title">Расскажите о своём клубе<br>на <em>Руми Спорт.</em></h2>
+                    <h2 class="r-title">У вас спортивный клуб?</h2>
                     <p>Подайте заявку на подключение. После проверки клуб сможет представить
                        направления, расписание и абонементы в каталоге.</p>
                 </div>
@@ -160,7 +155,7 @@ def render_sport_home_page(user=None) -> str:
             <div class="section-container sport-home__faq-layout">
                 <div class="sport-home__section-head">
                     <p class="sport-home__eyebrow">Подскажем с чего начать</p>
-                    <h2 class="r-title">Частые<br><em>вопросы.</em></h2>
+                    <h2 class="r-title">Частые вопросы</h2>
                 </div>
                 <div class="sport-home__faq-list">{faq}</div>
             </div>

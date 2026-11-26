@@ -52,7 +52,7 @@ def render_login_page(request: Request) -> str:
     )
     redirect_target = safe_sport_redirect(redirect_raw) if sport_flow else redirect_raw
     redirect = html.escape(redirect_target or "/", quote=True)
-    body_class = "auth-page sport-directory" if sport_flow else "auth-page"
+    body_class = "auth-page sport-directory rumi-sport" if sport_flow else "auth-page"
     page_title = "Вход в Руми Спорт" if sport_flow else "Вход"
     home_href = "/sport" if sport_flow else "/"
     # Адрес возврата передаём дальше — на регистрацию и во вход через

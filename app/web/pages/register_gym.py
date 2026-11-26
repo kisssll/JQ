@@ -50,7 +50,7 @@ def render_register_gym_page(user=None, error: str = "") -> str:
     {get_base_styles()}
     {render_yandex_maps_script()}
 </head>
-<body class="sport-directory">
+<body class="sport-directory rumi-sport">
     {render_header("sport_business", user)}
     
     <main style="padding-top: 5rem;">

@@ -1,0 +1,286 @@
+/* RUMI Sport platform. Scoped so club websites and RUMI Beauty keep their own design. */
+body.rumi-sport,
+:root[data-theme="dark"] body.rumi-sport {
+    --color-background: var(--rumi-sport-white);
+    --color-surface: var(--rumi-sport-white);
+    --color-surface-alt: var(--rumi-sport-panel);
+    --color-secondary: var(--rumi-sport-panel);
+    --color-text: var(--rumi-sport-ink);
+    --color-heading: var(--rumi-sport-ink);
+    --color-body: var(--rumi-sport-ink);
+    --color-muted: var(--rumi-sport-muted);
+    --color-border: var(--rumi-sport-line);
+    --color-border-strong: var(--rumi-sport-line);
+    --color-primary: var(--rumi-sport-blue);
+    --color-accent: var(--rumi-sport-blue);
+    --color-accent-hover: var(--rumi-sport-blue-hover);
+    --color-accent-light: var(--rumi-sport-panel);
+    --color-accent-text: var(--rumi-sport-blue);
+    --color-btn-text: var(--rumi-sport-white);
+    --color-dark: var(--rumi-sport-ink);
+    background: var(--rumi-sport-white);
+    color: var(--rumi-sport-ink);
+    font-family: var(--font-body);
+}
+
+body.rumi-sport .section-container,
+body.rumi-sport .sport-business,
+body.rumi-sport .sport-tariffs {
+    max-width: 1180px;
+}
+
+body.rumi-sport .r-display,
+body.rumi-sport .r-title,
+body.rumi-sport h1,
+body.rumi-sport h2,
+body.rumi-sport h3 {
+    font-family: var(--font-body);
+    font-style: normal;
+    letter-spacing: -0.045em;
+}
+
+body.rumi-sport .btn-primary,
+body.rumi-sport .catalog-search button,
+body.rumi-sport .sport-business__form button {
+    border-radius: var(--radius-8);
+    background: var(--rumi-sport-blue);
+    color: var(--rumi-sport-white);
+}
+
+body.rumi-sport .btn-primary:hover,
+body.rumi-sport .catalog-search button:hover,
+body.rumi-sport .sport-business__form button:hover {
+    background: var(--rumi-sport-blue-hover);
+}
+
+body.sport-home.rumi-sport .sport-home__hero {
+    padding: 5.5rem 0 2rem;
+    background: var(--rumi-sport-white);
+}
+
+body.sport-home.rumi-sport .sport-home__hero-grid {
+    display: block;
+}
+
+body.sport-home.rumi-sport .sport-home__intro {
+    max-width: 790px;
+}
+
+body.sport-home.rumi-sport .sport-home__eyebrow {
+    color: var(--rumi-sport-blue);
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+}
+
+body.sport-home.rumi-sport .sport-home__title {
+    max-width: none;
+    font-size: clamp(2.8rem, 6vw, 5.25rem);
+    font-weight: 800;
+    line-height: 1.03;
+}
+
+body.sport-home.rumi-sport .sport-home__lead {
+    max-width: 590px;
+    color: var(--rumi-sport-muted);
+    line-height: 1.6;
+}
+
+body.sport-home.rumi-sport .sport-home__search {
+    max-width: 760px;
+    margin-top: 2rem;
+    border: 1px solid var(--rumi-sport-line);
+    border-radius: var(--radius-16);
+    background: var(--rumi-sport-white);
+}
+
+body.sport-home.rumi-sport .sport-home__actions {
+    margin-top: 1.25rem;
+}
+
+body.sport-home.rumi-sport .sport-home__business-link {
+    color: var(--rumi-sport-blue);
+}
+
+body.sport-home.rumi-sport .sport-home__spotlight {
+    padding: 1.5rem 0 2rem;
+}
+
+body.sport-home.rumi-sport .sport-home__spotlight-card {
+    display: grid;
+    gap: 0.8rem;
+    min-height: 290px;
+    padding: clamp(1.5rem, 4vw, 3rem);
+    border-radius: var(--radius-28);
+    background: var(--rumi-sport-ink);
+    color: var(--rumi-sport-white);
+    text-decoration: none;
+}
+
+body.sport-home.rumi-sport .sport-home__spotlight-kicker {
+    color: var(--rumi-sport-lime);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+body.sport-home.rumi-sport .sport-home__spotlight-card strong {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    letter-spacing: -0.06em;
+    line-height: 1;
+}
+
+body.sport-home.rumi-sport .sport-home__spotlight-action {
+    justify-self: start;
+    align-self: end;
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--radius-8);
+    background: var(--rumi-sport-lime);
+    color: var(--rumi-sport-ink);
+    font-weight: 700;
+}
+
+body.sport-home.rumi-sport .sport-home__features,
+body.sport-home.rumi-sport .sport-home__faq {
+    padding: 4rem 0;
+    background: var(--rumi-sport-white);
+}
+
+body.sport-home.rumi-sport .sport-home__section-head h2,
+body.sport-home.rumi-sport .sport-home__clubs-layout h2 {
+    color: var(--rumi-sport-ink);
+    font-size: clamp(2rem, 4vw, 3.5rem);
+}
+
+body.sport-home.rumi-sport .sport-home__feature-grid {
+    gap: 1rem;
+    margin-top: 2rem;
+    border: 0;
+}
+
+body.sport-home.rumi-sport .sport-home__feature,
+body.sport-home.rumi-sport .sport-home__feature + .sport-home__feature {
+    min-height: 210px;
+    padding: 1.5rem;
+    border: 0;
+    border-radius: var(--radius-16);
+    background: var(--rumi-sport-panel);
+}
+
+body.sport-home.rumi-sport .sport-home__number {
+    color: var(--rumi-sport-blue);
+}
+
+body.sport-home.rumi-sport .sport-home__for-clubs {
+    padding: 2rem 0;
+    background: var(--rumi-sport-white);
+}
+
+body.sport-home.rumi-sport .sport-home__clubs-layout {
+    padding: clamp(1.5rem, 5vw, 3.5rem);
+    border-radius: var(--radius-28);
+    background: var(--rumi-sport-lime);
+    color: var(--rumi-sport-ink);
+}
+
+body.sport-home.rumi-sport .sport-home__clubs-layout .sport-home__eyebrow,
+body.sport-home.rumi-sport .sport-home__clubs-layout > div:first-child > p:last-child,
+body.sport-home.rumi-sport .sport-home__clubs-actions > a:last-child {
+    color: var(--rumi-sport-ink);
+}
+
+body.sport-home.rumi-sport .sport-home__faq-list details {
+    border-color: var(--rumi-sport-line);
+}
+
+body.rumi-sport .sport-business h1 {
+    max-width: 850px;
+    font-size: clamp(2.5rem, 5vw, 4.6rem);
+    line-height: 1.08;
+}
+
+body.rumi-sport .rumi-sport-business-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+    gap: 2rem;
+    align-items: stretch;
+    margin-bottom: 3rem;
+}
+
+body.rumi-sport .rumi-sport-business-hero__cta {
+    display: inline-flex;
+    margin-top: 1.5rem;
+    padding: 0.85rem 1.3rem;
+    text-decoration: none;
+}
+
+body.rumi-sport .rumi-sport-business-hero__panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-height: 340px;
+    padding: 2rem;
+    border-radius: var(--radius-28);
+    background: var(--rumi-sport-blue);
+    color: var(--rumi-sport-white);
+}
+
+body.rumi-sport .rumi-sport-business-hero__panel span {
+    color: var(--rumi-sport-lime);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+body.rumi-sport .rumi-sport-business-hero__panel strong {
+    margin: auto 0;
+    font-size: clamp(2rem, 3vw, 3.2rem);
+    letter-spacing: -0.05em;
+    line-height: 1.1;
+}
+
+body.rumi-sport .rumi-sport-business-features {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 3rem;
+}
+
+body.rumi-sport .rumi-sport-business-features article {
+    padding: 1.5rem;
+    border-radius: var(--radius-16);
+    background: var(--rumi-sport-panel);
+}
+
+body.rumi-sport .rumi-sport-business-features span {
+    color: var(--rumi-sport-blue);
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+body.rumi-sport .rumi-sport-business-features h2 {
+    margin: 1.5rem 0 0.5rem;
+    font-size: 1.35rem;
+}
+
+body.rumi-sport .rumi-sport-business-features p {
+    color: var(--rumi-sport-muted);
+    line-height: 1.55;
+}
+
+body.rumi-sport .sport-business__application,
+body.rumi-sport .sport-business-dashboard__empty {
+    border-radius: var(--radius-16);
+    background: var(--rumi-sport-panel);
+}
+
+@media (max-width: 639px) {
+    body.sport-home.rumi-sport .sport-home__hero { padding-top: 4.5rem; }
+    body.sport-home.rumi-sport .sport-home__feature { min-height: 0; }
+    body.sport-home.rumi-sport .sport-home__spotlight-card { min-height: 250px; }
+}
+
+@media (max-width: 800px) {
+    body.rumi-sport .rumi-sport-business-hero,
+    body.rumi-sport .rumi-sport-business-features { grid-template-columns: 1fr; }
+    body.rumi-sport .rumi-sport-business-hero__panel { min-height: 240px; }
+}

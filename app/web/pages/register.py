@@ -68,7 +68,7 @@ def render_register_page(request: Request) -> str:
         or redirect_raw.startswith("/sport/")
     )
     redirect_target = safe_sport_redirect(redirect_raw) if sport_flow else redirect_raw
-    body_class = "auth-page sport-directory" if sport_flow else "auth-page"
+    body_class = "auth-page sport-directory rumi-sport" if sport_flow else "auth-page"
     page_title = "Регистрация в Руми Спорт" if sport_flow else "Регистрация"
     home_href = "/sport" if sport_flow else "/"
     redirect_field = (

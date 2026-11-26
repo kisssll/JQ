@@ -198,7 +198,7 @@ async def render_gyms_page(
     {robots_meta}
     {get_base_styles()}
 </head>
-<body class="sport-directory">
+<body class="sport-directory rumi-sport">
     {render_header(current_page, user)}
     <main class="main-content">
         <section class="catalog-hero">
