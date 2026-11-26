@@ -434,13 +434,12 @@ async def render_business_dashboard(db: AsyncSession, user, salon: Salon, member
     # Порядок разделов — настройка владельца (он расставляет их в самой панели),
     # поэтому идём по ordered_keys, а не по каноническому ALL_KEYS.
     visible_slugs = [slug for slug in panel_sections.ordered_keys(salon) if _permitted(slug)]
-    if _permitted("interactive") and "interactive" not in visible_slugs:
+    if not salon.panel_sections and _permitted("interactive") and "interactive" not in visible_slugs:
         idx = len(visible_slugs)
         for anchor in ("billing", "edit", "instructions"):
             if anchor in visible_slugs:
                 idx = min(idx, visible_slugs.index(anchor))
-        visible_slugs.insert(idx, "interactive")
-    # Вернуть предлагаем только те скрытые разделы, которые человеку в принципе
+        visible_slugs.insert(idx, "interactive")    # Вернуть предлагаем только те скрытые разделы, которые человеку в принципе
     # покажут: плюс на разделе без права ничего бы не изменил.
     # Раздела, которого в режиме не существует, в «скрытых» быть не должно:
     # плюс на нём вернул бы в панель вкладку, чьё содержимое уже лежит в другой
