@@ -20,7 +20,7 @@ body.rumi-sport,
     --color-dark: var(--rumi-sport-ink);
     background: var(--rumi-sport-white);
     color: var(--rumi-sport-ink);
-    font-family: Inter, var(--font-body), sans-serif;
+    font-family: var(--font-body);
 }
 
 body.rumi-sport .section-container,
@@ -34,7 +34,7 @@ body.rumi-sport .r-title,
 body.rumi-sport h1,
 body.rumi-sport h2,
 body.rumi-sport h3 {
-    font-family: Inter, var(--font-body), sans-serif;
+    font-family: var(--font-body);
     font-style: normal;
     letter-spacing: -0.045em;
 }
