@@ -141,8 +141,10 @@ function SiteCatalogEditor({ slug, catalog, onSaved }: { slug: string; catalog: 
   return <section aria-label="Контент сайта">
     {message && <p role="status">{message}</p>}
     {(Object.entries(SECTION_LABELS) as [SiteSection, string][]).map(([section, title]) => <div className="admin-editor" key={section}>
-      <div className="admin-site-item"><h2 className="adm-sub">{title}</h2><button className="admin-secondary" disabled={busy || !!editor} onClick={() => setEditor({ section })}>Добавить</button></div>
-      {catalog[section].map((item) => <div className="admin-site-item" key={item.id}>
+      <div className="admin-site-item"><h2 className="adm-sub">{title}</h2><button className="admin-secondary" disabled={busy || !!editor || (section === "gallery" && catalog.gallery.length >= 16)} onClick={() => setEditor({ section })}>Добавить</button></div>
+      {section === "gallery" && <p className="admin-hint">{catalog.gallery.length} из 16 фото · файл до 5 МБ</p>}
+      <div className="admin-site-photo-strip">{catalog[section].map((item) => <div className="admin-site-item" key={item.id}>
+        {(item.image_url || item.photo_url) && <img className="admin-site-thumb" src={item.image_url || item.photo_url || ""} alt="" loading="lazy" />}
         <span>{item.name || item.alt_text || "Фотография"}</span>
         <div className="admin-form-actions">
           <button className="admin-secondary" disabled={busy || !!editor} onClick={() => setEditor({ section, item })}>Изменить</button>
@@ -151,6 +153,7 @@ function SiteCatalogEditor({ slug, catalog, onSaved }: { slug: string; catalog: 
           }}>Убрать с сайта</button>
         </div>
       </div>)}
+      </div>
       {editor?.section === section && <form className="admin-site-item-editor" onSubmit={(event) => {
         event.preventDefault();
         const fields = new FormData(event.currentTarget);

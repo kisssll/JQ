@@ -629,6 +629,14 @@
 .admin-site-item + .admin-site-item { border-top: 1px solid var(--sport-border); }
 .admin-site-item .admin-form-actions { margin: 0; }
 .admin-site-item-editor { margin-top: 1rem; border-top: 1px solid var(--sport-border); padding-top: 1rem; }
+.admin-site-photo-strip { display: flex; gap: .75rem; overflow-x: auto; padding-bottom: .5rem; }
+.admin-site-photo-strip .admin-site-item { flex: 0 0 180px; align-content: start; align-items: flex-start; border: 1px solid var(--sport-border); padding: .6rem; }
+.admin-site-thumb { width: 100%; height: 110px; object-fit: cover; background: var(--sport-surface-alt); }
+.admin-vacation { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; padding: 1rem; border: 1px solid var(--sport-border); margin-bottom: 1rem; }
+.admin-vacation h2, .admin-vacation p { flex-basis: 100%; margin: 0; }
+.admin-vacation label { display: grid; gap: .25rem; }
+.admin-vacation-list > div { max-height: 220px; overflow-y: auto; }
+.admin-vacation-list > div > div { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem; border-bottom: 1px solid var(--sport-border); }
 @media (max-width: 760px) {
   .admin-staff-editor-layout { grid-template-columns: minmax(0, 1fr); }
   .admin-staff-photo-panel { max-width: 20rem; }
