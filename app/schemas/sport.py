@@ -28,7 +28,7 @@ class SportTrainingResponse(BaseModel):
     gym: str
     discipline: str
     active: bool
-    color: str = "#c72527"
+    color: str = "red"
 
 
 class SportScheduleResponse(BaseModel):
@@ -46,7 +46,7 @@ class SportTrainingUpdate(BaseModel):
     gym: str = Field(min_length=1, max_length=200)
     discipline: str = Field(min_length=1, max_length=120)
     active: bool
-    color: str = Field(default="#c72527", pattern=r"^#[0-9a-fA-F]{6}$")
+    color: str = Field(default="red", pattern=r"^(red|#[0-9a-fA-F]{6})$")
 
     @field_validator("days")
     @classmethod

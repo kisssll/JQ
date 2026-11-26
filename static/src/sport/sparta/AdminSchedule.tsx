@@ -210,7 +210,7 @@ function TrainingEditor({ item, isNew, gyms, coaches, disciplines, readOnlyCoach
         <datalist id="training-disciplines">{disciplines.map((row) => <option key={row.key} value={row.key} />)}</datalist>
         <label>Начало<input type="time" value={draft.time} required onChange={(event) => set("time", event.target.value)} /></label>
         <label>Окончание<input type="time" value={draft.end} required onChange={(event) => set("end", event.target.value)} /></label>
-        <label>Цвет тренировки<input type="color" value={draft.color || "#c72527"} onChange={(event) => set("color", event.target.value)} /></label>
+        <label>Цвет тренировки<input type="color" value={draft.color?.startsWith("#") ? draft.color : "#c72527"} onChange={(event) => set("color", event.target.value)} /></label>
         <fieldset className="admin-editor-wide"><legend>Дни недели</legend><div className="day-checks">{DAYS.map((day, index) => <label key={day}>
           <input type="checkbox" checked={draft.days.includes(day)} onChange={(event) => set("days", event.target.checked
             ? [...draft.days, day] : draft.days.filter((value) => value !== day))} />{WEEKDAYS[index]}</label>)}</div></fieldset>
