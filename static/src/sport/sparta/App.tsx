@@ -646,7 +646,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
         </div>
       </section>
 
-      <section className="why-sparta" aria-labelledby="why-gym-title">
+      <section className={`why-sparta${IS_SPARTA ? " why-sparta-brand" : ""}`} aria-labelledby="why-gym-title">
         {IS_SPARTA && <h2 className="why-title" id="why-gym-title">Почему Спарта?</h2>}
         {!IS_SPARTA && <div className="why-gallery" aria-hidden="true">
           {reasonPhotos.map((photo) => <img key={photo} src={photo} alt="" loading="lazy" decoding="async" />)}
@@ -1229,7 +1229,7 @@ function BookingModal({
       </Modal>
     );
   return (
-    <Modal centered={centered} label="Запись на тренировку" onClose={onClose}>
+    <Modal centered={centered} className={IS_SPARTA ? "sparta-booking-modal" : ""} label="Запись на тренировку" onClose={onClose}>
       {!IS_SPARTA && <p className="tag booking-eyebrow">Первый шаг на татами</p>}
       <h2 className="m-title">Запись на тренировку</h2>
       {!IS_SPARTA && <p className="booking-intro">Выберите занятие и оставьте контакт для подтверждения. Можно записать себя или ребёнка.</p>}
@@ -1301,13 +1301,13 @@ function BookingModal({
         {f.sessionId && <div className="booking-selected"><b>{fmtDate(f.date)} · {f.time}</b><span>{shortCoach(f.coach)}</span><span>{f.gym}</span><span>{f.discipline}</span></div>}
         <label className="booking-consent">
           <input type="checkbox" required checked={pdConsent} onChange={(event) => setPdConsent(event.target.checked)} />
-          <span>Я даю согласие на обработку персональных данных на условиях <a href="/sport/legal/consent" target="_blank" rel="noopener noreferrer">Согласия</a>.</span>
+          <span>Я даю согласие на обработку персональных данных на условиях <a href={IS_SPARTA ? "/static/sport/sparta/documents/soglasie_na_obrabotku_dannykh.doc" : "/sport/legal/consent"} target="_blank" rel="noopener noreferrer">Согласия</a>.</span>
         </label>
         {error && <p className="booking-error" role="alert">{error}</p>}
         <button className="btn btn-red wide" disabled={!f.sessionId || saving}>
-          {saving ? "Отправляем…" : "Отправить заявку"} <Arrow />
+          {saving ? "Отправляем…" : IS_SPARTA ? "Записаться" : "Отправить заявку"} <Arrow />
         </button>
-        <p className="m-note">Заявка сохранится в базе Руми. Запись подтвердит администратор клуба.</p>
+        <p className="m-note">{IS_SPARTA ? "Заявка сохранится в базе клуба. Запись подтвердит администратор." : "Заявка сохранится в базе Руми. Запись подтвердит администратор клуба."}</p>
       </form>
     </Modal>
   );

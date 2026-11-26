@@ -1874,7 +1874,6 @@ button.kpi-red:hover {
 /* Широкая карточка главного зала и отдельные фотографии преимуществ. */
 @media (min-width: 861px) {
   .gyms { grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr); }
-  .gyms .gym-cover:not(:first-child) .gym-over h2 { font-size: clamp(30px, 2.8vw, 48px); }
   .why-gallery img { width: 33.3334%; -webkit-mask-image: none !important; mask-image: none !important; }
   .why-gallery img:nth-child(1) { left: 0; }
   .why-gallery img:nth-child(2) { left: 33.3333%; }
@@ -2440,3 +2439,9 @@ main:has(> .public-page-heading), .membership-page, .timetable-page { padding-to
 @media (max-width: 700px) {
   .discipline-row:nth-child(even) .discipline-image { order: 0; }
 }
+.why-sparta-brand .why-title,
+.why-sparta-brand .why-reason-copy p { color: #ff6258; }
+.sparta-booking-modal .m-title { color: var(--red); font-size: clamp(40px, 4vw, 56px); line-height: .98; margin-bottom: 16px; padding-right: 12px; }
+.sparta-booking-modal .sport-booking-form input,
+.sparta-booking-modal .sport-booking-form select,
+.sparta-booking-modal .sport-booking-form button { font-family: "Manrope", Arial, sans-serif; }
