@@ -101,7 +101,8 @@ async def test_sport_booking_creates_guest_and_records_consent(client, db_sessio
 
     response = await client.post(
         "/api/v1/sport/organizations/test-sport-club/bookings",
-        json=_booking_payload(booking_date),
+        json=_booking_payload(booking_date, phone="8 (999) 000-11-22", email="parent@example.com",
+                              participant="child", child_name="Участник", child_age=10, experience="Начинающий"),
     )
     assert response.status_code == 201, response.text
 
@@ -121,6 +122,12 @@ async def test_sport_booking_creates_guest_and_records_consent(client, db_sessio
 
         assert booking.status == "pending"
         assert booking.training_id is not None
+        assert booking.client_id == user.id
+        assert booking.contact_email == "parent@example.com"
+        assert booking.child_name == "Участник"
+        assert booking.child_age == 10
+        assert booking.requested_date == booking_date
+        assert booking.experience == "Начинающий"
         assert user.is_guest is True
         assert consent.version == LEGAL_VERSION
         assert consent.source == "sport_guest_booking"
@@ -455,6 +462,20 @@ async def test_sport_management_is_scoped_and_owner_can_add_staff(client, db_ses
         data={"phone": "+79990001003", "name": "Администратор", "role": "admin"},
     )
     assert response.status_code == 200, response.text
+    credentials = response.json()["credentials"]
+    assert credentials["login"] == "+79990001003"
+    assert response.headers["Cache-Control"] == "no-store"
+    owner_token = client.cookies.get("access_token")
+    client.cookies.clear()
+    staff_login = await client.post("/api/v1/auth/login-web", data={
+        "phone": credentials["login"], "password": credentials["password"],
+        "auth_variant": "sport", "redirect": "/sport/test-sport-club/admin",
+    }, follow_redirects=False)
+    assert staff_login.headers["Location"] == "/sport/test-sport-club/admin"
+    staff_panel = await client.get("/api/v1/sport/organizations/test-sport-club/manage")
+    assert staff_panel.json()["role"] == "admin"
+    client.cookies.clear()
+    client.cookies.set("access_token", owner_token)
     async with db_session() as db:
         staff_user = (
             await db.execute(select(User).where(User.phone == "+79990001003"))
@@ -477,6 +498,7 @@ async def test_sport_management_is_scoped_and_owner_can_add_staff(client, db_ses
         data={"phone": "+79990001003", "name": "Администратор", "role": "admin"},
     )
     assert readded.status_code == 200, readded.text
+    assert readded.json()["credentials"] is None
     client.cookies.clear()
     await register_user(client, "+79990001003", full_name="Администратор")
     async with db_session() as db:
@@ -513,6 +535,43 @@ async def _sport_owner_panel(client, db_session):
         await db.commit()
     client.cookies.set("access_token", create_access_token(owner.id))
     return "/api/v1/sport/organizations/test-sport-club", organization.id
+
+
+async def test_sport_owner_can_delegate_and_revoke_staff_permissions(client, db_session):
+    base, organization_id = await _sport_owner_panel(client, db_session)
+    owner_token = client.cookies.get("access_token")
+    added = await client.post(f"{base}/staff", data={
+        "phone": "+79990001809", "name": "Администратор", "role": "admin",
+    })
+    assert added.status_code == 200, added.text
+    staff_id = added.json()["member"]["id"]
+    async with db_session() as db:
+        admin_id = await db.scalar(select(User.id).where(User.phone == "+79990001809"))
+        db.add(SportMembershipPlan(organization_id=organization_id, code="base", name="Абонемент", price=2000))
+        await db.commit()
+
+    endpoint = f"{base}/manage/staff/{staff_id}/permissions"
+    granted = await client.put(endpoint, json={"view_finances": True, "manage_schedule": False, "manage_bookings": False})
+    assert granted.status_code == 200, granted.text
+    client.cookies.set("access_token", create_access_token(admin_id))
+    panel = await client.get(f"{base}/manage")
+    assert panel.status_code == 200, panel.text
+    assert panel.json()["permissions"]["view_finances"] is True
+    assert panel.json()["bookings"] == []
+    payment = await client.post(f"{base}/payments", data={"member_name": "Клиент", "plan_code": "base"})
+    assert payment.status_code == 200, payment.text
+    assert (await client.get(f"{base}/manage/clients")).status_code == 403
+    disabled_schedule = await client.put(f"{base}/manage/schedule", json={"trainings": [], "exceptions": {}})
+    assert disabled_schedule.status_code == 403
+    assert (await client.put(endpoint, json={"manage_schedule": True})).status_code == 403
+
+    client.cookies.set("access_token", owner_token)
+    assert (await client.put(endpoint, json={"view_finances": False, "manage_schedule": True})).status_code == 200
+    client.cookies.set("access_token", create_access_token(admin_id))
+    assert (await client.put(f"{base}/manage/schedule", json={"trainings": [], "exceptions": {}})).status_code == 200
+    assert (await client.get(f"{base}/manage")).json()["payments"] == []
+    denied_payment = await client.post(f"{base}/payments", data={"member_name": "Клиент", "plan_code": "base"})
+    assert denied_payment.status_code == 403
 
 
 async def test_manage_schedule_saves_new_training_and_date_exception(client, db_session):

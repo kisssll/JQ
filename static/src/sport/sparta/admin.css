@@ -594,6 +594,7 @@
 .admin-editor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 0.85rem; }
 .admin-editor-grid label, .admin-editor legend { display: grid; align-content: start; gap: 0.3rem; font-size: 0.875rem; color: var(--sport-heading); }
 .admin-editor-grid :is(input:not([type="checkbox"]), select, textarea) {
+  box-sizing: border-box;
   width: 100%; min-width: 0; min-height: 2.5rem; padding: 0.5rem 0.65rem; font: inherit;
   color: var(--sport-text); background: var(--sport-surface); border: 1px solid var(--sport-border-strong); border-radius: var(--radius-8);
 }
@@ -603,6 +604,38 @@
 .admin-editor-grid textarea { resize: vertical; }
 .admin-editor-wide { grid-column: 1 / -1; }
 .admin-editor .admin-form-actions { margin-top: 0.9rem; }
+.admin-editor-grid > * { min-width: 0; }
+.admin-staff-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem);
+  align-items: start;
+  gap: 1.25rem;
+}
+.admin-staff-editor-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-staff-photo-panel { grid-template-columns: minmax(0, 1fr); }
+.admin-staff-photo-panel img,
+.admin-photo-empty {
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-8);
+  background: var(--sport-surface-alt);
+}
+.admin-staff-photo-panel img { object-fit: contain; }
+.admin-photo-empty { display: grid; place-items: center; padding: 1rem; }
+.admin-site-photo { display: grid; gap: .6rem; }
+.admin-site-photo img { width: 100%; max-height: 11rem; object-fit: contain; background: var(--sport-surface-alt); }
+.admin-site-item { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; padding: .6rem 0; }
+.admin-site-item + .admin-site-item { border-top: 1px solid var(--sport-border); }
+.admin-site-item .admin-form-actions { margin: 0; }
+.admin-site-item-editor { margin-top: 1rem; border-top: 1px solid var(--sport-border); padding-top: 1rem; }
+@media (max-width: 760px) {
+  .admin-staff-editor-layout { grid-template-columns: minmax(0, 1fr); }
+  .admin-staff-photo-panel { max-width: 20rem; }
+}
+@media (max-width: 480px) {
+  .admin-staff-editor-fields { grid-template-columns: minmax(0, 1fr); }
+}
 
 .admin-schedule-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem; margin: 1.25rem 0 0.9rem; }
 .admin-schedule-toolbar .filters { margin: 0; }

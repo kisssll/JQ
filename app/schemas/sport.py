@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator, model_validator
 from app.web.pages.legal import LEGAL_VERSION
 
 
@@ -12,6 +12,11 @@ class SportOrganizationResponse(BaseModel):
     description: str
     logo_url: Optional[str] = None
     address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    cover_url: Optional[str] = None
+    vk_url: Optional[str] = None
+    telegram_url: Optional[str] = None
 
 
 class SportTrainingResponse(BaseModel):
@@ -109,6 +114,16 @@ class SportBookingCreate(BaseModel):
         return self
 
 
+def _image_url(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    value = value.strip()
+    if value.startswith(("/uploads/", "/photos/", "/static/")) and "\\" not in value:
+        return value
+    HttpUrl(value)
+    return value
+
+
 class SportProfileUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=160)
     description: Optional[str] = Field(default=None, max_length=4000)
@@ -116,6 +131,24 @@ class SportProfileUpdate(BaseModel):
     phone: Optional[str] = Field(default=None, max_length=24)
     email: Optional[EmailStr] = None
     logo_url: Optional[str] = Field(default=None, max_length=500)
+    cover_url: Optional[str] = Field(default=None, max_length=500)
+    vk_url: Optional[HttpUrl] = None
+    telegram_url: Optional[HttpUrl] = None
+
+    _validate_images = field_validator("logo_url", "cover_url")(_image_url)
+
+    @field_validator("vk_url", "telegram_url")
+    @classmethod
+    def validate_social_url(cls, value: HttpUrl | None) -> HttpUrl | None:
+        if value is not None and len(str(value)) > 500:
+            raise ValueError("Ссылка должна быть не длиннее 500 символов")
+        return value
+
+
+def _site_title(value: str) -> str:
+    if not value.strip():
+        raise ValueError("Заполните обязательное поле")
+    return value.strip()
 
 
 class SportVenueCreate(BaseModel):
@@ -125,11 +158,18 @@ class SportVenueCreate(BaseModel):
     hours: str = Field(default="", max_length=160)
     photo_url: Optional[str] = Field(default=None, max_length=500)
 
+    _validate_image = field_validator("photo_url")(_image_url)
+    _validate_title = field_validator("name", "address")(_site_title)
+
 
 class SportDisciplineCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=2000)
     level: str = Field(default="", max_length=120)
+    photo_url: Optional[str] = Field(default=None, max_length=500)
+
+    _validate_image = field_validator("photo_url")(_image_url)
+    _validate_title = field_validator("name")(_site_title)
 
 
 class SportPlanCreate(BaseModel):
@@ -140,10 +180,19 @@ class SportPlanCreate(BaseModel):
     items: list[str] = Field(default_factory=list)
     featured: bool = False
 
+    _validate_title = field_validator("code", "name")(_site_title)
+
 
 class SportGalleryCreate(BaseModel):
     image_url: str = Field(min_length=1, max_length=500)
     alt_text: str = Field(default="", max_length=200)
+
+    @field_validator("image_url")
+    @classmethod
+    def validate_image(cls, value: str) -> str:
+        if not (url := _image_url(value)):
+            raise ValueError("Укажите фотографию")
+        return url
 
 
 class SportCoachScheduleItem(BaseModel):

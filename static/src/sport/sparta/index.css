@@ -2202,6 +2202,16 @@ main:has(> .page-title-sr) { padding-top: 66px; }
 .booking-consent { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 9px; font-size: 12px; line-height: 1.5; color: #555; }
 .booking-consent input { flex: 0 0 auto; margin: 2px 0 0; accent-color: #e3170a; }
 .booking-consent a { text-decoration: underline; text-underline-offset: 2px; }
+.sport-booking-form :is(input:not([type="checkbox"]), select) { box-sizing: border-box; }
+.form .booking-consent { display: flex; align-items: flex-start; gap: 9px; }
+.form .booking-consent input[type="checkbox"] {
+  appearance: auto;
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
+  min-height: 0;
+  padding: 0;
+}
 .booking-error { grid-column: 1 / -1; color: #b91c11; font-size: 13px; }
 .booking-success-icon { display: grid; place-items: center; width: 52px; height: 52px; background: #e5f1e8; color: #226b3b; border-radius: 50%; font-size: 25px; margin-bottom: 24px; }
 .account-card form { align-items: stretch; }
@@ -2388,4 +2398,45 @@ main:has(> .page-title-sr) { padding-top: 66px; }
   .timetable-session button { justify-self: end; }
   .gym-gallery-thumbs { grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); }
   .ftr .btn { max-width: 100%; white-space: normal; }
+}
+main:has(> .public-page-heading), .membership-page, .timetable-page { padding-top: 66px; }
+.coach-roster {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(12px, 1.4vw, 22px);
+  max-width: 1320px;
+  margin-inline: auto;
+  padding: 0 var(--px) 40px;
+}
+.coach-card { min-width: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid #e5e2db; }
+.coach-square { aspect-ratio: 1; }
+.coach-square .ph-img, .coach-profile-image .ph-img { object-fit: contain; object-position: center; }
+.coach-card-copy { display: flex; flex: 1; flex-direction: column; gap: 8px; padding: clamp(12px, 1.4vw, 20px); }
+.coach-card-copy h2 { font-size: clamp(16px, 1.4vw, 23px); line-height: 1.2; overflow-wrap: anywhere; }
+.coach-card-copy p { font-size: 13px; line-height: 1.45; }
+.coach-card-copy .link { margin-top: auto; align-self: flex-start; text-align: left; }
+.coach-card-lead .coach-card-copy { background: #a21918; color: #fff; }
+.coach-card-lead .link { color: #fff; }
+.discipline-row { align-items: stretch; }
+.discipline-image { aspect-ratio: 4 / 3; min-width: 0; }
+.discipline-row:nth-child(even) .discipline-image { order: 2; }
+.discipline-copy { padding: clamp(24px, 4vw, 64px); }
+.discipline-copy h2 { font-size: clamp(26px, 4vw, 56px); line-height: 1.08; margin: 8px 0 16px; overflow-wrap: anywhere; }
+.discipline-copy > p:not(.disc-credit) { font-size: clamp(15px, 1.4vw, 21px); }
+.discipline-copy > p.tag { font-size: 12px; color: #dedede; }
+.discipline-copy .btn { margin-top: 20px; }
+.membership-page .section-heading h1 { font-size: clamp(28px, 4vw, 52px); }
+.membership-options { max-width: 1320px; margin-inline: auto; }
+.membership-option { padding: clamp(16px, 2vw, 28px); }
+.membership-label { margin-bottom: 12px; }
+.membership-option h2 { font-size: clamp(18px, 2vw, 28px); line-height: 1.15; text-transform: none; }
+.membership-option .membership-value { font-size: clamp(24px, 2.8vw, 36px); margin-block: 8px 0; }
+.membership-option ul { padding-block: 10px; margin-bottom: 8px; }
+.membership-option li { padding-block: 8px; }
+.membership-option .btn { min-height: 44px; }
+@media (max-width: 860px) {
+  .coach-roster { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .discipline-row:nth-child(even) .discipline-image { order: 0; }
 }

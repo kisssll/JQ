@@ -117,6 +117,11 @@ async def test_sport_gym_management_api(client, db_session):
             "city": "Сочи",
             "description": "Обновленное описание сети",
             "logo_url": "https://example.com/logo.png",
+            "cover_url": "/photos/home/team.webp",
+            "phone": "8 (999) 123-45-67",
+            "email": "contact@example.com",
+            "vk_url": "https://vk.com/dynamo",
+            "telegram_url": "https://t.me/dynamo",
             "address": "ул. Морская, 15",
         },
     )
@@ -194,6 +199,11 @@ async def test_sport_gym_management_api(client, db_session):
     resp_cat = await client.get(f"/api/v1/sport/organizations/{org.slug}/catalog")
     assert resp_cat.status_code == 200
     cat_data = resp_cat.json()
+    assert cat_data["organization"]["phone"] == "+79991234567"
+    assert cat_data["organization"]["email"] == "contact@example.com"
+    assert cat_data["organization"]["cover_url"] == "/photos/home/team.webp"
+    assert cat_data["organization"]["vk_url"] == "https://vk.com/dynamo"
+    assert cat_data["organization"]["telegram_url"] == "https://t.me/dynamo"
     assert len(cat_data["venues"]) == 1
     assert cat_data["venues"][0]["name"] == "Зал на Набережной"
     assert len(cat_data["disciplines"]) == 1
@@ -223,6 +233,17 @@ async def test_sport_gym_management_api(client, db_session):
     assert "Зал на Набережной" in resp_web.text
     assert "Бокс" in resp_web.text
 
+    discipline_id = mgmt_data["disciplines"][0]["id"]
+    updated = await client.put(
+        f"/api/v1/sport/organizations/{org.slug}/manage/disciplines/{discipline_id}",
+        headers=headers,
+        json={"name": "Бокс", "description": "Новое описание", "photo_url": "/photos/home/disciplines.webp"},
+    )
+    assert updated.status_code == 200, updated.text
+    public = (await client.get(f"/api/v1/sport/organizations/{org.slug}/catalog")).json()
+    assert public["disciplines"][0]["text"] == "Новое описание"
+    assert public["disciplines"][0]["photo"] == "/photos/home/disciplines.webp"
+
     # 10. Delete gallery item and verify
     resp_del_gal = await client.delete(
         f"/api/v1/sport/organizations/{org.slug}/manage/gallery/{image_id}",
@@ -250,3 +271,24 @@ async def test_sport_gym_management_api(client, db_session):
         json={"name": "Хак", "address": "Куда-то"},
     )
     assert resp_forbidden.status_code == 403
+
+    async with db_session() as session:
+        session.add(SportGymMember(
+            organization_id=org.id, user_id=stranger.id, role="manager",
+            permissions={"manage_gym": True, "manage_coaches": True}, is_active=True,
+        ))
+        await session.commit()
+    assert (await client.get(f"/api/v1/sport/organizations/{org.slug}/manage", headers=stranger_headers)).status_code == 200
+    denied_profile = await client.post(
+        f"/api/v1/sport/organizations/{org.slug}/manage/profile", headers=stranger_headers,
+        json={"description": "Редактирование сайта"},
+    )
+    denied_discipline = await client.put(
+        f"/api/v1/sport/organizations/{org.slug}/manage/disciplines/{discipline_id}",
+        headers=stranger_headers, json={"name": "Бокс"},
+    )
+    denied_trainer = await client.post(
+        f"/api/v1/sport/organizations/{org.slug}/staff", headers=stranger_headers,
+        data={"role": "trainer", "name": "Тестовый тренер", "phone": "+79990000000"},
+    )
+    assert [denied_profile.status_code, denied_discipline.status_code, denied_trainer.status_code] == [403, 403, 403]

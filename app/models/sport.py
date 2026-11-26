@@ -31,6 +31,9 @@ class SportOrganization(Base):
     city: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     logo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    cover_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    vk_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    telegram_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     address: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
     email: Mapped[Optional[str]] = mapped_column(String(254), nullable=True)
@@ -231,6 +234,7 @@ class SportDiscipline(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     level: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    photo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
