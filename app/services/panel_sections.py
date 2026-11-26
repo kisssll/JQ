@@ -42,6 +42,7 @@ LABELS = {
     "promos": "Акции",
     "reviews": "Отзывы",
     "crm": "Клиенты",
+    "interactive": "Интерактивная запись",
     "billing": "Тариф",
     "edit": "Редактировать салон",
     "instructions": "Инструкция",
