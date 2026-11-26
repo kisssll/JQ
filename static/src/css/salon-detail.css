@@ -1076,7 +1076,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #fefefe;
+    background: var(--color-hair-preview);
     border-radius: var(--radius-8);
     margin-bottom: 0.45rem;
     overflow: hidden;
@@ -1182,7 +1182,7 @@
     align-items: center;
     justify-content: center;
     min-height: 180px;
-    background: #fefefe;
+    background: var(--color-hair-preview);
     border-radius: var(--radius-8);
     border: 1px solid var(--color-border);
     overflow: hidden;

@@ -34,6 +34,7 @@
     --color-surface-alt: #fdf0f0;
     --color-surface-2: #f8e6ea;
     --color-secondary: #fbe2e9;           /* её --rose */
+    --color-hair-preview: #fefefe;       /* фон иллюстраций волос совпадает с фоном рамки */
 
     --color-text: #36061b;                /* её --cherry */
     --color-heading: #36061b;
