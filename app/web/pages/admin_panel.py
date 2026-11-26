@@ -568,7 +568,7 @@ def _sport_organizations_tab(organizations, owner_phone_by_id, sport_owners_by_o
     """
 
 
-def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
+def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None, models=None):
     """Салон = карточка, а не строка таблицы.
 
     В строке жили десять контролов в одной ячейке на 620px, разделённые голым
@@ -586,6 +586,37 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
     plan_options = "".join(
         f'<option value="{t.plan}">{e(t.name)}</option>' for t in TARIFF_CATALOG.values()
     )
+    extension_options = "".join(
+        f'<option value="salon:{s.id}">Салон: {_esc(s.name)} (#{s.id})</option>'
+        for s in salons
+    ) + "".join(
+        f'<option value="model:{u.id}">Модель: {_esc(u.full_name or u.phone)} (#{u.id})</option>'
+        for u in (models or [])
+    )
+    extension_form = f"""
+        <section class="card adm-salon adm-extension">
+            <h3 class="adm-section-title adm-extension-title">Индивидуальное бесплатное продление</h3>
+            <p class="adm-meta adm-extension-desc">
+                Добавляет дни к текущему сроку салона или модели. Операция попадёт в аудит.
+            </p>
+            <form method="post" action="/api/v1/admin/subscription/extend-free"
+                  class="adm-form">
+                <label class="adm-field">
+                    <span class="adm-field-label">Кому</span>
+                    <select name="target" class="r-input adm-input adm-select" required>
+                        <option value="">Выберите салон или модель</option>
+                        {extension_options}
+                    </select>
+                </label>
+                <label class="adm-field">
+                    <span class="adm-field-label">Добавить дней</span>
+                    <input name="days" type="number" min="1" max="3650" value="30"
+                           class="r-input adm-input is-num" required aria-label="Сколько бесплатных дней добавить">
+                </label>
+                {_btn("Продлить бесплатно")}
+            </form>
+        </section>
+    """
 
     def render_cards(group):
         cards = ""
@@ -774,6 +805,7 @@ def _salons_tab(salons, owner_phone_by_id, live_salon_ids=None):
     return f"""
     <div class="tab-content" id="tab-salons">
         <h2 class="adm-tab-title">Салоны ({len(salons)})</h2>
+        {extension_form}
         {groups_html}
     </div>
     """
@@ -1149,7 +1181,8 @@ async def render_admin_panel(db: AsyncSession, user, q) -> str:
         )
         overview = await _overview(db, users, salons_active)
         users_tab = _users_tab(users, user.id, master_by_uid, self_deleted)
-        salons_tab = _salons_tab(salons, phone_by_id, live_salon_ids)
+        models = [u for u in users if u.is_model]
+        salons_tab = _salons_tab(salons, phone_by_id, live_salon_ids, models)
         reviews_tab = _reviews_tab(reviews, phone_by_id, master_name_by_id, salon_name_by_id)
         audit_tab = _audit_tab(audits, phone_by_id)
 

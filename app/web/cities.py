@@ -1155,6 +1155,24 @@ AMBIGUOUS_CITY_REGIONS: dict[str, list[str]] = {
 from app.web.components.escaping import e
 
 
+# Карта для нормализации ввода — lower() -> каноническое написание из списка
+_CITY_CANONICAL_MAP = {c.lower(): c for c in RUSSIAN_CITIES}
+
+
+def normalize_city(raw: str) -> str | None:
+    """Нормализует пользовательский ввод города к канонической форме из
+    RUSSIAN_CITIES. Возвращает каноническое имя (например, 'Томск') или None,
+    если совпадения в списке нет.
+
+    Примеры: 'томск' -> 'Томск', '  ТОмСк  ' -> 'Томск', '' -> None
+    """
+    if not raw:
+        return None
+    key = raw.strip().lower()
+    return _CITY_CANONICAL_MAP.get(key)
+
+
+
 def city_label(city: str) -> str:
     """Подпись для <option>: голое имя города, а для ~20 неоднозначных —
     плюс список регионов через «/» (см. AMBIGUOUS_CITY_REGIONS)."""

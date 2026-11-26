@@ -233,6 +233,58 @@ async def grant_trial(sid: int, request: Request, days: int = Form(30),
     return _back("salons", ok=f"«{salon.name}»: пробный период до {ends:%d.%m.%Y}")
 
 
+@router.post("/subscription/extend-free")
+async def extend_free_subscription(
+    request: Request,
+    target: str = Form(...),
+    days: int = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Добавить бесплатные дни выбранному салону или модели."""
+    from app.models.models import Salon, User
+    from app.services.subscription import SubscriptionError, extend_free_period
+
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    try:
+        target_type, target_id_raw = target.split(":", 1)
+        target_id = int(target_id_raw)
+    except (ValueError, TypeError):
+        return _back("salons", err="Некорректный получатель продления")
+
+    if target_type == "salon":
+        entity = (await db.execute(select(Salon).where(Salon.id == target_id))).scalar_one_or_none()
+        display_name = f"салону «{entity.name}»" if entity else ""
+        salon_id = target_id
+    elif target_type == "model":
+        entity = (await db.execute(select(User).where(User.id == target_id, User.is_model == True))).scalar_one_or_none()  # noqa: E712
+        display_name = f"модели «{entity.full_name or entity.phone}»" if entity else ""
+        salon_id = None
+    else:
+        entity = None
+        display_name = ""
+        salon_id = None
+
+    if not entity:
+        return _back("salons", err="Салон или модель не найдены")
+    try:
+        ends = extend_free_period(entity, days)
+    except SubscriptionError as exc:
+        return _back("salons", err=str(exc))
+
+    _audit(
+        db, admin.id, "extend_free_period", target_type, entity.id,
+        f"{display_name}: добавлено бесплатных дней — {days}, "
+        f"новый срок до {ends:%d.%m.%Y}",
+        salon_id=salon_id,
+    )
+    await db.commit()
+    return _back("salons", ok=f"{display_name}: бесплатный период до {ends:%d.%m.%Y}")
+
+
+
 @router.post("/users/{uid}/grant-trial")
 async def grant_user_trial(uid: int, request: Request, days: int = Form(30),
                          db: AsyncSession = Depends(get_db)):

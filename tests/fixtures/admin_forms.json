@@ -680,6 +680,25 @@
   []
  ],
  [
+  "tab-salons",
+  "/api/v{id}/admin/subscription/extend-free",
+  "post",
+  [
+   [
+    "input",
+    "days",
+    "number",
+    ""
+   ],
+   [
+    "select",
+    "target",
+    "",
+    "salon:1,salon:2,salon:3,salon:4,salon:5,model:4"
+   ]
+  ]
+ ],
+ [
   "tab-support",
   "/api/v{id}/admin/support/{id}/answer",
   "post",

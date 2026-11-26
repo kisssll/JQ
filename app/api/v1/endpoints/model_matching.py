@@ -78,6 +78,10 @@ async def upsert_model_profile(
     if not was_model:
         current_user.model_moderation_status = ModelModerationStatus.PENDING
         current_user.model_rejection_reason = None
+    elif current_user.model_moderation_status is None:
+        # Старые записи, созданные до добавления поля модерации, должны
+        # редактироваться так же, как обычные анкеты моделей.
+        current_user.model_moderation_status = ModelModerationStatus.PENDING
     await db.commit()
     return {
         "status": "ok", "is_model": True, "model_photo_url": current_user.model_photo_url,

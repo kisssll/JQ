@@ -135,3 +135,30 @@ async def test_guest_booking_page_escapes_names(client, db_session):
     r = await client.get(f"/book/{sid}")
     assert r.status_code == 200
     _assert_no_raw_payload(r.text, "гостевая запись")
+
+
+def test_model_join_page_escapes_saved_bio():
+    from types import SimpleNamespace
+    user = SimpleNamespace(
+        is_model=True,
+        model_photo_url=None,
+        model_bio="</textarea><script>alert(1)</script>",
+        model_looking_for="",
+        full_name="Модель",
+        avatar_url=None,
+        city=None,
+        role=UserRole.CLIENT,
+        subscription_status=SalonSubscriptionStatus.NONE,
+        subscription_tier=None,
+        auto_renew=False,
+        trial_ends_at=None,
+        subscription_expires_at=None,
+        card_last4=None,
+    )
+
+    from app.web.pages.model_join import render_model_join_page
+    html = render_model_join_page(user)
+
+    assert "</textarea><script>" not in html
+    assert "&lt;/textarea&gt;" in html
+

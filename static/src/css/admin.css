@@ -299,6 +299,18 @@
 
 .adm-salon { padding: var(--space-24); }
 
+.adm-extension {
+    margin-bottom: var(--space-24);
+    border-color: var(--color-primary);
+}
+.adm-extension-title {
+    margin: 0 0 var(--space-8);
+}
+.adm-extension-desc {
+    margin: 0 0 var(--space-12);
+}
+
+
 .adm-salon-head {
     display: flex;
     flex-wrap: wrap;

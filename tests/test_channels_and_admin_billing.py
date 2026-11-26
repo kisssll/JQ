@@ -9,11 +9,12 @@ from datetime import datetime, timedelta, timezone
 import types
 
 import pytest
+from sqlalchemy import select
 
 from app.core.security import get_password_hash
 from app.models.models import (
     NotifyChannel, Salon, SalonModerationStatus, SalonSubscriptionStatus,
-    User, UserRole,
+    User, UserRole, AdminAudit,
 )
 
 
@@ -162,6 +163,38 @@ async def test_admin_grants_custom_trial_days_for_model(client, db_session):
         # окончания триала, поэтому реальный срок ≈ 30 + 7 дней.
         assert u.access_until > datetime.now(timezone.utc) + timedelta(days=30)
         assert u.access_until < datetime.now(timezone.utc) + timedelta(days=45)
+
+
+async def test_admin_extends_free_period_for_model_and_writes_audit(client, db_session):
+    admin_id = await _mk_senior_admin(db_session, "+79994440026")
+    model_id = await _mk_user(
+        db_session, "+79994440027", is_model=True,
+        subscription_status=SalonSubscriptionStatus.TRIALING,
+        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=14),
+        subscription_expires_at=datetime.now(timezone.utc) + timedelta(days=14),
+        trial_used_at=datetime.now(timezone.utc),
+    )
+    await _login(client, "+79994440026", pw="Adminpass1")
+
+    r = await client.post(
+        "/api/v1/admin/subscription/extend-free",
+        data={"target": f"model:{model_id}", "days": "30"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 302, r.text
+
+    async with db_session() as db:
+        model = await db.get(User, model_id)
+        assert model.subscription_status == SalonSubscriptionStatus.TRIALING
+        assert model.subscription_expires_at > datetime.now(timezone.utc) + timedelta(days=40)
+        audit = (await db.execute(
+            select(AdminAudit).where(
+                AdminAudit.actor_id == admin_id,
+                AdminAudit.action == "extend_free_period",
+            )
+        )).scalar_one()
+        assert audit.target_type == "model"
+
 
 
 async def test_admin_grants_paid_access(client, db_session):
