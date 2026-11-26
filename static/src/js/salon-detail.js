@@ -114,16 +114,16 @@ document.addEventListener('DOMContentLoaded', function () {
     ];
 
     const TYPE_OPTIONS = [
-        { id: 'straight', title: 'Прямые, гладкие', desc: 'Ровные, легко укладываются', img: '/static/images/hair/hair_type_straight.webp' },
-        { id: 'wavy', title: 'Легкая волна', desc: 'Пушатся во влажную погоду', img: '/static/images/hair/hair_type_wavy.webp' },
-        { id: 'curly', title: 'Кудрявые / вьющиеся', desc: 'Четкий завиток', img: '/static/images/hair/hair_type_curly.webp' },
-        { id: 'coarse', title: 'Жесткие, стекловидные', desc: 'Плохо поддаются укладке', img: '/static/images/hair/hair_type_coarse.webp' }
+        { id: 'straight', title: 'Прямые, гладкие', desc: 'Ровные, легко укладываются', img: '/static/images/hair/hair_type_straight.webp?v=2' },
+        { id: 'wavy', title: 'Легкая волна', desc: 'Пушатся во влажную погоду', img: '/static/images/hair/hair_type_wavy.webp?v=2' },
+        { id: 'curly', title: 'Кудрявые / вьющиеся', desc: 'Четкий завиток', img: '/static/images/hair/hair_type_curly.webp?v=2' },
+        { id: 'coarse', title: 'Жесткие, стекловидные', desc: 'Плохо поддаются укладке', img: '/static/images/hair/hair_type_coarse.webp?v=2' }
     ];
 
     const DENSITY_OPTIONS = [
-        { id: 'thin', title: 'Не густые', desc: 'Тонкий хвост', img: '/static/images/hair/hair_density_thin.webp' },
-        { id: 'medium', title: 'Средняя густота', desc: 'Стандартная', img: '/static/images/hair/hair_density_medium.webp' },
-        { id: 'thick', title: 'Очень густые', desc: 'Объемный хвост', img: '/static/images/hair/hair_density_thick.webp' }
+        { id: 'thin', title: 'Не густые', desc: 'Тонкий хвост', img: '/static/images/hair/hair_density_thin.webp?v=2' },
+        { id: 'medium', title: 'Средняя густота', desc: 'Стандартная', img: '/static/images/hair/hair_density_medium.webp?v=2' },
+        { id: 'thick', title: 'Очень густые', desc: 'Объемный хвост', img: '/static/images/hair/hair_density_thick.webp?v=2' }
     ];
 
     function hasHairSurvey() {
@@ -364,7 +364,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     <div class="hair-len-stage">
                         <div class="hair-len-figure-wrap">
-                            <img id="hairLengthDynamicImg" src="/static/images/hair/hair_len_${curLength.id}.webp" class="hair-dynamic-img" alt="${esc(curLength.title)}">
+                            <img id="hairLengthDynamicImg" src="/static/images/hair/hair_len_${curLength.id}.webp?v=2" class="hair-dynamic-img" alt="${esc(curLength.title)}">
                         </div>
                         <div class="hair-len-desc">
                             <div class="hair-len-title-row">
@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <!-- Иллюстрация со всеми вариантами длины под шкалой -->
                         <div class="hair-strip-overview">
                             <div class="hair-strip-overview__label">Все варианты длины со шкалой:</div>
-                            <img src="/static/images/hair/hair_lengths_full.webp" class="hair-strip-img" alt="Все длины волос" loading="lazy">
+                            <img src="/static/images/hair/hair_lengths_strip.webp?v=2" class="hair-strip-img" alt="Все длины волос" loading="lazy">
                         </div>
                     </div>
                 </div>
@@ -1011,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', function () {
             state.hairSurvey.lengthCm = opt.cm;
 
             const imgEl = document.getElementById('hairLengthDynamicImg');
-            if (imgEl) imgEl.src = `/static/images/hair/hair_len_${opt.id}.webp`;
+            if (imgEl) imgEl.src = `/static/images/hair/hair_len_${opt.id}.webp?v=2`;
 
             const titleEl = document.getElementById('hairLengthTitle');
             const cmEl = document.getElementById('hairLengthCm');
