@@ -909,15 +909,15 @@
     align-items: center;
     gap: 0.35rem;
     padding: 0.25rem 0.65rem;
-    background: var(--color-surface, #ffffff);
-    border: 1px solid var(--color-border, #e2e8f0);
-    border-radius: var(--radius-pill, 9999px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
     font-size: 0.825rem;
 }
 .hair-tag-remove {
     background: none;
     border: none;
-    color: var(--color-muted, #64748b);
+    color: var(--color-muted);
     font-weight: bold;
     cursor: pointer;
     padding: 0 0.15rem;
@@ -925,7 +925,7 @@
     line-height: 1;
 }
 .hair-tag-remove:hover {
-    color: var(--color-danger, #e11d48);
+    color: var(--color-danger);
 }
 .hair-survey {
     display: flex;
@@ -934,14 +934,14 @@
 }
 .hair-survey__intro {
     padding: var(--space-8, 0.5rem) var(--space-12, 0.75rem);
-    background: var(--color-surface-alt, #f8fafc);
-    border-radius: var(--radius-8, 8px);
-    border: 1px solid var(--color-border, #e2e8f0);
+    background: var(--color-surface-alt);
+    border-radius: var(--radius-8);
+    border: 1px solid var(--color-border);
 }
 .hair-survey__hint {
     margin: 0;
     font-size: var(--text-13, 0.8125rem);
-    color: var(--color-muted, #64748b);
+    color: var(--color-muted);
     line-height: 1.4;
 }
 .hair-survey__section {
@@ -960,15 +960,15 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--color-muted, #64748b);
+    color: var(--color-muted);
 }
 .hair-survey__badge {
     font-size: var(--text-12, 0.75rem);
     font-weight: 700;
     padding: 0.15rem 0.5rem;
-    border-radius: var(--radius-pill, 9999px);
-    background: var(--color-accent-light, #ffe4e6);
-    color: var(--color-accent-text, #e11d48);
+    border-radius: var(--radius-pill);
+    background: var(--color-accent-light);
+    color: var(--color-accent-text);
 }
 .hair-slider-wrap {
     padding: 0.25rem 0;
@@ -977,8 +977,8 @@
     -webkit-appearance: none;
     width: 100%;
     height: 6px;
-    border-radius: 3px;
-    background: var(--color-border, #cbd5e1);
+    border-radius: var(--radius-pill);
+    background: var(--color-border);
     outline: none;
 }
 .hair-range::-webkit-slider-thumb {
@@ -987,9 +987,9 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: var(--color-accent, #e11d48);
+    background: var(--color-accent);
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(225, 29, 72, 0.35);
+    box-shadow: 0 2px 6px var(--color-accent-muted);
     transition: transform 0.15s ease;
 }
 .hair-range::-webkit-slider-thumb:hover {
@@ -999,14 +999,14 @@
     display: flex;
     justify-content: space-between;
     font-size: 11px;
-    color: var(--color-muted, #64748b);
+    color: var(--color-muted);
     margin-top: 4px;
 }
 .hair-length-info {
     padding: 0.5rem 0.75rem;
-    background: var(--color-surface, #ffffff);
-    border: 1px solid var(--color-border, #e2e8f0);
-    border-radius: var(--radius-8, 8px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-8);
     font-size: var(--text-13, 0.8125rem);
 }
 .hair-grid {
@@ -1024,27 +1024,27 @@
     flex-direction: column;
     text-align: left;
     padding: 0.6rem 0.75rem;
-    border: 1px solid var(--color-border, #e2e8f0);
-    border-radius: var(--radius-8, 8px);
-    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-8);
+    background: var(--color-surface);
     cursor: pointer;
     transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 .hair-card-btn:hover {
-    border-color: var(--color-accent, #e11d48);
+    border-color: var(--color-accent);
 }
 .hair-card-btn.is-active {
-    border-color: var(--color-accent, #e11d48);
-    background: var(--color-accent-light, #ffe4e6);
+    border-color: var(--color-accent);
+    background: var(--color-accent-light);
 }
 .hair-card-btn__title {
     font-weight: 600;
     font-size: var(--text-13, 0.8125rem);
-    color: var(--color-heading, #0f172a);
+    color: var(--color-heading);
 }
 .hair-card-btn__desc {
     font-size: 11px;
-    color: var(--color-muted, #64748b);
+    color: var(--color-muted);
     margin-top: 2px;
 }
 .hair-tags {
@@ -1054,25 +1054,25 @@
 }
 .hair-tag-pill {
     padding: 0.35rem 0.7rem;
-    border: 1px solid var(--color-border, #e2e8f0);
-    border-radius: var(--radius-pill, 9999px);
-    background: var(--color-surface, #ffffff);
-    color: var(--color-body, #1e293b);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-body);
     font-size: var(--text-13, 0.8125rem);
     cursor: pointer;
     transition: all 0.15s ease;
 }
 .hair-tag-pill:hover {
-    border-color: var(--color-accent, #e11d48);
+    border-color: var(--color-accent);
 }
 .hair-tag-pill.is-active {
-    background: var(--color-accent, #e11d48);
-    border-color: var(--color-accent, #e11d48);
-    color: #ffffff;
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-btn-text);
     font-weight: 500;
 }
 .book__row--survey dt {
-    color: var(--color-accent-text, #e11d48);
+    color: var(--color-accent-text);
 }
 .hair-survey__guide {
     text-align: center;
@@ -1083,7 +1083,7 @@
     height: auto;
     max-height: 140px;
     object-fit: contain;
-    border-radius: var(--radius-8, 8px);
+    border-radius: var(--radius-8);
 }
 .hair-tag-pill {
     display: inline-flex;

@@ -167,10 +167,10 @@ async def render_schedule_tab(
             h_type = b.hair_survey.get("type", {}).get("title", "")
             h_dens = b.hair_survey.get("density", {}).get("title", "")
             features = b.hair_survey.get("features", [])
-            tags_html = "".join(f'<span class="hair-tag-pill" style="font-size:0.7rem;padding:2px 6px;margin:2px 4px 2px 0;background:var(--color-accent-light, #ffe4e6);color:var(--color-accent-text, #e11d48);border-radius:12px;display:inline-block;">{e(t)}</span>' for t in features) if features else ""
+            tags_html = "".join(f'<span class="hair-tag-pill" style="font-size:0.7rem;padding:2px 6px;margin:2px 4px 2px 0;background:var(--color-accent-light);color:var(--color-accent-text);border-radius:var(--radius-16);display:inline-block;">{e(t)}</span>' for t in features) if features else ""
             survey_html = f"""
-                <div class="detail-row hair-survey-detail" style="border-top:1px dashed var(--color-border, #e2e8f0);padding-top:6px;margin-top:6px;">
-                    <span class="detail-label" style="font-weight:600;color:var(--color-accent-text, #e11d48);">Волосы:</span>
+                <div class="detail-row hair-survey-detail" style="border-top:1px dashed var(--color-border);padding-top:6px;margin-top:6px;">
+                    <span class="detail-label" style="font-weight:600;color:var(--color-accent-text);">Волосы:</span>
                     <div class="detail-value" style="font-size:0.8rem;line-height:1.35;">
                         <div><strong>Длина:</strong> {e(length_str)}</div>
                         {f'<div><strong>Тип / Густота:</strong> {e(h_type)} · {e(h_dens)}</div>' if h_type or h_dens else ''}
@@ -275,10 +275,10 @@ async def render_schedule_tab(
             h_type = b.hair_survey.get("type", {}).get("title", "")
             h_dens = b.hair_survey.get("density", {}).get("title", "")
             features = b.hair_survey.get("features", [])
-            tags_html = "".join(f'<span class="hair-tag-pill" style="font-size:0.7rem;padding:2px 6px;margin:2px 4px 2px 0;background:var(--color-accent-light, #ffe4e6);color:var(--color-accent-text, #e11d48);border-radius:12px;display:inline-block;">{e(t)}</span>' for t in features) if features else ""
+            tags_html = "".join(f'<span class="hair-tag-pill" style="font-size:0.7rem;padding:2px 6px;margin:2px 4px 2px 0;background:var(--color-accent-light);color:var(--color-accent-text);border-radius:var(--radius-16);display:inline-block;">{e(t)}</span>' for t in features) if features else ""
             mobile_survey_html = f"""
-                <div class="record-card-row hair-survey-row" style="border-top:1px dashed var(--color-border, #e2e8f0);padding-top:6px;margin-top:6px;">
-                    <span class="record-card-label" style="font-weight:600;color:var(--color-accent-text, #e11d48);">Волосы:</span>
+                <div class="record-card-row hair-survey-row" style="border-top:1px dashed var(--color-border);padding-top:6px;margin-top:6px;">
+                    <span class="record-card-label" style="font-weight:600;color:var(--color-accent-text);">Волосы:</span>
                     <div class="record-card-value" style="font-size:0.8rem;line-height:1.35;">
                         <div><strong>Длина:</strong> {e(length_str)}</div>
                         {f'<div><strong>Тип / Густота:</strong> {e(h_type)} · {e(h_dens)}</div>' if h_type or h_dens else ''}

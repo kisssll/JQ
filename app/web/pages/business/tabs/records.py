@@ -113,9 +113,9 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
             features = b.hair_survey.get("features", [])
             feats_count = f" · {len(features)} особ." if features else ""
             feats_str = f" · {', '.join(features)}" if features else ""
-            survey_inline = f'<div style="font-size:0.75rem;color:var(--color-accent-text, #e11d48);margin-top:2px;">💇 {e(l_title)} ({e(l_cm)}){e(feats_count)}</div>'
+            survey_inline = f'<div style="font-size:0.75rem;color:var(--color-accent-text);margin-top:2px;">💇 {e(l_title)} ({e(l_cm)}){e(feats_count)}</div>'
             survey_mobile_row = (
-                f'<div class="record-card-row hair-survey-row"><span class="record-card-label" style="color:var(--color-accent-text, #e11d48);">Волосы:</span> '
+                f'<div class="record-card-row hair-survey-row"><span class="record-card-label" style="color:var(--color-accent-text);">Волосы:</span> '
                 f'<span class="record-card-value">{e(l_title)} ({e(l_cm)}) · {e(h_type)} · {e(h_dens)}{e(feats_str)}</span></div>'
             )
         actions = ""
@@ -161,9 +161,9 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
             features = b.hair_survey.get("features", [])
             feats_count = f" · {len(features)} особ." if features else ""
             feats_str = f" · {', '.join(features)}" if features else ""
-            survey_inline = f'<div style="font-size:0.75rem;color:var(--color-accent-text, #e11d48);margin-top:2px;">💇 {e(l_title)} ({e(l_cm)}){e(feats_count)}</div>'
+            survey_inline = f'<div style="font-size:0.75rem;color:var(--color-accent-text);margin-top:2px;">💇 {e(l_title)} ({e(l_cm)}){e(feats_count)}</div>'
             survey_mobile_row = (
-                f'<div class="record-card-row hair-survey-row"><span class="record-card-label" style="color:var(--color-accent-text, #e11d48);">Волосы:</span> '
+                f'<div class="record-card-row hair-survey-row"><span class="record-card-label" style="color:var(--color-accent-text);">Волосы:</span> '
                 f'<span class="record-card-value">{e(l_title)} ({e(l_cm)}) · {e(h_type)} · {e(h_dens)}{e(feats_str)}</span></div>'
             )
         actions = ""

@@ -540,7 +540,7 @@ def _render_hair_survey_card(master: Master, salon: Salon) -> str:
         <form method="post" action="/api/v1/masters/{master.id}/hair-survey" id="hairSurveyForm">
             <input type="hidden" name="return_url" value="/business/dashboard?salon_id={salon.id}&tab=employees&ok=survey_saved">
             
-            <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;background:var(--color-surface-alt);border-radius:var(--radius-12);margin-bottom:1.25rem">
+            <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;background:var(--color-surface-alt);border-radius:var(--radius-16);margin-bottom:1.25rem">
                 <input type="checkbox" id="hairSurveyToggle" name="enabled" value="1" {"checked" if is_enabled else ""} style="width:1.2rem;height:1.2rem;cursor:pointer">
                 <label for="hairSurveyToggle" style="font-weight:600;font-size:0.95rem;cursor:pointer">
                     Включить опрос клиентов перед выбором окошка на запись

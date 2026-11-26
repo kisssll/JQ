@@ -92,6 +92,14 @@
     --color-dark: #36061b;
 
     /* Палитра Руми Спорт — молочный фон и синие акценты. */
+    --rumi-sport-white: #ffffff;
+    --rumi-sport-ink: #101d33;
+    --rumi-sport-blue: #1346df;
+    --rumi-sport-blue-hover: #0c35b9;
+    --rumi-sport-lime: #ddf89d;
+    --rumi-sport-panel: #f2f5fa;
+    --rumi-sport-muted: #62718a;
+    --rumi-sport-line: #e1e7f0;
     --sport-background: #fff8e7;
     --sport-surface: #ffffff;
     --sport-surface-alt: #eaf2f8;

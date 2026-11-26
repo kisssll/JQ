@@ -42,8 +42,8 @@ def test_sport_login_and_registration_keep_sport_context():
     login = render_login_page(_request("/login", "redirect=%2Fsport%2Fbusiness"))
     register = render_register_page(_request("/register", "redirect=%2Fsport%2Fbusiness"))
 
-    assert '<body class="auth-page sport-directory">' in login
-    assert '<body class="auth-page sport-directory">' in register
+    assert '<body class="auth-page sport-directory rumi-sport">' in login
+    assert '<body class="auth-page sport-directory rumi-sport">' in register
     assert '<p class="auth-context">Руми Спорт</p>' in login
     assert '<p class="auth-context">Руми Спорт</p>' in register
     assert 'href="/sport/forgot-password?redirect=%2Fsport%2Fbusiness"' in login
@@ -61,8 +61,8 @@ def test_sport_auth_routes_keep_shared_auth_forms_and_sport_return():
     login = render_login_page(_request("/sport/login"))
     register = render_register_page(_request("/sport/register"))
 
-    assert '<body class="auth-page sport-directory">' in login
-    assert '<body class="auth-page sport-directory">' in register
+    assert '<body class="auth-page sport-directory rumi-sport">' in login
+    assert '<body class="auth-page sport-directory rumi-sport">' in register
     assert 'name="redirect" value="/sport"' in login
     assert 'name="redirect" value="/sport"' in register
     assert 'name="auth_variant" value="sport"' in login
@@ -155,8 +155,8 @@ def test_sport_password_recovery_stays_in_sport_flow():
     forgot = render_forgot_password_page(request)
     reset = render_reset_password_page(_request("/sport/reset-password", "token=abc"))
 
-    assert '<body class="auth-page sport-directory">' in forgot
-    assert '<body class="auth-page sport-directory">' in reset
+    assert '<body class="auth-page sport-directory rumi-sport">' in forgot
+    assert '<body class="auth-page sport-directory rumi-sport">' in reset
     assert 'name="auth_variant" value="sport"' in forgot
     assert 'name="auth_variant" value="sport"' in reset
     assert 'href="/sport/login?redirect=%2Fsport"' in forgot
@@ -192,7 +192,7 @@ def test_sport_business_dashboard_renders_status_and_role_cards():
     )
     page = render_sport_business_dashboard_page(None, [(organization, "owner")])
 
-    assert '<body class="sport-directory">' in page
+    assert '<body class="sport-directory rumi-sport">' in page
     assert "sport-business-dashboard__card" in page
     assert "Опубликован" in page
     assert "Владелец" in page
