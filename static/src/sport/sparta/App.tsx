@@ -7,7 +7,7 @@ import { sportRequest } from "./admin-api";
 
 /* ---------------- data ---------------- */
 
-type Page = "/" | "/gyms" | "/coaches" | "/disciplines" | "/schedule" | "/prices" | "/gallery" | "/account" | "/admin";
+type Page = "/" | "/gyms" | "/coaches" | "/disciplines" | "/schedule" | "/prices" | "/gallery" | "/documents" | "/account" | "/admin";
 type BookingStatus = "new" | "confirmed" | "came" | "cancelled";
 export type Booking = {
   id: string;
@@ -185,10 +185,11 @@ const NAV: [string, Page][] = [
   ["Галерея", "/gallery"],
   ["Цены", "/prices"],
 ];
-const PAGES: Page[] = ["/", "/gyms", "/coaches", "/disciplines", "/schedule", "/prices", "/gallery", "/account", "/admin"];
+const PAGES: Page[] = ["/", "/gyms", "/coaches", "/disciplines", "/schedule", "/prices", "/gallery", "/documents", "/account", "/admin"];
 const APP_ROOT = document.getElementById("root");
 const GYM_SLUG = APP_ROOT?.dataset.gymSlug ?? "sparta";
 const IS_SPARTA = GYM_SLUG === "sparta";
+const CLUB_NAV: [string, Page][] = IS_SPARTA ? [...NAV, ["Документы", "/documents"]] : NAV;
 const SPARTA_HOME_PHOTOS = "/photos/home";
 const GYM_NAME = IS_SPARTA ? "СПАРТА" : APP_ROOT?.dataset.gymName ?? "Спортивный клуб";
 const GYM_CITY = APP_ROOT?.dataset.gymCity ?? "";
@@ -444,7 +445,7 @@ export default function App() {
           </nav>}
         </div>
         <nav id="site-navigation" aria-label="Основная навигация" className={menu ? "hdr-nav open" : "hdr-nav"}>
-          {NAV.map(([t, p]) => (
+          {CLUB_NAV.map(([t, p]) => (
             <button key={p} className={page === p ? "on" : ""} aria-current={page === p ? "page" : undefined} onClick={() => go(p)}>
               {t}
             </button>
@@ -472,6 +473,7 @@ export default function App() {
       {page === "/disciplines" && <Disciplines book={book} disciplines={disciplines} />}
       {page === "/schedule" && <Schedule book={book} gyms={gyms} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
       {page === "/gallery" && <Gallery gallery={publicGallery} organization={publicOrganization.name} />}
+      {page === "/documents" && IS_SPARTA && <SpartaDocuments />}
       {page === "/prices" && <Prices choose={choosePlan} plans={plans} />}
       {page === "/account" && <Account bookings={bookings} book={book} loginRequired={accountLoginRequired} error={scheduleError} />}
 
@@ -482,7 +484,7 @@ export default function App() {
             {publicOrganization.name}
           </div>
           <button className="btn btn-red" onClick={() => book()}>
-            Записаться на пробное <Arrow />
+            Запись на тренировку <Arrow />
           </button>
         </div>
         <div className="ftr-cols">
@@ -494,7 +496,7 @@ export default function App() {
           </div>
           <div>
             <b>Разделы</b>
-            {NAV.map(([t, p]) => (
+            {CLUB_NAV.map(([t, p]) => (
               <button key={p} onClick={() => go(p)}>
                 {t}
               </button>
@@ -658,7 +660,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
                 <div className="why-reason-copy">
                   <b>{n}</b>
                   <h3>{h}</h3>
-                  {!IS_SPARTA && <p>{p}</p>}
+                  <p>{p}</p>
                 </div>
               </article>
             ))}
@@ -692,10 +694,10 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
       <section className="club-booking">
         <div>
           {IS_SPARTA && <p>Заинтересовал клуб?</p>}
-          <h2>{IS_SPARTA ? <>Запишитесь на пробную <br />тренировку</> : "Первая тренировка"}</h2>
+          <h2>{IS_SPARTA ? "Запись на тренировку" : "Первая тренировка"}</h2>
         </div>
         <button className="btn btn-red" onClick={() => book()}>
-          {IS_SPARTA ? "Пробная тренировка" : "Записаться"} <Arrow />
+          Записаться <Arrow />
         </button>
       </section>
     </main>
@@ -1056,7 +1058,52 @@ function Gallery({ gallery, organization }: { gallery: GalleryPhoto[]; organizat
   const [selected, setSelected] = useState<number | null>(null);
   const movePhoto = (step: number) => setSelected((current) => ((current ?? 0) + step + gallery.length) % gallery.length);
   const photo = selected === null ? null : gallery[selected];
-  return <main className={IS_SPARTA ? "sparta-gallery" : undefined}><PageHead id="story" title="Галерея" text={`Фотографии ${organization}.`} /><section className="gallery-page"><div className="gallery-heading"><p className="tag">Клуб в кадре</p><h2>Тренировки и жизнь клуба.</h2><p>Нажмите на фото, чтобы рассмотреть его ближе.</p></div><div className="gallery-grid">{gallery.map((item, i) => <button className="gallery-open" key={item.src} onClick={() => setSelected(i)} aria-label={`Открыть фото: ${item.alt}`}><Photo id={`club_gallery_${i}`} srcOverride={item.src} label={item.alt} size="1600 × 1200" className="gallery-tile"><span>{item.alt}</span><span className="gallery-expand" aria-hidden="true">↗</span></Photo></button>)}</div>{gallery.length === 0 && <p>Фотографии пока не добавлены.</p>}</section>{photo && <Modal centered className="gym-modal" label="Фотографии клуба" onClose={() => setSelected(null)}><h2 className="m-title">{photo.alt}</h2><PhotoGallery photos={gallery} caption={organization} selected={selected!} setSelected={setSelected} movePhoto={movePhoto} /></Modal>}</main>;
+  const albumNames = ["Команда клуба", "Детские тренировки", "Тренировки в зале", "Соревнования", "Грэпплинг", "Самооборона"];
+  const albumTitle = (item: GalleryPhoto, index: number) => item.alt.trim() || albumNames[index] || `Жизнь клуба · ${index + 1}`;
+  return <main className={IS_SPARTA ? "sparta-gallery" : undefined}>
+    {!IS_SPARTA && <PageHead id="story" title="Галерея" text={`Фотографии ${organization}.`} />}
+    <section className="gallery-page">
+      <div className="gallery-heading">
+        {!IS_SPARTA && <p className="tag">Клуб в кадре</p>}
+        <h1>Тренировки и жизнь клуба</h1>
+        {!IS_SPARTA && <p>Нажмите на фото, чтобы рассмотреть его ближе.</p>}
+      </div>
+      <div className="gallery-grid">{gallery.map((item, i) => <button className="gallery-open" key={item.src} onClick={() => setSelected(i)} aria-label={`Открыть альбом: ${albumTitle(item, i)}`}>
+        <Photo id={`club_gallery_${i}`} srcOverride={item.src} label={albumTitle(item, i)} size="1600 × 1200" className="gallery-tile">
+          <span className="gallery-album-caption"><small>Фотоальбом {String(i + 1).padStart(2, "0")}</small><strong>{albumTitle(item, i)}</strong></span>
+          <span className="gallery-expand" aria-hidden="true">↗</span>
+        </Photo>
+      </button>)}</div>
+      {gallery.length === 0 && <p>Фотографии пока не добавлены.</p>}
+    </section>
+    {photo && <Modal centered className="gym-modal" label="Фотографии клуба" onClose={() => setSelected(null)}>
+      <h2 className="m-title">{albumTitle(photo, selected!)}</h2>
+      <PhotoGallery photos={gallery} caption={organization} selected={selected!} setSelected={setSelected} movePhoto={movePhoto} />
+    </Modal>}
+  </main>;
+}
+
+const SPARTA_DOCUMENTS = [
+  ["Анкета спортсмена", "anketa_sportsmena.docx"],
+  ["Договор пожертвования", "dogovor_pozhertvovania.doc"],
+  ["Положение о партнёрах клуба", "polozhenie_o_partnerakh_kluba.docx"],
+  ["Согласие на обработку персональных данных", "soglasie_na_obrabotku_dannykh.doc"],
+  ["Заявление", "zayavlenie.doc"],
+  ["Заявление для юношей", "zayavlenie_dlya_yunoshey.doc"],
+  ["Свидетельство ИНН", "svidetelstvo_inn.jpg"],
+  ["Свидетельство ОГРН", "svidetelstvo_ogrn.jpg"],
+  ["Свидетельство о регистрации НКО", "svidetelstvo_nko.jpg"],
+] as const;
+
+function SpartaDocuments() {
+  return <main className="sparta-documents">
+    <h1>Документы клуба</h1>
+    <div className="sparta-document-grid">{SPARTA_DOCUMENTS.map(([title, file]) =>
+      <a key={file} href={`/static/sport/sparta/documents/${file}`} target="_blank" rel="noopener noreferrer">
+        <span>{title}</span><span aria-hidden="true">↗</span>
+      </a>
+    )}</div>
+  </main>;
 }
 
 function Account({ bookings, book, loginRequired, error }: { bookings: Booking[]; book: Book; loginRequired: boolean; error: string }) {
@@ -1183,13 +1230,14 @@ function BookingModal({
     );
   return (
     <Modal centered={centered} label="Запись на тренировку" onClose={onClose}>
-      <p className="tag booking-eyebrow">Первый шаг на татами</p>
+      {!IS_SPARTA && <p className="tag booking-eyebrow">Первый шаг на татами</p>}
       <h2 className="m-title">Запись на тренировку</h2>
-      <p className="booking-intro">Выберите занятие и оставьте контакт для подтверждения. Можно записать себя или ребёнка.</p>
+      {!IS_SPARTA && <p className="booking-intro">Выберите занятие и оставьте контакт для подтверждения. Можно записать себя или ребёнка.</p>}
       <form
         className="form sport-booking-form"
         onSubmit={async (e) => {
           e.preventDefault();
+          if (!f.sessionId) return;
           if (f.participant === "child" && (!f.childName.trim() || !f.childAge.trim())) return;
           if (!f.name.trim()) return;
           setSaving(true);
@@ -1232,33 +1280,31 @@ function BookingModal({
           <label>Почта · необязательно<input type="email" autoComplete="email" placeholder="name@example.ru" value={f.email} onChange={set("email")} /></label>
           <label>Опыт занятий · необязательно<select value={f.experience} onChange={set("experience")}><option value="">Не указывать</option><option>Нет, начинаю с нуля</option><option>Да, раньше занимался(лась)</option><option>Да, занимаюсь сейчас</option></select></label>
         </div></details>
-        <label className="full">Зал
-          <select required value={f.gym} onChange={(e) => resetSelection(e.target.value, "")}>
-            <option value="">Выберите зал</option>
-            {gyms.map((gym) => <option key={gym.id} value={gym.address}>{gym.address}</option>)}
-          </select>
-        </label>
+        <fieldset className="booking-choice full"><legend>Зал</legend>
+          <div className="booking-chips">{gyms.map((gym) => <button type="button" key={gym.id}
+            className="booking-chip" aria-pressed={f.gym === gym.address}
+            onClick={() => resetSelection(gym.address, "")}>{gym.name || gym.address}<small>{gym.address}</small></button>)}</div>
+        </fieldset>
         <label className="full">Дата тренировки
           <input type="date" min={localDate(now)} max={localDate(lastDate)} value={f.date}
             disabled={!f.gym} onChange={(e) => resetSelection(f.gym, e.target.value)} />
         </label>
-        <label className="full">Время и тренер
-          <select disabled={!f.gym || !f.date} value={f.sessionId} onChange={(e) => {
-            const selected = available.find((slot) => slot.id === e.target.value);
-            if (selected) setF({ ...f, sessionId: selected.id, date: selected.date, time: selected.time, coach: selected.coach, gym: selected.gym, discipline: selected.discipline });
-            else resetSelection(f.gym, f.date);
-          }}>
-            <option value="">{f.date ? "Подобрать время с администратором" : "Сначала выберите зал и дату"}</option>
-            {available.map((slot) => <option key={slot.id} value={slot.id}>{slot.time}–{slot.end} · {shortCoach(slot.coach)} · {slot.discipline}</option>)}
-          </select>
-        </label>
-        <div className="booking-selected"><b>{f.sessionId ? `${fmtDate(f.date)} · ${f.time}` : "Подберём удобное время"}</b><span>{f.sessionId ? shortCoach(f.coach) : "Администратор поможет выбрать тренера"}</span><span>{f.gym}</span>{f.discipline !== "Направление уточняется" && <span>{f.discipline}</span>}</div>
+        <fieldset className="booking-choice full"><legend>Время и тренер</legend>
+          {!f.gym || !f.date ? <p className="booking-choice-note">Сначала выберите зал и дату</p>
+            : available.length === 0 ? <p className="booking-choice-note">На эту дату свободных занятий нет. Выберите другой день.</p>
+              : <div className="booking-chips">{available.map((slot) => <button type="button" key={slot.id}
+                className="booking-chip booking-chip-session" aria-pressed={f.sessionId === slot.id}
+                onClick={() => setF({ ...f, sessionId: slot.id, date: slot.date, time: slot.time, coach: slot.coach, gym: slot.gym, discipline: slot.discipline })}>
+                <strong>{slot.time}–{slot.end}</strong><span>{shortCoach(slot.coach)}</span><small>{slot.discipline}</small>
+              </button>)}</div>}
+        </fieldset>
+        {f.sessionId && <div className="booking-selected"><b>{fmtDate(f.date)} · {f.time}</b><span>{shortCoach(f.coach)}</span><span>{f.gym}</span><span>{f.discipline}</span></div>}
         <label className="booking-consent">
           <input type="checkbox" required checked={pdConsent} onChange={(event) => setPdConsent(event.target.checked)} />
           <span>Я даю согласие на обработку персональных данных на условиях <a href="/sport/legal/consent" target="_blank" rel="noopener noreferrer">Согласия</a>.</span>
         </label>
         {error && <p className="booking-error" role="alert">{error}</p>}
-        <button className="btn btn-red wide" disabled={!f.time || saving}>
+        <button className="btn btn-red wide" disabled={!f.sessionId || saving}>
           {saving ? "Отправляем…" : "Отправить заявку"} <Arrow />
         </button>
         <p className="m-note">Заявка сохранится в базе Руми. Запись подтвердит администратор клуба.</p>

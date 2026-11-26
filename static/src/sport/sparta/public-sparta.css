@@ -910,3 +910,160 @@ body:has(.sparta-header) .discipline-copy {
 body:has(.sparta-header) .discipline-copy h2 {
   font: 900 clamp(36px, 5.3vw, 92px)/1.02 var(--cond);
 }
+
+/* Keep the club name and the useful footer links consistent on every page. */
+.sparta-header ~ .ftr .ftr-big,
+.sparta-home ~ .ftr .ftr-big {
+  font-size: clamp(38px, 5.8vw, 110px);
+  line-height: .92;
+}
+
+.sparta-home ~ .ftr .ftr-top > .btn { display: inline-flex; }
+.sparta-home ~ .ftr .ftr-cols { display: grid; }
+.sparta-header ~ .ftr .ftr-top { align-items: center; }
+.sparta-header ~ .ftr .ftr-top > .btn {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  min-height: 48px;
+  padding: 12px 18px;
+  white-space: normal;
+  text-align: center;
+}
+
+.sparta-home .why-title,
+.sparta-home-strip,
+.sparta-home .club-booking h2 { color: var(--red); }
+
+.sparta-home .why-reason-copy p {
+  display: block;
+  max-width: 38ch;
+  margin-top: 8px;
+  color: #fff;
+  font: 500 clamp(13px, 1vw, 17px)/1.45 Inter, Arial, sans-serif;
+}
+
+.sparta-gallery .gallery-page { padding-top: calc(var(--sparta-header-height) + 36px); }
+.sparta-gallery .gallery-heading { max-width: 100%; margin-bottom: 28px; }
+.sparta-gallery .gallery-heading h1 {
+  margin: 0;
+  color: #fff;
+  font: 900 clamp(32px, 5vw, 70px)/1 var(--cond);
+  text-transform: uppercase;
+}
+.sparta-gallery .gallery-open { width: 100%; }
+.sparta-gallery .gallery-tile { width: 100%; }
+.sparta-gallery .gallery-tile::after {
+  background: linear-gradient(to top, rgba(0,0,0,.88), transparent 55%);
+}
+.sparta-gallery .gallery-open .ph-over {
+  z-index: 3;
+  color: #fff;
+}
+.sparta-gallery .gallery-album-caption {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(0,0,0,.7);
+}
+.sparta-gallery .gallery-album-caption small {
+  font: 700 11px/1.2 Inter, Arial, sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.sparta-gallery .gallery-album-caption strong {
+  font: 900 clamp(19px, 2.1vw, 30px)/1.05 var(--cond);
+  text-transform: uppercase;
+}
+
+.sparta-documents {
+  min-height: 65svh;
+  padding: calc(var(--sparta-header-height) + 40px) var(--px) 80px;
+  background: #000;
+  color: #fff;
+}
+.sparta-documents h1 {
+  margin-bottom: 28px;
+  font: 900 clamp(34px, 5vw, 72px)/1 var(--cond);
+  text-transform: uppercase;
+}
+.sparta-document-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.sparta-document-grid a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid #555;
+  color: #fff;
+  font: 600 15px/1.4 Inter, Arial, sans-serif;
+}
+.sparta-document-grid a:hover,
+.sparta-document-grid a:focus-visible { border-color: var(--red); color: #ff6258; }
+
+body:has(.sparta-header) .sport-booking-form :is(input, select, button) {
+  font-family: Inter, Arial, sans-serif;
+}
+body:has(.sparta-header) .sport-booking-form :is(input, select) { font-weight: 500; }
+body:has(.sparta-header) .modal-box:has(.sport-booking-form) {
+  box-sizing: border-box;
+  width: min(760px, 100%);
+  padding: 56px clamp(20px, 4vw, 42px) 28px;
+}
+body:has(.sparta-header) .modal-box:has(.sport-booking-form) > .m-title {
+  color: var(--red);
+  font-size: clamp(32px, 4vw, 54px);
+  line-height: 1;
+}
+.sport-booking-form .booking-choice {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.sport-booking-form .booking-choice legend {
+  margin-bottom: 9px;
+  color: #555;
+  font: 600 12px/1.5 Inter, Arial, sans-serif;
+}
+.sport-booking-form .booking-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sport-booking-form .booking-chip {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 13px;
+  border: 1px solid #cfcfcf;
+  border-radius: 999px;
+  background: #fff;
+  color: #171717;
+  font: 600 13px/1.25 Inter, Arial, sans-serif;
+  text-align: left;
+  white-space: normal;
+}
+.sport-booking-form .booking-chip small { font-size: 11px; font-weight: 400; color: #666; }
+.sport-booking-form .booking-chip[aria-pressed="true"] { border-color: var(--red); background: #fff0ee; color: #a31616; }
+.sport-booking-form .booking-chip-session { border-radius: 14px; min-width: 170px; }
+.sport-booking-form .booking-chip-session strong { font-size: 15px; }
+.sport-booking-form .booking-choice-note { color: #777; font: 500 13px/1.5 Inter, Arial, sans-serif; }
+.sport-booking-form .wide {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: 50px;
+  height: auto;
+  padding: 12px 16px;
+  font-size: 14px;
+  white-space: normal;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .sparta-header ~ .ftr .ftr-top { flex-wrap: wrap; }
+  .sparta-home ~ .ftr .ftr-cols,
+  .sparta-header ~ .ftr .ftr-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sparta-document-grid { grid-template-columns: 1fr; }
+  .sparta-gallery .gallery-page { padding-top: calc(var(--sparta-header-height) + 24px); }
+  .sparta-gallery .gallery-open .ph-over { padding: 16px; }
+}
