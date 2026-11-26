@@ -24,6 +24,7 @@ async function uploadSitePhoto(slug: string, fields: FormData, name: string): Pr
   if (file instanceof File && file.size > 0) {
     const body = new FormData();
     body.append("photo", file);
+    if (name === "image_url") body.append("section", "gallery");
     return (await sportRequest<{ url: string }>(slug, "/manage/site-photo", { method: "POST", body })).url;
   }
   return String(fields.get(name) ?? "").trim() || null;

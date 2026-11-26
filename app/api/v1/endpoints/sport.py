@@ -1364,8 +1364,15 @@ async def _sport_site_owner(request: Request, db: AsyncSession, slug: str) -> Sp
 
 
 @router.post("/organizations/{slug}/manage/site-photo")
-async def upload_sport_site_photo(request: Request, slug: str, photo: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    await _sport_site_owner(request, db, slug)
+async def upload_sport_site_photo(request: Request, slug: str, photo: UploadFile = File(...), section: str = Form(""), db: AsyncSession = Depends(get_db)):
+    organization = await _sport_site_owner(request, db, slug)
+    if section == "gallery":
+        count = await db.scalar(select(func.count(SportGalleryImage.id)).where(
+            SportGalleryImage.organization_id == organization.id,
+            SportGalleryImage.is_active.is_(True),
+        ))
+        if count >= 16:
+            raise HTTPException(400, "В галерее может быть не более 16 фотографий")
     try:
         return {"url": await save_image(photo, "sport-site")}
     except UploadError as exc:
@@ -1895,6 +1902,7 @@ async def delete_sport_gallery_image(
         raise HTTPException(status_code=404, detail="Фотография не найдена")
     image.is_active = False
     await db.commit()
+    delete_stored(image.image_url)
     return {"ok": True}
 
 
@@ -1953,13 +1961,17 @@ async def create_sport_closure(
         SportScheduleClosure.date >= data.date,
         SportScheduleClosure.date <= last,
     ))).all())
+    new_closures = []
     for offset in range((last - data.date).days + 1):
         closed_date = data.date + timedelta(days=offset)
         if closed_date not in existing:
-            db.add(SportScheduleClosure(
+            closure = SportScheduleClosure(
                 organization_id=organization.id, coach_id=data.coach_id,
                 venue_id=data.venue_id, date=closed_date, reason=data.reason.strip(),
-            ))
+            )
+            db.add(closure)
+            new_closures.append(closure)
+    await db.flush()
     closed_coach_name = await db.scalar(select(SportCoach.name).where(
         SportCoach.id == data.coach_id, SportCoach.organization_id == organization.id,
     )) if data.coach_id is not None else None
@@ -1976,7 +1988,8 @@ async def create_sport_closure(
         SportBooking.status.in_(["pending", "new", "confirmed"]),
     ).values(status="cancelled"))
     await db.commit()
-    return {"ok": True, "date": data.date.isoformat(), "date_to": last.isoformat(),
+    return {"ok": True, "id": new_closures[0].id if new_closures else None,
+            "date": data.date.isoformat(), "date_to": last.isoformat(),
             "reason": data.reason.strip(), "cancelled_bookings": cancelled_bookings.rowcount}
 
 
