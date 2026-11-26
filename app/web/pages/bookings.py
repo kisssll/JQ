@@ -212,6 +212,16 @@ def _render_card(b: Booking, ctx: dict, *, upcoming: bool) -> str:
         facts.append(("Адрес", e(salon.address)))
     if salon and salon.phone:
         facts.append(("Телефон", f'<a href="tel:{e(salon.phone)}">{e(salon.phone)}</a>'))
+    if b.hair_survey and isinstance(b.hair_survey, dict):
+        length = b.hair_survey.get("length", {})
+        l_str = f"{length.get('title', '')} ({length.get('cm', '')})" if length else ""
+        h_type = b.hair_survey.get("type", {}).get("title", "")
+        h_dens = b.hair_survey.get("density", {}).get("title", "")
+        features = b.hair_survey.get("features", [])
+        feats_str = f" · {', '.join(features)}" if features else ""
+        survey_desc = f"{l_str} · {h_type} · {h_dens}{feats_str}".strip(" ·")
+        if survey_desc:
+            facts.append(("Волосы", e(survey_desc)))
     facts.append(("Стоимость", f"{b.final_price} ₽" if b.final_price else "—"))
 
     # ---------- Что с записью можно сделать ----------

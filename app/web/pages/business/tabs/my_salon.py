@@ -24,7 +24,7 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import (
-    Salon, SalonPhoto,
+    Salon, SalonPhoto, Master,
     SalonChain, SalonChainRequest, SalonChainRequestStatus,
 )
 from app.services.salon_chain_service import pending_requests_for_salon_ids
@@ -501,6 +501,108 @@ def _icon_script() -> str:
     """
 
 
+def _render_hair_survey_card(master: Master, salon: Salon) -> str:
+    """Блок настройки консультационного опроса перед записью (параметры волос)."""
+    if not master:
+        return ""
+    is_enabled = bool(master.hair_survey_enabled)
+    settings = master.hair_survey_settings or {}
+    tags = settings.get("tags") or [
+        "Обесцвеченные / блонд",
+        "Окрашенные",
+        "Натуральные (неокрашенные)",
+        "Есть седина",
+        "Ранее делали кератин / ботокс",
+        "Наращенные волосы",
+        "Химическая завивка",
+        "Поврежденные / секущиеся кончики",
+    ]
+    tags_chips = "".join(
+        f'<span class="hair-tag-chip">{e(t)} '
+        f'<button type="button" class="hair-tag-remove" onclick="removeHairSurveyTag(this, \'{e(t)}\')">×</button>'
+        f'<input type="hidden" name="tags" value="{e(t)}">'
+        f'</span>'
+        for t in tags
+    )
+    return f"""
+    <div class="card" id="hairSurveySettingsCard" style="margin-top:1.5rem">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem">
+            <div>
+                <h3 style="margin:0 0 0.25rem;font-size:1.15rem;display:flex;align-items:center;gap:0.5rem">
+                    <span>💇‍♀️</span> Опрос клиентов перед записью (параметры волос)
+                </h3>
+                <p class="text-muted" style="margin:0;font-size:0.875rem">
+                    УТП для мастеров по волосам: клиент перед выбором времени указывает длину (в см), структуру и историю волос. Вы заранее знаете точный расход состава, стоимость и тайминг.
+                </p>
+            </div>
+        </div>
+
+        <form method="post" action="/api/v1/masters/{master.id}/hair-survey" id="hairSurveyForm">
+            <input type="hidden" name="return_url" value="/business/dashboard?salon_id={salon.id}&tab=employees&ok=survey_saved">
+            
+            <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;background:var(--color-surface-alt);border-radius:var(--radius-12);margin-bottom:1.25rem">
+                <input type="checkbox" id="hairSurveyToggle" name="enabled" value="1" {"checked" if is_enabled else ""} style="width:1.2rem;height:1.2rem;cursor:pointer">
+                <label for="hairSurveyToggle" style="font-weight:600;font-size:0.95rem;cursor:pointer">
+                    Включить опрос клиентов перед выбором окошка на запись
+                </label>
+            </div>
+
+            <div id="hairSurveyOptions" style="display:{'block' if is_enabled else 'none'}">
+                <div style="margin-bottom:1rem">
+                    <label style="font-size:0.85rem;font-weight:600;color:var(--color-muted);display:block;margin-bottom:0.5rem">
+                        ПУНКТЫ ДЛЯ ВЫБОРА ГАЛОЧКОЙ (ОСОБЕННОСТИ И ИСТОРИЯ ВОЛОС)
+                    </label>
+                    <div id="hairSurveyTagsContainer" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem">
+                        {tags_chips}
+                    </div>
+
+                    <div style="display:flex;gap:0.5rem;max-width:480px">
+                        <input type="text" id="newHairTagInput" placeholder="Добавить свой параметр (напр. «Была хна»)..." 
+                               class="r-input" style="flex:1;padding:0.4rem 0.75rem;font-size:0.875rem">
+                        <button type="button" class="btn-outline" onclick="addHairSurveyTag()" style="padding:0.4rem 0.9rem;font-size:0.875rem;white-space:nowrap">
+                            + Добавить
+                        </button>
+                    </div>
+                </div>
+
+                <div style="padding:0.75rem 1rem;background:var(--color-surface-alt);border-radius:var(--radius-8);font-size:0.85rem;color:var(--color-muted);margin-bottom:1rem">
+                    ✓ Шкала длины волос (пикси, боб, до плеч, до лопаток, до талии, до ягодиц, ниже бёдер с пояснением в см), тип структуры (прямые, волна, кудри, жесткие) и густота включены автоматически.
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary" style="padding:0.5rem 1.25rem">
+                Сохранить настройки опроса
+            </button>
+        </form>
+    </div>
+    <script>
+        document.getElementById('hairSurveyToggle')?.addEventListener('change', function() {{
+            const opts = document.getElementById('hairSurveyOptions');
+            if (opts) opts.style.display = this.checked ? 'block' : 'none';
+        }});
+
+        function removeHairSurveyTag(btn, tagName) {{
+            const chip = btn.closest('.hair-tag-chip');
+            if (chip) chip.remove();
+        }}
+
+        function addHairSurveyTag() {{
+            const input = document.getElementById('newHairTagInput');
+            const val = (input.value || '').trim();
+            if (!val) return;
+            const container = document.getElementById('hairSurveyTagsContainer');
+            const chip = document.createElement('span');
+            chip.className = 'hair-tag-chip';
+            chip.innerHTML = val.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                ' <button type="button" class="hair-tag-remove" onclick="removeHairSurveyTag(this, \\'' + val.replace(/'/g, "\\\\'") + '\\')">×</button>' +
+                '<input type="hidden" name="tags" value="' + val.replace(/"/g, '&quot;') + '">';
+            container.appendChild(chip);
+            input.value = '';
+        }}
+    </script>
+    """
+
+
 async def render_solo_settings_groups(
     db: AsyncSession, salon: Salon, *,
     can_manage_salon: bool = False, is_creator: bool = False,
@@ -520,6 +622,10 @@ async def render_solo_settings_groups(
         await db.execute(select(SalonPhoto).where(SalonPhoto.salon_id == salon.id).order_by(SalonPhoto.id))
     ).scalars().all()
 
+    master = (await db.execute(
+        select(Master).where(Master.salon_id == salon.id).order_by(Master.id)
+    )).scalars().first()
+
     public_html = f"""
         {_icon_script()}
         {_render_basic_card(salon, photos, w)}
@@ -529,6 +635,7 @@ async def render_solo_settings_groups(
     work_html = f"""
         {_render_hours_card(salon, w)}
         {_render_guest_toggle_card(salon, w, with_link=False)}
+        {_render_hair_survey_card(master, salon) if master else ""}
         {_render_panel_sections_card(salon, w) if can_manage_salon else ""}
         {_render_danger_zone(salon, is_creator, w) if can_manage_salon else ""}
     """

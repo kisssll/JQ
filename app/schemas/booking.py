@@ -8,6 +8,7 @@ class BookingCreate(BaseModel):
     master_id: int
     service_id: int
     start_time: datetime
+    hair_survey: Optional[dict] = None
 
 class BookingResponse(BaseModel):
     id: int
@@ -20,6 +21,7 @@ class BookingResponse(BaseModel):
     discount_percent: int = 0
     final_price: Optional[int] = None
     rescheduled_count: int = 0
+    hair_survey: Optional[dict] = None
     created_at: datetime
     
     class Config:

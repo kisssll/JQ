@@ -27,6 +27,22 @@ const WEEKDAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
  *  То же число стоит в salon-detail.css — здесь оно нужно, чтобы перенести
  *  узел, и держать его в двух местах неизбежно; поэтому оно одно и названо. */
 const WIDE = '(min-width: 900px)';
+const wide = window.matchMedia(WIDE);
+
+const DEFAULT_HAIR_TAGS = [
+    "Обесцвеченные / блонд",
+    "Окрашенные",
+    "Натуральные (не окрашены)",
+    "Седина",
+    "Ранее делался кератин / ботокс",
+    "Наращенные волосы",
+    "Химическая завивка",
+    "Сухие / секущиеся концы",
+    "Густые и жесткие",
+    "Пористые / пушащиеся",
+    "Тонкие / склонные к ломкости",
+    "Чувствительная кожа головы"
+];
 
 function money(service) {
     const low = service.price.toLocaleString('ru-RU');
@@ -69,44 +85,84 @@ document.addEventListener('DOMContentLoaded', function () {
     const back = widget.querySelector('[data-book-back]');
     const backLabel = widget.querySelector('[data-book-back-label]');
 
-    const state = { master: solo ? masters[0] : null, service: null, date: null, time: null };
+    const state = {
+        master: solo ? masters[0] : null,
+        service: null,
+        date: null,
+        time: null,
+        hairSurvey: {
+            lengthId: 4,
+            lengthTitle: "Средние (до лопаток)",
+            lengthCm: "~40–45 см",
+            typeId: "straight",
+            hairType: "Прямые, гладкие",
+            densityId: "medium",
+            hairDensity: "Средняя густота",
+            tags: []
+        }
+    };
 
-    // ---------- Перенос виджета между колонкой и листом ----------
-    // Один узел на страницу: на широком экране он стоит в липкой колонке, на
-    // телефоне — внутри листа. hostFor возвращает тот, что нужен сейчас.
-    const wide = window.matchMedia(WIDE);
-    function hostFor() {
-        return document.getElementById(wide.matches ? 'bookingHost' : 'bookingSheetHost');
-    }
-    function place() {
-        const host = hostFor();
-        if (host && widget.parentElement !== host) host.appendChild(widget);
-    }
-    place();
-    // Поворот телефона и изменение окна меняют ответ: виджет переезжает, а не
-    // остаётся в спрятанном листе.
-    wide.addEventListener('change', function () {
-        place();
-        if (wide.matches) closeSheet();
-    });
+    const LENGTH_OPTIONS = [
+        { id: 1, title: 'Очень короткие', sub: 'пикси', cm: 'до 15 см' },
+        { id: 2, title: 'Короткие', sub: 'боб / каре', cm: '~20 см' },
+        { id: 3, title: 'До плеч', sub: 'до плеч', cm: '~30 см' },
+        { id: 4, title: 'Средние', sub: 'до лопаток', cm: '~40–45 см' },
+        { id: 5, title: 'Длинные', sub: 'до талии', cm: '~55–60 см' },
+        { id: 6, title: 'Очень длинные', sub: 'до ягодиц', cm: '~70–75 см' },
+        { id: 7, title: 'Экстремально длинные', sub: 'ниже бедер', cm: 'от 80 см' }
+    ];
 
-    // ---------- Шаги ----------
-    const STEPS = solo ? ['service', 'time', 'confirm'] : ['master', 'service', 'time', 'confirm'];
-    const BACK_LABEL = { service: 'К мастерам', time: 'К услугам', confirm: 'К времени' };
-    let step = STEPS[0];
+    const TYPE_OPTIONS = [
+        { id: 'straight', title: 'Прямые, гладкие', desc: 'Ровные, легко укладываются' },
+        { id: 'wavy', title: 'Легкая волна', desc: 'Пушатся во влажную погоду' },
+        { id: 'curly', title: 'Кудрявые / вьющиеся', desc: 'Четкий упругий завиток' },
+        { id: 'coarse', title: 'Жесткие, стекловидные', desc: 'Плохо поддаются укладке' }
+    ];
+
+    const DENSITY_OPTIONS = [
+        { id: 'thin', title: 'Не густые', desc: 'Тонкий хвост' },
+        { id: 'medium', title: 'Средняя густота', desc: 'Стандартная' },
+        { id: 'thick', title: 'Очень густые', desc: 'Объемный хвост' }
+    ];
+
+    function hasHairSurvey() {
+        return Boolean(state.master && state.master.hair_survey && state.master.hair_survey.enabled);
+    }
+
+    function currentSteps() {
+        const survey = hasHairSurvey();
+        if (solo) {
+            return survey ? ['service', 'hair_survey', 'time', 'confirm'] : ['service', 'time', 'confirm'];
+        }
+        return survey ? ['master', 'service', 'hair_survey', 'time', 'confirm'] : ['master', 'service', 'time', 'confirm'];
+    }
+
+    const BACK_LABEL = {
+        master: 'К мастерам',
+        service: 'К мастерам',
+        hair_survey: 'К услугам',
+        time: 'К выбору',
+        confirm: 'К времени'
+    };
+    let step = currentSteps()[0];
 
     function go(next) {
         step = next;
-        const index = STEPS.indexOf(step);
+        const steps = currentSteps();
+        const index = steps.indexOf(step);
         back.hidden = index <= 0;
-        if (!back.hidden) backLabel.textContent = BACK_LABEL[step] || 'Назад';
+        if (!back.hidden) {
+            const prevStep = steps[index - 1];
+            backLabel.textContent = (prevStep === 'hair_survey' ? 'К анкете волос' : (BACK_LABEL[prevStep] || 'Назад'));
+        }
         render();
     }
 
     back.addEventListener('click', function () {
-        const index = STEPS.indexOf(step);
+        const steps = currentSteps();
+        const index = steps.indexOf(step);
         if (index <= 0) return;
-        const prev = STEPS[index - 1];
+        const prev = steps[index - 1];
         if (prev === 'master') { state.master = null; state.service = null; }
         if (prev === 'service') { state.service = null; }
         if (prev === 'time') { state.time = null; }
@@ -116,6 +172,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function render() {
         if (step === 'master') return renderMasters();
         if (step === 'service') return renderServices();
+        if (step === 'hair_survey') return renderHairSurvey();
         if (step === 'time') return renderTime();
         return renderConfirm();
     }
@@ -153,6 +210,116 @@ document.addEventListener('DOMContentLoaded', function () {
                     <span class="pick__price">${esc(money(s))}</span>
                 </button>`;
         }).join('');
+    }
+
+    // ---------- Анкета волос ----------
+    function renderHairSurvey() {
+        const customTags = (state.master && state.master.hair_survey && state.master.hair_survey.settings && state.master.hair_survey.settings.custom_tags) || DEFAULT_HAIR_TAGS;
+        const curLength = LENGTH_OPTIONS.find(function (x) { return x.id === state.hairSurvey.lengthId; }) || LENGTH_OPTIONS[3];
+
+        const typeCardsHtml = TYPE_OPTIONS.map(function (opt) {
+            const active = state.hairSurvey.typeId === opt.id ? ' is-active' : '';
+            return `
+                <button type="button" class="hair-card-btn${active}" data-hair-type="${esc(opt.id)}">
+                    <span class="hair-card-btn__title">${esc(opt.title)}</span>
+                    <span class="hair-card-btn__desc">${esc(opt.desc)}</span>
+                </button>
+            `;
+        }).join('');
+
+        const densityCardsHtml = DENSITY_OPTIONS.map(function (opt) {
+            const active = state.hairSurvey.densityId === opt.id ? ' is-active' : '';
+            return `
+                <button type="button" class="hair-card-btn${active}" data-hair-density="${esc(opt.id)}">
+                    <span class="hair-card-btn__title">${esc(opt.title)}</span>
+                    <span class="hair-card-btn__desc">${esc(opt.desc)}</span>
+                </button>
+            `;
+        }).join('');
+
+        const tagsHtml = customTags.map(function (t) {
+            const active = state.hairSurvey.tags.includes(t) ? ' is-active' : '';
+            return `
+                <button type="button" class="hair-tag-pill${active}" data-hair-tag="${esc(t)}">
+                    <span class="hair-tag-check">✓</span>
+                    <span>${esc(t)}</span>
+                </button>
+            `;
+        }).join('');
+
+        body.innerHTML = `
+            <div class="hair-survey" role="region" aria-label="Консультация мастера">
+                <p class="r-text r-muted" style="margin-bottom: var(--space-12);">
+                    Мастер просит уточнить параметры волос, чтобы точно рассчитать время и расход материалов.
+                </p>
+
+                <!-- 1. Длина волос со шкалой и подсказкой в см -->
+                <div class="hair-survey__section">
+                    <div class="hair-survey__section-head">
+                        <span class="hair-survey__label">1. Длина волос</span>
+                        <span class="hair-survey__badge" id="hairLengthCm">${esc(curLength.cm)}</span>
+                    </div>
+                    <div class="hair-survey__guide">
+                        <img src="/static/images/hair/hair_lengths_guide.webp" alt="Шкала длины волос" class="hair-survey__guide-img" loading="lazy">
+                    </div>
+                    <div class="hair-length-info">
+                        Выбрано: <strong id="hairLengthTitle">${esc(curLength.title)} (${esc(curLength.sub)})</strong>
+                    </div>
+                    <div class="hair-slider-wrap">
+                        <input type="range" min="1" max="7" step="1" value="${curLength.id}"
+                               class="hair-range" id="hairLengthRange" aria-label="Длина волос">
+                        <div class="hair-slider-labels">
+                            <span>Пикси</span>
+                            <span>До плеч</span>
+                            <span>До талии</span>
+                            <span>80+ см</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Тип / текстура волос -->
+                <div class="hair-survey__section">
+                    <div class="hair-survey__section-head">
+                        <span class="hair-survey__label">2. Тип и текстура волос</span>
+                    </div>
+                    <div class="hair-survey__guide">
+                        <img src="/static/images/hair/hair_types.jpg" alt="Типы волос" class="hair-survey__guide-img" loading="lazy">
+                    </div>
+                    <div class="hair-grid hair-grid--types">
+                        ${typeCardsHtml}
+                    </div>
+                </div>
+
+                <!-- 3. Густота волос -->
+                <div class="hair-survey__section">
+                    <div class="hair-survey__section-head">
+                        <span class="hair-survey__label">3. Густота волос</span>
+                    </div>
+                    <div class="hair-survey__guide">
+                        <img src="/static/images/hair/hair_density.webp" alt="Густота волос" class="hair-survey__guide-img" loading="lazy">
+                    </div>
+                    <div class="hair-grid hair-grid--density">
+                        ${densityCardsHtml}
+                    </div>
+                </div>
+
+                <!-- 4. Особенности и история -->
+                <div class="hair-survey__section">
+                    <div class="hair-survey__section-head">
+                        <span class="hair-survey__label">4. Особенности (отметьте подходящее)</span>
+                    </div>
+                    <div class="hair-tags">
+                        ${tagsHtml}
+                    </div>
+                </div>
+
+                <div style="margin-top: var(--space-16);">
+                    <button type="button" class="r-btn r-btn--primary r-btn--block" id="hairSurveyNext">
+                        <span class="r-btn__label">Перейти к выбору времени</span>
+                    </button>
+                </div>
+            </div>
+        `;
     }
 
     // ---------- Дата и время ----------
@@ -223,6 +390,15 @@ document.addEventListener('DOMContentLoaded', function () {
             ? `<div class="book__row"><dt>Вы</dt><dd>${esc(userData.full_name || '')}` +
               `${userData.phone ? ' · ' + esc(userData.phone) : ''}</dd></div>`
             : '';
+        let surveyRow = '';
+        if (hasHairSurvey() && state.hairSurvey) {
+            const tagsText = state.hairSurvey.tags.length
+                ? ` · ${state.hairSurvey.tags.join(', ')}`
+                : '';
+            surveyRow = `
+                <div class="book__row book__row--survey"><dt>Волосы</dt>
+                    <dd>${esc(state.hairSurvey.lengthTitle)} (${esc(state.hairSurvey.lengthCm)}) · ${esc(state.hairSurvey.hairType)} · ${esc(state.hairSurvey.hairDensity)}${esc(tagsText)}</dd></div>`;
+        }
         body.innerHTML = `
             <dl class="book__sum">
                 <div class="book__row"><dt>Мастер</dt><dd>${esc(m.name)}</dd></div>
@@ -230,6 +406,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <dd>${esc(s.name)} · ${esc(String(s.duration))} мин</dd></div>
                 <div class="book__row"><dt>Цена</dt><dd class="tabular-nums">${esc(money(s))}</dd></div>
                 <div class="book__row"><dt>Когда</dt><dd class="tabular-nums">${esc(when)}</dd></div>
+                ${surveyRow}
                 ${who}
             </dl>
             <p class="book__error" id="bookError" role="alert"></p>
@@ -246,6 +423,7 @@ document.addEventListener('DOMContentLoaded', function () {
             localStorage.setItem('bookingState', JSON.stringify({
                 masterId: state.master.id, serviceId: state.service.id,
                 date: state.date, time: state.time,
+                hairSurvey: state.hairSurvey,
             }));
             window.location.href = '/login?redirect=' +
                 encodeURIComponent(window.location.pathname);
@@ -254,14 +432,33 @@ document.addEventListener('DOMContentLoaded', function () {
         const error = document.getElementById('bookError');
         btn.classList.add('is-loading');
         try {
+            const payload = {
+                master_id: state.master.id,
+                service_id: state.service.id,
+                start_time: state.time,
+            };
+            if (hasHairSurvey()) {
+                payload.hair_survey = {
+                    length: {
+                        id: state.hairSurvey.lengthId,
+                        title: state.hairSurvey.lengthTitle,
+                        cm: state.hairSurvey.lengthCm,
+                    },
+                    type: {
+                        id: state.hairSurvey.typeId,
+                        title: state.hairSurvey.hairType,
+                    },
+                    density: {
+                        id: state.hairSurvey.densityId,
+                        title: state.hairSurvey.hairDensity,
+                    },
+                    features: state.hairSurvey.tags,
+                };
+            }
             const res = await fetch('/api/v1/bookings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    master_id: state.master.id,
-                    service_id: state.service.id,
-                    start_time: state.time,
-                }),
+                body: JSON.stringify(payload),
             });
             const data = await res.json().catch(function () { return {}; });
             if (res.ok && data.id) {
@@ -287,6 +484,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const dateObj = new Date(state.date + 'T00:00:00');
         const when = `${dateObj.getDate()} ${MONTHS[dateObj.getMonth()]}, ${hhmm(state.time)}`;
         back.hidden = true;
+        let surveyDoneRow = '';
+        if (hasHairSurvey() && state.hairSurvey) {
+            surveyDoneRow = `
+                <div class="book__row"><dt>Волосы</dt>
+                    <dd>${esc(state.hairSurvey.lengthTitle)} (${esc(state.hairSurvey.lengthCm)})</dd></div>`;
+        }
         body.innerHTML = `
             <p class="book__done-title">Заявка отправлена</p>
             <p class="book__done-text">${esc(doneText)}</p>
@@ -294,6 +497,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="book__row"><dt>Услуга</dt><dd>${esc(s.name)}</dd></div>
                 <div class="book__row"><dt>Когда</dt>
                     <dd class="tabular-nums">${esc(when)}</dd></div>
+                ${surveyDoneRow}
             </dl>
             <a class="r-btn r-btn--secondary r-btn--block" href="/bookings">
                 <span class="r-btn__label">Мои записи</span></a>`;
@@ -316,6 +520,54 @@ document.addEventListener('DOMContentLoaded', function () {
                 return s.id === +service.dataset.service;
             });
             state.time = null;
+            if (hasHairSurvey()) {
+                go('hair_survey');
+            } else {
+                go('time');
+            }
+            return;
+        }
+        const hairTypeBtn = ev.target.closest('[data-hair-type]');
+        if (hairTypeBtn) {
+            const tid = hairTypeBtn.dataset.hairType;
+            const topt = TYPE_OPTIONS.find(function (x) { return x.id === tid; });
+            if (topt) {
+                state.hairSurvey.typeId = topt.id;
+                state.hairSurvey.hairType = topt.title;
+                widget.querySelectorAll('[data-hair-type]').forEach(function (btn) {
+                    btn.classList.toggle('is-active', btn.dataset.hairType === tid);
+                });
+            }
+            return;
+        }
+        const hairDensityBtn = ev.target.closest('[data-hair-density]');
+        if (hairDensityBtn) {
+            const did = hairDensityBtn.dataset.hairDensity;
+            const dopt = DENSITY_OPTIONS.find(function (x) { return x.id === did; });
+            if (dopt) {
+                state.hairSurvey.densityId = dopt.id;
+                state.hairSurvey.hairDensity = dopt.title;
+                widget.querySelectorAll('[data-hair-density]').forEach(function (btn) {
+                    btn.classList.toggle('is-active', btn.dataset.hairDensity === did);
+                });
+            }
+            return;
+        }
+        const hairTagBtn = ev.target.closest('[data-hair-tag]');
+        if (hairTagBtn) {
+            const tag = hairTagBtn.dataset.hairTag;
+            const idx = state.hairSurvey.tags.indexOf(tag);
+            if (idx >= 0) {
+                state.hairSurvey.tags.splice(idx, 1);
+                hairTagBtn.classList.remove('is-active');
+            } else {
+                state.hairSurvey.tags.push(tag);
+                hairTagBtn.classList.add('is-active');
+            }
+            return;
+        }
+        const hairNextBtn = ev.target.closest('#hairSurveyNext');
+        if (hairNextBtn) {
             go('time');
             return;
         }
@@ -337,6 +589,20 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         const submitBtn = ev.target.closest('#bookSubmit');
         if (submitBtn) submit(submitBtn);
+    });
+
+    widget.addEventListener('input', function (ev) {
+        if (ev.target && ev.target.id === 'hairLengthRange') {
+            const val = parseInt(ev.target.value, 10);
+            const opt = LENGTH_OPTIONS.find(function (x) { return x.id === val; }) || LENGTH_OPTIONS[3];
+            state.hairSurvey.lengthId = opt.id;
+            state.hairSurvey.lengthTitle = opt.title;
+            state.hairSurvey.lengthCm = opt.cm;
+            const titleEl = document.getElementById('hairLengthTitle');
+            const cmEl = document.getElementById('hairLengthCm');
+            if (titleEl) titleEl.textContent = `${opt.title} (${opt.sub})`;
+            if (cmEl) cmEl.textContent = opt.cm;
+        }
     });
 
     // ---------- Кнопка «Записаться» у мастера в команде ----------
@@ -400,6 +666,7 @@ document.addEventListener('DOMContentLoaded', function () {
             state.service = s;
             state.date = data.date;
             state.time = data.time;
+            if (data.hairSurvey) state.hairSurvey = data.hairSurvey;
             go('confirm');
             return true;
         } catch (err) {
@@ -407,7 +674,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    if (!restore() && !applyPreset()) go(STEPS[0]);
+    if (!restore() && !applyPreset()) go(currentSteps()[0]);
 });
 
 // ---------- Избранное ----------

@@ -807,6 +807,10 @@ class Master(Base):
     seeking_models: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     seeking_models_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Консультационный опрос параметров волос перед записью (УТП для мастеров бьюти)
+    hair_survey_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    hair_survey_settings: Mapped[Optional[dict]] = mapped_column(JSON, default=None, nullable=True)
+
     user: Mapped["User"] = relationship(back_populates="master_profile")
     salon: Mapped["Salon"] = relationship(back_populates="masters")
     services: Mapped[List["Service"]] = relationship(back_populates="master")
@@ -935,6 +939,9 @@ class Booking(Base):
     # Строкой, а не числом: у MAX идентификатор сообщения строковый (mid),
     # у Telegram и ВК — числовой. Одна колонка на три канала.
     card_message_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+    # Результаты консультационного опроса перед записью (длина, структура, густота, особенности)
+    hair_survey: Mapped[Optional[dict]] = mapped_column(JSON, default=None, nullable=True)
 
     client: Mapped["User"] = relationship(back_populates="bookings", foreign_keys=[client_id])
     master: Mapped["Master"] = relationship()

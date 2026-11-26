@@ -128,7 +128,8 @@ async def create_booking(
         end_time=end_time.replace(tzinfo=None),
         status=BookingStatus.PENDING,
         discount_percent=discount_percent,
-        final_price=final_price
+        final_price=final_price,
+        hair_survey=booking_data.hair_survey,
     )
     
     db.add(booking)

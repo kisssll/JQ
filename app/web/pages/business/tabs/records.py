@@ -102,6 +102,22 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
         price = f"{(b.final_price or s.price):,}".replace(",", " ")
         needs_badge = b.status == BookingStatus.COMPLETED and not b.consumption_reported
         badge = f'<span class="not-reported-badge">не списано</span>' if needs_badge else ""
+        survey_inline = ""
+        survey_mobile_row = ""
+        if b.hair_survey and isinstance(b.hair_survey, dict):
+            length = b.hair_survey.get("length", {})
+            l_title = length.get("title", "")
+            l_cm = length.get("cm", "")
+            h_type = b.hair_survey.get("type", {}).get("title", "")
+            h_dens = b.hair_survey.get("density", {}).get("title", "")
+            features = b.hair_survey.get("features", [])
+            feats_count = f" · {len(features)} особ." if features else ""
+            feats_str = f" · {', '.join(features)}" if features else ""
+            survey_inline = f'<div style="font-size:0.75rem;color:var(--color-accent-text, #e11d48);margin-top:2px;">💇 {e(l_title)} ({e(l_cm)}){e(feats_count)}</div>'
+            survey_mobile_row = (
+                f'<div class="record-card-row hair-survey-row"><span class="record-card-label" style="color:var(--color-accent-text, #e11d48);">Волосы:</span> '
+                f'<span class="record-card-value">{e(l_title)} ({e(l_cm)}) · {e(h_type)} · {e(h_dens)}{e(feats_str)}</span></div>'
+            )
         actions = ""
         if can_manage_schedule and b.status == BookingStatus.PENDING:
             actions = f"""
@@ -118,7 +134,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
             <td>{b.start_time.strftime('%d.%m.%Y %H:%M')}</td>
             <td>{clients_by_id.get(b.client_id, '—')}</td>
             <td>{master_user_names.get(b.master_id, '—')}</td>
-            <td>{e(s.name)}</td>
+            <td>{e(s.name)}{survey_inline}</td>
             <td><span class="status-badge {status_class}">{label}</span>{badge}{rescheduled_mark(b)}{confirmed_mark(b)}</td>
             <td>{price} ₽</td>
             <td class="records-actions">{actions}</td>
@@ -134,6 +150,22 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
         price = f"{(b.final_price or s.price):,}".replace(",", " ")
         needs_badge = b.status == BookingStatus.COMPLETED and not b.consumption_reported
         badge = f'<span class="not-reported-badge">не списано</span>' if needs_badge else ""
+        survey_inline = ""
+        survey_mobile_row = ""
+        if b.hair_survey and isinstance(b.hair_survey, dict):
+            length = b.hair_survey.get("length", {})
+            l_title = length.get("title", "")
+            l_cm = length.get("cm", "")
+            h_type = b.hair_survey.get("type", {}).get("title", "")
+            h_dens = b.hair_survey.get("density", {}).get("title", "")
+            features = b.hair_survey.get("features", [])
+            feats_count = f" · {len(features)} особ." if features else ""
+            feats_str = f" · {', '.join(features)}" if features else ""
+            survey_inline = f'<div style="font-size:0.75rem;color:var(--color-accent-text, #e11d48);margin-top:2px;">💇 {e(l_title)} ({e(l_cm)}){e(feats_count)}</div>'
+            survey_mobile_row = (
+                f'<div class="record-card-row hair-survey-row"><span class="record-card-label" style="color:var(--color-accent-text, #e11d48);">Волосы:</span> '
+                f'<span class="record-card-value">{e(l_title)} ({e(l_cm)}) · {e(h_type)} · {e(h_dens)}{e(feats_str)}</span></div>'
+            )
         actions = ""
         if can_manage_schedule and b.status == BookingStatus.PENDING:
             actions = f"""
@@ -167,6 +199,7 @@ async def render_records_tab(db: AsyncSession, salon, masters, master_ids, filte
                 <div class="record-card-row"><span class="record-card-label">Мастер:</span> {master_user_names.get(b.master_id, '—')}</div>
                 <div class="record-card-row"><span class="record-card-label">Услуга:</span> {e(s.name)}</div>
                 <div class="record-card-row"><span class="record-card-label">Сумма:</span> {price} ₽</div>
+                {survey_mobile_row}
                 {_moved_row(b, salon)}
                 <div class="record-card-actions">{actions}</div>
             </div>

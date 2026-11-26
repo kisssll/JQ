@@ -319,3 +319,97 @@ async def toggle_master_web(
     await _sync_billing_headcount(db, master.salon_id)
 
     return RedirectResponse(url="/business/dashboard?tab=employees", status_code=302)
+
+
+DEFAULT_HAIR_SURVEY_TAGS = [
+    "Обесцвеченные / блонд",
+    "Окрашенные",
+    "Натуральные (неокрашенные)",
+    "Есть седина",
+    "Ранее делали кератин / ботокс",
+    "Наращенные волосы",
+    "Химическая завивка",
+    "Поврежденные / секущиеся кончики",
+]
+
+
+@router.post("/{master_id}/hair-survey")
+async def update_master_hair_survey(
+    master_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Настройка консультационного опроса перед записью (параметры волос)."""
+    from app.web.auth import get_current_user_from_cookie
+
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            from app.api.deps import get_current_user
+            try:
+                user = await get_current_user(request=request, token=auth_header.split(" ")[1], db=db)
+            except Exception:
+                pass
+    if not user:
+        if (
+            "application/json" in request.headers.get("accept", "")
+            or request.headers.get("content-type", "").startswith("application/json")
+        ):
+            raise HTTPException(status_code=401, detail="Не авторизован")
+        return RedirectResponse(url="/login", status_code=302)
+
+    master = (await db.execute(select(Master).where(Master.id == master_id))).scalar_one_or_none()
+    if not master:
+        raise HTTPException(status_code=404, detail="Мастер не найден")
+
+    # Проверка прав: сам мастер или управляющий салоном
+    if master.user_id != user.id:
+        try:
+            await check_salon_permission(db, user, master.salon_id, "manage_masters")
+        except HTTPException:
+            raise HTTPException(status_code=403, detail="Недостаточно прав")
+
+    is_json = request.headers.get("content-type", "").startswith("application/json")
+    return_url = None
+    if is_json:
+        body = await request.json()
+        enabled = bool(body.get("enabled", False))
+        tags = body.get("tags")
+        if tags is None:
+            tags = body.get("custom_tags")
+        if tags is None:
+            tags = list(DEFAULT_HAIR_SURVEY_TAGS)
+    else:
+        form = await request.form()
+        enabled = form.get("enabled") in ("1", "true", "on")
+        raw_tags = form.getlist("tags")
+        if not raw_tags:
+            custom_tags_str = form.get("custom_tags", "")
+            if custom_tags_str:
+                raw_tags = [t.strip() for t in custom_tags_str.split(",") if t.strip()]
+            else:
+                raw_tags = list(DEFAULT_HAIR_SURVEY_TAGS)
+        tags = raw_tags
+        return_url = form.get("return_url")
+
+    master.hair_survey_enabled = enabled
+    master.hair_survey_settings = {
+        "tags": tags,
+        "custom_tags": tags,
+        "require_length": True,
+        "require_type": True,
+        "require_density": True,
+    }
+    await db.commit()
+
+    if is_json:
+        return {
+            "ok": True,
+            "enabled": master.hair_survey_enabled,
+            "settings": master.hair_survey_settings,
+        }
+    return RedirectResponse(
+        url=return_url or f"/business/dashboard?salon_id={master.salon_id}&tab=employees&ok=survey_saved",
+        status_code=302,
+    )

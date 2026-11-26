@@ -160,6 +160,25 @@ async def render_schedule_tab(
         status_label = "Подтверждена" if b.status == BookingStatus.CONFIRMED else "Ожидает"
         time_str = f"{b.start_time.strftime('%H:%M')}-{b.end_time.strftime('%H:%M')}"
 
+        survey_html = ""
+        if b.hair_survey and isinstance(b.hair_survey, dict):
+            length = b.hair_survey.get("length", {})
+            length_str = f"{length.get('title', '')} ({length.get('cm', '')})" if length else ""
+            h_type = b.hair_survey.get("type", {}).get("title", "")
+            h_dens = b.hair_survey.get("density", {}).get("title", "")
+            features = b.hair_survey.get("features", [])
+            tags_html = "".join(f'<span class="hair-tag-pill" style="font-size:0.7rem;padding:2px 6px;margin:2px 4px 2px 0;background:var(--color-accent-light, #ffe4e6);color:var(--color-accent-text, #e11d48);border-radius:12px;display:inline-block;">{e(t)}</span>' for t in features) if features else ""
+            survey_html = f"""
+                <div class="detail-row hair-survey-detail" style="border-top:1px dashed var(--color-border, #e2e8f0);padding-top:6px;margin-top:6px;">
+                    <span class="detail-label" style="font-weight:600;color:var(--color-accent-text, #e11d48);">Волосы:</span>
+                    <div class="detail-value" style="font-size:0.8rem;line-height:1.35;">
+                        <div><strong>Длина:</strong> {e(length_str)}</div>
+                        {f'<div><strong>Тип / Густота:</strong> {e(h_type)} · {e(h_dens)}</div>' if h_type or h_dens else ''}
+                        {f'<div style="margin-top:4px;">{tags_html}</div>' if tags_html else ''}
+                    </div>
+                </div>
+            """
+
         seen_html = ""
         if viewer_master_id is not None and b.master_id == viewer_master_id:
             if b.master_seen_at is None:
@@ -230,6 +249,7 @@ async def render_schedule_tab(
                     <span class="detail-label">Статус:</span>
                     <span class="detail-value status-{status}">{status_label}</span>
                 </div>
+                {survey_html}
                 {_moved_detail(b, salon)}
                 {f'<div class="detail-actions">{actions}</div>' if actions else ''}
             </div>
@@ -247,6 +267,25 @@ async def render_schedule_tab(
         price_str = f"{price:,}".replace(",", " ")
         status_label, status_class = ("Подтверждена", "confirmed") if b.status == BookingStatus.CONFIRMED else ("Ожидает", "pending")
         time_str = f"{b.start_time.strftime('%H:%M')}"
+
+        mobile_survey_html = ""
+        if b.hair_survey and isinstance(b.hair_survey, dict):
+            length = b.hair_survey.get("length", {})
+            length_str = f"{length.get('title', '')} ({length.get('cm', '')})" if length else ""
+            h_type = b.hair_survey.get("type", {}).get("title", "")
+            h_dens = b.hair_survey.get("density", {}).get("title", "")
+            features = b.hair_survey.get("features", [])
+            tags_html = "".join(f'<span class="hair-tag-pill" style="font-size:0.7rem;padding:2px 6px;margin:2px 4px 2px 0;background:var(--color-accent-light, #ffe4e6);color:var(--color-accent-text, #e11d48);border-radius:12px;display:inline-block;">{e(t)}</span>' for t in features) if features else ""
+            mobile_survey_html = f"""
+                <div class="record-card-row hair-survey-row" style="border-top:1px dashed var(--color-border, #e2e8f0);padding-top:6px;margin-top:6px;">
+                    <span class="record-card-label" style="font-weight:600;color:var(--color-accent-text, #e11d48);">Волосы:</span>
+                    <div class="record-card-value" style="font-size:0.8rem;line-height:1.35;">
+                        <div><strong>Длина:</strong> {e(length_str)}</div>
+                        {f'<div><strong>Тип / Густота:</strong> {e(h_type)} · {e(h_dens)}</div>' if h_type or h_dens else ''}
+                        {f'<div style="margin-top:4px;">{tags_html}</div>' if tags_html else ''}
+                    </div>
+                </div>
+            """
 
         # Кнопки действий (если есть права)
         actions = ""
@@ -282,6 +321,7 @@ async def render_schedule_tab(
                 <div class="record-card-row"><span class="record-card-label">Телефон:</span> <span class="record-card-value">{client_phone}</span></div>
                 <div class="record-card-row"><span class="record-card-label">Услуга:</span> <span class="record-card-value">{svc_name}</span></div>
                 <div class="record-card-row"><span class="record-card-label">Цена:</span> <span class="record-card-value">{price_str} ₽</span></div>
+                {mobile_survey_html}
                 {_moved_row(b, salon)}
                 {f'<div class="record-card-actions">{actions}</div>' if actions else ''}
             </div>
