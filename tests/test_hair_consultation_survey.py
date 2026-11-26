@@ -13,8 +13,8 @@ from datetime import datetime, timedelta
 
 from app.core.security import create_access_token, get_password_hash
 from app.models.models import (
-    Booking, BookingStatus, Master, Salon, SalonModerationStatus, SalonPanelMode,
-    Service, User, UserRole
+    Booking, BookingStatus, Master, Salon, SalonMember, SalonModerationStatus, SalonPanelMode,
+    SalonRole, Service, User, UserRole, OWNER_DEFAULT_PERMISSIONS,
 )
 from app.web.pages.business.tabs.schedule import render_schedule_tab
 from app.web.pages.business.tabs.records import render_records_tab
@@ -60,6 +60,16 @@ async def _create_test_environment(db_session):
         db.add(salon)
         await db.commit()
         await db.refresh(salon)
+
+        db.add(SalonMember(
+            salon_id=salon.id,
+            user_id=owner.id,
+            role=SalonRole.OWNER,
+            is_creator=True,
+            permissions=dict(OWNER_DEFAULT_PERMISSIONS),
+            is_active=True,
+        ))
+        await db.commit()
 
         master = Master(
             salon_id=salon.id,
@@ -482,4 +492,29 @@ async def test_question_toggles_and_custom_google_forms_survey(client, db_sessio
         b = await db.get(Booking, b_data["id"])
         assert b.final_price == 5600
         assert (b.end_time - b.start_time) == timedelta(minutes=165)
+
+
+async def test_interactive_tab_rendered_in_dashboard_sidebar(client, db_session):
+    """Проверяем, что пункт «Интерактивная запись» виден в боковом меню и открывается."""
+    owner, _client, salon, _master, _service = await _create_test_environment(db_session)
+
+    # Авторизуемся владельцем
+    login_resp = await client.post(
+        "/api/v1/auth/login-web",
+        data={"phone": owner.phone, "password": "MasterPass1"},
+    )
+    assert login_resp.status_code == 302
+
+    # Главная страница панели
+    dash_resp = await client.get(f"/business/dashboard?salon_id={salon.id}")
+    assert dash_resp.status_code == 200
+    assert "&tab=interactive" in dash_resp.text
+    assert "Интерактивная запись" in dash_resp.text
+
+    # Прямой переход во вкладку интерактивной записи
+    tab_resp = await client.get(f"/business/dashboard?salon_id={salon.id}&tab=interactive")
+    assert tab_resp.status_code == 200
+    assert 'id="tab-interactive"' in tab_resp.text
+    assert "Интерактивная запись" in tab_resp.text
+
 
