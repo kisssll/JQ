@@ -368,7 +368,7 @@ async def render_interactive_tab(
                             </div>
                             <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:1.5rem;margin-bottom:1rem;">
                                 <div style="width:130px;height:130px;border-radius:var(--radius-16);overflow:hidden;background:var(--color-surface-alt);border:1px solid var(--color-border);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-                                    <img id="adminLengthPreviewImg" src="/static/images/hair/hair_len_4.webp?v=2" alt="Иллюстрация длины" style="width:100%;height:100%;object-fit:contain;background:#fefefe;display:block;">
+                                    <img id="adminLengthPreviewImg" src="/static/images/hair/hair_len_4.webp?v=2" alt="Иллюстрация длины" style="width:100%;height:100%;object-fit:contain;background:var(--color-hair-preview);display:block;">
                                 </div>
                                 <div style="flex:1;min-width:240px;max-width:460px;">
                                     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.5rem;">
@@ -441,21 +441,21 @@ async def render_interactive_tab(
                             </div>
                             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.75rem;max-width:560px;">
                                 <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
-                                    <div style="height:90px;overflow:hidden;background:#fefefe;border-radius:var(--radius-8);margin-bottom:0.35rem;">
+                                    <div style="height:90px;overflow:hidden;background:var(--color-hair-preview);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_density_thin.webp?v=2" alt="Не густые" style="width:100%;height:100%;object-fit:contain;display:block;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Не густые</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Тонкий хвост</small>
                                 </div>
                                 <div style="border:1.5px solid var(--color-accent);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-accent-light);box-shadow:0 0 0 1px var(--color-accent);">
-                                    <div style="height:90px;overflow:hidden;background:#fefefe;border-radius:var(--radius-8);margin-bottom:0.35rem;">
+                                    <div style="height:90px;overflow:hidden;background:var(--color-hair-preview);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_density_medium.webp?v=2" alt="Средняя густота" style="width:100%;height:100%;object-fit:contain;display:block;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Средняя густота</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Стандартная</small>
                                 </div>
                                 <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
-                                    <div style="height:90px;overflow:hidden;background:#fefefe;border-radius:var(--radius-8);margin-bottom:0.35rem;">
+                                    <div style="height:90px;overflow:hidden;background:var(--color-hair-preview);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_density_thick.webp?v=2" alt="Очень густые" style="width:100%;height:100%;object-fit:contain;display:block;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Очень густые</strong>
@@ -509,35 +509,35 @@ async def render_interactive_tab(
                             </div>
                             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:0.75rem;max-width:720px;">
                                 <div style="border:1.5px solid var(--color-accent);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-accent-light);box-shadow:0 0 0 1px var(--color-accent);">
-                                    <div style="height:90px;overflow:hidden;background:#fefefe;border-radius:var(--radius-8);margin-bottom:0.35rem;">
+                                    <div style="height:90px;overflow:hidden;background:var(--color-hair-preview);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_type_straight.webp?v=2" alt="Прямые" style="width:100%;height:100%;object-fit:contain;display:block;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Прямые</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Гладкие</small>
                                 </div>
                                 <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
-                                    <div style="height:90px;overflow:hidden;background:#fefefe;border-radius:var(--radius-8);margin-bottom:0.35rem;">
+                                    <div style="height:90px;overflow:hidden;background:var(--color-hair-preview);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_type_wavy.webp?v=2" alt="Легкая волна" style="width:100%;height:100%;object-fit:contain;display:block;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Легкая волна</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Пушатся</small>
                                 </div>
                                 <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
-                                    <div style="height:90px;overflow:hidden;background:#fefefe;border-radius:var(--radius-8);margin-bottom:0.35rem;">
+                                    <div style="height:90px;overflow:hidden;background:var(--color-hair-preview);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_type_curly.webp?v=2" alt="Кудрявые" style="width:100%;height:100%;object-fit:contain;display:block;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Кудрявые</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Четкий завиток</small>
                                 </div>
                                 <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
-                                    <div style="height:90px;overflow:hidden;background:#fefefe;border-radius:var(--radius-8);margin-bottom:0.35rem;">
+                                    <div style="height:90px;overflow:hidden;background:var(--color-hair-preview);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_type_coarse.webp?v=2" alt="Стекловидные" style="width:100%;height:100%;object-fit:contain;display:block;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Жесткие</strong>
                                     <small style="font-size:11px;color:var(--color-muted);">Стекловидные</small>
                                 </div>
                                 <div style="border:1.5px solid var(--color-border);border-radius:var(--radius-16);padding:0.5rem;text-align:center;background:var(--color-surface);">
-                                    <div style="height:90px;overflow:hidden;background:#fefefe;border-radius:var(--radius-8);margin-bottom:0.35rem;">
+                                    <div style="height:90px;overflow:hidden;background:var(--color-hair-preview);border-radius:var(--radius-8);margin-bottom:0.35rem;">
                                         <img src="/static/images/hair/hair_type_layers.webp?v=2" alt="Каскад / слои" style="width:100%;height:100%;object-fit:contain;display:block;">
                                     </div>
                                     <strong style="font-size:0.8rem;display:block;">Каскад / слои</strong>
