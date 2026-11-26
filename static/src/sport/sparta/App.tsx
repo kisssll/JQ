@@ -473,7 +473,7 @@ export default function App() {
       {page === "/disciplines" && <Disciplines book={book} disciplines={disciplines} />}
       {page === "/schedule" && <Schedule book={book} gyms={gyms} coaches={coaches} trainings={trainings} exceptions={exceptions} scheduleLoading={scheduleLoading} scheduleError={scheduleError} />}
       {page === "/gallery" && <Gallery gallery={publicGallery} organization={publicOrganization.name} />}
-      {page === "/documents" && <main className="sparta-documents"><h1>Документы</h1><p>Документы Федерации боевого дзю-дзютцу Томской области</p><a href="https://fcjj.tomsk.ru/federation/documentation/" target="_blank" rel="noopener noreferrer">Открыть документы федерации ↗</a></main>}
+      {page === "/documents" && <Documents />}
       {page === "/prices" && <Prices choose={choosePlan} plans={plans} />}
       {page === "/account" && <Account bookings={bookings} book={book} loginRequired={accountLoginRequired} error={scheduleError} />}
 
@@ -1062,6 +1062,33 @@ function Gallery({ gallery, organization }: { gallery: GalleryPhoto[]; organizat
   const movePhoto = (step: number) => setSelected((current) => ((current ?? 0) + step + gallery.length) % gallery.length);
   const photo = selected === null ? null : gallery[selected];
   return <main className={IS_SPARTA ? "sparta-gallery" : undefined}><PageHead id="story" title="Галерея" text={`Фотографии ${organization}.`} /><section className="gallery-page"><div className="gallery-heading"><h2>Тренировки и жизнь клуба.</h2></div><div className="gallery-grid">{gallery.map((item, i) => <button className="gallery-open" key={item.src} onClick={() => setSelected(i)} aria-label={`Открыть фото: ${item.alt}`}><Photo id={`club_gallery_${i}`} srcOverride={item.src} label={item.alt} size="1600 × 1200" className="gallery-tile"><span>{item.alt}</span><span className="gallery-expand" aria-hidden="true">↗</span></Photo></button>)}</div>{gallery.length === 0 && <p>Фотографии пока не добавлены.</p>}</section>{photo && <Modal centered className="gym-modal" label="Фотографии клуба" onClose={() => setSelected(null)}><h2 className="m-title">{photo.alt}</h2><PhotoGallery photos={gallery} caption={organization} selected={selected!} setSelected={setSelected} movePhoto={movePhoto} /></Modal>}</main>;
+}
+
+const SPARTA_DOCUMENTS = [
+  { title: "Анкета спортсмена", file: "anketa_sportsmena.docx", group: "Для спортсменов" },
+  { title: "Заявление", file: "zayavlenie.doc", group: "Для спортсменов" },
+  { title: "Заявление для юношей", file: "zayavlenie_dlya_yunoshey.doc", group: "Для спортсменов" },
+  { title: "Согласие на обработку персональных данных", file: "soglasie_na_obrabotku_dannykh.doc", group: "Для спортсменов" },
+  { title: "Договор пожертвования в «Спарту»", file: "dogovor_pozhertvovania.doc", group: "О клубе" },
+  { title: "Положение о партнёрах клуба", file: "polozhenie_o_partnerakh_kluba.docx", group: "О клубе" },
+  { title: "Свидетельство ИНН", file: "svidetelstvo_inn.jpg", group: "Регистрация федерации" },
+  { title: "Свидетельство ОГРН", file: "svidetelstvo_ogrn.jpg", group: "Регистрация федерации" },
+  { title: "Свидетельство о государственной регистрации НКО", file: "svidetelstvo_nko.jpg", group: "Регистрация федерации" },
+];
+
+function Documents() {
+  const root = "/static/sport/sparta/documents/";
+  return <main className="sparta-documents">
+    <h1>Документы</h1>
+    <p>Формы для спортсменов, материалы клуба и регистрационные свидетельства федерации.</p>
+    {Array.from(new Set(SPARTA_DOCUMENTS.map((item) => item.group))).map((group) => <section key={group}>
+      <h2>{group}</h2>
+      <div className="sparta-document-grid">{SPARTA_DOCUMENTS.filter((item) => item.group === group).map((item) => <a className="sparta-document" key={item.file} href={`${root}${item.file}`} target="_blank" rel="noopener noreferrer" download={!item.file.endsWith(".jpg") || undefined}>
+        {item.file.endsWith(".jpg") && <img src={`${root}${item.file}`} alt="" loading="lazy" />}
+        <span>{item.title}</span><small>{item.file.split(".").pop()?.toUpperCase()} · открыть ↗</small>
+      </a>)}</div>
+    </section>)}
+  </main>;
 }
 
 function Account({ bookings, book, loginRequired, error }: { bookings: Booking[]; book: Book; loginRequired: boolean; error: string }) {
