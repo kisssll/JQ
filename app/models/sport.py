@@ -325,7 +325,7 @@ class SportTraining(Base):
     coach: Mapped[str] = mapped_column(String(160), nullable=False)
     gym: Mapped[str] = mapped_column(String(200), nullable=False)
     discipline: Mapped[str] = mapped_column(String(120), nullable=False)
-    color: Mapped[str] = mapped_column(String(7), nullable=False, default="#c72527", server_default="#c72527")
+    color: Mapped[str] = mapped_column(String(7), nullable=False, default="red", server_default="red")
     coach_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("sport_coaches.id", ondelete="SET NULL"), nullable=True, index=True
     )
