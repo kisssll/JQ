@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { sportRequest } from "./admin-api";
+import { sportRequest, SportRequestError } from "./admin-api";
 
 const ROLE_LABELS = { owner: "Владелец", manager: "Управляющий", admin: "Администратор", trainer: "Тренер" };
 const PERMISSION_LABELS = {
@@ -22,6 +22,7 @@ export type StaffMember = {
   role: keyof typeof ROLE_LABELS;
   name: string;
   phone: string;
+  hasAccount?: boolean;
   photo?: string | null;
   about: string;
   title?: string;
@@ -78,6 +79,7 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
           <div><h2>{member.name}</h2><p>{member.title || ROLE_LABELS[member.role]}</p></div>
         </div>
         {member.phone && <a href={`tel:${member.phone}`}>{member.phone}</a>}
+        {member.role === "trainer" && <p className="admin-hint">{member.hasAccount ? "Аккаунт подключён" : "Без аккаунта"}</p>}
         {member.experience && <p>{member.experience}</p>}
         {member.tags && <p>{member.tags}</p>}
         {member.about && <p className="admin-staff-about">{member.about}</p>}
@@ -180,6 +182,7 @@ function StaffEditor({ slug, member, assignableRoles, onCancel, onSave }: {
   const [removePhoto, setRemovePhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
     setPreview("");
@@ -197,12 +200,18 @@ function StaffEditor({ slug, member, assignableRoles, onCancel, onSave }: {
     body.set("remove_photo", String(removePhoto));
     setSaving(true);
     setError("");
+    setSessionExpired(false);
     try {
       const path = member ? `/staff/${member.role}/${member.id}` : "/staff";
       const result = await sportRequest<{ member: StaffMember; credentials?: Credentials | null }>(slug, path, { method: member ? "PUT" : "POST", body });
       onSave(result.member, result.credentials);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Не удалось сохранить карточку");
+      if (error instanceof SportRequestError && error.status === 401) {
+        setSessionExpired(true);
+        setError("Сессия истекла. Войдите в новой вкладке, затем снова нажмите «Сохранить». Форма останется открытой.");
+      } else {
+        setError(error instanceof Error ? error.message : "Не удалось сохранить карточку");
+      }
     } finally {
       setSaving(false);
     }
@@ -212,11 +221,12 @@ function StaffEditor({ slug, member, assignableRoles, onCancel, onSave }: {
   return <form className="admin-editor" onSubmit={save}>
     <h2 className="adm-sub">{member ? `Карточка сотрудника · ${member.name}` : "Новый сотрудник"}</h2>
     {error && <p className="sport-admin-alert" role="alert">{error}</p>}
+    {sessionExpired && <a href={`/sport/login?redirect=${encodeURIComponent(`/sport/${slug}/admin`)}`} target="_blank" rel="noopener noreferrer">Войти в аккаунт ↗</a>}
     <fieldset disabled={saving}>
       <div className="admin-staff-editor-layout">
       <div className="admin-editor-grid admin-staff-editor-fields">
         <label>Имя<input name="name" defaultValue={member?.name} required minLength={2} maxLength={160} autoFocus placeholder="Фамилия, имя, отчество" /></label>
-        {member ? <label>Контактный телефон<input name="contact_phone" type="tel" maxLength={24} defaultValue={member.phone} /></label>
+        {member ? <label>{member.role === "trainer" && !member.hasAccount ? "Телефон для входа" : "Контактный телефон"}<input name="contact_phone" type="tel" maxLength={24} defaultValue={member.phone} /></label>
           : <label>Телефон для входа<input name="phone" type="tel" maxLength={24} placeholder="+7 900 000-00-00" required /></label>}
         {!member && <label>Роль<select name="role" value={role} onChange={(event) => setRole(event.target.value as StaffMember["role"])}>
           {assignableRoles.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
