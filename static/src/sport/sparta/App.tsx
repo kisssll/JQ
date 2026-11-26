@@ -546,6 +546,7 @@ export default function App() {
                 gym: b.gym,
                 discipline: b.discipline,
                 pd_consent: b.pdConsent,
+                statement_consent: IS_SPARTA ? b.statementConsent : true,
                 consent_version: consentVersion,
               }),
             });
@@ -1131,6 +1132,35 @@ function Account({ bookings, book, loginRequired, error }: { bookings: Booking[]
 
 /* ---------------- modals ---------------- */
 
+const PARTICIPATION_AGREEMENTS = {
+  adult: {
+    title: "Согласие с заявлением для совершеннолетних участников",
+    documentTitle: "РАСПИСКА (для совершеннолетних участников)",
+    paragraphs: [
+      "Настоящей распиской уведомляю, что с Положением, Правилами и условиями проведения данного спортивного мероприятия ознакомлен, согласен и обязуюсь их выполнять. Считаю, что я физически и технически подготовлен для выступления в данных соревнованиях.",
+      "При возникновении несчастного случая в ходе соревнований (травма, увечье), при получении различных травм и даже летального исхода ни я, ни мои родственники, а также мои доверенные лица претензий к организаторам, судьям и другим лицам, имеющих отношения к проведению соревнований, иметь не будут.",
+      "Я даю свое согласие на оказание мне в случае необходимости медицинской помощи.",
+      "Я согласен с тем, что выступление и интервью со мной может быть записано и показано в средствах массовой информации, а также записано и показано в целях рекламы без ограничений по времени и формату; я отказываюсь от компенсации в отношении этих материалов.",
+      "С правилами электронного оформления данной расписки на сайте федерации ознакомлен и согласен.",
+    ],
+  },
+  minor: {
+    title: "Согласие с заявлением для несовершеннолетних участников",
+    documentTitle: "ЗАЯВЛЕНИЕ (для несовершеннолетних участников)",
+    paragraphs: [
+      "Данным заявлением я уведомляю, что разрешаю своему несовершеннолетнему ребенку принимать участие в данном спортивном мероприятии. Считаю, что он физически подготовлен для выступления в данных соревнованиях. С правилами и условиями проведения данного спортивного мероприятия ознакомлен.",
+      "Я принимаю всю ответственность за любую травму, полученную мной и/или моим ребенком (опекаемым) по ходу Соревнований, и не имею права требовать какой-либо компенсации за нанесение ущерба от Организаторов Соревнований.",
+      "В случае если во время соревнований с ребенком произойдет несчастный случай, прошу сообщить об этом мне по телефону, указанному мной при регистрации.",
+      "Я обязуюсь, что я и мой ребенок (опекаемый) будем следовать всем требованиям организаторов соревнований, связанным с вопросами безопасности.",
+      "Я и мой ребенок (опекаемый) самостоятельно несем ответственность за личное имущество, оставленное на месте проведения соревнований, и в случае его утери я отказываюсь от права требовать компенсации.",
+      "Я даю свое согласие на оказание в случае необходимости медицинской помощи моему ребенку (опекаемому).",
+      "С Положением о проведении соревнований ознакомлен.",
+      "Я согласен с тем, что выступление моего ребенка (опекаемого) и интервью с ним и/или со мной может быть записано и показано в средствах массовой информации, а также записано и показано в целях рекламы без ограничений по времени и формату; я отказываюсь от компенсации в отношении этих материалов.",
+      "С правилами электронного оформления данного заявления на сайте федерации ознакомлен и согласен.",
+    ],
+  },
+} as const;
+
 function Modal({ onClose, children, centered = false, className = "", label = "Информация клуба" }: { onClose: () => void; children: React.ReactNode; centered?: boolean; className?: string; label?: string }) {
   const panel = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
@@ -1179,7 +1209,7 @@ function BookingModal({
   gyms: Gym[];
   exceptions: Record<string, boolean>;
   onClose: () => void;
-  onSubmit: (b: Omit<Booking, "id" | "status"> & { pdConsent: boolean }) => void | Promise<void>;
+  onSubmit: (b: Omit<Booking, "id" | "status"> & { pdConsent: boolean; statementConsent: boolean }) => void | Promise<void>;
   centered?: boolean;
 }) {
   const now = new Date();
@@ -1207,6 +1237,9 @@ function BookingModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [pdConsent, setPdConsent] = useState(false);
+  const [statementConsent, setStatementConsent] = useState(false);
+  const [agreementOpen, setAgreementOpen] = useState(false);
+  const agreement = f.participant === "child" ? PARTICIPATION_AGREEMENTS.minor : PARTICIPATION_AGREEMENTS.adult;
   const available = options.filter((slot) => slot.gym === f.gym && slot.date === f.date)
     .sort((a, b) => a.time.localeCompare(b.time));
   const resetSelection = (gym: string, date: string) => setF((current) => ({
@@ -1229,7 +1262,16 @@ function BookingModal({
       </Modal>
     );
   return (
-    <Modal centered={centered} className={IS_SPARTA ? "sparta-booking-modal" : ""} label="Запись на тренировку" onClose={onClose}>
+    <Modal centered={centered} className={IS_SPARTA ? "sparta-booking-modal" : ""} label={IS_SPARTA && agreementOpen ? agreement.title : "Запись на тренировку"} onClose={onClose}>
+      {IS_SPARTA && agreementOpen ? <>
+        <p className="tag booking-eyebrow">Условия участия</p>
+        <h2 className="m-title">{agreement.title}</h2>
+        <h3 className="booking-agreement-title">{agreement.documentTitle}</h3>
+        <div className="booking-agreement-text">
+          {agreement.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+        </div>
+        <button type="button" className="btn btn-black" onClick={() => setAgreementOpen(false)}>Вернуться к заявке</button>
+      </> : <>
       {!IS_SPARTA && <p className="tag booking-eyebrow">Первый шаг на татами</p>}
       <h2 className="m-title">Запись на тренировку</h2>
       {!IS_SPARTA && <p className="booking-intro">Выберите занятие и оставьте контакт для подтверждения. Можно записать себя или ребёнка.</p>}
@@ -1239,11 +1281,11 @@ function BookingModal({
           e.preventDefault();
           if (!f.sessionId) return;
           if (f.participant === "child" && (!f.childName.trim() || !f.childAge.trim())) return;
-          if (!f.name.trim()) return;
+          if (!f.name.trim() || (IS_SPARTA && !statementConsent)) return;
           setSaving(true);
           setError("");
           try {
-            await onSubmit({ ...f, name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(), pdConsent });
+            await onSubmit({ ...f, name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(), pdConsent, statementConsent });
             setDone(true);
           } catch (submitError) {
             setError(submitError instanceof Error ? submitError.message : "Не удалось отправить заявку. Попробуйте ещё раз.");
@@ -1299,6 +1341,15 @@ function BookingModal({
               </button>)}</div>}
         </fieldset>
         {f.sessionId && <div className="booking-selected"><b>{fmtDate(f.date)} · {f.time}</b><span>{shortCoach(f.coach)}</span><span>{f.gym}</span><span>{f.discipline}</span></div>}
+        {IS_SPARTA && <div className="booking-legal-agreement full">
+          <label className="booking-consent">
+            <input type="checkbox" required checked={statementConsent} onChange={(event) => setStatementConsent(event.target.checked)} />
+            <span>Подтверждаю, что ознакомлен(а) и согласен(на) с заявлением участника.</span>
+          </label>
+          <button type="button" className="booking-agreement-open" onClick={() => setAgreementOpen(true)}>
+            Ознакомиться: {agreement.documentTitle}
+          </button>
+        </div>}
         <label className="booking-consent">
           <input type="checkbox" required checked={pdConsent} onChange={(event) => setPdConsent(event.target.checked)} />
           <span>Я даю согласие на обработку персональных данных на условиях <a href={IS_SPARTA ? "/static/sport/sparta/documents/soglasie_na_obrabotku_dannykh.doc" : "/sport/legal/consent"} target="_blank" rel="noopener noreferrer">Согласия</a>.</span>
@@ -1309,6 +1360,7 @@ function BookingModal({
         </button>
         <p className="m-note">{IS_SPARTA ? "Заявка сохранится в базе клуба. Запись подтвердит администратор." : "Заявка сохранится в базе Руми. Запись подтвердит администратор клуба."}</p>
       </form>
+      </>}
     </Modal>
   );
 }

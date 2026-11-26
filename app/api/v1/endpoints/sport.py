@@ -2322,6 +2322,8 @@ async def create_sport_booking(
     ).scalar_one_or_none()
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
+    if organization.slug == "sparta" and not data.statement_consent:
+        raise HTTPException(status_code=400, detail="Необходимо согласие с заявлением участника")
 
     training = None
     if data.training_id:

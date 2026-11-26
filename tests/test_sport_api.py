@@ -26,11 +26,11 @@ from app.web.pages.legal import LEGAL_VERSION
 from tests.conftest import register_user
 
 
-async def _seed_organization(db_session, booking_date):
+async def _seed_organization(db_session, booking_date, slug="test-sport-club"):
     weekday = (booking_date.weekday() + 1) % 7
     async with db_session() as db:
         organization = SportOrganization(
-            slug="test-sport-club",
+            slug=slug,
             name="Тестовый клуб",
             city="Томск",
             description="",
@@ -89,6 +89,7 @@ def _booking_payload(default_booking_date, **overrides):
         "gym": "Тестовый зал",
         "discipline": "Дзю-дзютцу",
         "pd_consent": True,
+        "statement_consent": True,
         "consent_version": LEGAL_VERSION,
     }
     payload.update(overrides)
@@ -142,7 +143,23 @@ async def test_sport_booking_rejects_stale_consent_without_creating_user(client,
         json=_booking_payload(booking_date, consent_version="outdated"),
     )
     assert response.status_code == 400
+    async with db_session() as db:
+        assert (
+            await db.execute(select(User).where(User.phone == "+79990001122"))
+        ).scalar_one_or_none() is None
 
+
+async def test_sport_booking_requires_participation_statement_consent(client, db_session):
+    booking_date = _booking_date()
+    await _seed_organization(db_session, booking_date, slug="sparta")
+
+    response = await client.post(
+        "/api/v1/sport/organizations/sparta/bookings",
+        json=_booking_payload(booking_date, statement_consent=False),
+    )
+
+    assert response.status_code == 400
+    assert "Необходимо согласие с заявлением участника" in response.text
     async with db_session() as db:
         assert (
             await db.execute(select(User).where(User.phone == "+79990001122"))
