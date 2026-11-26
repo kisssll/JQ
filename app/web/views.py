@@ -171,6 +171,70 @@ async def sport_tariffs_page(request: Request, tab: str = "plans", db: AsyncSess
     return HTMLResponse(content=render_sport_tariffs_page(user, tab=tab))
 
 
+@router.get("/sport/about", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/sport/about/", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/sport/manifest", response_class=HTMLResponse, include_in_schema=False)
+async def sport_about_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Страница «Манифест» Руми Спорт."""
+    user = await get_current_user_from_cookie(request, db)
+    from app.web.pages.sport_about import render_sport_about_page
+    return HTMLResponse(content=render_sport_about_page(user))
+
+
+@router.get("/sport/profile", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/sport/profile/", response_class=HTMLResponse, include_in_schema=False)
+async def sport_profile_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Мой профиль в контексте Руми Спорт."""
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/sport/login?redirect=/sport/profile", status_code=302)
+    from app.services.cabinet_badge import load_badges
+    from app.web.pages.profile import render_profile_page
+    departure = None
+    if user:
+        from app.services.departure import plan_account_departure
+        departure = await plan_account_departure(db, user)
+    return HTMLResponse(content=render_profile_page(
+        user,
+        success=request.query_params.get("success"),
+        error=request.query_params.get("error"),
+        badges=await load_badges(db, user),
+        departure=departure,
+        sport=True,
+    ))
+
+
+@router.get("/sport/bookings", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/sport/bookings/", response_class=HTMLResponse, include_in_schema=False)
+async def sport_bookings_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Мои записи в контексте Руми Спорт."""
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/sport/login?redirect=/sport/bookings", status_code=302)
+    from app.web.pages.bookings import render_bookings_page
+    notice = request.query_params.get("notice") or ""
+    return HTMLResponse(content=await render_bookings_page(db, user, notice=notice, sport=True))
+
+
+@router.get("/sport/favorites", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/sport/favorites/", response_class=HTMLResponse, include_in_schema=False)
+async def sport_favorites_page(request: Request, db: AsyncSession = Depends(get_db)):
+    """Избранное в контексте Руми Спорт."""
+    user = await get_current_user_from_cookie(request, db)
+    if not user:
+        return RedirectResponse(url="/sport/login?redirect=/sport/favorites", status_code=302)
+    from app.web.pages.favorites import render_favorites_page
+    notice = request.query_params.get("notice") or ""
+    return HTMLResponse(content=await render_favorites_page(db, user, notice=notice, sport=True))
+
+
+@router.get("/sport/admin", include_in_schema=False)
+@router.get("/sport/admin/", include_in_schema=False)
+async def sport_admin_redirect():
+    """Единая админка: перенаправляет в общую панель модератора."""
+    return RedirectResponse(url="/admin", status_code=302)
+
+
 @router.get("/sport/business/dashboard", response_class=HTMLResponse, include_in_schema=False)
 async def sport_business_dashboard_page(
     request: Request,
@@ -608,12 +672,16 @@ async def profile_page(request: Request, db: AsyncSession = Depends(get_db)):
         # Что уйдёт вместе с аккаунтом — до кнопки, а не после (решение 0016).
         from app.services.departure import plan_account_departure
         departure = await plan_account_departure(db, user)
+    direction = request.query_params.get("direction")
+    if not direction and request.cookies.get("rumi_direction") == "sport":
+        direction = "sport"
     return HTMLResponse(content=render_profile_page(
         user,
         success=request.query_params.get("success"),
         error=request.query_params.get("error"),
         badges=await load_badges(db, user),
         departure=departure,
+        sport=(direction == "sport"),
     ))
 
 
@@ -634,7 +702,10 @@ async def bookings_page(
     notice = request.query_params.get("notice") or ""
     if not notice and request.query_params.get("reviewed") == "1":
         notice = "reviewed"
-    return HTMLResponse(content=await render_bookings_page(db, user, notice=notice))
+    direction = request.query_params.get("direction")
+    if not direction and request.cookies.get("rumi_direction") == "sport":
+        direction = "sport"
+    return HTMLResponse(content=await render_bookings_page(db, user, notice=notice, sport=(direction == "sport")))
 
 
 @router.get("/favorites", response_class=HTMLResponse)
@@ -652,7 +723,10 @@ async def favorites_page(request: Request, db: AsyncSession = Depends(get_db)):
             if request.query_params.get(flag) == "1":
                 notice = flag
                 break
-    return HTMLResponse(content=await render_favorites_page(db, user, notice=notice))
+    direction = request.query_params.get("direction")
+    if not direction and request.cookies.get("rumi_direction") == "sport":
+        direction = "sport"
+    return HTMLResponse(content=await render_favorites_page(db, user, notice=notice, sport=(direction == "sport")))
 
 
 @router.get("/business", response_class=HTMLResponse)
@@ -760,7 +834,7 @@ async def register_salon_page(request: Request, db: AsyncSession = Depends(get_d
     from app.web.pages.register_salon import render_register_salon_page
 
     user = await get_current_user_from_cookie(request, db)
-    if not user or user.role.value != "business":
+    if not user or (not user.has_role("business") and not user.has_role("admin")):
         return RedirectResponse(url="/login?redirect=/business/register-salon", status_code=302)
     return HTMLResponse(content=render_register_salon_page(user))
 
@@ -829,7 +903,7 @@ async def admin_page(request: Request, db: AsyncSession = Depends(get_db)):
     from app.web.pages.admin_panel import render_admin_panel
 
     user = await get_current_user_from_cookie(request, db)
-    if not user or user.role.value != "admin" or not user.is_active:
+    if not user or not user.has_role("admin") or not user.is_active:
         return RedirectResponse(url="/login?redirect=/admin", status_code=302)
 
     return HTMLResponse(content=await render_admin_panel(db, user, request.query_params))

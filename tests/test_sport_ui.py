@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 from starlette.requests import Request
 
+from app.models.models import UserRole
 from app.models.sport import SportOrganization
 from app.web.components.footer import render_footer
 from app.web.pages.login import render_login_page
@@ -87,6 +88,7 @@ def test_sport_auth_routes_precede_the_organization_slug_route():
     assert paths.index("/sport/login") < paths.index("/sport/{slug}")
     assert paths.index("/sport/register") < paths.index("/sport/{slug}")
     assert paths.index("/sport/logout") < paths.index("/sport/{slug}")
+    assert paths.index("/sport/admin") < paths.index("/sport/{slug}")
     assert paths.index("/sport/forgot-password") < paths.index("/sport/{slug}")
     assert paths.index("/sport/reset-password") < paths.index("/sport/{slug}")
     assert paths.index("/sport/legal") < paths.index("/sport/{slug}")
@@ -113,10 +115,29 @@ def test_sport_account_menu_stays_inside_sport():
     )
     menu = render_account_tag(user, "sport")
 
-    assert 'href="/sport/logout"' in menu
+    assert 'href="/sport/profile"' in menu
+    assert 'href="/sport/bookings"' in menu
+    assert 'href="/sport/favorites"' in menu
     assert 'href="/sport/clubs"' in menu
+    assert 'href="/sport/logout"' in menu
     assert 'href="/logout"' not in menu
     assert 'href="/profile"' not in menu
+    assert 'href="/sport/admin"' not in menu
+
+
+def test_sport_account_menu_shows_admin_link_for_admin():
+    admin_user = SimpleNamespace(
+        full_name="Администратор",
+        phone="+79991112233",
+        has_sport_access=False,
+        role=UserRole.ADMIN,
+        has_role=lambda r: r == "admin",
+    )
+    menu = render_account_tag(admin_user, "sport")
+
+    assert 'href="/sport/admin"' in menu
+    assert 'href="/sport/profile"' in menu
+    assert 'href="/sport/logout"' in menu
 
 
 def test_sport_footer_and_documents_use_sport_routes():
@@ -197,3 +218,40 @@ def test_sport_business_dashboard_renders_status_and_role_cards():
     assert "Опубликован" in page
     assert "Владелец" in page
     assert 'href="/sport/club-test/admin"' in page
+
+
+def test_sport_manifest_page_renders_sport_design():
+    from app.web.pages.sport_about import render_sport_about_page
+    page = render_sport_about_page()
+
+    assert '<body class="sport-directory sport-about">' in page
+    assert "Манифест | Руми Спорт" in page
+    assert "Мы убрали из спорта всё лишнее. Остались <em>вы и тренер</em>." in page
+    assert 'href="/sport/clubs"' in page
+    assert "Найти клуб" in page
+    assert "Мы стали партнёрами Т-Банка" in page
+
+
+def test_sport_profile_has_no_modeling():
+    from app.web.pages.profile import render_profile_page
+    user = SimpleNamespace(
+        id=1,
+        full_name="Спорт Клиент",
+        phone="+79991112233",
+        email="sport@client.ru",
+        city="Москва",
+        avatar_url="",
+        role=SimpleNamespace(value="client"),
+        created_at=None,
+        is_model=True,
+    )
+    page = render_profile_page(user, sport=True)
+
+    assert '<body class="page-body sport-directory">' in page
+    assert "Мой профиль — Руми Спорт" in page
+    assert 'href="/sport/profile"' in page
+    assert 'href="/sport/bookings"' in page
+    assert 'href="/sport/favorites"' in page
+    assert "Статус «Модель»" not in page
+    assert "Стать моделью" not in page
+

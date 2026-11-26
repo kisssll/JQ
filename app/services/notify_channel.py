@@ -108,16 +108,16 @@ def broken_channels(user: Optional[User]) -> list[NotifyChannel]:
 
 def _address(user: User, channel: NotifyChannel, audience):
     if channel == NotifyChannel.TG:
-        return user.tg_chat_id
+        return getattr(user, "tg_chat_id", None)
     if channel == NotifyChannel.MAX:
-        return user.max_chat_id
+        return getattr(user, "max_chat_id", None)
     if channel == NotifyChannel.VK:
         if audience is None:
             linked = _linked_vk(user)
-            return getattr(user, linked[0].peer_field) if linked else None
+            return getattr(user, linked[0].peer_field, None) if linked else None
         return getattr(user, vk_community.get(audience).peer_field, None)
     if channel == NotifyChannel.EMAIL:
-        return (user.email or "").strip() or None
+        return (getattr(user, "email", None) or "").strip() or None
     return None
 
 
@@ -125,7 +125,7 @@ def _resolve(user: Optional[User], audience) -> tuple[NotifyChannel, Optional[ob
     if user is None:
         return NotifyChannel.NONE, None
 
-    preferred = user.notify_channel or NotifyChannel.NONE
+    preferred = getattr(user, "notify_channel", None) or NotifyChannel.NONE
     for channel in (preferred, NotifyChannel.TG, NotifyChannel.MAX, NotifyChannel.VK,
                     NotifyChannel.EMAIL):
         if channel == NotifyChannel.NONE:

@@ -261,6 +261,10 @@ async def render_master_detail(db: AsyncSession, master_id: int, user=None,
             }
             for s in services
         ],
+        "hair_survey": {
+            "enabled": bool(master.hair_survey_enabled),
+            "settings": master.hair_survey_settings or {},
+        },
     }]
     user_payload = {"id": user.id, "full_name": user.full_name, "phone": user.phone} if user else None
 

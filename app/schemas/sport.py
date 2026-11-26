@@ -28,6 +28,7 @@ class SportTrainingResponse(BaseModel):
     gym: str
     discipline: str
     active: bool
+    color: str = "red"
 
 
 class SportScheduleResponse(BaseModel):
@@ -45,6 +46,7 @@ class SportTrainingUpdate(BaseModel):
     gym: str = Field(min_length=1, max_length=200)
     discipline: str = Field(min_length=1, max_length=120)
     active: bool
+    color: str = Field(default="red", pattern=r"^(red|#[0-9a-fA-F]{6})$")
 
     @field_validator("days")
     @classmethod
@@ -231,7 +233,7 @@ class SportCoachBookingCreate(BaseModel):
 class SportStaffInvite(BaseModel):
     phone: str = Field(min_length=6, max_length=24)
     full_name: str = Field(min_length=2, max_length=100)
-    role: Literal["manager", "admin", "trainer"] = "admin"
+    role: Literal["owner", "manager", "admin", "trainer"] = "admin"
     permissions: dict[str, bool] = Field(default_factory=dict)
 
 
@@ -239,6 +241,7 @@ class SportScheduleClosureCreate(BaseModel):
     coach_id: Optional[int] = None
     venue_id: Optional[int] = None
     date: date
+    date_to: Optional[date] = None
     reason: str = Field(default="", max_length=255)
 
 

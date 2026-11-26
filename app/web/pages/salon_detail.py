@@ -188,6 +188,10 @@ async def _load_masters(db: AsyncSession, salon_id: int):
             "avatar": (mu.avatar_url if mu else "") or "",
             "portfolio": photos.get(m.id, []),
             "services": by_master.get(m.id, []),
+            "hair_survey": {
+                "enabled": bool(m.hair_survey_enabled),
+                "settings": m.hair_survey_settings or {},
+            },
         })
     # Вторым значением — те же мастера объектами: по ним public_words решает
     # «соло или команда», и повторная выборка ради этого была бы лишним кругом.

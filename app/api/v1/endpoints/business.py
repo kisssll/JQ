@@ -202,8 +202,10 @@ async def create_or_update_salon(
         salon.name = name
         salon.description = description
         salon.address = address
+        from app.web.cities import normalize_city
         if city.strip():
-            salon.city = city.strip()
+            canonical_city = normalize_city(city)
+            salon.city = canonical_city or city.strip()
         salon.phone = phone
         salon.email = email.strip() or None
         await db.commit()
@@ -228,13 +230,16 @@ async def create_or_update_salon(
             status_code=400,
         )
 
-    from app.web.cities import RUSSIAN_CITIES
-    if city not in RUSSIAN_CITIES:
+    from app.web.cities import normalize_city
+    canonical_city = normalize_city(city) if city and city.strip() else None
+    if city and city.strip() and canonical_city is None:
         from app.web.pages.register_salon import render_register_salon_page
         return HTMLResponse(
             content=render_register_salon_page(user, error="Выберите город из списка."),
             status_code=400,
         )
+    if canonical_city:
+        city = canonical_city
 
     # С подключённым геокодером (YANDEX_MAPS_API_KEY) адрес обязан прийти
     # с координатами из подсказок — иначе салон получил бы московские

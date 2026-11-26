@@ -168,6 +168,15 @@ async def _gym_access(request: Request, db: AsyncSession, organization_id: int):
             )
         )
     ).scalar_one_or_none()
+    if membership is None and coach is None and (user.has_role(UserRole.ADMIN) or getattr(user, "is_admin", False)):
+        membership = SportGymMember(
+            organization_id=organization_id,
+            user_id=user.id,
+            role="owner",
+            permissions=dict(SPORT_OWNER_PERMISSIONS),
+            is_creator=True,
+            is_active=True,
+        )
     return user, membership, coach
 
 
@@ -257,6 +266,20 @@ async def get_sport_schedule(
             )
         )
     ).all()
+    closures = (await db.execute(select(SportScheduleClosure).where(
+        SportScheduleClosure.organization_id == organization.id,
+        SportScheduleClosure.date >= today,
+        SportScheduleClosure.date <= today + timedelta(days=14),
+    ))).scalars().all()
+    closure_coaches = {item.id: item.name for item in (await db.execute(select(SportCoach).where(
+        SportCoach.organization_id == organization.id,
+    ))).scalars().all()}
+    closed_slots = {
+        f"{closed.date}:{training.code}": False
+        for closed in closures for training in trainings
+        if (closed.coach_id is None or closed.coach_id == training.coach_id or closure_coaches.get(closed.coach_id) == training.coach)
+        and (closed.venue_id is None or closed.venue_id == training.venue_id)
+    }
     return SportScheduleResponse(
         organization=_organization_response(organization),
         trainings=[
@@ -269,13 +292,14 @@ async def get_sport_schedule(
                 gym=item.gym,
                 discipline=item.discipline,
                 active=item.is_active,
+                color=item.color,
             )
             for item in trainings
         ],
-        exceptions={
+        exceptions={**closed_slots, **{
             f"{item.class_date}:{code}": False
             for item, code in exceptions
-        },
+        }},
     )
 
 
@@ -815,6 +839,7 @@ async def update_sport_schedule(
                 gym=item.gym,
                 discipline=item.discipline,
                 is_active=item.active,
+                color=item.color,
             )
             db.add(training)
             added_training = True
@@ -825,6 +850,7 @@ async def update_sport_schedule(
         training.gym = item.gym
         training.discipline = item.discipline
         training.is_active = item.active
+        training.color = item.color
         training.coach_id = (
             coach.id
             if coach is not None and membership is None
@@ -992,8 +1018,8 @@ async def add_sport_staff(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     user, membership, _ = await _gym_access(request, db, organization.id)
-    if role not in {"admin", "manager", "trainer"}:
-        raise HTTPException(status_code=400, detail="Допустимые роли: manager, admin или trainer")
+    if role not in {"admin", "manager", "trainer", "owner"}:
+        raise HTTPException(status_code=400, detail="Допустимые роли: owner, manager, admin или trainer")
     if role == "trainer" and not _can_assign_sport_permissions(membership):
         raise HTTPException(403, "Карточки тренеров на сайте редактирует владелец клуба")
     if not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
@@ -1025,7 +1051,7 @@ async def add_sport_staff(
     elif staff_user.is_guest and not staff_user.full_name:
         staff_user.full_name = name
 
-    if role in ("admin", "manager"):
+    if role in ("admin", "manager", "owner"):
         existing = await db.scalar(
             select(SportGymMember).where(
                 SportGymMember.organization_id == organization.id,
@@ -1034,10 +1060,15 @@ async def add_sport_staff(
         )
         if existing is not None and existing.is_active:
             raise HTTPException(status_code=409, detail="Сотрудник уже состоит в команде клуба")
-        if existing is not None and (existing.is_creator or existing.role == "owner"):
-            raise HTTPException(403, "Нельзя изменить роль владельца")
-        perms = SPORT_MANAGER_PERMISSIONS if role == "manager" else SPORT_ADMIN_PERMISSIONS
-        if membership.role != "owner" and not membership.is_creator:
+        if existing is not None and existing.is_creator and role != "owner":
+            raise HTTPException(403, "Нельзя изменить роль создателя")
+        if role == "owner":
+            perms = dict(SPORT_OWNER_PERMISSIONS)
+        elif role == "manager":
+            perms = dict(SPORT_MANAGER_PERMISSIONS)
+        else:
+            perms = dict(SPORT_ADMIN_PERMISSIONS)
+        if membership and membership.role != "owner" and not membership.is_creator:
             actor_permissions = _sport_permissions(membership)
             perms = {key: allowed and actor_permissions[key] for key, allowed in perms.items()}
         if existing is not None:
@@ -1052,8 +1083,11 @@ async def add_sport_staff(
                 role=role,
                 permissions=perms,
                 is_active=True,
+                is_creator=False,
             )
             db.add(staff)
+        if role == "owner" and staff_user.role == UserRole.CLIENT:
+            staff_user.role = UserRole.BUSINESS
     else:
         existing = await db.scalar(
             select(SportCoach).where(
@@ -1193,11 +1227,11 @@ async def remove_sport_staff(
     if organization is None:
         raise HTTPException(status_code=404, detail="Спортивная организация не найдена")
     _, membership, _ = await _gym_access(request, db, organization.id)
-    if role not in {"admin", "manager", "trainer"} or not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
+    if role not in {"admin", "manager", "trainer", "owner"} or not _can_sport(membership, _SPORT_STAFF_PERMISSIONS[role]):
         raise HTTPException(403, "Нет прав для удаления сотрудника с этой ролью")
     if role == "trainer" and not _can_assign_sport_permissions(membership):
         raise HTTPException(403, "Карточки тренеров на сайте редактирует владелец клуба")
-    if role in ("admin", "manager"):
+    if role in ("admin", "manager", "owner"):
         staff = (await db.execute(
             select(SportGymMember).where(
                 SportGymMember.id == staff_id,
@@ -1491,8 +1525,15 @@ async def delete_sparta_document(request: Request, slug: str, document_id: str, 
 
 
 @router.post("/organizations/{slug}/manage/site-photo")
-async def upload_sport_site_photo(request: Request, slug: str, photo: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    await _sport_site_owner(request, db, slug)
+async def upload_sport_site_photo(request: Request, slug: str, photo: UploadFile = File(...), section: str = Form(""), db: AsyncSession = Depends(get_db)):
+    organization = await _sport_site_owner(request, db, slug)
+    if section == "gallery":
+        count = await db.scalar(select(func.count(SportGalleryImage.id)).where(
+            SportGalleryImage.organization_id == organization.id,
+            SportGalleryImage.is_active.is_(True),
+        ))
+        if count >= 16:
+            raise HTTPException(400, "В галерее может быть не более 16 фотографий")
     try:
         return {"url": await save_image(photo, "sport-site")}
     except UploadError as exc:
@@ -1720,6 +1761,12 @@ async def create_sport_gallery_image(
     _, membership, _ = await _gym_access(request, db, organization.id)
     if not _can_assign_sport_permissions(membership):
         raise HTTPException(status_code=403, detail="Недостаточно прав для добавления фото")
+    photo_count = await db.scalar(select(func.count(SportGalleryImage.id)).where(
+        SportGalleryImage.organization_id == organization.id,
+        SportGalleryImage.is_active.is_(True),
+    ))
+    if photo_count >= 16:
+        raise HTTPException(status_code=400, detail="В галерее может быть не более 16 фотографий")
     image = SportGalleryImage(
         organization_id=organization.id,
         image_url=data.image_url.strip(),
@@ -2016,12 +2063,31 @@ async def delete_sport_gallery_image(
         raise HTTPException(status_code=404, detail="Фотография не найдена")
     image.is_active = False
     await db.commit()
+    delete_stored(image.image_url)
     return {"ok": True}
 
 
 # ==========================================
 # 1. ЗАКРЫТИЯ КАЛЕНДАРЯ / ВЫХОДНЫЕ ТРЕНЕРОВ
 # ==========================================
+
+@router.get("/organizations/{slug}/closures")
+async def list_sport_closures(request: Request, slug: str, db: AsyncSession = Depends(get_db)):
+    organization = await _organization(db, slug, published_only=False)
+    if organization is None:
+        raise HTTPException(404, "Спортивная организация не найдена")
+    _, membership, coach = await _gym_access(request, db, organization.id)
+    if not _can_sport(membership, "manage_schedule") and coach is None:
+        raise HTTPException(403, "Недостаточно прав")
+    query = select(SportScheduleClosure).where(
+        SportScheduleClosure.organization_id == organization.id,
+        SportScheduleClosure.date >= datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date(),
+    ).order_by(SportScheduleClosure.date).limit(500)
+    if membership is None:
+        query = query.where(SportScheduleClosure.coach_id == coach.id)
+    rows = (await db.execute(query)).scalars().all()
+    return [{"id": row.id, "coach_id": row.coach_id, "venue_id": row.venue_id,
+             "date": row.date.isoformat(), "reason": row.reason} for row in rows]
 
 @router.post("/organizations/{slug}/closures")
 async def create_sport_closure(
@@ -2046,17 +2112,46 @@ async def create_sport_closure(
     )):
         raise HTTPException(404, "Зал не найден")
 
-    closure = SportScheduleClosure(
-        organization_id=organization.id,
-        coach_id=data.coach_id,
-        venue_id=data.venue_id,
-        date=data.date,
-        reason=data.reason.strip(),
+    last = data.date_to or data.date
+    if last < data.date or (last - data.date).days > 90:
+        raise HTTPException(400, "Период должен быть от 1 до 91 дня")
+    existing = set((await db.scalars(select(SportScheduleClosure.date).where(
+        SportScheduleClosure.organization_id == organization.id,
+        SportScheduleClosure.coach_id == data.coach_id,
+        SportScheduleClosure.venue_id == data.venue_id,
+        SportScheduleClosure.date >= data.date,
+        SportScheduleClosure.date <= last,
+    ))).all())
+    new_closures = []
+    for offset in range((last - data.date).days + 1):
+        closed_date = data.date + timedelta(days=offset)
+        if closed_date not in existing:
+            closure = SportScheduleClosure(
+                organization_id=organization.id, coach_id=data.coach_id,
+                venue_id=data.venue_id, date=closed_date, reason=data.reason.strip(),
+            )
+            db.add(closure)
+            new_closures.append(closure)
+    await db.flush()
+    closed_coach_name = await db.scalar(select(SportCoach.name).where(
+        SportCoach.id == data.coach_id, SportCoach.organization_id == organization.id,
+    )) if data.coach_id is not None else None
+    affected_trainings = select(SportTraining.id).where(
+        SportTraining.organization_id == organization.id,
+        *((or_(SportTraining.coach_id == data.coach_id, SportTraining.coach == closed_coach_name),) if data.coach_id is not None else ()),
+        *((SportTraining.venue_id == data.venue_id,) if data.venue_id is not None else ()),
     )
-    db.add(closure)
+    cancelled_bookings = await db.execute(update(SportBooking).where(
+        SportBooking.organization_id == organization.id,
+        SportBooking.training_id.in_(affected_trainings),
+        SportBooking.requested_date >= data.date,
+        SportBooking.requested_date <= last,
+        SportBooking.status.in_(["pending", "new", "confirmed"]),
+    ).values(status="cancelled"))
     await db.commit()
-    await db.refresh(closure)
-    return {"ok": True, "id": closure.id, "date": closure.date.isoformat(), "reason": closure.reason}
+    return {"ok": True, "id": new_closures[0].id if new_closures else None,
+            "date": data.date.isoformat(), "date_to": last.isoformat(),
+            "reason": data.reason.strip(), "cancelled_bookings": cancelled_bookings.rowcount}
 
 
 @router.delete("/organizations/{slug}/closures/{closure_id}")
@@ -2473,6 +2568,19 @@ async def create_sport_booking(
         )
         if cancelled is not None:
             raise HTTPException(status_code=409, detail="Эта тренировка отменена")
+        closed_coach_ids = select(SportCoach.id).where(
+            SportCoach.organization_id == organization.id, SportCoach.name == training.coach,
+        )
+        closed = await db.scalar(select(SportScheduleClosure.id).where(
+            SportScheduleClosure.organization_id == organization.id,
+            SportScheduleClosure.date == data.booking_date,
+            or_(SportScheduleClosure.coach_id.is_(None),
+                SportScheduleClosure.coach_id == training.coach_id,
+                SportScheduleClosure.coach_id.in_(closed_coach_ids)),
+            (SportScheduleClosure.venue_id.is_(None) | (SportScheduleClosure.venue_id == training.venue_id)),
+        ))
+        if closed is not None:
+            raise HTTPException(status_code=409, detail="Тренировка отменена на эту дату")
     else:
         today = datetime.now(ZoneInfo(settings.DEFAULT_TIMEZONE)).date()
         if data.booking_date is not None and data.booking_date < today:

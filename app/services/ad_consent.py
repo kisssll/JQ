@@ -64,11 +64,13 @@ TOKEN_TTL_SECONDS = 30 * 24 * 3600
 
 
 def is_consented(user: User | None) -> bool:
-    return bool(user and (user.tg_notify_prefs or {}).get(TOPIC_PROMOS) is True)
+    prefs = getattr(user, "tg_notify_prefs", None) or {}
+    return bool(user and prefs.get(TOPIC_PROMOS) is True)
 
 
 def was_asked(user: User | None) -> bool:
-    return bool(user and (user.tg_notify_prefs or {}).get(ASKED_KEY))
+    prefs = getattr(user, "tg_notify_prefs", None) or {}
+    return bool(user and prefs.get(ASKED_KEY))
 
 
 async def grant(

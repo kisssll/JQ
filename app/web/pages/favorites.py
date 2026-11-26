@@ -58,10 +58,10 @@ def _heart(kind: str, obj_id: int) -> str:
     )
 
 
-async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str:
-    """Страница избранного. Запросов постоянное число: само избранное,
-    карточки салонов (одним запросом на все плюс один на их содержимое),
-    мастера, их пользователи и салоны — пачками."""
+async def render_favorites_page(db: AsyncSession, user, notice: str = "", sport: bool = False) -> str:
+    """Страница избранного (бьюти или спорт)."""
+    if sport:
+        return await _render_sport_favorites_page(db, user, notice=notice)
     favorites = (await db.execute(
         select(Favorite).where(Favorite.user_id == user.id)
         .order_by(Favorite.created_at.desc())
@@ -201,3 +201,42 @@ async def render_favorites_page(db: AsyncSession, user, notice: str = "") -> str
         element_id="favSheet", title="Убрать из избранного?")}
 </body>
 </html>"""
+
+
+async def _render_sport_favorites_page(db: AsyncSession, user, notice: str = "") -> str:
+    from app.services.cabinet_badge import load_badges
+    badges = await load_badges(db, user)
+
+    body = ui.empty_state(
+        "В избранном пока нет клубов",
+        text="Сохраняйте понравившиеся спортивные клубы, чтобы быстро переходить к расписанию тренировок.",
+        action_label="Каталог клубов",
+        action_href="/sport/clubs",
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Избранное — Руми Спорт</title>
+    <meta name="robots" content="noindex, nofollow">
+    {get_base_styles()}
+</head>
+<body class="page-body sport-directory">
+    {render_header("sport_favorites", user)}
+
+    <main class="main-content cabinet-main favorites-main">
+        {render_cabinet(
+            user, "favorites", "Избранное",
+            "Спортивные клубы и тренеры, к которым вы хотите вернуться.",
+            body,
+            action=("Каталог клубов", "/sport/clubs"),
+            badge=badges,
+            sport=True,
+        )}
+        {render_footer(user, sport=True)}
+    </main>
+</body>
+</html>"""
+

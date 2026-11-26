@@ -24,7 +24,7 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import (
-    Salon, SalonPhoto,
+    Salon, SalonPhoto, Master,
     SalonChain, SalonChainRequest, SalonChainRequestStatus,
 )
 from app.services.salon_chain_service import pending_requests_for_salon_ids
@@ -519,6 +519,10 @@ async def render_solo_settings_groups(
     photos = (
         await db.execute(select(SalonPhoto).where(SalonPhoto.salon_id == salon.id).order_by(SalonPhoto.id))
     ).scalars().all()
+
+    master = (await db.execute(
+        select(Master).where(Master.salon_id == salon.id).order_by(Master.id)
+    )).scalars().first()
 
     public_html = f"""
         {_icon_script()}

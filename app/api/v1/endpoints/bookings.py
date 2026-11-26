@@ -99,15 +99,79 @@ async def create_booking(
     if start_time < salon_now:
         raise HTTPException(status_code=400, detail="Нельзя записаться на прошедшее время.")
 
+    master = await db.get(Master, booking_data.master_id)
+
+    # Учет надбавок по стоимости и времени из интерактивной анкеты параметров волос
+    extra_price = 0
+    extra_duration = 0
+    if booking_data.hair_survey and master and master.hair_survey_enabled:
+        settings = master.hair_survey_settings or {}
+        # 1. Длина
+        if settings.get("q_length_enabled", True):
+            len_info = booking_data.hair_survey.get("length") or {}
+            len_id = str(len_info.get("id"))
+            len_rule = (settings.get("length_rules") or {}).get(len_id) or {}
+            extra_price += max(0, int(len_rule.get("price", 0)))
+            extra_duration += max(0, int(len_rule.get("duration", 0)))
+
+        # 2. Тип
+        if settings.get("q_type_enabled", True):
+            type_info = booking_data.hair_survey.get("type") or {}
+            type_id = str(type_info.get("id"))
+            type_rule = (settings.get("type_rules") or {}).get(type_id) or {}
+            extra_price += max(0, int(type_rule.get("price", 0)))
+            extra_duration += max(0, int(type_rule.get("duration", 0)))
+
+        # 3. Густота
+        if settings.get("q_density_enabled", True):
+            dens_info = booking_data.hair_survey.get("density") or {}
+            dens_id = str(dens_info.get("id"))
+            dens_rule = (settings.get("density_rules") or {}).get(dens_id) or {}
+            extra_price += max(0, int(dens_rule.get("price", 0)))
+            extra_duration += max(0, int(dens_rule.get("duration", 0)))
+
+        # 4. Кастомные теги / особенности
+        if settings.get("q_tags_enabled", True):
+            features = booking_data.hair_survey.get("features") or []
+            custom_tags = settings.get("custom_tags") or []
+            tag_map = {t["name"]: t for t in custom_tags if isinstance(t, dict) and "name" in t}
+            for f_name in features:
+                if f_name in tag_map:
+                    extra_price += max(0, int(tag_map[f_name].get("price", 0)))
+                    extra_duration += max(0, int(tag_map[f_name].get("duration", 0)))
+
+        # 5. Пользовательские вопросы из конструктора (Google Forms)
+        custom_answers = booking_data.hair_survey.get("custom_answers") or []
+        cq_settings = settings.get("custom_questions") or []
+        cq_map = {str(q.get("id")): q for q in cq_settings if isinstance(q, dict) and "id" in q}
+        for ca in custom_answers:
+            if isinstance(ca, dict):
+                qid = str(ca.get("question_id"))
+                q_def = cq_map.get(qid)
+                if q_def and q_def.get("enabled", True):
+                    opts = q_def.get("options") or []
+                    opt_map = {str(o.get("id")): o for o in opts if isinstance(o, dict) and "id" in o}
+                    selected_opts = ca.get("option_ids") or []
+                    if isinstance(selected_opts, str):
+                        selected_opts = [selected_opts]
+                    for oid in selected_opts:
+                        o_def = opt_map.get(str(oid))
+                        if o_def:
+                            extra_price += max(0, int(o_def.get("price", 0)))
+                            extra_duration += max(0, int(o_def.get("duration", 0)))
+
+    total_duration = service.duration_minutes + extra_duration
+
     is_available = await BookingService.is_slot_available(
-        db, booking_data.master_id, start_time, service.duration_minutes
+        db, booking_data.master_id, start_time, total_duration
     )
 
     if not is_available:
         raise HTTPException(status_code=409, detail="Это время уже занято")
 
-    final_price = await BookingService.calculate_price(current_user, service)
-    end_time = start_time + timedelta(minutes=service.duration_minutes)
+    base_price = await BookingService.calculate_price(current_user, service)
+    final_price = base_price + extra_price
+    end_time = start_time + timedelta(minutes=total_duration)
 
     # «Вечернее окно со скидкой»: если слот реально попадает в валидное вечернее
     # окно салона (ре-валидация на сервере — клиенту не доверяем), применяем
@@ -128,7 +192,8 @@ async def create_booking(
         end_time=end_time.replace(tzinfo=None),
         status=BookingStatus.PENDING,
         discount_percent=discount_percent,
-        final_price=final_price
+        final_price=final_price,
+        hair_survey=booking_data.hair_survey,
     )
     
     db.add(booking)
@@ -245,9 +310,10 @@ async def get_available_slots(
     master_id: int,
     date: str,
     service_id: int,
+    extra_duration: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    """Возвращает доступные слоты с учётом графика салона, услуги и перерыва."""
+    """Возвращает доступные слоты с учётом графика салона, услуги, перерыва и надбавки времени."""
     
     master = (await db.execute(
         select(Master).where(Master.id == master_id, live_master())
@@ -278,13 +344,14 @@ async def get_available_slots(
         return {"slots": [], "message": "Мастер не работает в этот день, день закрыт или график задан с ошибкой"}
 
     slots, gap, step = await BookingService.free_slots(
-        db, master_id, service, salon, target_date, intervals=intervals,
+        db, master_id, service, salon, target_date, intervals=intervals, extra_duration=extra_duration,
     )
 
     return {
         "date": date,
         "slots": slots,
         "service_duration": service.duration_minutes,
+        "extra_duration": extra_duration,
         "break": gap,
         "total_slot": step
     }

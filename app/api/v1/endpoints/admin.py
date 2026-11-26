@@ -6,7 +6,7 @@
 import logging
 import secrets
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ ASSIGNABLE_ROLES = {UserRole.CLIENT, UserRole.BUSINESS, UserRole.ADMIN}
 async def _get_admin(request: Request, db: AsyncSession):
     """Любой модератор (базовый или старший) — доступ к заявкам и жалобам на фото."""
     user = await get_current_user_from_cookie(request, db)
-    if not user or user.role != UserRole.ADMIN or not user.is_active:
+    if not user or not user.has_role(UserRole.ADMIN) or not user.is_active:
         return None
     return user
 
@@ -69,18 +69,13 @@ def _audit(db, actor_id, action, target_type, target_id, detail, salon_id=None):
 
 
 async def _active_admins_excluding(db, exclude_id) -> int:
-    q = select(func.count(User.id)).where(
-        User.role == UserRole.ADMIN, User.is_active == True, User.id != exclude_id
-    )
-    return (await db.execute(q)).scalar() or 0
+    users = (await db.execute(select(User).where(User.is_active == True, User.id != exclude_id))).scalars().all()
+    return sum(1 for u in users if u.has_role(UserRole.ADMIN))
 
 
 async def _active_seniors_excluding(db, exclude_id) -> int:
-    q = select(func.count(User.id)).where(
-        User.role == UserRole.ADMIN, User.is_active == True,
-        User.is_senior_admin == True, User.id != exclude_id,
-    )
-    return (await db.execute(q)).scalar() or 0
+    users = (await db.execute(select(User).where(User.is_active == True, User.is_senior_admin == True, User.id != exclude_id))).scalars().all()
+    return sum(1 for u in users if u.has_role(UserRole.ADMIN))
 
 
 def _back(tab: str, ok: str = "", err: str = "", extra: str = "") -> RedirectResponse:
@@ -120,12 +115,87 @@ async def change_role(uid: int, request: Request, role: str = Form(...), db: Asy
     old = target.role.value
     # Роль ушла с ADMIN — теряется и старшинство, чтобы не оставалось
     # мёртвого senior-флага на пользователе без прав модератора.
-    if new_role != UserRole.ADMIN:
+    if new_role != UserRole.ADMIN and "admin" not in (target.additional_roles or []):
         target.is_senior_admin = False
     target.role = new_role
     _audit(db, admin.id, "change_role", "user", target.id, f"{target.phone}: {old} → {new_role.value}")
     await db.commit()
     return _back("users", ok=f"Роль {target.phone}: {old} → {new_role.value}")
+
+
+@router.post("/users/assign-roles")
+async def assign_user_roles(
+    request: Request,
+    phone: str = Form(""),
+    user_id: Optional[int] = Form(None),
+    roles: List[str] = Form(default=[]),
+    is_senior: Optional[str] = Form(None),
+    return_tab: str = Form("overview"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Назначение нескольких ролей пользователю (например: модератор + владелец бизнеса)."""
+    from app.schemas.user import try_normalize_phone
+
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    target = None
+    if user_id:
+        target = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    elif phone:
+        normalized = try_normalize_phone(phone)
+        if normalized:
+            target = (await db.execute(select(User).where(User.phone == normalized))).scalar_one_or_none()
+        if not target:
+            target = (await db.execute(select(User).where(User.phone == phone.strip()))).scalar_one_or_none()
+
+    if not target:
+        return _back(return_tab, err="Пользователь с указанным телефоном не найден")
+
+    if target.id == admin.id:
+        return _back(return_tab, err="Нельзя менять роли самому себе")
+
+    allowed_roles = {"admin", "business", "master", "model", "client"}
+    selected = [r.strip() for r in roles if r.strip() in allowed_roles]
+    if not selected:
+        selected = ["client"]
+
+    has_admin_role = "admin" in selected
+    senior_flag = bool(is_senior and str(is_senior).lower() in ("1", "true", "on"))
+
+    # Защита от разжалования последнего администратора / старшего модератора
+    if target.has_role(UserRole.ADMIN) and not has_admin_role and await _active_admins_excluding(db, target.id) == 0:
+        return _back(return_tab, err="Нельзя разжаловать последнего администратора")
+    if target.has_role(UserRole.ADMIN) and target.is_senior_admin and (not has_admin_role or not senior_flag) and await _active_seniors_excluding(db, target.id) == 0:
+        return _back(return_tab, err="Нельзя разжаловать последнего старшего модератора")
+
+    primary = "client"
+    for r in ["admin", "business", "master", "model", "client"]:
+        if r in selected:
+            primary = r
+            break
+
+    target.role = UserRole(primary)
+    target.additional_roles = [r for r in selected if r != primary]
+    target.is_model = "model" in selected
+    target.is_senior_admin = senior_flag if has_admin_role else False
+
+    role_ru = {
+        "admin": "Модератор",
+        "business": "Бизнес",
+        "master": "Мастер",
+        "model": "Модель",
+        "client": "Клиент",
+    }
+    roles_str = ", ".join(role_ru.get(r, r) for r in selected)
+    if target.is_senior_admin:
+        roles_str += " (старший)"
+
+    _audit(db, admin.id, "assign_roles", "user", target.id, f"{target.phone}: роли → {roles_str}")
+    await db.commit()
+
+    return _back(return_tab, ok=f"Пользователю {target.phone} назначены роли: {roles_str}")
 
 
 @router.post("/salons/{sid}/grant-trial")
@@ -161,6 +231,58 @@ async def grant_trial(sid: int, request: Request, days: int = Form(30),
            salon_id=salon.id)
     await db.commit()
     return _back("salons", ok=f"«{salon.name}»: пробный период до {ends:%d.%m.%Y}")
+
+
+@router.post("/subscription/extend-free")
+async def extend_free_subscription(
+    request: Request,
+    target: str = Form(...),
+    days: int = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Добавить бесплатные дни выбранному салону или модели."""
+    from app.models.models import Salon, User
+    from app.services.subscription import SubscriptionError, extend_free_period
+
+    admin = await _get_senior_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    try:
+        target_type, target_id_raw = target.split(":", 1)
+        target_id = int(target_id_raw)
+    except (ValueError, TypeError):
+        return _back("salons", err="Некорректный получатель продления")
+
+    if target_type == "salon":
+        entity = (await db.execute(select(Salon).where(Salon.id == target_id))).scalar_one_or_none()
+        display_name = f"салону «{entity.name}»" if entity else ""
+        salon_id = target_id
+    elif target_type == "model":
+        entity = (await db.execute(select(User).where(User.id == target_id, User.is_model == True))).scalar_one_or_none()  # noqa: E712
+        display_name = f"модели «{entity.full_name or entity.phone}»" if entity else ""
+        salon_id = None
+    else:
+        entity = None
+        display_name = ""
+        salon_id = None
+
+    if not entity:
+        return _back("salons", err="Салон или модель не найдены")
+    try:
+        ends = extend_free_period(entity, days)
+    except SubscriptionError as exc:
+        return _back("salons", err=str(exc))
+
+    _audit(
+        db, admin.id, "extend_free_period", target_type, entity.id,
+        f"{display_name}: добавлено бесплатных дней — {days}, "
+        f"новый срок до {ends:%d.%m.%Y}",
+        salon_id=salon_id,
+    )
+    await db.commit()
+    return _back("salons", ok=f"{display_name}: бесплатный период до {ends:%d.%m.%Y}")
+
 
 
 @router.post("/users/{uid}/grant-trial")
@@ -671,6 +793,142 @@ async def sport_organization_owner(
     )
     await db.commit()
     return _back("sport", ok=f"«{organization.name}»: владелец → {normalized_phone}")
+
+
+@router.post("/sport/organizations/{organization_id}/add-owner")
+async def sport_organization_add_owner(
+    organization_id: int,
+    request: Request,
+    owner_phone: str = Form(""),
+    owner_name: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+):
+    """Назначить совладельца спортивного клуба (доступно любому модератору)."""
+    admin = await _get_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    organization = await db.scalar(
+        select(SportOrganization).where(SportOrganization.id == organization_id)
+    )
+    if not organization:
+        return _back("sport", err="Спортивный клуб не найден")
+
+    from app.models.sport import SPORT_OWNER_PERMISSIONS
+    from app.schemas.user import try_normalize_phone
+
+    owner_phone = owner_phone.strip()
+    if not owner_phone:
+        return _back("sport", err="Укажите номер телефона владельца")
+
+    normalized_phone = try_normalize_phone(owner_phone)
+    if normalized_phone is None:
+        return _back("sport", err="Проверьте номер телефона владельца")
+
+    owner = await db.scalar(select(User).where(User.phone == normalized_phone))
+    if owner is None:
+        import secrets
+        from app.core.security import get_password_hash
+        display_name = (owner_name or "").strip() or "Владелец"
+        owner = User(
+            phone=normalized_phone,
+            full_name=display_name,
+            hashed_password=get_password_hash(secrets.token_urlsafe(12)),
+            role=UserRole.BUSINESS,
+            is_active=True,
+            is_guest=False,
+        )
+        db.add(owner)
+        await db.flush()
+
+    membership = await db.scalar(
+        select(SportGymMember).where(
+            SportGymMember.organization_id == organization.id,
+            SportGymMember.user_id == owner.id,
+        ).with_for_update()
+    )
+
+    is_first = organization.creator_id is None
+    if membership is None:
+        membership = SportGymMember(
+            organization_id=organization.id,
+            user_id=owner.id,
+            role="owner",
+            permissions=dict(SPORT_OWNER_PERMISSIONS),
+            is_creator=is_first,
+            is_active=True,
+        )
+        db.add(membership)
+    else:
+        membership.role = "owner"
+        membership.permissions = dict(SPORT_OWNER_PERMISSIONS)
+        membership.is_active = True
+        if is_first:
+            membership.is_creator = True
+
+    if is_first:
+        organization.creator_id = owner.id
+    if owner.role != UserRole.ADMIN:
+        owner.role = UserRole.BUSINESS
+
+    _audit(
+        db, admin.id, "sport_organization_add_owner", "sport_organization",
+        organization.id, f"{organization.name}: добавлен владелец → {normalized_phone}",
+    )
+    await db.commit()
+    return _back("sport", ok=f"«{organization.name}»: добавлен владелец → {normalized_phone}")
+
+
+@router.post("/sport/organizations/{organization_id}/remove-owner")
+async def sport_organization_remove_owner(
+    organization_id: int,
+    request: Request,
+    user_id: int = Form(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Снять владельца спортивного клуба (доступно любому модератору)."""
+    admin = await _get_admin(request, db)
+    if not admin:
+        return RedirectResponse("/login?redirect=/admin", status_code=302)
+
+    organization = await db.scalar(
+        select(SportOrganization).where(SportOrganization.id == organization_id)
+    )
+    if not organization:
+        return _back("sport", err="Спортивный клуб не найден")
+
+    membership = await db.scalar(
+        select(SportGymMember).where(
+            SportGymMember.organization_id == organization.id,
+            SportGymMember.user_id == user_id,
+            SportGymMember.is_active.is_(True),
+        ).with_for_update()
+    )
+    if not membership:
+        return _back("sport", err="Владелец не найден")
+
+    membership.is_active = False
+    if membership.is_creator:
+        membership.is_creator = False
+        organization.creator_id = None
+        other = await db.scalar(
+            select(SportGymMember).where(
+                SportGymMember.organization_id == organization.id,
+                SportGymMember.user_id != user_id,
+                SportGymMember.role == "owner",
+                SportGymMember.is_active.is_(True),
+            )
+        )
+        if other:
+            other.is_creator = True
+            organization.creator_id = other.user_id
+
+    _audit(
+        db, admin.id, "sport_organization_remove_owner", "sport_organization",
+        organization.id, f"{organization.name}: снят владелец id={user_id}",
+    )
+    await db.commit()
+    return _back("sport", ok=f"«{organization.name}»: владелец снят")
 
 
 @router.post("/sport/organizations/{organization_id}/approve")

@@ -331,6 +331,36 @@ def start_trial(target, trial_days: int, at: Optional[datetime] = None,
     return trial_ends_at
 
 
+def extend_free_period(target, days: int, at: Optional[datetime] = None) -> datetime:
+    """Добавить ручные бесплатные дни к текущему сроку доступа.
+
+    Ручное продление считается продолжением триала: это явно отражается
+    статусом ``TRIALING`` и сохраняет стандартный запас доступа после его
+    окончания. Если срок уже закончился, отсчёт начинается с текущего момента.
+    """
+    if not isinstance(days, int) or days < 1 or days > 3650:
+        raise SubscriptionError("Количество дней должно быть от 1 до 3650")
+
+    now = _aware(at) or _now()
+    current_values = (
+        _aware(getattr(target, "trial_ends_at", None)),
+        _aware(getattr(target, "subscription_expires_at", None)),
+    )
+    base = max((value for value in current_values if value is not None), default=now)
+    if base < now:
+        base = now
+
+    trial_ends_at = base + timedelta(days=days)
+    target.trial_ends_at = trial_ends_at
+    target.subscription_expires_at = trial_ends_at
+    target.access_until = access_until_for_trial(trial_ends_at)
+    from app.models.models import SalonSubscriptionStatus
+    target.subscription_status = SalonSubscriptionStatus.TRIALING
+    if getattr(target, "trial_used_at", None) is None:
+        target.trial_used_at = now
+    return trial_ends_at
+
+
 def trial_available(target) -> bool:
     """Можно ли выдать бесплатный период (один раз на салон/модель)."""
     return getattr(target, "trial_used_at", None) is None

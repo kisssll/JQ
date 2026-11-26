@@ -93,7 +93,16 @@ def parse_salon_query(request, default_city: str = "") -> SalonQuery:
     lat = qp.get("lat")
     lon = qp.get("lon")
     city_param = qp.get("city")
-    city = default_city if city_param is None else city_param.strip()
+    if city_param is None:
+        city = default_city
+    else:
+        from app.web.cities import normalize_city
+        city_candidate = city_param.strip()
+        if city_candidate == "":
+            city = city_candidate
+        else:
+            canonical = normalize_city(city_candidate)
+            city = canonical or city_candidate
     return SalonQuery(
         q=(qp.get("q", "") or "").strip(),
         city=city,

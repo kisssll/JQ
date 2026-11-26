@@ -16,6 +16,12 @@ CABINET_SECTIONS = (
     ("favorites", "/favorites", "Избранное"),
 )
 
+SPORT_CABINET_SECTIONS = (
+    ("profile", "/sport/profile", "Мой профиль"),
+    ("bookings", "/sport/bookings", "Мои записи"),
+    ("favorites", "/sport/favorites", "Избранное"),
+)
+
 
 def plural(n: int, one: str, few: str, many: str) -> str:
     """Русское склонение подписи под числом: «1 салон», «2 салона», «5 салонов».
@@ -50,7 +56,8 @@ def _stats(stats) -> str:
 
 def render_cabinet(user, current: str, title: str, lead: str, content: str, *,
                    action: tuple[str, str] | None = None, stats=None,
-                   badge: str | list[str] = "", extra_class: str = "") -> str:
+                   badge: str | list[str] = "", extra_class: str = "",
+                   sport: bool = False) -> str:
     """``action`` — (подпись, адрес) пилюли справа от заголовка; ``stats`` —
     [(число, подпись)], только реальные; ``badge`` — подписи подписок, которые
     у человека есть по-настоящему (app/services/cabinet_badge.py), иначе пусто."""
@@ -61,8 +68,10 @@ def render_cabinet(user, current: str, title: str, lead: str, content: str, *,
              if user.phone and full_name else "")
     badges = [badge] if isinstance(badge, str) else list(badge or [])
     badge_html = "".join(f'<span class="acc-badge">{e(b)}</span>' for b in badges if b)
+    sections = SPORT_CABINET_SECTIONS if sport else CABINET_SECTIONS
     nav = "".join(_nav_link(href, label, key == current)
-                  for key, href, label in CABINET_SECTIONS)
+                  for key, href, label in sections)
+    logout_href = "/sport/logout" if sport else "/logout"
     act = (ui.button(action[0], href=action[1]) if action else "")
     return f"""
         <div class="section-container">
@@ -74,7 +83,7 @@ def render_cabinet(user, current: str, title: str, lead: str, content: str, *,
                     {phone}
                     {badge_html}
                     <nav class="acc-nav" aria-label="Разделы кабинета">{nav}</nav>
-                    <a class="acc-logout" href="/logout">{ICON_LOGOUT} Выйти</a>
+                    <a class="acc-logout" href="{logout_href}">{ICON_LOGOUT} Выйти</a>
                 </aside>
                 <div class="acc-main">
                     <header class="acc-head">

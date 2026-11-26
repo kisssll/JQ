@@ -338,3 +338,46 @@
         padding: var(--space-24) var(--space-16);
     }
 }
+
+/* ===== Стили Манифеста для Руми Спорт ===== */
+body.sport-directory.rumi-sport .about-main {
+    background: var(--color-background);
+}
+body.sport-directory.rumi-sport .about-hero {
+    background: var(--color-surface-alt);
+    color: var(--color-heading);
+}
+body.sport-directory.rumi-sport .about-kicker {
+    color: var(--color-accent-text);
+}
+body.sport-directory.rumi-sport .about-title {
+    color: var(--color-heading);
+}
+body.sport-directory.rumi-sport .about-title em {
+    color: var(--color-accent-text);
+}
+body.sport-directory.rumi-sport .about-cols {
+    color: var(--color-body);
+}
+body.sport-directory.rumi-sport .about-cols b {
+    color: var(--color-heading);
+}
+body.sport-directory.rumi-sport .about-drop::first-letter {
+    color: var(--color-accent-text);
+}
+body.sport-directory.rumi-sport .about-removed-title {
+    color: var(--color-heading);
+}
+body.sport-directory.rumi-sport .about-removed-title em {
+    color: var(--color-accent-text);
+}
+body.sport-directory.rumi-sport .about-removed li {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-muted);
+    text-decoration-color: var(--color-accent);
+}
+body.sport-directory.rumi-sport .about-quote {
+    color: var(--color-heading);
+}
+

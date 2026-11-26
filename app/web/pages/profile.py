@@ -396,7 +396,7 @@ def _consents_block(user) -> str:
     )
 
 
-def _role_blocks(user, master_profile, salon) -> str:
+def _role_blocks(user, master_profile, salon, sport: bool = False) -> str:
     """Что ещё есть у этого человека: кабинет мастера, салон, статус модели.
 
     Блоки мастера и салона приходят параметрами и на /profile пока не
@@ -441,45 +441,55 @@ def _role_blocks(user, master_profile, salon) -> str:
             title="Мой салон",
         ))
 
-    # «Модель» — аддитивный статус поверх обычной роли (не сама role), поэтому
-    # блок считается независимо от роли и может показываться вместе с ней.
-    if bool(getattr(user, "is_model", False)):
-        moderation = getattr(user, "model_moderation_status", None)
-        value = moderation.value if moderation else "pending"
-        state = {
-            "pending": ui.status("На модерации", "warning"),
-            "approved": ui.status("Одобрена", "success"),
-            "rejected": ui.status("Отклонена", "danger"),
-        }.get(value, "")
-        reason = getattr(user, "model_rejection_reason", "") or ""
-        photo = getattr(user, "model_photo_url", None) or ""
-        bio = getattr(user, "model_bio", "") or ""
+    if getattr(user, "has_sport_access", False):
         blocks.append(ui.card(
-            f'<p class="profile-model__state">{state}</p>'
-            + (f'<p class="r-field__hint">Причина: {e(reason)}</p>'
-               if value == "rejected" and reason else "")
-            + (f'<p class="profile-model__photo">{ui.mark("", image=photo, alt="Фото анкеты")}</p>'
-               if photo else "")
-            + (f'<p class="r-text">{e(bio)}</p>' if bio else "")
-            + '<div class="profile-links">'
-            + ui.button("Лента и мои мэтчи", kind="secondary", small=True,
-                        href="/model/dashboard")
-            + ui.button("Редактировать анкету", kind="secondary", small=True,
-                        href="/model/join")
-            + "</div>",
-            title="Статус «Модель»",
-        ))
-    else:
-        blocks.append(ui.card(
-            '<p class="r-text">Позвольте мастерам отработать на вас технику за '
-            "скидку или бесплатно — заведите анкету и смотрите, кто ищет "
-            "модель.</p>"
+            '<p class="r-text">Управление тренировками, тренерами и заявками клиентов спортивного клуба.</p>'
             '<div class="profile-links">'
-            + ui.button("Стать моделью", kind="secondary", small=True,
-                        href="/model/join")
+            + ui.button("Панель спорт-клуба", kind="secondary", small=True,
+                        href="/sport/business/dashboard")
             + "</div>",
-            title="Стать моделью",
+            title="Спортивный клуб",
         ))
+
+    # «Модель» — статус только для бьюти; в спорте моделинга нет.
+    if not sport:
+        if bool(getattr(user, "is_model", False)):
+            moderation = getattr(user, "model_moderation_status", None)
+            value = moderation.value if moderation else "pending"
+            state = {
+                "pending": ui.status("На модерации", "warning"),
+                "approved": ui.status("Одобрена", "success"),
+                "rejected": ui.status("Отклонена", "danger"),
+            }.get(value, "")
+            reason = getattr(user, "model_rejection_reason", "") or ""
+            photo = getattr(user, "model_photo_url", None) or ""
+            bio = getattr(user, "model_bio", "") or ""
+            blocks.append(ui.card(
+                f'<p class="profile-model__state">{state}</p>'
+                + (f'<p class="r-field__hint">Причина: {e(reason)}</p>'
+                   if value == "rejected" and reason else "")
+                + (f'<p class="profile-model__photo">{ui.mark("", image=photo, alt="Фото анкеты")}</p>'
+                   if photo else "")
+                + (f'<p class="r-text">{e(bio)}</p>' if bio else "")
+                + '<div class="profile-links">'
+                + ui.button("Лента и мои мэтчи", kind="secondary", small=True,
+                            href="/model/dashboard")
+                + ui.button("Редактировать анкету", kind="secondary", small=True,
+                            href="/model/join")
+                + "</div>",
+                title="Статус «Модель»",
+            ))
+        else:
+            blocks.append(ui.card(
+                '<p class="r-text">Позвольте мастерам отработать на вас технику за '
+                "скидку или бесплатно — заведите анкету и смотрите, кто ищет "
+                "модель.</p>"
+                '<div class="profile-links">'
+                + ui.button("Стать моделью", kind="secondary", small=True,
+                            href="/model/join")
+                + "</div>",
+                title="Статус «Модель»",
+            ))
 
     if not blocks:
         return ""
@@ -597,7 +607,8 @@ def _departure_text(departure) -> str:
 
 
 def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
-                        error=None, success=None, badges=None, departure=None) -> str:
+                        error=None, success=None, badges=None, departure=None,
+                        sport: bool = False) -> str:
     """Страница профиля.
 
     ``error``/``success`` — коды из адреса. Все формы профиля отвечают
@@ -793,7 +804,7 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
 
     stack = (
         who
-        + _role_blocks(user, master_profile, salon)
+        + _role_blocks(user, master_profile, salon, sport=sport)
         + ui.card(_notify_channel_block(user),
                   title="Как со мной связаться",
                   text="Сюда приходят напоминания о записях и ответы мастера.")
@@ -803,24 +814,29 @@ def render_profile_page(user=None, master_profile=None, salon=None, stats=None,
         + danger
     )
 
+    page_title = "Мой профиль — Руми Спорт" if sport else "Мой профиль — руми"
+    body_cls = "page-body sport-directory" if sport else "page-body"
+    header_page = "sport_profile" if sport else "profile"
+
     return f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Мой профиль — руми</title>
+    <title>{page_title}</title>
     <meta name="robots" content="noindex, nofollow">
     {get_base_styles()}
 </head>
-<body class="page-body">
-    {render_header("profile", user)}
+<body class="{body_cls}">
+    {render_header(header_page, user)}
 
     <main class="main-content cabinet-main profile-main">
         {render_cabinet(user, "profile", "Мой профиль",
             "Кто вы, как с вами связаться и что мы о вас храним.",
             notice_html + '<div class="profile-stack">' + stack + '</div>',
-            badge=badges or [])}
-        {render_footer(user)}
+            badge=badges or [],
+            sport=sport)}
+        {render_footer(user, sport=sport)}
     </main>
 </body>
 </html>"""

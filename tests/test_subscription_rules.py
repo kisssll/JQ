@@ -16,7 +16,7 @@ from app.services.subscription import (
     DOWNGRADE_COOLDOWN_DAYS, TRIAL_GRACE_DAYS, SubscriptionError,
     access_until_for_paid, access_until_for_trial, ensure_can_change_plan,
     has_access, proration_for_growth, register_headcount, start_trial,
-    suggested_downgrade, trial_available,
+    suggested_downgrade, trial_available, extend_free_period,
 )
 
 
@@ -57,6 +57,25 @@ def test_start_trial_marks_used_and_opens_access():
     assert s.access_until == ends + timedelta(days=TRIAL_GRACE_DAYS)
     assert s.billed_masters == 3          # планка = штат на старте
     assert trial_available(s) is False    # второй раз не дадим
+
+
+def test_extend_free_period_adds_days_to_existing_trial():
+    now = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    s = _salon(
+        subscription_status=SalonSubscriptionStatus.TRIALING,
+        trial_ends_at=now + timedelta(days=14),
+        subscription_expires_at=now + timedelta(days=14),
+        trial_used_at=now,
+    )
+
+    ends = extend_free_period(s, 30, now)
+
+    assert ends == now + timedelta(days=44)
+    assert s.trial_ends_at == ends
+    assert s.subscription_expires_at == ends
+    assert s.access_until == ends + timedelta(days=TRIAL_GRACE_DAYS)
+    assert s.subscription_status == SalonSubscriptionStatus.TRIALING
+
 
 
 # ── Доплата за рост штата ────────────────────────────────────────────────────

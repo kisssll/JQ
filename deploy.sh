@@ -50,7 +50,7 @@ echo "[deploy:${ENV_NAME}] обновление кода (ветка ${BRANCH}).
 if [ "${NO_PULL}" -eq 0 ]; then
     git fetch origin
     git checkout "${BRANCH}"
-    git pull --ff-only
+    git pull --ff-only || git reset --hard "origin/${BRANCH}"
 fi
 
 # Внешняя сеть edge нужна стекам и Caddy (создаётся один раз)

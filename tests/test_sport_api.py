@@ -570,7 +570,8 @@ async def _sport_owner_panel(client, db_session, slug="test-sport-club"):
         owner = User(phone="+79990001800", full_name="Владелец", hashed_password="unused", role=UserRole.CLIENT)
         db.add(owner)
         await db.flush()
-        db.add(SportGymMember(organization_id=organization.id, user_id=owner.id, role="owner"))
+        organization.creator_id = owner.id
+        db.add(SportGymMember(organization_id=organization.id, user_id=owner.id, role="owner", is_creator=True))
         await db.commit()
     client.cookies.set("access_token", create_access_token(owner.id))
     return f"/api/v1/sport/organizations/{slug}", organization.id
@@ -654,6 +655,36 @@ async def test_manage_schedule_saves_new_training_and_date_exception(client, db_
     restored = await client.put(f"{base}/manage/schedule", json={"trainings": [], "exceptions": {key: True}})
     assert restored.status_code == 200, restored.text
     assert key not in (await client.get(f"{base}/manage")).json()["exceptions"]
+
+
+async def test_trainer_vacation_cancels_existing_booking_and_blocks_new_one(client, db_session):
+    base, organization_id = await _sport_owner_panel(client, db_session)
+    day = _booking_date()
+    async with db_session() as db:
+        coach = SportCoach(organization_id=organization_id, name="Тренер", role="Тренер")
+        customer = User(phone="+79990001820", full_name="Ученик", hashed_password="unused", role=UserRole.CLIENT)
+        db.add_all([coach, customer])
+        await db.flush()
+        training = await db.scalar(select(SportTraining).where(SportTraining.organization_id == organization_id))
+        training.coach_id = coach.id
+        db.add(SportBooking(organization_id=organization_id, training_id=training.id,
+                            client_id=customer.id, contact_name="Ученик", participant="self",
+                            kind="Пробное", requested_date=day, requested_gym="Тестовый зал",
+                            requested_discipline="Дзю-дзютцу", status="confirmed"))
+        await db.commit()
+        coach_id = coach.id
+    closed = await client.post(f"{base}/closures", json={
+        "coach_id": coach_id, "date": day.isoformat(),
+        "date_to": (day + timedelta(days=1)).isoformat(), "reason": "Отпуск",
+    })
+    assert closed.status_code == 200, closed.text
+    assert closed.json()["cancelled_bookings"] == 1
+    assert (await client.get(f"{base}/schedule")).json()["exceptions"][f"{day}:test-session"] is False
+    async with db_session() as db:
+        booking = await db.scalar(select(SportBooking).where(SportBooking.organization_id == organization_id))
+        assert booking.status == "cancelled"
+    blocked = await client.post(f"{base}/bookings", json=_booking_payload(day))
+    assert blocked.status_code == 409
 
 
 async def test_sport_payment_and_catalog_changes_return_success_after_commit(client, db_session):
@@ -768,3 +799,81 @@ async def test_sport_staff_edits_unlinked_coach_and_uploads_photo(client, db_ses
     assert updated.json()["member"]["photo"] is None
     assert updated.json()["credentials"] is None
     assert not photo_file.exists()
+
+
+async def test_sport_multiple_owners_support_and_moderator_assignment(client, db_session):
+    base, organization_id = await _sport_owner_panel(client, db_session)
+    owner_token = client.cookies.get("access_token")
+
+    # 1. Owner can add another owner (co-owner) via staff endpoint
+    add_owner_resp = await client.post(f"{base}/staff", data={
+        "phone": "+79990001811", "name": "Второй владелец", "role": "owner",
+    })
+    assert add_owner_resp.status_code == 200, add_owner_resp.text
+    co_owner_data = add_owner_resp.json()["member"]
+    assert co_owner_data["role"] == "owner"
+    assert co_owner_data["isCreator"] is False
+    co_owner_id = co_owner_data["id"]
+
+    # 2. Moderator can add another owner via admin add-owner endpoint
+    async with db_session() as db:
+        admin = User(
+            phone="+79990001899",
+            full_name="Модератор платформы",
+            hashed_password="unused",
+            role=UserRole.ADMIN,
+        )
+        db.add(admin)
+        await db.commit()
+    client.cookies.set("access_token", create_access_token(admin.id))
+
+    mod_add_resp = await client.post(
+        f"/api/v1/admin/sport/organizations/{organization_id}/add-owner",
+        data={"owner_phone": "+79990001822", "owner_name": "Третий владелец"},
+    )
+    assert mod_add_resp.status_code == 302, mod_add_resp.text
+    assert "tab=sport" in mod_add_resp.headers["location"]
+
+    async with db_session() as db:
+        third_owner = await db.scalar(select(User).where(User.phone == "+79990001822"))
+        assert third_owner is not None
+        assert third_owner.role == UserRole.BUSINESS
+        third_member = await db.scalar(
+            select(SportGymMember).where(
+                SportGymMember.organization_id == organization_id,
+                SportGymMember.user_id == third_owner.id,
+                SportGymMember.is_active.is_(True),
+            )
+        )
+        assert third_member is not None
+        assert third_member.role == "owner"
+        assert third_member.is_creator is False
+
+    # 3. Moderator can remove an owner
+    mod_remove_resp = await client.post(
+        f"/api/v1/admin/sport/organizations/{organization_id}/remove-owner",
+        data={"user_id": third_owner.id},
+    )
+    assert mod_remove_resp.status_code == 302
+    async with db_session() as db:
+        third_member_after = await db.scalar(
+            select(SportGymMember).where(
+                SportGymMember.organization_id == organization_id,
+                SportGymMember.user_id == third_owner.id,
+            )
+        )
+        assert third_member_after.is_active is False
+
+    # 4. Primary owner can remove non-creator co-owner via staff endpoint
+    client.cookies.set("access_token", owner_token)
+    delete_resp = await client.delete(f"{base}/staff/owner/{co_owner_id}")
+    assert delete_resp.status_code == 200, delete_resp.text
+    async with db_session() as db:
+        co_owner_member = await db.get(SportGymMember, co_owner_id)
+        assert co_owner_member.is_active is False
+
+    # 5. /sport/admin redirect test
+    sport_admin_resp = await client.get("/sport/admin", follow_redirects=False)
+    assert sport_admin_resp.status_code == 302
+    assert sport_admin_resp.headers["location"] == "/admin"
+

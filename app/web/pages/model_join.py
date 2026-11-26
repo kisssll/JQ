@@ -72,7 +72,7 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
                 <div class="mj-step-h"><span class="mj-step-num">1</span><h2>Ваше фото</h2></div>
                 <p class="mj-hint">Мастера в первую очередь смотрят на фото анкеты — выберите чёткое, где хорошо видно лицо и причёску.</p>
                 <div style="display:flex;align-items:center;gap:1rem">
-                    <img id="modelJoinPreview" src="{photo or 'https://placehold.co/96x96'}" alt="" style="width:96px;height:96px;border-radius:50%;object-fit:cover">
+                    <img id="modelJoinPreview" src="{e(photo or 'https://placehold.co/96x96')}" alt="" style="width:96px;height:96px;border-radius:50%;object-fit:cover">
                     <div>
                         <label for="modelJoinPhoto" class="btn-outline" style="cursor:pointer;display:inline-block;padding:0.5rem 1rem">Загрузить фото</label>
                         <input type="file" id="modelJoinPhoto" name="photo" accept="image/*" style="display:none">
@@ -87,7 +87,7 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
                 <button type="button" class="mj-back-btn mj-back" data-to="photo">← Назад</button>
                 <div class="mj-step-h"><span class="mj-step-num">2</span><h2>О себе</h2></div>
                 <p class="mj-hint">Расскажите про рост, особенности внешности, опыт съёмок или тестовых работ — это первое, что читают мастера.</p>
-                <textarea name="bio" rows="4" placeholder="Расскажите о себе — рост, особенности внешности, опыт..." style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">{bio}</textarea>
+                <textarea name="bio" rows="4" placeholder="Расскажите о себе — рост, особенности внешности, опыт..." style="width:100%;padding:0.6rem;border:1px solid var(--color-border);border-radius:var(--radius-8)">{e(bio)}</textarea>
                 <div class="mj-step-actions">
                     <button type="button" class="mj-next-btn mj-next" data-next="categories">Далее</button>
                 </div>
@@ -98,7 +98,7 @@ def render_model_join_page(user, error: str | None = None, photos: list[dict] | 
                 <div class="mj-step-h"><span class="mj-step-num">3</span><h2>Какие услуги вам интересны</h2></div>
                 <p class="mj-hint">Отметьте направления, в которых хотите быть моделью, — мастера чаще приглашают по совпадающим категориям.</p>
                 <div class="mj-category-grid">{category_options}</div>
-                <textarea name="looking_for" id="modelLookingFor" style="display:none">{looking_for}</textarea>
+                <textarea name="looking_for" id="modelLookingFor" style="display:none">{e(looking_for)}</textarea>
                 <div class="mj-step-actions">
                     {categories_button}
                 </div>
