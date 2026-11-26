@@ -143,7 +143,7 @@ def render_legal_page(slug: str, user=None, *, sport: bool = False) -> str:
             r'href="/sport/legal/\1"',
             body,
         )
-    body_class = ' class="sport-directory"' if sport else ""
+    body_class = ' class="sport-directory rumi-sport"' if sport else ""
     current_page = "sport_legal" if sport else "legal"
     return f"""<!DOCTYPE html>
 <html lang="ru">
@@ -200,7 +200,7 @@ def render_legal_index(user=None, *, sport: bool = False) -> str:
         f'<span class="legal-index-desc">{e(d["description"])}</span></li>'
         for d in DOCUMENTS.values()
     )
-    body_class = ' class="sport-directory"' if sport else ""
+    body_class = ' class="sport-directory rumi-sport"' if sport else ""
     current_page = "sport_legal" if sport else "legal"
     return f"""<!DOCTYPE html>
 <html lang="ru">

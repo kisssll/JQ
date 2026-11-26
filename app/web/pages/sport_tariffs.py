@@ -460,7 +460,7 @@ def render_sport_tariffs_page(user=None, tab: str = "plans", plans=None) -> str:
     <meta name="description" content="Тарифы для спортивных клубов, фитнес-центров и тренеров на Руми Спорт. Калькулятор стоимости, прозрачные условия без скрытых комиссий.">
     {get_base_styles()}
 </head>
-<body class="sport-directory">
+<body class="sport-directory rumi-sport">
     {render_header("sport_tariffs", user)}
     <main class="main-content" style="padding-top:5rem;">
         <div class="section-container">

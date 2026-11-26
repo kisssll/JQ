@@ -83,16 +83,29 @@ def render_sport_business_page(
     <meta name="description" content="Подайте заявку, чтобы добавить спортивный клуб в Руми Спорт: страница организации, направления, расписание и абонементы.">
     {get_base_styles()}
 </head>
-<body class="sport-directory">
+<body class="sport-directory rumi-sport">
     {render_header("sport_business", user)}
     <main class="sport-business">
         <p class="sport-page-eyebrow">Руми Спорт · для бизнеса</p>
-        <h1>Подключите спортивный клуб</h1>
-        <p class="sport-business__lead">Создайте страницу клуба, добавьте залы, тренеров, направления, расписание и тарифы.
-           После проверки клуб появится в каталоге, а заявками и данными можно будет управлять
-           из кабинета.</p>
+        <section class="rumi-sport-business-hero">
+            <div>
+                <h1>Сайт для клуба. Запись на тренировки. Управление из кабинета.</h1>
+                <p class="sport-business__lead">Страница клуба, расписание, тренеры и заявки в одном месте. Подключите клуб и настройте работу команды.</p>
+                <a class="btn-primary rumi-sport-business-hero__cta" href="#club-application">Подключить клуб →</a>
+            </div>
+            <div class="rumi-sport-business-hero__panel">
+                <span>Руми Спорт для клубов</span>
+                <strong>Ваш клуб в одном кабинете</strong>
+                <p>Расписание · Записи · Клиенты · Сотрудники</p>
+            </div>
+        </section>
+        <section class="rumi-sport-business-features" aria-label="Возможности для клуба">
+            <article><span>01</span><h2>Страница клуба</h2><p>Расскажите о залах, направлениях, тренерах и абонементах.</p></article>
+            <article><span>02</span><h2>Онлайн запись</h2><p>Клиенты выбирают занятие и отправляют заявку на тренировку.</p></article>
+            <article><span>03</span><h2>Кабинет команды</h2><p>Управляйте расписанием, записями и доступом сотрудников.</p></article>
+        </section>
         {success_banner}
-        {cta_register}
+        <div id="club-application">{cta_register}</div>
         {applications}
         <h2 class="sport-business__form-title">Быстрая заявка на подключение</h2>
         {form}
@@ -162,7 +175,7 @@ def render_sport_business_dashboard_page(
     <meta name="robots" content="noindex,follow">
     {get_base_styles()}
 </head>
-<body class="sport-directory">
+<body class="sport-directory rumi-sport">
     {render_header("sport_business", user)}
     <main class="sport-business sport-business-dashboard">
         <div class="sport-business-dashboard__intro">
