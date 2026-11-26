@@ -260,10 +260,13 @@ async def get_sport_schedule(
         SportScheduleClosure.date >= today,
         SportScheduleClosure.date <= today + timedelta(days=14),
     ))).scalars().all()
+    closure_coaches = {item.id: item.name for item in (await db.execute(select(SportCoach).where(
+        SportCoach.organization_id == organization.id,
+    ))).scalars().all()}
     closed_slots = {
         f"{closed.date}:{training.code}": False
         for closed in closures for training in trainings
-        if (closed.coach_id is None or closed.coach_id == training.coach_id)
+        if (closed.coach_id is None or closed.coach_id == training.coach_id or closure_coaches.get(closed.coach_id) == training.coach)
         and (closed.venue_id is None or closed.venue_id == training.venue_id)
     }
     return SportScheduleResponse(
@@ -1957,9 +1960,12 @@ async def create_sport_closure(
                 organization_id=organization.id, coach_id=data.coach_id,
                 venue_id=data.venue_id, date=closed_date, reason=data.reason.strip(),
             ))
+    closed_coach_name = await db.scalar(select(SportCoach.name).where(
+        SportCoach.id == data.coach_id, SportCoach.organization_id == organization.id,
+    )) if data.coach_id is not None else None
     affected_trainings = select(SportTraining.id).where(
         SportTraining.organization_id == organization.id,
-        *((SportTraining.coach_id == data.coach_id,) if data.coach_id is not None else ()),
+        *((or_(SportTraining.coach_id == data.coach_id, SportTraining.coach == closed_coach_name),) if data.coach_id is not None else ()),
         *((SportTraining.venue_id == data.venue_id,) if data.venue_id is not None else ()),
     )
     cancelled_bookings = await db.execute(update(SportBooking).where(
@@ -2379,10 +2385,15 @@ async def create_sport_booking(
         )
         if cancelled is not None:
             raise HTTPException(status_code=409, detail="Эта тренировка отменена")
+        closed_coach_ids = select(SportCoach.id).where(
+            SportCoach.organization_id == organization.id, SportCoach.name == training.coach,
+        )
         closed = await db.scalar(select(SportScheduleClosure.id).where(
             SportScheduleClosure.organization_id == organization.id,
             SportScheduleClosure.date == data.booking_date,
-            (SportScheduleClosure.coach_id.is_(None) | (SportScheduleClosure.coach_id == training.coach_id)),
+            or_(SportScheduleClosure.coach_id.is_(None),
+                SportScheduleClosure.coach_id == training.coach_id,
+                SportScheduleClosure.coach_id.in_(closed_coach_ids)),
             (SportScheduleClosure.venue_id.is_(None) | (SportScheduleClosure.venue_id == training.venue_id)),
         ))
         if closed is not None:

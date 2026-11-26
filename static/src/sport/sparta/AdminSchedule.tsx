@@ -139,14 +139,14 @@ export default function AdminSchedule({ slug, current, role, gyms, coaches, disc
           {slots.length === 0 && <p className="week-empty">Нет занятий</p>}
           {slots.map((item) => {
             const key = `${day}:${item.id}`;
-            const cancelled = exceptions[key] === false || closures.some((closed) => closed.date === day && (closed.coach_id === null || closed.coach_id === item.coachId) && closed.venue_id === null);
+            const cancelled = exceptions[key] === false || closures.some((closed) => closed.date === day && (closed.coach_id === null || closed.coach_id === item.coachId || coaches.find((coach) => coach.id === closed.coach_id)?.name === item.coach) && closed.venue_id === null);
             const count = bookings.filter((booking) => booking.sessionId === item.id && booking.date === day && booking.status !== "cancelled").length;
             return <article className={`week-class${cancelled ? " week-class-off" : ""}`} style={{ borderLeft: `4px solid ${item.color || "#c72527"}` }} key={item.id}>
               <b>{item.time}–{item.end}</b><strong>{item.discipline}</strong><span>{item.coach}</span><span>{item.gym}</span>
               <small>{count ? `Записей: ${count}` : "Без записей"}</small>
               {cancelled && <small>Занятие отменено</small>}
               <button disabled={saving} onClick={() => editTraining(item)}>Изменить расписание</button>
-              {role !== "trainer" && !closures.some((closed) => closed.date === day && (closed.coach_id === null || closed.coach_id === item.coachId) && closed.venue_id === null) && day >= current && <button disabled={saving} onClick={() => {
+              {role !== "trainer" && !closures.some((closed) => closed.date === day && (closed.coach_id === null || closed.coach_id === item.coachId || coaches.find((coach) => coach.id === closed.coach_id)?.name === item.coach) && closed.venue_id === null) && day >= current && <button disabled={saving} onClick={() => {
                 const affected = count ? ` Записей: ${count}. Сообщите об отмене записанным клиентам.` : "";
                 if (!cancelled && !window.confirm(`Вы точно хотите отменить занятие?${affected}`)) return;
                 void persist(() => onException(key, cancelled));
