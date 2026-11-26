@@ -694,7 +694,7 @@ function Home({ go, book, organization, gyms, gallery }: { go: (p: Page) => void
       <section className="club-booking">
         <div>
           {IS_SPARTA && <p>Заинтересовал клуб?</p>}
-          <h2>{IS_SPARTA ? <>Запишитесь на пробную <br />тренировку</> : "Первая тренировка"}</h2>
+          <h2>{IS_SPARTA ? <>Запишись на <br />тренировку</> : "Первая тренировка"}</h2>
         </div>
         <button className="btn btn-red" onClick={() => book()}>
           {IS_SPARTA ? "Пробная тренировка" : "Записаться"} <Arrow />
