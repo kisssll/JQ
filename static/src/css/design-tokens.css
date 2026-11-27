@@ -247,6 +247,7 @@
     --color-surface-alt: #211c1f;         /* наша промежуточная ступень */
     --color-surface-2: #272124;           /* её приподнятые элементы */
     --color-secondary: #33242b;
+    --color-hair-preview: #fefefe;       /* фон встроен в сами иллюстрации */
 
     --color-text: #f2eaec;                /* её --ink */
     --color-heading: #f2eaec;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { sportRequest, SportRequestError } from "./admin-api";
 
-const ROLE_LABELS = { owner: "Владелец", manager: "Управляющий", admin: "Администратор", trainer: "Тренер" };
+const ROLE_LABELS = { owner: "Совладелец", manager: "Управляющий", admin: "Администратор", trainer: "Тренер" };
 const PERMISSION_LABELS = {
   manage_gym: "Настройки клуба",
   manage_managers: "Управляющие",
@@ -32,20 +32,39 @@ export type StaffMember = {
   isCreator?: boolean;
 };
 
-export default function AdminStaff({ slug, team, permissions, canAssignPermissions, onSaved, onRemoved }: {
+export default function AdminStaff({ slug, team, permissions, canAssignPermissions, onSaved, onRemoved, onCoachOrder }: {
   slug: string; team: StaffMember[]; onSaved: (member: StaffMember) => void; onRemoved: (member: StaffMember) => void;
   permissions: SportPermissions; canAssignPermissions: boolean;
+  onCoachOrder: (ids: number[]) => void;
 }) {
   const [editor, setEditor] = useState<StaffMember | "new" | null>(null);
   const [accessEditor, setAccessEditor] = useState<StaffMember | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [error, setError] = useState("");
   const [credentials, setCredentials] = useState<Credentials | null>(null);
-  const orderedTeam = [...team.filter((member) => member.role === "trainer"), ...team.filter((member) => member.role !== "trainer")];
+  const trainers = team.filter((member) => member.role === "trainer");
+  const orderedTeam = [...trainers, ...team.filter((member) => member.role !== "trainer")];
   const canEdit = (role: StaffMember["role"]) => permissions[ROLE_PERMISSIONS[role]]
     && (role !== "trainer" || canAssignPermissions);
   const assignableRoles = (["trainer", "admin", "manager", "owner"] as const).filter(canEdit);
-  const busy = editor !== null || accessEditor !== null || removing;
+  const busy = editor !== null || accessEditor !== null || removing || moving;
+
+  async function moveCoach(id: number, direction: "up" | "down") {
+    setMoving(true);
+    setError("");
+    try {
+      const result = await sportRequest<{ order: number[] }>(slug, `/manage/coaches/${id}/move`, {
+        method: "POST",
+        body: new URLSearchParams({ direction }),
+      });
+      onCoachOrder(result.order);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось изменить порядок тренеров");
+    } finally {
+      setMoving(false);
+    }
+  }
 
   async function remove(member: StaffMember) {
     if (!window.confirm(`Убрать сотрудника «${member.name}» из команды клуба?`)) return;
@@ -73,10 +92,10 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
     {accessEditor && <AccessEditor slug={slug} member={accessEditor} onCancel={() => setAccessEditor(null)}
       onSave={(member) => { onSaved(member); setAccessEditor(null); }} />}
     <div className="admin-staff-grid">
-      {orderedTeam.map((member) => <article className="admin-staff-card" key={`${member.role}-${member.id}`}>
+      {orderedTeam.map((member, index) => <article className="admin-staff-card" key={`${member.role}-${member.id}`}>
         <div className="admin-staff-identity">
           {member.photo ? <img src={member.photo} alt="" /> : <span className="admin-staff-placeholder" aria-hidden="true">{member.name.charAt(0)}</span>}
-          <div><h2>{member.name}</h2><p>{member.title || ROLE_LABELS[member.role]}</p></div>
+          <div><h2>{member.name}</h2><p>{member.isCreator ? "Создатель клуба" : member.title || ROLE_LABELS[member.role]}</p></div>
         </div>
         {member.phone && <a href={`tel:${member.phone}`}>{member.phone}</a>}
         {member.role === "trainer" && <p className="admin-hint">{member.hasAccount ? "Аккаунт подключён" : "Без аккаунта"}</p>}
@@ -88,6 +107,12 @@ export default function AdminStaff({ slug, team, permissions, canAssignPermissio
           {canAssignPermissions && (member.role === "admin" || member.role === "manager") && !member.isCreator &&
             <button className="admin-secondary" disabled={busy} onClick={() => setAccessEditor(member)}>Права доступа</button>}
           {!member.isCreator && canEdit(member.role) && <button className="admin-text-button" disabled={busy} onClick={() => void remove(member)}>Убрать из команды</button>}
+          {member.role === "trainer" && canEdit("trainer") && trainers.length > 1 && <>
+            <button className="admin-secondary" disabled={busy || index === 0} aria-label={`Переместить выше: ${member.name}`}
+              onClick={() => void moveCoach(member.id, "up")}>↑</button>
+            <button className="admin-secondary" disabled={busy || index === trainers.length - 1} aria-label={`Переместить ниже: ${member.name}`}
+              onClick={() => void moveCoach(member.id, "down")}>↓</button>
+          </>}
         </div>
       </article>)}
     </div>
@@ -231,6 +256,8 @@ function StaffEditor({ slug, member, assignableRoles, onCancel, onSave }: {
         {!member && <label>Роль<select name="role" value={role} onChange={(event) => setRole(event.target.value as StaffMember["role"])}>
           {assignableRoles.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
         </select></label>}
+        {!member && role === "owner" && <p className="admin-hint admin-editor-wide">Совладелец получает права владельца клуба.</p>}
+        {!member && role === "trainer" && <p className="admin-hint admin-editor-wide">Чтобы совмещать роли тренера и владельца, укажите тот же телефон для входа.</p>}
         {role === "trainer" && <>
           <label>Должность на сайте<input name="title" maxLength={160} defaultValue={member?.title ?? "Тренер"} /></label>
           <label>Опыт и квалификация<input name="experience" maxLength={160} defaultValue={member?.experience} placeholder="Например, 1-й дан" /></label>

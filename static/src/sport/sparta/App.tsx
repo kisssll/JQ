@@ -1529,6 +1529,14 @@ function Admin({
     if (member.role === "trainer") setCoaches((current) => current.filter((item) => item.id !== member.id));
   };
 
+  const reorderCoaches = (ids: number[]) => {
+    const positions = new Map(ids.map((id, index) => [id, index]));
+    const position = (id: number) => positions.get(id) ?? ids.length;
+    setCoaches((current) => [...current].sort((a, b) => position(a.id) - position(b.id)));
+    setTeam((current) => [...current].sort((a, b) =>
+      (a.role === "trainer" ? position(a.id) : ids.length) - (b.role === "trainer" ? position(b.id) : ids.length)));
+  };
+
   return (
     <div className="adm">
       <aside className="adm-side">
@@ -1606,7 +1614,7 @@ function Admin({
             </>}
           </>
         )}
-        {tab === "team" && canManageTeam && <AdminStaff slug={slug} team={team} permissions={permissions} canAssignPermissions={canAssignPermissions} onSaved={saveStaff} onRemoved={removeStaff} />}
+        {tab === "team" && canManageTeam && <AdminStaff slug={slug} team={team} permissions={permissions} canAssignPermissions={canAssignPermissions} onSaved={saveStaff} onRemoved={removeStaff} onCoachOrder={reorderCoaches} />}
         {tab === "settings" && canAssignPermissions && <ClubSettings slug={slug} profile={organization} catalog={siteCatalog} onSaved={onProfileSaved} onCatalogSaved={onSiteSaved} />}
         {tab === "documents" && IS_SPARTA && canAssignPermissions && <AdminDocuments slug={slug} onSaved={onAgreementsSaved} />}
         {tab === "reviews" && permissions.manage_reviews && <ClubReviews slug={slug} />}

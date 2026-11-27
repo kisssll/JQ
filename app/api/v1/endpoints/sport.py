@@ -590,7 +590,7 @@ async def get_sport_management(
                 "id": item.code, "days": item.weekdays,
                 "time": item.start_time.strftime("%H:%M"),
                 "end": item.end_time.strftime("%H:%M"), "coach": item.coach, "coachId": item.coach_id,
-                "gym": item.gym, "discipline": item.discipline, "active": item.is_active,
+                "gym": item.gym, "discipline": item.discipline, "active": item.is_active, "color": item.color,
             }
             for item in (await db.execute(
                 select(SportTraining).where(
@@ -1028,13 +1028,15 @@ async def add_sport_staff(
     name = name.strip()
     if normalized_phone is None or len(name) < 2 or len(name) > 160:
         raise HTTPException(status_code=400, detail="Проверьте имя и номер телефона")
-    if normalized_phone == user.phone:
+    if normalized_phone == user.phone and role != "trainer":
         raise HTTPException(status_code=400, detail="Нельзя добавить себя отдельным сотрудником")
 
     staff_user = (await db.execute(
         select(User).where(User.phone == normalized_phone)
     )).scalar_one_or_none()
     credentials = None
+    if staff_user is not None and not staff_user.is_active:
+        raise HTTPException(409, "Аккаунт с этим номером неактивен")
     if staff_user is None:
         password = secrets.token_urlsafe(12)
         staff_user = User(
@@ -1113,11 +1115,16 @@ async def add_sport_staff(
                 staff = unassigned_coach
                 staff.user_id = staff_user.id
             else:
+                last_position = await db.scalar(select(func.max(SportCoach.sort_order)).where(
+                    SportCoach.organization_id == organization.id,
+                    SportCoach.is_active.is_(True),
+                ))
                 staff = SportCoach(
                     organization_id=organization.id,
                     user_id=staff_user.id,
                     name=name,
                     role="Тренер",
+                    sort_order=0 if last_position is None else last_position + 1,
                     is_active=True,
                 )
                 db.add(staff)
@@ -1176,8 +1183,6 @@ async def update_sport_staff(
         normalized_phone = try_normalize_phone(contact_phone)
         if normalized_phone is None:
             raise HTTPException(400, "Проверьте номер телефона для входа")
-        if normalized_phone == user.phone:
-            raise HTTPException(400, "Нельзя назначить свой аккаунт тренеру")
         staff_user = await db.scalar(select(User).where(User.phone == normalized_phone).with_for_update())
         if staff_user is not None and not staff_user.is_active:
             raise HTTPException(409, "Аккаунт с этим номером неактивен")
@@ -1262,6 +1267,41 @@ async def remove_sport_staff(
     await db.commit()
     staff_name = getattr(staff, "name", "")
     return {"ok": True, "role": role, "name": staff_name}
+
+
+@router.post("/organizations/{slug}/manage/coaches/{coach_id}/move")
+async def move_sport_coach(
+    request: Request,
+    slug: str,
+    coach_id: int,
+    direction: str = Form(..., pattern="^(up|down)$"),
+    db: AsyncSession = Depends(get_db),
+):
+    organization = await _organization(db, slug, published_only=False)
+    if organization is None:
+        raise HTTPException(404, "Спортивная организация не найдена")
+    _, membership, _ = await _gym_access(request, db, organization.id)
+    if not _can_assign_sport_permissions(membership) or not _can_sport(membership, "manage_coaches"):
+        raise HTTPException(403, "Нет прав для изменения порядка тренеров")
+
+    # Serialize reorder requests for this club before reading the current order.
+    await db.execute(select(SportOrganization.id).where(SportOrganization.id == organization.id).with_for_update())
+    coaches = (await db.scalars(select(SportCoach).where(
+        SportCoach.organization_id == organization.id,
+        SportCoach.is_active.is_(True),
+    ).order_by(SportCoach.sort_order, SportCoach.id).with_for_update())).all()
+    ids = [coach.id for coach in coaches]
+    if coach_id not in ids:
+        raise HTTPException(404, "Тренер не найден")
+    index = ids.index(coach_id)
+    destination = index + (-1 if direction == "up" else 1)
+    if 0 <= destination < len(coaches):
+        coaches[index], coaches[destination] = coaches[destination], coaches[index]
+        for position, coach in enumerate(coaches):
+            coach.sort_order = position
+    order = [coach.id for coach in coaches]
+    await db.commit()
+    return {"order": order}
 
 
 @router.put("/organizations/{slug}/manage/staff/{staff_id}/permissions")
