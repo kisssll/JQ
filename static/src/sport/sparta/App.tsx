@@ -1097,7 +1097,7 @@ function Gallery({ gallery, organization }: { gallery: GalleryPhoto[]; organizat
 
 function SpartaDocuments({ documents }: { documents: ClubDocument[] }) {
   return <main className="sparta-documents">
-    <h1>Учредительные документы Федерации боевого джиу-джитсу</h1>
+    <h1>Документы клуба</h1>
     {!documents.length && <p>Документы пока не опубликованы.</p>}
     <div className="sparta-document-grid">{documents.map((document) =>
       <a key={document.id} href={document.url} target="_blank" rel="noopener noreferrer">
@@ -1454,6 +1454,13 @@ function Admin({
   const pending = monthPayments.filter((p) => p.status === "pending");
   const pendingSum = pending.reduce((s, p) => s + p.amount, 0);
   const newCount = bookings.filter((b) => b.status === "new").length;
+  const todayBookings = bookings.filter((booking) => booking.date === current && booking.status !== "cancelled");
+  const openNewBookings = () => {
+    setGym("all");
+    setSearch("");
+    setStatus("new");
+    openTab("bookings");
+  };
 
   const setB = async (id: string, nextStatus: BookingStatus) => {
     try {
@@ -1549,64 +1556,52 @@ function Admin({
         </button>
       </aside>
 
-      <main className="adm-main">
+      <main className={tab === "overview" ? "adm-main club-overview-panel" : "adm-main"}>
         {actionError && <p className="sport-admin-alert" role="alert">{actionError}</p>}
         {tab === "overview" && (
           <>
+            <p className="overview-context">Кабинет клуба / Сводка</p>
             <h1 className="adm-h">Сводка</h1>
+            <p className="overview-intro">Заявки, посещения и оплаты клуба</p>
             <div className="kpis">
-              {canManageBookings && <><button
-                className="kpi"
-                onClick={() => {
-                  setTab("bookings");
-                  setStatus("new");
-                }}
-              >
-                <span>Новые заявки</span>
-                <b>{newCount}</b>
-                <em>Обработать →</em>
-              </button>
-              <div className="kpi">
-                <span>Записей на сегодня</span>
-                <b>
-                  {bookings.filter((b) => b.date === current && b.status !== "cancelled").length}
-                </b>
-              </div></>}
-              {canManagePayments && <><div className="kpi">
-                <span>Оплачено</span>
-                <b>{rub(paidSum)}</b>
-              </div>
-              <button
-                className="kpi kpi-red"
-                onClick={() => {
-                  setTab("payments");
+              {canManageBookings && <>
+                <div className="kpi"><span>Новые заявки</span><b>{newCount}</b></div>
+                <div className="kpi"><span>Записей сегодня</span><b>{todayBookings.length}</b></div>
+              </>}
+              {canManagePayments && <>
+                <div className="kpi"><span>Получено сегодня</span><b>{rub(todayPaid)}</b></div>
+                <button className="kpi overview-payment" onClick={() => {
                   setPayFilter("pending");
-                }}
-              >
-                <span>Ждут оплаты</span>
-                <b>{rub(pendingSum)}</b>
-                <em>{pending.length} чел. →</em>
-              </button></>}
+                  openTab("payments");
+                }}>
+                  <span>Ждут оплаты за текущий месяц</span>
+                  <b>{rub(payments.filter((payment) => payment.status === "pending" && (payment.month ?? payment.date.slice(0, 7)) === current.slice(0, 7))
+                    .reduce((sum, payment) => sum + payment.amount, 0))}</b>
+                </button>
+              </>}
             </div>
-            <div className="admin-insights">{canManageBookings && <><div><b>{bookings.filter((b) => b.kind === "Пробное").length}</b><span>пробных заявок</span></div><div><b>{bookings.filter((b) => b.status === "came").length}</b><span>отмечено посещений</span></div></>}{canManageSchedule && <div><b>{trainings.filter((item) => item.active).length}</b><span>активных шаблонов тренировок</span></div>}</div>
+            <ul className="overview-counts">
+              {canManageBookings && <>
+                <li>Пробные заявки: {bookings.filter((booking) => booking.kind === "Пробное" && booking.status === "new").length}</li>
+                <li>Посещения сегодня: {todayBookings.filter((booking) => booking.status === "came").length}</li>
+              </>}
+              {canManageSchedule && <li>Активные шаблоны тренировок: {trainings.filter((item) => item.active).length}</li>}
+            </ul>
             {canManageBookings && <>
-            <h2 className="adm-sub">Сегодня по залам</h2>
-            <div className="by-gym">
-              {gyms.map((g) => {
-                const n = bookings.filter(
-                  (b) => b.gym === g.address && b.date === current && b.status !== "cancelled",
-                ).length;
-                return (
-                  <div key={g.id}>
-                    <b>{n}</b>
-                    <span>{g.address}</span>
-                  </div>
-                );
-              })}
-            </div></>}
+              <h2 className="adm-sub" id="club-venues-today">Сегодня по залам</h2>
+              <table className="overview-venues" aria-labelledby="club-venues-today">
+                <thead><tr><th scope="col">Зал</th><th scope="col">Записано</th><th scope="col">Отмечено посещений</th></tr></thead>
+                <tbody>
+                  {gyms.map((venue) => {
+                    const venueBookings = todayBookings.filter((booking) => booking.gym === venue.address);
+                    return <tr key={venue.id}><th scope="row">{venue.address}</th><td>{venueBookings.length}</td><td>{venueBookings.filter((booking) => booking.status === "came").length}</td></tr>;
+                  })}
+                </tbody>
+              </table>
+              <button className="overview-action" onClick={openNewBookings}>Перейти к заявкам</button>
+            </>}
           </>
         )}
-
         {tab === "team" && canManageTeam && <AdminStaff slug={slug} team={team} permissions={permissions} canAssignPermissions={canAssignPermissions} onSaved={saveStaff} onRemoved={removeStaff} />}
         {tab === "settings" && canAssignPermissions && <ClubSettings slug={slug} profile={organization} catalog={siteCatalog} onSaved={onProfileSaved} onCatalogSaved={onSiteSaved} />}
         {tab === "documents" && IS_SPARTA && canAssignPermissions && <AdminDocuments slug={slug} onSaved={onAgreementsSaved} />}

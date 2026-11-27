@@ -4,6 +4,10 @@
   --gray: var(--sport-muted);
   --line: var(--sport-border);
   --red: var(--sport-accent);
+  --overview-ink: #101d33;
+  --overview-muted: #495a74;
+  --overview-surface: #f0f3f8;
+  --overview-action: #1642d8;
   min-height: 100vh;
   background: var(--sport-background);
   color: var(--sport-text);
@@ -11,7 +15,7 @@
 }
 
 .adm .adm-side {
-  background: var(--sport-dark);
+  background: var(--overview-ink);
   color: var(--color-on-dark);
 }
 
@@ -40,7 +44,9 @@
 }
 
 .adm .adm-side nav button.on {
-  box-shadow: inset 3px 0 0 var(--sport-accent);
+  background: #dcfa9d;
+  color: var(--overview-ink);
+  box-shadow: none;
 }
 
 .adm .adm-side nav i {
@@ -59,9 +65,81 @@
 }
 
 .adm .adm-main {
-  background:
-    radial-gradient(circle at 100% 0, var(--sport-glow) 0 18rem, transparent 18.1rem),
-    var(--sport-background);
+  background: #fff;
+}
+
+.adm .club-overview-panel .adm-h,
+.adm .club-overview-panel .adm-sub,
+.adm .club-overview-panel .kpi b { color: var(--overview-ink); }
+
+.adm .club-overview-panel .adm-h { margin: 0; font-weight: 750; }
+.adm .club-overview-panel .overview-context { margin: 0 0 0.75rem; font-size: 0.8125rem; }
+.adm .club-overview-panel .overview-intro { margin: 0.4rem 0 1.75rem; }
+.adm .club-overview-panel .overview-context,
+.adm .club-overview-panel .overview-intro,
+.adm .club-overview-panel .overview-counts,
+.adm .club-overview-panel .kpi span { color: var(--overview-muted); }
+
+.adm .club-overview-panel .kpis {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.adm .club-overview-panel .kpi {
+  min-height: 6.5rem;
+  padding: 0.9rem;
+  border: 0;
+  border-radius: 0.8rem;
+  background: var(--overview-surface);
+  box-shadow: none;
+}
+
+.adm .club-overview-panel .kpi b { font-size: clamp(1.35rem, 2.7vw, 1.9rem); }
+.adm .club-overview-panel .overview-payment,
+.adm .club-overview-panel .overview-action {
+  background: var(--overview-action);
+  color: #fff;
+}
+.adm .club-overview-panel .overview-payment span,
+.adm .club-overview-panel .overview-payment b,
+.adm .club-overview-panel .overview-payment em { color: #fff; }
+
+.adm .club-overview-panel .overview-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0 0 2.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.adm .club-overview-panel .overview-venues {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.adm .club-overview-panel .overview-venues th,
+.adm .club-overview-panel .overview-venues td {
+  padding: 0.85rem clamp(0.35rem, 1.3vw, 0.8rem);
+  overflow-wrap: anywhere;
+}
+.adm .club-overview-panel .overview-venues thead th { background: var(--overview-surface); color: var(--overview-muted); }
+.adm .club-overview-panel .overview-venues thead th:first-child { border-radius: 0.5rem 0 0 0.5rem; }
+.adm .club-overview-panel .overview-venues thead th:last-child { border-radius: 0 0.5rem 0.5rem 0; }
+.adm .club-overview-panel .overview-venues tbody tr > * { border-bottom: 1px solid #dae2ef; }
+.adm .club-overview-panel .overview-action {
+  margin-top: 2.75rem;
+  border: 0;
+  border-radius: 0.7rem;
+  padding: 0.85rem 1.25rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .adm .adm-h,
