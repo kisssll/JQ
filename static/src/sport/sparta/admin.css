@@ -1,13 +1,25 @@
 .adm {
+  --sport-background: #fff;
+  --sport-surface: #fff;
+  --sport-surface-alt: #f0f3f8;
+  --sport-text: #101d33;
+  --sport-heading: #101d33;
+  --sport-body: #495a74;
+  --sport-muted: #495a74;
+  --sport-border: #dae2ef;
+  --sport-border-strong: #bdcbe0;
+  --sport-accent: #1642d8;
+  --sport-accent-hover: #1237b6;
+  --sport-accent-light: #dcfa9d;
+  --sport-accent-text: #143bbf;
+  --sport-accent-muted: #1642d880;
+  --sport-dark: #101d33;
+  --sport-btn-text: #fff;
   --ink: var(--sport-heading);
   --soft: var(--sport-background);
   --gray: var(--sport-muted);
   --line: var(--sport-border);
   --red: var(--sport-accent);
-  --overview-ink: #101d33;
-  --overview-muted: #495a74;
-  --overview-surface: #f0f3f8;
-  --overview-action: #1642d8;
   min-height: 100vh;
   background: var(--sport-background);
   color: var(--sport-text);
@@ -15,8 +27,8 @@
 }
 
 .adm .adm-side {
-  background: var(--overview-ink);
-  color: var(--color-on-dark);
+  background: var(--sport-dark);
+  color: #fff;
 }
 
 .adm .adm-logo {
@@ -28,7 +40,7 @@
 
 .adm .adm-logo small,
 .adm .adm-side nav button,
-.adm .adm-exit { color: color-mix(in srgb, var(--color-on-dark) 82%, var(--sport-dark)); }
+.adm .adm-exit { color: #f0f3f8; }
 
 .adm .adm-logo small { font-size: 0.8125rem; }
 
@@ -44,9 +56,8 @@
 }
 
 .adm .adm-side nav button.on {
-  background: #dcfa9d;
-  color: var(--overview-ink);
   box-shadow: none;
+  font-weight: 700;
 }
 
 .adm .adm-side nav i {
@@ -65,20 +76,19 @@
 }
 
 .adm .adm-main {
-  background: #fff;
+  background: var(--sport-background);
+  padding: 2rem clamp(1.25rem, 2.55vw, 2.5rem);
 }
 
-.adm .club-overview-panel .adm-h,
-.adm .club-overview-panel .adm-sub,
-.adm .club-overview-panel .kpi b { color: var(--overview-ink); }
+.adm .admin-context {
+  margin: 0 0 0.75rem;
+  color: var(--sport-muted);
+  font-size: 0.8125rem;
+}
 
-.adm .club-overview-panel .adm-h { margin: 0; font-weight: 750; }
-.adm .club-overview-panel .overview-context { margin: 0 0 0.75rem; font-size: 0.8125rem; }
 .adm .club-overview-panel .overview-intro { margin: 0.4rem 0 1.75rem; }
-.adm .club-overview-panel .overview-context,
 .adm .club-overview-panel .overview-intro,
-.adm .club-overview-panel .overview-counts,
-.adm .club-overview-panel .kpi span { color: var(--overview-muted); }
+.adm .club-overview-panel .overview-counts { color: var(--sport-muted); }
 
 .adm .club-overview-panel .kpis {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
@@ -86,24 +96,10 @@
   margin-bottom: 1rem;
 }
 
-.adm .club-overview-panel .kpi {
-  min-height: 6.5rem;
-  padding: 0.9rem;
-  border: 0;
-  border-radius: 0.8rem;
-  background: var(--overview-surface);
-  box-shadow: none;
-}
-
-.adm .club-overview-panel .kpi b { font-size: clamp(1.35rem, 2.7vw, 1.9rem); }
-.adm .club-overview-panel .overview-payment,
 .adm .club-overview-panel .overview-action {
-  background: var(--overview-action);
-  color: #fff;
+  background: var(--sport-accent);
+  color: var(--sport-btn-text);
 }
-.adm .club-overview-panel .overview-payment span,
-.adm .club-overview-panel .overview-payment b,
-.adm .club-overview-panel .overview-payment em { color: #fff; }
 
 .adm .club-overview-panel .overview-counts {
   display: flex;
@@ -128,7 +124,7 @@
   padding: 0.85rem clamp(0.35rem, 1.3vw, 0.8rem);
   overflow-wrap: anywhere;
 }
-.adm .club-overview-panel .overview-venues thead th { background: var(--overview-surface); color: var(--overview-muted); }
+.adm .club-overview-panel .overview-venues thead th { background: var(--sport-surface-alt); color: var(--sport-muted); }
 .adm .club-overview-panel .overview-venues thead th:first-child { border-radius: 0.5rem 0 0 0.5rem; }
 .adm .club-overview-panel .overview-venues thead th:last-child { border-radius: 0 0.5rem 0.5rem 0; }
 .adm .club-overview-panel .overview-venues tbody tr > * { border-bottom: 1px solid #dae2ef; }
@@ -153,7 +149,9 @@
 }
 
 .adm .adm-h {
+  margin: 0;
   font-size: clamp(1.85rem, 3.2vw, 2.65rem);
+  font-weight: 750;
 }
 
 .adm .adm-sub {
@@ -179,13 +177,19 @@
   border-radius: var(--radius-16);
   background: var(--sport-surface);
   color: var(--sport-text);
-  box-shadow: 0 0.35rem 1.25rem var(--sport-shadow-soft);
+  box-shadow: none;
 }
 
 .adm .kpi {
   min-width: 0;
-  padding: 1.25rem;
+  min-height: 6.5rem;
+  padding: 0.9rem;
+  border: 0;
+  border-radius: 0.8rem;
+  background: var(--sport-surface-alt);
 }
+
+.adm .kpi b { font-size: clamp(1.35rem, 2.7vw, 1.9rem); }
 
 .adm .kpi span,
 .adm .admin-insights span,
@@ -239,7 +243,7 @@
 .adm .account-card form select {
   border: 1px solid var(--sport-border-strong);
   border-radius: var(--radius-8);
-  background: var(--sport-surface);
+  background: var(--sport-surface-alt);
   color: var(--sport-text);
 }
 
@@ -320,6 +324,14 @@
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
+.adm .btn {
+  height: auto;
+  min-height: 2.85rem;
+  padding: 0.65rem 1.15rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .adm .acts button:hover,
 .adm .btn-black:hover,
 .adm .btn-red:hover,
@@ -373,8 +385,13 @@
 
 .adm .week-day-head {
   border: 0;
-  background: var(--sport-dark);
-  color: var(--color-on-dark);
+  background: var(--sport-surface-alt);
+  color: var(--sport-heading);
+}
+
+.adm .admin-schedule-selected .week-day-head {
+  background: var(--sport-accent);
+  color: var(--sport-btn-text);
 }
 
 .adm .week-class {
@@ -397,6 +414,43 @@
 .adm .week-class-off {
   border-left-color: var(--sport-muted);
 }
+
+.adm .admin-schedule-week .week-class {
+  border: 0;
+}
+
+.adm .admin-training-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.4rem 0.2rem;
+}
+
+.adm .admin-training-colors input[type="radio"] {
+  appearance: none;
+  width: 2.2rem;
+  height: 2.2rem;
+  margin: 0;
+  border: 1px solid var(--sport-border-strong);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.adm .admin-training-colors input:checked {
+  border-color: var(--sport-heading);
+  box-shadow: inset 0 0 0 3px white, inset 0 0 0 5px var(--sport-heading);
+}
+
+.adm .admin-empty {
+  margin-top: 1.25rem;
+  padding: clamp(1rem, 3vw, 2rem);
+  border-radius: var(--radius-16);
+  background: var(--sport-surface-alt);
+  color: var(--sport-muted);
+}
+
+.adm .admin-empty h2 { margin: 0 0 0.5rem; color: var(--sport-heading); }
+.adm .admin-empty p { margin: 0; }
 
 .adm .tr a {
   color: var(--sport-accent-text);
@@ -646,9 +700,25 @@
 }
 .adm button:disabled { cursor: default; opacity: 0.57; }
 
-.admin-staff-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; margin-top: 1.4rem; }
-.admin-staff-card { display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem; padding: 1rem; }
-.admin-staff-identity, .admin-staff-photo-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.7rem; }
+.admin-staff-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.75rem;
+}
+.adm .admin-staff-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: clamp(1rem, 2vw, 1.4rem);
+  border: 0;
+  background: var(--sport-surface-alt);
+  box-shadow: none;
+}
+.admin-staff-identity, .admin-staff-photo-row { display: flex; align-items: center; gap: 0.7rem; }
+.admin-staff-identity > :first-child { flex-shrink: 0; }
+.admin-staff-identity h2 { overflow-wrap: anywhere; }
 .admin-staff-identity img, .admin-staff-placeholder, .admin-staff-photo-row img { width: 3.3rem; height: 3.3rem; border-radius: 50%; object-fit: cover; }
 .admin-staff-placeholder { display: grid; place-items: center; background: var(--sport-accent-light); color: var(--sport-accent-text); font-size: 1.35rem; }
 .admin-staff-card p { margin: 0; color: var(--sport-muted); font-size: 0.875rem; }
@@ -675,6 +745,9 @@
   box-sizing: border-box;
   width: 100%; min-width: 0; min-height: 2.5rem; padding: 0.5rem 0.65rem; font: inherit;
   color: var(--sport-text); background: var(--sport-surface); border: 1px solid var(--sport-border-strong); border-radius: var(--radius-8);
+}
+.adm .admin-editor-grid :is(input:not([type="checkbox"]), select, textarea) {
+  background: var(--sport-surface-alt);
 }
 .admin-editor-grid input[type="checkbox"] { accent-color: var(--sport-accent); width: 1rem; height: 1rem; }
 .admin-editor-grid .day-checks { display: flex; flex-wrap: wrap; gap: 0.3rem 0.55rem; margin-top: 0.25rem; }
@@ -744,6 +817,7 @@
   .admin-calendar-pane { width: min(100%, 20rem); }
 }
 @media (max-width: 700px) {
+  .admin-staff-grid { grid-template-columns: minmax(0, 1fr); }
   .adm .adm-side { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.65rem; }
   .adm .adm-exit { grid-column: 2; grid-row: 1; padding-inline: 0.45rem; }
   .adm .adm-side nav { grid-column: 1 / -1; flex-wrap: wrap; overflow: visible; padding: 0; }

@@ -1413,6 +1413,11 @@ function Admin({
   const canManageSchedule = permissions.manage_schedule === true;
   const canSeePayroll = permissions.manage_payroll === true || trainer;
   const [tab, setTab] = useState<"overview" | "bookings" | "schedule" | "payments" | "team" | "clients" | "settings" | "documents" | "reviews" | "payroll">(trainer ? "schedule" : "overview");
+  const tabLabels: Record<typeof tab, string> = {
+    overview: "Сводка", bookings: "Записи", schedule: trainer ? "Моё расписание" : "Расписание",
+    payments: "Оплаты", team: "Сотрудники", clients: "Клиенты", settings: "Мой клуб",
+    documents: "Документы", reviews: "Отзывы", payroll: trainer ? "Моё вознаграждение" : "Вознаграждения",
+  };
   const [gym, setGym] = useState("all");
   const [status, setStatus] = useState<"all" | BookingStatus>("all");
   const [search, setSearch] = useState("");
@@ -1552,15 +1557,15 @@ function Admin({
           {canSeePayroll && <button className={tab === "payroll" ? "on" : ""} onClick={() => openTab("payroll")}>{trainer ? "Моё вознаграждение" : "Вознаграждения"}</button>}
         </nav>
         <button className="adm-exit" onClick={onExit}>
-          ← На сайт
+          Открыть сайт ↗
         </button>
       </aside>
 
       <main className={tab === "overview" ? "adm-main club-overview-panel" : "adm-main"}>
+        <p className="admin-context">Кабинет клуба / {tabLabels[tab]}</p>
         {actionError && <p className="sport-admin-alert" role="alert">{actionError}</p>}
         {tab === "overview" && (
           <>
-            <p className="overview-context">Кабинет клуба / Сводка</p>
             <h1 className="adm-h">Сводка</h1>
             <p className="overview-intro">Заявки, посещения и оплаты клуба</p>
             <div className="kpis">
@@ -1569,14 +1574,13 @@ function Admin({
                 <div className="kpi"><span>Записей сегодня</span><b>{todayBookings.length}</b></div>
               </>}
               {canManagePayments && <>
-                <div className="kpi"><span>Получено сегодня</span><b>{rub(todayPaid)}</b></div>
-                <button className="kpi overview-payment" onClick={() => {
+                <div className="kpi"><span>Получено за месяц</span><b>{rub(paidSum)}</b></div>
+                <button className="kpi kpi-red" onClick={() => {
                   setPayFilter("pending");
                   openTab("payments");
                 }}>
-                  <span>Ждут оплаты за текущий месяц</span>
-                  <b>{rub(payments.filter((payment) => payment.status === "pending" && (payment.month ?? payment.date.slice(0, 7)) === current.slice(0, 7))
-                    .reduce((sum, payment) => sum + payment.amount, 0))}</b>
+                  <span>Ждут оплаты за месяц</span>
+                  <b>{rub(pendingSum)}</b>
                 </button>
               </>}
             </div>
@@ -1696,7 +1700,7 @@ function Admin({
 
         {tab === "payments" && canManagePayments && (
           <>
-            <div className="adm-top"><div><h1 className="adm-h">Абонементы</h1><p className="admin-hint">Безлимит на месяц. Оплата отмечается отдельно за каждый месяц.</p></div><label className="month-picker">Месяц <input type="month" value={payMonth} onChange={(e) => setPayMonth(e.target.value)} /></label></div>
+            <div className="adm-top"><div><h1 className="adm-h">Оплаты</h1><p className="admin-hint">Учёт месячных абонементов и оплат</p></div><label className="month-picker">Месяц <input type="month" value={payMonth} onChange={(e) => setPayMonth(e.target.value)} /></label></div>
             <form className="member-add" onSubmit={addPayment}><input aria-label="Имя участника" placeholder="ФИО участника" value={newMember} onChange={(e) => setNewMember(e.target.value)} required /><button className="btn btn-black">+ Добавить участника на месяц</button></form>
             <div className="kpis kpis-3">
               <div className="kpi">

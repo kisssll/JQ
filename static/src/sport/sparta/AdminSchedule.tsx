@@ -21,6 +21,23 @@ type ScheduleProps = {
 
 const ALL = "all";
 const DAYS = [1, 2, 3, 4, 5, 6, 0];
+const TRAINING_COLORS = [
+  { value: "#dcfa9d", label: "Лаймовый" },
+  { value: "#bdeed8", label: "Мятный" },
+  { value: "#bde5fb", label: "Голубой" },
+  { value: "#d2ddff", label: "Синий" },
+  { value: "#e6d9fb", label: "Сиреневый" },
+  { value: "#f9d1e3", label: "Розовый" },
+  { value: "#ffddc2", label: "Персиковый" },
+  { value: "#fff0ad", label: "Жёлтый" },
+];
+const DEFAULT_TRAINING_COLOR = TRAINING_COLORS[0].value;
+
+function trainingFill(color: Training["color"]) {
+  if (TRAINING_COLORS.some(({ value }) => value === color?.toLowerCase())) return color;
+  if (/^#[0-9a-f]{6}$/i.test(color ?? "")) return `color-mix(in srgb, ${color} 24%, white)`;
+  return color === "red" ? "#f9d1e3" : DEFAULT_TRAINING_COLOR;
+}
 
 function moveDate(date: string, days: number) {
   const result = calendarDate(date);
@@ -68,7 +85,7 @@ export default function AdminSchedule({ slug, current, role, gyms, coaches, disc
     setError("");
     const id = crypto.randomUUID?.() ?? `training-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setEditing({ isNew: true, item: { id, days: [], time: "", end: "", active: true,
-      gym: "", coach: "", discipline: "", color: "#c72527" } });
+      gym: "", coach: "", discipline: "", color: DEFAULT_TRAINING_COLOR } });
   };
 
   const editTraining = (item: Training) => {
@@ -141,7 +158,7 @@ export default function AdminSchedule({ slug, current, role, gyms, coaches, disc
             const key = `${day}:${item.id}`;
             const cancelled = exceptions[key] === false || closures.some((closed) => closed.date === day && (closed.coach_id === null || closed.coach_id === item.coachId || coaches.find((coach) => coach.id === closed.coach_id)?.name === item.coach) && closed.venue_id === null);
             const count = bookings.filter((booking) => booking.sessionId === item.id && booking.date === day && booking.status !== "cancelled").length;
-            return <article className={`week-class${cancelled ? " week-class-off" : ""}`} style={{ borderLeft: `4px solid ${item.color || "#c72527"}` }} key={item.id}>
+            return <article className={`week-class${cancelled ? " week-class-off" : ""}`} style={{ backgroundColor: trainingFill(item.color) }} key={item.id}>
               <b>{item.time}–{item.end}</b><strong>{item.discipline}</strong><span>{item.coach}</span><span>{item.gym}</span>
               <small>{count ? `Записей: ${count}` : "Без записей"}</small>
               {cancelled && <small>Занятие отменено</small>}
@@ -158,7 +175,7 @@ export default function AdminSchedule({ slug, current, role, gyms, coaches, disc
     </div>
     <h2 className="adm-sub">Регулярные тренировки</h2>
     {shown.length === 0 && <p className="admin-hint">Тренировок по выбранным фильтрам пока нет.</p>}
-    <div className="admin-training-list">{shown.map((item) => <article className="admin-training" style={{ borderLeft: `4px solid ${item.color || "#c72527"}` }} key={item.id}>
+    <div className="admin-training-list">{shown.map((item) => <article className="admin-training" style={{ backgroundColor: trainingFill(item.color) }} key={item.id}>
       <div><b>{item.time}–{item.end}</b><strong>{item.discipline}</strong><span>{item.coach}</span><span>{item.gym}</span>
         <small>{WEEKDAYS.filter((_, index) => item.days.includes(DAYS[index])).join(", ")}</small></div>
       <div className="admin-training-actions"><button className="ghost" disabled={saving} onClick={() => editTraining(item)}>Изменить</button>
@@ -173,6 +190,10 @@ function TrainingEditor({ item, isNew, gyms, coaches, disciplines, readOnlyCoach
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState(item);
+  const selectedColor = draft.color?.toLowerCase() || DEFAULT_TRAINING_COLOR;
+  const colorOptions = TRAINING_COLORS.some(({ value }) => value === selectedColor)
+    ? TRAINING_COLORS
+    : [...TRAINING_COLORS, { value: selectedColor, label: "Сохранённый цвет" }];
   const [error, setError] = useState("");
   useEffect(() => {
     const panel = dialog.current;
@@ -210,7 +231,15 @@ function TrainingEditor({ item, isNew, gyms, coaches, disciplines, readOnlyCoach
         <datalist id="training-disciplines">{disciplines.map((row) => <option key={row.key} value={row.key} />)}</datalist>
         <label>Начало<input type="time" value={draft.time} required onChange={(event) => set("time", event.target.value)} /></label>
         <label>Окончание<input type="time" value={draft.end} required onChange={(event) => set("end", event.target.value)} /></label>
-        <label>Цвет тренировки<input type="color" value={draft.color?.startsWith("#") ? draft.color : "#c72527"} onChange={(event) => set("color", event.target.value)} /></label>
+        <fieldset className="admin-editor-wide">
+          <legend>Цвет тренировки</legend>
+          <div className="admin-training-colors">
+            {colorOptions.map(({ value, label }) => <label className="admin-training-color" key={value} title={label}>
+              <input type="radio" name="training-color" aria-label={label} checked={selectedColor === value}
+                onChange={() => set("color", value)} style={{ backgroundColor: trainingFill(value) }} />
+            </label>)}
+          </div>
+        </fieldset>
         <fieldset className="admin-editor-wide"><legend>Дни недели</legend><div className="day-checks">{DAYS.map((day, index) => <label key={day}>
           <input type="checkbox" checked={draft.days.includes(day)} onChange={(event) => set("days", event.target.checked
             ? [...draft.days, day] : draft.days.filter((value) => value !== day))} />{WEEKDAYS[index]}</label>)}</div></fieldset>

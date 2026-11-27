@@ -212,7 +212,10 @@ export function ClubReviews({ slug }: { slug: string }) {
   return <section><h1 className="adm-h">Отзывы</h1>
     {error && <p className="sport-admin-alert" role="alert">{error}</p>}
     {!error && !reviews && <p role="status">Загружаем отзывы…</p>}
-    {reviews?.length === 0 && <p>Отзывов пока нет.</p>}
+    {reviews?.length === 0 && <div className="admin-empty">
+      <h2>Отзывов пока нет</h2>
+      <p>Здесь появятся отзывы, когда посетители клуба их оставят.</p>
+    </div>}
     {reviews?.map((review) => <form className="admin-editor" key={review.id} onSubmit={async (event) => {
       event.preventDefault();
       const answer = String(new FormData(event.currentTarget).get("answer")).trim();
@@ -270,7 +273,7 @@ function PayrollDetails({ slug, coachId, canEdit }: { slug: string; coachId: num
     {summary && <div className="kpis kpis-3">
       <div className="kpi"><span>Учтено записей</span><b>{summary.total_sessions}</b></div>
       <div className="kpi"><span>Сумма записей</span><b>{summary.total_revenue.toLocaleString("ru-RU")} ₽</b></div>
-      <div className="kpi"><span>К выплате по расчёту</span><b>{summary.total_payout.toLocaleString("ru-RU")} ₽</b></div>
+      <div className="kpi kpi-red"><span>К выплате по расчёту</span><b>{summary.total_payout.toLocaleString("ru-RU")} ₽</b></div>
     </div>}
     {summary && canEdit && <form className="admin-editor" onSubmit={async (event) => {
       event.preventDefault();
